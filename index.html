@@ -411,6 +411,57 @@ select option{background:var(--bg2);color:var(--text)}
 .cmenu button:hover{background:var(--hover)}
 .cmenu button.on{color:var(--hi);font-weight:800}
 
+/* ---------- post page, media, attachments ---------- */
+article.post[data-go]{cursor:pointer}
+article.post[data-go]:hover{background:color-mix(in srgb,var(--hover) 35%,transparent)}
+article.post[data-go]:focus-visible{outline:2px solid var(--hi);outline-offset:-2px}
+.pav{align-self:start;border-radius:50%}
+.pav:hover .av{filter:brightness(1.12);box-shadow:0 0 0 3px color-mix(in srgb,var(--hi) 35%,transparent)}
+.phead .pname{cursor:inherit}
+.media{display:grid;gap:3px;margin:10px 0 2px;border-radius:18px;overflow:hidden;border:1px solid var(--line)}
+.media.n1{grid-template-columns:1fr}.media.n2,.media.n4{grid-template-columns:1fr 1fr}.media.n3{grid-template-columns:1fr 1fr}.media.n3 .mcell:first-child{grid-row:span 2}
+.mcell{position:relative;background:var(--bg2);min-height:120px}
+.media.n1 .mcell{max-height:420px}
+.mcell img{width:100%;height:100%;object-fit:cover;display:block;max-height:420px}
+.media.n2 .mcell,.media.n4 .mcell{aspect-ratio:1/1}
+.gifb{position:absolute;left:8px;bottom:8px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;font-weight:800;border-radius:6px;padding:2px 6px}
+.mrm{position:absolute;top:6px;right:6px;width:28px;height:28px;border-radius:50%;border:0;background:rgba(0,0,0,.7);color:#fff;display:grid;place-items:center}
+.composer2{border:1.5px solid var(--line);border-radius:14px;background:var(--bg2);padding:4px 4px 0;transition:border-color .12s}
+.composer2:focus-within{border-color:var(--hi)}
+.composer2 textarea{border:0!important;background:transparent!important;box-shadow:none!important;min-height:84px}
+.composer2 .media{margin:4px 8px 6px}
+.attbar{display:flex;align-items:center;gap:4px;padding:6px 6px 8px;border-top:1px solid var(--line);margin-top:4px}
+.att{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;border:0;background:transparent;color:var(--hi);cursor:pointer}
+.att:hover{background:color-mix(in srgb,var(--hi) 14%,transparent)}
+.gift{font-size:11px;font-weight:900;border:1.8px solid currentColor;border-radius:5px;padding:1px 4px;line-height:1}
+.attn{margin-left:auto;margin-right:6px}
+.emo{display:grid;grid-template-columns:repeat(8,1fr);gap:2px;padding:8px;margin:0 6px 8px;background:var(--bg);border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 30px -12px rgba(0,0,0,.5);animation:rise .15s ease-out}
+.emo button{border:0;background:transparent;font-size:22px;padding:4px;border-radius:8px}
+.emo button:hover{background:var(--hover)}
+.fpost{padding:14px 16px 0;border-bottom:1px solid var(--line)}
+.fhead{display:flex;align-items:center;gap:12px}
+.ftext{font-size:clamp(18px,2.4vw,21px);line-height:1.45;margin:14px 0 6px;white-space:pre-wrap}
+.tpanel{margin-top:12px;border:1.5px solid var(--line);border-radius:20px;padding:10px;background:color-mix(in srgb,var(--bg2) 50%,transparent)}
+.tpanel .ccard{margin:0}
+.tgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border-radius:14px;overflow:hidden;margin-top:10px}
+.tgrid div{background:var(--bg);padding:10px 12px}
+.tgrid span{display:block;font-size:12px;color:var(--muted)}
+.tgrid b{font-size:15.5px}
+.tprog{height:6px;border-radius:6px;background:var(--line);margin:12px 2px 0;overflow:hidden}
+.tprog i{display:block;height:100%;background:linear-gradient(90deg,var(--hi),var(--up));border-radius:6px}
+.tact{display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap}
+.tact .bk{margin-right:auto;font-size:13.5px}
+.fmeta{margin:14px 0 0;padding-bottom:12px;border-bottom:1px solid var(--line);font-size:14px}.fmeta b{color:var(--text)}
+.fstats{display:flex;gap:18px;padding:12px 0;border-bottom:1px solid var(--line);font-size:14.5px;color:var(--muted)}.fstats b{color:var(--text)}
+.fbar{border-bottom:1px solid var(--line);padding:6px 0!important}.fbar .icons{max-width:none;justify-content:space-around;width:100%}
+.rbox{display:flex;gap:12px;padding:14px 0}
+.rin{width:100%;border:0;background:transparent;color:var(--text);font:inherit;font-size:17px;resize:none;outline:none;padding:6px 0;min-height:36px}
+.rfoot{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.rfoot .attbar{border:0;padding:0;margin:0}
+.rep{display:flex;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.rep .grow{min-width:0}
+@media (max-width:520px){.tgrid{grid-template-columns:repeat(2,1fr)}.tgrid b{font-size:14.5px}}
+
 /* ---------- landing ---------- */
 body.lock{overflow:hidden}
 #landing .lx-top{display:flex;justify-content:flex-end;padding:16px 20px 0}
@@ -723,6 +774,8 @@ const P={
  back:'<path d="M19 12H5M11 18l-6-6 6-6"/>',
  discord:'<path d="M8.5 5.5c-1.8.3-3.3.9-4.5 1.8C2.6 10 2 13 2.2 16.3c1.4 1.2 3 2 4.8 2.4l1.1-1.8c-.8-.3-1.5-.7-2.1-1.2.2-.1.3-.2.5-.3 3.4 1.6 7.6 1.6 11 0l.5.3c-.6.5-1.3.9-2.1 1.2l1.1 1.8c1.8-.4 3.4-1.2 4.8-2.4.3-3.8-.6-6.8-2-9-1.2-.9-2.7-1.5-4.5-1.8l-.5 1c-1.8-.3-3.5-.3-5.4 0z" fill="currentColor" stroke="none"/><circle cx="9" cy="12.5" r="1.5" fill="var(--bg2)" stroke="none"/><circle cx="15" cy="12.5" r="1.5" fill="var(--bg2)" stroke="none"/>',
  telegram:'<path d="M21.5 4.2L2.8 11.4c-1 .4-1 1.6 0 1.9l4.6 1.5 1.8 5.4c.3.8 1.3 1 1.9.4l2.6-2.5 4.8 3.5c.7.5 1.7.1 1.9-.8L23 5.6c.2-1-.6-1.8-1.5-1.4zM9.6 14.4l8.3-6.2-6.6 7.3-.3 3.2-1.4-4.3z" fill="currentColor" stroke="none"/>',
+ image:'<rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/>',
+ smile:'<circle cx="12" cy="12" r="9"/><path d="M8.5 14.5c1.8 2 5.2 2 7 0"/><circle cx="9" cy="10" r=".6" fill="currentColor"/><circle cx="15" cy="10" r=".6" fill="currentColor"/>',
  camera:'<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
  pen:'<path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/>',
  lock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/>',
@@ -802,11 +855,11 @@ function mkt(k){const n=nums(k);
   :`<div class="cr2 num"><div><span>Called at</span><b>${fmtUsd(k.entry)}</b></div><div><span>Since call</span><b class="${n.up?'up':'down'}" data-perf="${k.id}">${fmtPct(n.p)}</b></div></div>`}
 function post(k){const t=T[k.t],p=perf(k),r=rankOf(k.c);
  const right=p===null?`<div class="cr"><b>Soon</b><span>Launches ${esc(t.prelaunch)}</span></div>`:mkt(k);
- return `<article class="post${k.fresh?' fresh':''}">
- <a href="#/profile/${k.c}" aria-label="@${esc(k.c)}">${avatar(k.c,'md')}</a>
+ return `<article class="post${k.fresh?' fresh':''}" data-go="#/post/${k.id}" tabindex="0" aria-label="Call by ${esc(k.c)} on $${t.sym}">
+ <a href="#/profile/${k.c}" aria-label="Open @${esc(k.c)}'s profile" class="pav">${avatar(k.c,'md')}</a>
  <div style="min-width:0">
-  <div class="phead"><a class="pname" href="#/profile/${k.c}">${esc(k.c)}</a>${r&&!k.sponsored?`<span class="rk">#${r}</span>`:''}${k.sponsored?'<span class="tag">Sponsored</span>':''}<time>${k.ago==='now'?'now':k.ago+' ago'}</time></div>
-  <p class="ptext">${esc(k.thesis)}</p>
+  <div class="phead"><span class="pname">${esc(k.c)}</span>${r&&!k.sponsored?`<span class="rk">#${r}</span>`:''}${k.sponsored?'<span class="tag">Sponsored</span>':''}<time>${k.ago==='now'?'now':k.ago+' ago'}</time></div>
+  <p class="ptext">${esc(k.thesis)}</p>${mediaGrid(k.media)}
   <a class="ccard" href="#/token/${t.sym}">${tokav(t.sym)}<div class="cn"><b>${esc(t.name)}</b><span>$${t.sym} <span class="chain">${t.chain}</span></span></div>${right}</a>
   ${k.sponsored?`<div class="pnote">Paid promotion by ${esc(k.sponsor)}. Not counted in rankings.</div>`:`<div class="pnote">${k.target?`Target ${fmtUsd(k.target)} within ${esc(k.horizon)} · `:''}${k.buy?`<span class="bk">${ic('check',13)} Bought in</span>`:`<span class="bk no">No buy · earns no fees</span>`}</div>`}
   <div class="pbar"><div class="icons">
@@ -1063,7 +1116,7 @@ function railRest(){const trend=Object.values(T).filter(t=>!t.base&&!t.prelaunch
 /* ---------- chrome ---------- */
 const NAV_A=[['home','Home'],['market','Market'],['swap','Swap'],['stake','Stake'],['wallet','Wallet'],['profile','Profile']];
 const NAV_B=[['leaderboard','Leaderboard'],['messages','Messages'],['news','News'],['promote','Promote'],['about','About']];
-const TITLES=Object.fromEntries([...NAV_A,...NAV_B,['token','Token'],['community','Community']]);
+const TITLES=Object.fromEntries([...NAV_A,...NAV_B,['token','Token'],['community','Community'],['post','Post']]);
 const NAVH={stack:[],cur:location.hash||'#/home',back:false};
 function goBack(){const prev=NAVH.stack.pop();NAVH.back=true;location.hash=prev&&prev!==location.hash?prev:'#/home'}
 function chrome(route){const link=([k,l])=>`<a href="#/${k}" class="${route===k?'on':''}" title="${l}">${ic(k)}<span class="lbl">${l}</span></a>`;
@@ -1080,12 +1133,14 @@ const isPhone=()=>matchMedia('(max-width:760px)').matches;
 function syncTray(){const open=!document.body.classList.contains('collapsed'),b=$('#brand');b.setAttribute('aria-expanded',open);b.setAttribute('aria-label',open?'Close menu':'Open menu')}
 function render(){if(isPhone())document.body.classList.add('collapsed');const [,r0='home',p]=location.hash.split('/');const r=r0||'home';let html;
  if(r==='community')html=vRoom(p);
+ else if(r==='post')html=vPost(p);
  else if(r==='token'){const t=T[p];if(t&&tradable(t)&&p!==S.swap.from)S.swap.to=p;html=vToken(p)}
  else html=({market:vMarket,trenches:vMarket,swap:vSwap,wallet:vWallet,profile:()=>vProfile(p),leaderboard:vLeaders,promote:vPromote,about:vAbout,
   stake:()=>soon('Staking opens with $CALLIT','Stake $CALLIT to unlock premium calls and discounted project promotions. Launching after the product is live on mainnet.'),
   messages:()=>soon('Messages are coming','Direct messages and token chat rooms arrive in the chat phase.'),
   news:()=>soon('News is coming','Launch announcements, listings and market news in one place.')}[r]||vHome)();
- $('#view').innerHTML=html;$('#rail').innerHTML=rail();chrome(r);renderSwaps();skin($('#view'));syncLanding()}
+ $('#view').innerHTML=html;$('#rail').innerHTML=rail();chrome(r);renderSwaps();skin($('#view'));syncLanding();
+ if(r==='post'){wireAttach($('#rbox'),RDRAFT,()=>drawRMedia());if(S.focusReply){S.focusReply=false;setTimeout(()=>{const i=$('#rin');i&&i.focus()},60)}}}
 
 /* ---------- modals ---------- */
 function modal(title,sub,body,onMount){$('#modal').innerHTML=`<div class="scrim" data-act="close"><div class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="mhead"><div><h2>${title}</h2>${sub?`<p class="sub">${sub}</p>`:''}</div><button class="ib" data-act="close" aria-label="Close">${ic('x',18)}</button></div>${body}</div></div>`;
@@ -1113,9 +1168,9 @@ function callModal(pre){if(!S.connected)return connectModal(()=>callModal(pre));
  `<div class="field"><label for="ct">Token</label><input id="ct" class="input" placeholder="Paste a contract address or ticker" value="${pre?'$'+pre:''}"></div><div id="cprev"></div><div id="cbuy"></div>
  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="field"><label for="cg">Target market cap</label><input id="cg" class="input num" inputmode="decimal" placeholder="e.g. 5M"></div>
  <div class="field"><label>Time window</label><div class="seg wide tw" id="ch" data-v="7 days">${[['24 hours','24h'],['3 days','3d'],['7 days','7d'],['30 days','30d']].map(([v,l])=>`<button type="button" class="${v==='7 days'?'on':''}" data-hz="${v}">${l}</button>`).join('')}</div></div></div>
- <div class="field"><label for="cx">Why this token?</label><textarea id="cx" class="input" maxlength="280" placeholder="Your thesis. What do you see that others don't?"></textarea><span class="hint" id="cn">0 / 280</span></div>
+ <div class="field"><label for="cx">Why this token?</label><div class="composer2" id="cbox"><textarea id="cx" class="input" maxlength="280" placeholder="Your thesis. What do you see that others don't?"></textarea><div id="cmedia"></div>${attachBar()}</div><span class="hint" id="cn">0 / 280</span></div>
  <div class="err" id="cerr"></div><button class="btn primary block" id="cpost" disabled>Post call</button>`,
- m=>{let tok=null,sol='0.25',skip=false;m.querySelectorAll('[data-hz]').forEach(b=>b.onclick=()=>{m.querySelectorAll('[data-hz]').forEach(x=>x.classList.toggle('on',x===b));$('#ch',m).dataset.v=b.dataset.hz});const inp=$('#ct',m),tx=$('#cx',m),post=$('#cpost',m);
+ m=>{let tok=null,sol='0.25',skip=false;const CD={media:[]};wireAttach($('#cbox',m),CD,()=>{$('#cmedia',m).innerHTML=mediaGrid(CD.media,1);$('#cbox [data-attn]',m).textContent=CD.media.length?CD.media.length+'/4':''});m.querySelectorAll('[data-hz]').forEach(b=>b.onclick=()=>{m.querySelectorAll('[data-hz]').forEach(x=>x.classList.toggle('on',x===b));$('#ch',m).dataset.v=b.dataset.hz});const inp=$('#ct',m),tx=$('#cx',m),post=$('#cpost',m);
   const canBuy=()=>tok&&tradable(tok);
   const buyOn=()=>canBuy()&&!skip;
   const drawBuy=()=>{const el=$('#cbuy',m);if(tok&&tok.prelaunch){el.innerHTML=`<div class="buybox"><b>Buying opens at launch</b><p class="hint" style="margin:4px 0 0">$${tok.sym} launches ${esc(tok.prelaunch)}. You can buy and call it then.</p></div>`;return}
@@ -1137,7 +1192,7 @@ function callModal(pre){if(!S.connected)return connectModal(()=>callModal(pre));
    if(g&&!(n>mcap(tok))){$('#cerr',m).textContent='Target must be above the current market cap of '+fmtUsd(mcap(tok))+'.';return}
    let buy=0;if(buyOn()){const a=parseFloat(sol);if(a>S.bal.SOL){$('#cerr',m).textContent=`You only have ${fmtAmt(S.bal.SOL)} SOL. Lower the amount or deposit more.`;return}
     buy=a*T.SOL.price;const got=buy*.995/tok.price;S.bal.SOL-=a;S.bal[tok.sym]=(S.bal[tok.sym]||0)+got;S.activity.unshift({k:'Bought',d:`${fmtAmt(got)} ${tok.sym} for ${a} SOL`,t:'Just now'})}
-   calls.forEach(k=>k.fresh=false);calls.unshift({id:Date.now(),c:S.me,t:tok.sym,entry:mcap(tok),buy,thesis:tx.value.trim(),target:n||null,horizon:$('#ch',m).dataset.v,ago:'now',likes:0,reposts:0,replies:0,views:1,fresh:true});
+   calls.forEach(k=>k.fresh=false);calls.unshift({id:Date.now(),c:S.me,t:tok.sym,entry:mcap(tok),buy,thesis:tx.value.trim(),media:CD.media.slice(),target:n||null,horizon:$('#ch',m).dataset.v,ago:'now',likes:0,reposts:0,replies:0,views:1,fresh:true});
    C[S.me].calls++;closeModal();S.tab='foryou';if(location.hash!=='#/home')location.hash='#/home';else render();toast(buy?'Bought in and call posted':'Call posted');scrollTo({top:0})})})}
 
 function searchModal(){modal('Search','',`<input class="input" id="sq" placeholder="Search tokens, tickers or callers"><div class="list" id="sres" style="margin-top:8px"></div>`,
@@ -1230,6 +1285,54 @@ function vMarket(){const t=S.mt||'trenches',M=[['trenches','Trenches','flame'],[
  return bar+`<div class="inmkt">${vTrenches()}</div>`}
 function soonCard(h,p,items){return `<div class="soonx"><div class="sxmark"><span class="mark"></span></div><span class="lkick" style="margin:0 0 12px">Coming soon</span><b class="h2">${h}</b><p>${p}</p><ul>${items.map(x=>`<li>${ic('check',16)} ${x}</li>`).join('')}</ul><button class="btn primary" data-act="mt" data-f="trenches">Open Trenches</button></div>`}
 
+/* ---------- attachments ---------- */
+const EMOJI=['🚀','🔥','💎','🙌','📈','📉','🐸','🐳','👀','🤝','💰','⚡','🎯','🧠','😂','🥲','😤','🫡','✅','❌','🟢','🔴','🌕','🐂'];
+function mediaGrid(m,edit){if(!m||!m.length)return '';return `<div class="media n${Math.min(m.length,4)}">${m.map((u,i)=>`<div class="mcell"><img src="${u}" alt="Attached image ${i+1}" loading="lazy">${/^data:image\/gif/.test(u)?'<span class="gifb">GIF</span>':''}${edit?`<button type="button" class="mrm" data-rmm="${i}" aria-label="Remove image ${i+1}">${ic('x',14)}</button>`:''}</div>`).join('')}</div>`}
+function attachBar(){return `<div class="attbar"><label class="att" title="Photos" aria-label="Add photos">${ic('image',19)}<input type="file" accept="image/png,image/jpeg,image/webp" multiple data-att="img" hidden></label>
+ <label class="att" title="GIF" aria-label="Add a GIF"><span class="gift">GIF</span><input type="file" accept="image/gif" data-att="gif" hidden></label>
+ <button type="button" class="att" data-att="emoji" title="Emoji" aria-label="Add emoji">${ic('smile',19)}</button><span class="attn hint" data-attn></span></div>`}
+function wireAttach(root,st,onChange){if(!root)return;const txt=root.querySelector('textarea,input.rin');
+ const add=u=>{if(st.media.length>=4){toast('Up to 4 images per post');return}st.media.push(u);onChange()};
+ root.querySelectorAll('[data-att="img"]').forEach(i=>i.onchange=()=>{[...i.files].slice(0,4-st.media.length).forEach(f=>shrink(f,1400,add));i.value=''});
+ root.querySelectorAll('[data-att="gif"]').forEach(i=>i.onchange=()=>{const f=i.files[0];i.value='';if(!f)return;if(f.size>5e6){toast('GIFs up to 5 MB');return}const r=new FileReader();r.onload=()=>add(r.result);r.readAsDataURL(f)});
+ root.querySelectorAll('[data-att="emoji"]').forEach(bt=>bt.onclick=e=>{e.stopPropagation();const old=root.querySelector('.emo');if(old){old.remove();return}
+  const pop=document.createElement('div');pop.className='emo';pop.innerHTML=EMOJI.map(x=>`<button type="button">${x}</button>`).join('');bt.closest('.attbar').after(pop);
+  pop.onclick=ev=>{const x=ev.target.closest('button');if(!x||!txt)return;const a=txt.selectionStart??txt.value.length,z=txt.selectionEnd??a;txt.value=txt.value.slice(0,a)+x.textContent+txt.value.slice(z);txt.focus();const c=a+x.textContent.length;txt.setSelectionRange(c,c);txt.dispatchEvent(new Event('input',{bubbles:true}))}});
+ root.addEventListener('click',e=>{const x=e.target.closest('[data-rmm]');if(x){st.media.splice(+x.dataset.rmm,1);onChange()}})}
+document.addEventListener('click',e=>{const p=document.querySelector('.emo');if(p&&!e.target.closest('.emo,[data-att="emoji"]'))p.remove()});
+
+/* ---------- full post ---------- */
+const REPLIES={};const RDRAFT={media:[]};
+const RLINES=['Aped a small bag. Chart looks clean.','What is the dev wallet holding right now?','Target feels conservative ngl','In since 1M, not selling here','Liquidity is thin, careful with size','Good call. Following for the next one','Bundled supply worries me a bit','This is the one 🚀'];
+function repliesOf(k){if(!REPLIES[k.id]){const r=rng(k.id*7+3),who=ranked().map(c=>c.h).filter(h=>h!==k.c),n=Math.min(k.replies||0,3+Math.floor(r()*3));
+ REPLIES[k.id]=Array.from({length:n},(_,i)=>({h:who[Math.floor(r()*who.length)],t:RLINES[Math.floor(r()*RLINES.length)],ago:(i+1)*(7+Math.floor(r()*20))+'m',likes:Math.floor(r()*40)})).reverse()}return REPLIES[k.id]}
+function drawRMedia(){const el=$('#rmedia');if(el)el.innerHTML=mediaGrid(RDRAFT.media,1);const n=$('#rbox [data-attn]');if(n)n.textContent=RDRAFT.media.length?RDRAFT.media.length+'/4':'';const g=$('#rgo'),i=$('#rin');if(g&&i)g.disabled=!(i.value.trim()||RDRAFT.media.length)}
+function sendReply(id){if(!S.connected)return connectModal();const k=calls.find(x=>x.id==id),i=$('#rin'),v=i.value.trim();if(!v&&!RDRAFT.media.length)return;
+ repliesOf(k).unshift({h:S.me,t:v,ago:'now',likes:0,media:RDRAFT.media.slice()});k.replies=(k.replies||0)+1;RDRAFT.media=[];render();toast('Reply posted')}
+function vPost(id){const k=calls.find(x=>String(x.id)===String(id));if(!k)return `<div class="empty"><b class="h2">This post is gone</b><p>It may have been removed.</p><a class="btn primary" href="#/home">Back to Home</a></div>`;
+ const t=T[k.t],n=nums(k),r=rankOf(k.c),reps=repliesOf(k);
+ const trade=n?`<div class="tpanel"><a class="ccard" href="#/token/${t.sym}">${tokav(t.sym)}<div class="cn"><b>${esc(t.name)}</b><span>$${t.sym} <span class="chain">${t.chain}</span></span></div>${mkt(k)}</a>
+  <div class="tgrid num"><div><span>Called at</span><b>${fmtUsd(k.entry)}</b></div><div><span>Market cap now</span><b class="${n.up?'up':'down'}">${fmtUsd(n.mc)}</b></div><div><span>Since call</span><b class="${n.up?'up':'down'}">${fmtPct(n.p)}</b></div>
+  <div><span>Target</span><b>${k.target?fmtUsd(k.target):'None set'}</b></div><div><span>Window</span><b>${esc(k.horizon||'Open')}</b></div><div><span>To target</span><b>${k.target?Math.min(100,Math.max(0,Math.round((n.mc-k.entry)/(k.target-k.entry)*100)))+'%':'—'}</b></div></div>
+  ${k.target?`<div class="tprog"><i style="width:${Math.min(100,Math.max(2,(n.mc-k.entry)/(k.target-k.entry)*100))}%"></i></div>`:''}
+  <div class="tact"><span class="${k.buy?'bk':'bk no'}">${k.buy?ic('check',14)+' Caller bought in · earns fees':'Caller didn\'t buy · earns no fees'}</span>${tradable(t)?`<button class="btn primary" data-act="qbuy" data-t="${t.sym}" data-id="${k.id}">Buy $${t.sym}</button>`:''}<a class="btn ghost" href="#/token/${t.sym}">Chart</a></div></div>`
+  :`<a class="ccard" href="#/token/${t.sym}">${tokav(t.sym)}<div class="cn"><b>${esc(t.name)}</b><span>$${t.sym} <span class="chain">${t.chain}</span></span></div><div class="cr"><b>Soon</b><span>Launches ${esc(t.prelaunch)}</span></div></a>`;
+ return `<article class="fpost"><div class="fhead"><a href="#/profile/${k.c}" aria-label="Open @${esc(k.c)}'s profile">${avatar(k.c,'md')}</a><div class="grow"><div class="phead" style="margin:0"><span class="pname">${esc(k.c)}</span>${r&&!k.sponsored?`<span class="rk">#${r}</span>`:''}${k.sponsored?'<span class="tag">Sponsored</span>':''}</div><div class="hint">@${esc(k.c)}</div></div>
+  ${k.c===S.me?'':`<button class="btn sm ${S.following.has(k.c)?'ghost':'primary'}" data-act="follow" data-h="${k.c}">${S.following.has(k.c)?'Following':'Follow'}</button>`}</div>
+  <p class="ftext">${esc(k.thesis)}</p>${mediaGrid(k.media)}${trade}
+  ${k.sponsored?`<div class="pnote">Paid promotion by ${esc(k.sponsor)}. Not counted in rankings.</div>`:''}
+  <div class="fmeta hint">${k.ago==='now'?'Just now':k.ago+' ago'} · <b>${fmtK(k.views||0)}</b> views</div>
+  <div class="fstats"><span><b>${k.replies||0}</b> replies</span><span><b>${k.reposts||0}</b> reposts</span><span><b>${k.likes||0}</b> likes</span></div>
+  <div class="pbar fbar"><div class="icons">
+   <button class="act" data-act="reply" aria-label="Reply">${ic('reply',20)}</button>
+   <button class="act${k.reposted?' reposted':''}" data-act="repost" data-id="${k.id}" aria-label="Repost">${ic('repost',20)}</button>
+   <button class="act${k.liked?' liked':''}" data-act="like" data-id="${k.id}" aria-label="Like">${ic('heart',20,k.liked)}</button>
+   <button class="act" data-act="share" data-id="${k.id}" aria-label="Share">${ic('share',20)}</button></div></div>
+  <div class="rbox" id="rbox">${S.connected?avatar(S.me):'<span class="av" style="background:var(--bg2)"></span>'}<div class="grow"><textarea id="rin" class="rin" maxlength="280" rows="1" placeholder="${S.connected?'Post your reply':'Sign in to reply'}" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px';drawRMedia()" ${S.connected?'':'disabled'}></textarea><div id="rmedia"></div>
+   <div class="rfoot">${S.connected?attachBar():''}<button class="btn primary sm" id="rgo" data-act="${S.connected?'rsend':'connect'}" data-id="${k.id}" ${S.connected?'disabled':''}>${S.connected?'Reply':'Sign in'}</button></div></div></div></article>
+ <div class="replies">${reps.map(x=>`<div class="rep"><a href="#/profile/${x.h}" aria-label="Open @${esc(x.h)}'s profile">${avatar(x.h)}</a><div class="grow"><div class="phead" style="margin:0"><span class="pname">${esc(x.h===S.me&&PROF.name||x.h)}</span><span class="hint">@${esc(x.h)}</span><time>${x.ago==='now'?'now':x.ago}</time></div>
+  <div class="hint" style="font-size:13px">Replying to <span style="color:var(--hi)">@${esc(k.c)}</span></div>${x.t?`<p class="ptext" style="margin:4px 0 0">${esc(x.t)}</p>`:''}${mediaGrid(x.media)}</div></div>`).join('')||'<div class="empty"><b>No replies yet</b><p>Be the first to reply.</p></div>'}</div>`}
+
 /* ---------- edit profile ---------- */
 function editProfile(focus){const D={...PROF};
  const draw=m=>{$('#ep',m).innerHTML=`<div class="epban" style="${D.banner?`background:#0B1B27 url(${D.banner}) center/cover`:bannerBg('x'+S.me)}">
@@ -1293,7 +1396,7 @@ try{const v=JSON.parse(localStorage.getItem('callit.session')||'null');if(v&&v.m
 const currentRoute=()=>(location.hash.split('/')[1]||'home');
 document.addEventListener('click',e=>{
  const nl=e.target.closest('.nav a');if(nl&&nl.getAttribute('href')===('#/'+currentRoute())&&!location.hash.split('/')[2]){e.preventDefault();scrollTo({top:0,behavior:'smooth'});return}
- const row=e.target.closest('[data-go]');if(row&&!e.target.closest('button')){location.hash=row.dataset.go;return}
+ const row=e.target.closest('[data-go]');if(row&&!e.target.closest('button,a,input,textarea,label,.media')){location.hash=row.dataset.go;return}
  const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act;
  if(a==='close'){if(e.target===b||b.tagName!=='DIV'){closeModal()}return}
  const act={
@@ -1332,7 +1435,8 @@ document.addEventListener('click',e=>{
   pkg:()=>{S.pkg=b.dataset.f;document.querySelectorAll('.pkg').forEach(p=>p.classList.toggle('on',p===b))},
   like:()=>{const k=calls.find(x=>x.id==b.dataset.id);k.liked=!k.liked;k.likes+=k.liked?1:-1;b.classList.toggle('liked',k.liked);b.innerHTML=ic('heart',18,k.liked)+`<span class="num">${k.likes||''}</span>`},
   repost:()=>{const k=calls.find(x=>x.id==b.dataset.id);k.reposted=!k.reposted;k.reposts+=k.reposted?1:-1;b.classList.toggle('reposted',k.reposted);b.querySelector('span').textContent=k.reposts||'';toast(k.reposted?'Reposted':'Repost removed')},
-  reply:()=>toast('Replies arrive with the chat phase'),
+  reply:()=>{const a=b.closest('[data-go]');if(a&&a.dataset.go.startsWith('#/post/')){S.focusReply=true;location.hash=a.dataset.go}else{const i=$('#rin');i&&i.focus()}},
+  rsend:()=>sendReply(b.dataset.id),
   share:()=>copy(location.href.split('#')[0]+'#/call/'+b.dataset.id,'Link copied'),
   copy:()=>copy(b.dataset.v,'Address copied'),
   follow:()=>{if(!S.connected)return connectModal();const h=b.dataset.h;S.following.has(h)?S.following.delete(h):S.following.add(h);render()},
@@ -1357,7 +1461,7 @@ document.addEventListener('input',e=>{const k=e.target.dataset.fk;if(!k||!SH||SH
  let v=e.target.value;if(e.target.type==='range'){v=+v;e.target.style.setProperty('--v',v+'%');const o=$(`[data-out="${k}"]`);if(o)o.textContent=v>=100?'Any':'≤ '+v+'%';
   document.querySelectorAll('.rcard').forEach(c=>c.classList.remove('on'))}
  SH.d[k]=v;const n=fsCount(),g=$('#fsgo');if(g){g.disabled=!n;g.textContent=n?`Show ${n} token${n>1?'s':''}`:'No tokens match'}});
-document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='lxemail'){e.preventDefault();$('#lxgo').click();return}if(e.key==='Enter'&&e.target.id==='msgin'){e.preventDefault();const s=$('[data-act="msend"]');s&&s.click();return}if(e.key==='Escape'){closeModal();closeSheet();if(isPhone()){document.body.classList.add('collapsed');syncTray()}}});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches('article.post[data-go]')){location.hash=e.target.dataset.go;return}if(e.key==='Enter'&&e.target.id==='lxemail'){e.preventDefault();$('#lxgo').click();return}if(e.key==='Enter'&&e.target.id==='msgin'){e.preventDefault();const s=$('[data-act="msend"]');s&&s.click();return}if(e.key==='Escape'){closeModal();closeSheet();if(isPhone()){document.body.classList.add('collapsed');syncTray()}}});
 
 /* live price ticks: patch numbers in place */
 setInterval(()=>{const r=rng(Date.now()%1e6);Object.values(T).forEach(t=>{if(!t.base&&!t.prelaunch)t.price*=1+(r()-.48)*.012});
