@@ -490,7 +490,43 @@ td.rkc{font:800 18px var(--display);width:48px}
 .stats b{font-size:16px}
 .copyca{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);background:var(--bg2);border:0;border-radius:999px;padding:5px 10px}
 .price{font:800 32px/1 var(--display)}
-.banner{height:150px;background:var(--bg2);border-bottom:1px solid var(--line);background-image:radial-gradient(var(--line) 1.2px,transparent 1.2px);background-size:16px 16px}
+.banner{position:relative;height:clamp(130px,26vw,200px);border-bottom:1px solid var(--line);overflow:hidden}
+.banner::after{content:'';position:absolute;inset:0;background:radial-gradient(rgba(255,255,255,.07) 1.2px,transparent 1.5px) 0 0/16px 16px;pointer-events:none}
+.bnadd{position:absolute;right:14px;bottom:14px;z-index:1;display:flex;align-items:center;gap:8px;border:1px solid rgba(255,255,255,.25);background:rgba(5,13,20,.55);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:#fff;border-radius:999px;padding:8px 14px;font-weight:700;font-size:13.5px;box-shadow:var(--raise-sm)}
+.bnadd:active{transform:translateY(2px)}
+.avwrap{position:relative;display:inline-block}
+.rkbadge{position:absolute;right:-2px;bottom:6px;background:linear-gradient(135deg,#FFD66B,#E8B730);color:#0B1B27;font-weight:900;font-size:12px;border-radius:999px;padding:2px 8px;border:3px solid var(--bg)}
+.editp{background:var(--bg2);border:1.5px solid var(--line)}
+.pname2{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
+.rk{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:800;color:var(--hi);background:color-mix(in srgb,var(--hi) 14%,transparent);border-radius:999px;padding:3px 9px}
+.pbio{margin:10px 0 0;line-height:1.45;white-space:pre-wrap}
+.pmeta{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:10px;font-size:14px;color:var(--muted)}
+.pmeta a,.pmeta span{display:inline-flex;align-items:center;gap:5px}
+.pmeta a{color:var(--hi)}
+.pfollow{display:flex;gap:10px;margin-top:12px}
+.pfollow button{border:1.5px solid var(--line);background:var(--bg2);border-radius:12px;padding:8px 14px;font-size:14px;color:var(--muted);box-shadow:var(--raise-sm)}
+.pfollow button b{color:var(--text);margin-right:3px}
+.pfollow button:hover{border-color:var(--hi)}
+.pfollow button:active{transform:translateY(2px)}
+.epban{position:relative;height:130px;border-radius:16px;margin:0 0 -40px;display:flex;align-items:center;justify-content:center;gap:10px;overflow:hidden}
+.epbtn{display:grid;place-items:center;width:44px;height:44px;border-radius:50%;background:rgba(5,13,20,.6);color:#fff;border:1px solid rgba(255,255,255,.25);cursor:pointer;box-shadow:var(--raise-sm)}
+.epbtn.sm{width:34px;height:34px;position:absolute;right:-4px;bottom:4px}
+.epav{position:relative;width:96px;margin:0 0 14px 14px}
+.epav .av{border:4px solid var(--bg)}
+.mtabs{position:sticky;top:var(--hdr);z-index:13;display:flex;gap:8px;padding:10px 12px;background:color-mix(in srgb,var(--bg) 94%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
+.mtabs button{display:inline-flex;align-items:center;gap:7px;flex:none;border:1.5px solid var(--line);background:var(--bg2);border-radius:14px;padding:9px 16px;font-weight:800;font-size:15px;color:var(--muted);box-shadow:var(--raise-sm)}
+.mtabs button.on{background:var(--text);color:var(--bg);border-color:var(--text)}
+.mtabs button:active{transform:translateY(2px)}
+.mtabs small{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:1px 6px}
+.mtabs .live{width:8px;height:8px;border-radius:50%;background:var(--up);box-shadow:0 0 0 3px color-mix(in srgb,var(--up) 30%,transparent);animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 6px transparent}}
+.inmkt .ttabs{top:calc(var(--hdr) + 62px)}
+.soonx{text-align:center;padding:40px 24px 60px;max-width:520px;margin:0 auto}
+.soonx .sxmark .mark{width:64px;height:64px;border-radius:18px;margin:0 auto 18px;display:block;box-shadow:0 14px 40px -10px rgba(77,168,255,.5)}
+.soonx .h2{display:block}
+.soonx p{color:var(--muted);line-height:1.55}
+.soonx ul{list-style:none;padding:0;margin:18px auto 24px;display:inline-flex;flex-direction:column;gap:8px;text-align:left}
+.soonx li{display:flex;align-items:center;gap:8px}.soonx li svg{color:var(--up)}
 .phero{padding:0 16px}
 .phero .top{display:flex;justify-content:space-between;align-items:flex-end;margin-top:-48px}
 .pstats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin:16px 0}
@@ -571,7 +607,13 @@ const fmtAmt=n=>n>=1e6?(n/1e6).toFixed(2)+'M':n>=1000?Math.round(n).toLocaleStri
 const fmtK=n=>n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1).replace('.0','')+'K':String(n);
 const short=a=>a.slice(0,4)+'…'+a.slice(-4);
 const hue=s=>{let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))%360;return h};
-const avatar=(h,cls='')=>`<span class="av ${cls}" style="background:hsl(${(hue(h)%70)+185} 52% 42%)">${esc(h.slice(0,2).toUpperCase())}</span>`;
+let PROF={};try{PROF=JSON.parse(localStorage.getItem('callit.profile')||'{}')||{}}catch(_){}
+const saveProf=()=>{try{localStorage.setItem('callit.profile',JSON.stringify(PROF));return true}catch(_){return false}};
+const avatar=(h,cls='')=>h===S.me&&PROF.avatar?`<span class="av ${cls}" style="background:#0B1B27 url(${PROF.avatar}) center/cover" role="img" aria-label="${esc(h)}"></span>`:`<span class="av ${cls}" style="background:hsl(${(hue(h)%70)+185} 52% 42%)">${esc(h.slice(0,2).toUpperCase())}</span>`;
+const bannerBg=h=>h===S.me&&PROF.banner?`background:#0B1B27 url(${PROF.banner}) center/cover`:`background:linear-gradient(120deg,hsl(${(hue(h)%70)+185} 55% 26%),#0B1B27 70%),#0B1B27`;
+const followingOf=h=>h===S.me?[...S.following]:ranked().map(c=>c.h).filter(x=>x!==h).slice(0,(hue(h)%3)+2);
+const followersOf=h=>h===S.me?[]:ranked().map(c=>c.h).filter(x=>x!==h&&(S.following.has(x)||hue(x+h)%2===0)).concat(S.following.has(h)&&S.me?[S.me]:[]);
+function shrink(file,max,cb){const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,max/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);cb(c.toDataURL('image/jpeg',.82))};im.src=r.result};r.readAsDataURL(file)}
 const tokav=s=>`<span class="tokav" style="background:hsl(${hue(s)} 58% 45%)">${esc(s.slice(0,3))}</span>`;
 
 const P={
@@ -614,6 +656,8 @@ const P={
  gear:'<circle cx="12" cy="12" r="3"/><path d="M12 2.5v2.5M12 19v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M2.5 12H5M19 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/>',
  up:'<path d="M6 15l6-6 6 6"/>',
  back:'<path d="M19 12H5M11 18l-6-6 6-6"/>',
+ camera:'<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
+ pen:'<path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/>',
  lock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/>',
  down:'<path d="M6 9l6 6 6-6"/>',
  solglyph:'<path d="M6 6h14l-2 3H4zM6 15h14l-2 3H4zM4 10.5h14l2 3H6z" fill="currentColor" stroke="none"/>',
@@ -754,7 +798,7 @@ function vHome(){let list=calls,empty='';
   empty=`<div class="pad"><div class="empty" style="padding:28px 12px 8px"><b class="h2">Follow callers you trust</b><p>Their calls land here the moment they post.</p></div>
   ${ranked().slice(0,4).map(c=>`<div class="sugg">${avatar(c.h,'md')}<div class="grow"><a class="pname" href="#/profile/${c.h}">${c.h}</a><div class="hint">${c.win}% win rate over ${c.calls} calls</div></div><button class="btn sm primary" data-act="follow" data-h="${c.h}">Follow</button></div>`).join('')}</div>`}
  if(S.tab==='watchlist'){list=calls.filter(k=>S.watch.has(k.t));
-  empty=`<div class="empty"><b class="h2">Your watchlist is empty</b><p>Tap the star on any token to add it. Every new call on it shows up here.</p><a class="btn primary" href="#/trenches">Browse Trenches</a></div>`}
+  empty=`<div class="empty"><b class="h2">Your watchlist is empty</b><p>Tap the star on any token to add it. Every new call on it shows up here.</p><a class="btn primary" href="#/market">Browse the market</a></div>`}
  return `${homeTabs()}
  <div class="newpill" id="newpill">${S.queued.length&&S.tab==='foryou'?newPill():''}</div>
  <div id="feed">${(S.tab==='foryou'?withAds(list):list.map(post).join(''))||empty}</div>`}
@@ -915,9 +959,14 @@ function vProfile(h){if(!h&&S.connected)h=S.me;const c=C[h];
  if(!c)return `<div class="empty"><b class="h2">Your profile</b><p>Connect a wallet to create your caller profile and start building a track record.</p><button class="btn primary" data-act="connect">Connect wallet</button></div>`;
  if(S.ptabFor!==h){S.ptab='calls';S.ptabFor=h}
  const mine=calls.filter(k=>k.c===h),me=h===S.me,r=rankOf(h),f=S.following.has(h);
- return `<div class="banner"></div><div class="phero"><div class="top">${avatar(h,'lg')}${me?'<button class="btn ghost sm" data-act="settings">Edit profile</button>':`<button class="btn sm ${f?'ghost':'primary'}" data-act="follow" data-h="${h}">${f?'Following':'Follow'}</button>`}</div>
- <b class="h2" style="display:block;margin-top:10px">${esc(h)}</b><div class="muted">@${esc(h)}</div>
- <p class="muted" style="margin:8px 0 0">${r?`Ranked #${r}`:'Not ranked yet. 10 calls to qualify.'} <b style="color:var(--text)">${fmtK(c.followers+(f?1:0))}</b> followers</p>
+ const P=me?PROF:{},nm=P.name||h,fg=followingOf(h).length,fr=me?followersOf(h).length:c.followers+(f?1:0);
+ return `<div class="banner" style="${bannerBg(h)}">${me?`<button class="bnadd" data-act="editprof" data-f="banner" aria-label="${PROF.banner?'Change':'Add a'} banner">${ic('camera',20)}<span>${PROF.banner?'Change banner':'Add a banner'}</span></button>`:''}</div>
+ <div class="phero"><div class="top"><span class="avwrap">${avatar(h,'lg')}${r&&r<=3?`<span class="rkbadge">#${r}</span>`:''}</span>${me?'<button class="btn sm editp" data-act="editprof">'+ic('pen',15)+' Edit profile</button>':`<button class="btn sm ${f?'ghost':'primary'}" data-act="follow" data-h="${h}">${f?'Following':'Follow'}</button>`}</div>
+ <div class="pname2"><b class="h2">${esc(nm)}</b>${r?`<span class="rk">${ic('leaderboard',13)} Rank #${r}</span>`:''}</div><div class="muted">@${esc(h)}</div>
+ ${P.bio?`<p class="pbio">${esc(P.bio)}</p>`:me?`<p class="pbio muted">Add a bio so people know what you call. <button class="lnk" data-act="editprof" style="padding:0">Add bio</button></p>`:''}
+ <div class="pmeta">${P.web?`<a href="${esc(/^https?:/.test(P.web)?P.web:'https://'+P.web)}" target="_blank" rel="noopener">${ic('globe',15)} ${esc(P.web.replace(/^https?:\/\//,''))}</a>`:''}${P.x?`<a href="https://x.com/${esc(P.x.replace('@',''))}" target="_blank" rel="noopener">${ic('xlogo',14)} @${esc(P.x.replace('@',''))}</a>`:''}<span>${ic('wallet',15)} ${me&&S.addr?short(S.addr):'Solana caller'}</span></div>
+ <div class="pfollow"><button data-act="follows" data-h="${h}" data-f="following"><b>${fmtK(fg)}</b> Following</button><button data-act="follows" data-h="${h}" data-f="followers"><b>${fmtK(fr)}</b> Followers</button></div>
+ ${r?'':`<p class="hint" style="margin:6px 0 0">Not ranked yet. 10 calls to qualify for the leaderboard.</p>`}
  <div class="pstats num"><div><span>Win rate</span><b>${c.calls?c.win+'%':'—'}</b></div><div><span>Avg return</span><b>${c.calls?fmtPct(c.avg):'—'}</b></div><div><span>Calls</span><b>${c.calls}</b></div><div><span>Best call</span><b>${c.best?fmtPct(c.best):'—'}</b></div></div></div>
  <div class="tabs" style="position:static">${[['calls','Calls'],['holdings','Holdings'],['activity','Activity']].map(([k,l])=>`<button class="${(S.ptab||'calls')===k?'on':''}" data-act="ptab" data-f="${k}">${l}</button>`).join('')}</div>
  <div id="feed">${ptabBody(h,me)||mine.map(post).join('')||`<div class="empty"><b>No calls yet</b>${me?'<p>Your calls and their performance show up here.</p><button class="btn primary" data-act="newcall">Make a call</button>':''}</div>`}</div>`}
@@ -945,7 +994,7 @@ function railRest(){const trend=Object.values(T).filter(t=>!t.base&&!t.prelaunch
  <a class="btn ghost block" style="margin-top:10px" href="#/leaderboard">See leaderboard</a></div>`}
 
 /* ---------- chrome ---------- */
-const NAV_A=[['home','Home'],['market','Market'],['trenches','Trenches'],['swap','Swap'],['stake','Stake'],['wallet','Wallet'],['profile','Profile']];
+const NAV_A=[['home','Home'],['market','Market'],['swap','Swap'],['stake','Stake'],['wallet','Wallet'],['profile','Profile']];
 const NAV_B=[['leaderboard','Leaderboard'],['messages','Messages'],['news','News'],['promote','Promote'],['about','About']];
 const TITLES=Object.fromEntries([...NAV_A,...NAV_B,['token','Token'],['community','Community']]);
 const NAVH={stack:[],cur:location.hash||'#/home',back:false};
@@ -965,7 +1014,7 @@ function syncTray(){const open=!document.body.classList.contains('collapsed'),b=
 function render(){if(isPhone())document.body.classList.add('collapsed');const [,r0='home',p]=location.hash.split('/');const r=r0||'home';let html;
  if(r==='community')html=vRoom(p);
  else if(r==='token'){const t=T[p];if(t&&tradable(t)&&p!==S.swap.from)S.swap.to=p;html=vToken(p)}
- else html=({market:()=>soon('Market is coming','A full market view is on the way. For now, find new and moving tokens in Trenches.')+'<div style="text-align:center;margin-top:-24px"><a class="btn primary" href="#/trenches">Open Trenches</a></div>',trenches:vTrenches,swap:vSwap,wallet:vWallet,profile:()=>vProfile(p),leaderboard:vLeaders,promote:vPromote,about:vAbout,
+ else html=({market:vMarket,trenches:vMarket,swap:vSwap,wallet:vWallet,profile:()=>vProfile(p),leaderboard:vLeaders,promote:vPromote,about:vAbout,
   stake:()=>soon('Staking opens with $CALLIT','Stake $CALLIT to unlock premium calls and discounted project promotions. Launching after the product is live on mainnet.'),
   messages:()=>soon('Messages are coming','Direct messages and token chat rooms arrive in the chat phase.'),
   news:()=>soon('News is coming','Launch announcements, listings and market news in one place.')}[r]||vHome)();
@@ -1106,6 +1155,39 @@ function ptabBody(h,me){const tab=S.ptab||'calls';
   return `<div class="list pad">${a.map(([k,d,t])=>`<div class="li"><span class="tokav act-${k.toLowerCase()}" style="background:var(--bg2);color:var(--text)">${ic(k==='Bought'?'swap':k==='Called'?'promote':k==='Sent'?'share':'wallet',18)}</span><div class="grow"><b>${esc(k)}</b><div class="hint">${esc(d)}</div></div><span class="hint">${esc(t)}</span></div>`).join('')}</div>`}
  return null}
 
+/* ---------- market ---------- */
+function vMarket(){const t=S.mt||'trenches',M=[['trenches','Trenches','flame'],['perps','Perps'],['predict','Predictions']];
+ const bar=`<div class="mtabs" role="tablist">${M.map(([k,l])=>`<button role="tab" aria-selected="${t===k}" class="${t===k?'on':''}" data-act="mt" data-f="${k}">${l}${k==='trenches'?'<span class="live"></span>':'<small>Soon</small>'}</button>`).join('')}</div>`;
+ if(t==='perps')return bar+soonCard('Perps are coming','Long or short the tokens you call, with leverage and your caller track record on the line. Built on Solana perp venues.',['Long and short from any call','Position shows on your call card','Same fee share for bought-in callers']);
+ if(t==='predict')return bar+soonCard('Predictions are coming','Back your read on outcomes: will it hit the target, will it graduate, who tops the leaderboard this week.',['Markets on live calls','Settle on-chain','Callers can seed their own markets']);
+ return bar+`<div class="inmkt">${vTrenches()}</div>`}
+function soonCard(h,p,items){return `<div class="soonx"><div class="sxmark"><span class="mark"></span></div><span class="lkick" style="margin:0 0 12px">Coming soon</span><b class="h2">${h}</b><p>${p}</p><ul>${items.map(x=>`<li>${ic('check',16)} ${x}</li>`).join('')}</ul><button class="btn primary" data-act="mt" data-f="trenches">Open Trenches</button></div>`}
+
+/* ---------- edit profile ---------- */
+function editProfile(focus){const D={...PROF};
+ const draw=m=>{$('#ep',m).innerHTML=`<div class="epban" style="${D.banner?`background:#0B1B27 url(${D.banner}) center/cover`:bannerBg('x'+S.me)}">
+  <label class="epbtn" title="Upload banner">${ic('camera',20)}<input type="file" accept="image/*" data-up="banner" hidden></label>${D.banner?`<button class="epbtn" data-rm="banner" title="Remove banner">${ic('x',18)}</button>`:''}</div>
+  <div class="epav"><span class="av lg" style="${D.avatar?`background:#0B1B27 url(${D.avatar}) center/cover`:`background:hsl(${(hue(S.me)%70)+185} 52% 42%)`}">${D.avatar?'':esc(S.me.slice(0,2).toUpperCase())}</span><label class="epbtn sm" title="Upload photo">${ic('camera',16)}<input type="file" accept="image/*" data-up="avatar" hidden></label></div>
+  <div class="field"><label for="epn">Display name</label><input id="epn" class="input" maxlength="40" value="${esc(D.name||'')}" placeholder="${esc(S.me)}"></div>
+  <div class="field"><label for="epb">Bio <span class="hint" id="epbc" style="float:right">${(D.bio||'').length}/160</span></label><textarea id="epb" class="input" maxlength="160" placeholder="What do you call? Memes, AI, early launches...">${esc(D.bio||'')}</textarea></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="field"><label for="epw">Website</label><input id="epw" class="input" maxlength="80" value="${esc(D.web||'')}" placeholder="yoursite.xyz"></div>
+  <div class="field"><label for="epx">X handle</label><input id="epx" class="input" maxlength="30" value="${esc(D.x||'')}" placeholder="@handle"></div></div>
+  <div id="eperr" class="err"></div><button class="btn primary block" id="epsave">Save profile</button>`;
+  const keep=()=>{D.name=$('#epn',m).value.trim();D.bio=$('#epb',m).value.trim();D.web=$('#epw',m).value.trim();D.x=$('#epx',m).value.trim()};
+  $('#epb',m).oninput=e=>$('#epbc',m).textContent=e.target.value.length+'/160';
+  m.querySelectorAll('[data-up]').forEach(i=>i.onchange=()=>{const f=i.files[0];if(!f)return;if(!/^image\//.test(f.type)){$('#eperr',m).textContent='Pick an image file.';return}keep();shrink(f,i.dataset.up==='banner'?1400:400,url=>{D[i.dataset.up]=url;draw(m)})});
+  m.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{keep();delete D[b.dataset.rm];draw(m)});
+  $('#epsave',m).onclick=()=>{keep();const old=PROF;PROF=D;if(!saveProf()){PROF=old;$('#eperr',m).textContent='That image is too large to save. Try a smaller one.';return}closeModal();toast('Profile updated');render()};
+  if(focus==='banner')m.querySelector('[data-up="banner"]').click()};
+ modal('Edit profile','',`<div id="ep"></div>`,draw)}
+function followsModal(h,tab){const draw=m=>{const list=tab==='following'?followingOf(h):followersOf(h);
+  $('#fl',m).innerHTML=`<div class="sh-tabs" style="padding:0 0 12px;margin-bottom:6px">${[['followers','Followers'],['following','Following']].map(([k,l])=>`<button class="${tab===k?'on':''}" data-t="${k}">${l}</button>`).join('')}</div>
+  ${list.length?`<div class="list">${list.map(x=>{const c=C[x]||{},fx=S.following.has(x);return `<div class="li">${avatar(x)}<div class="grow"><a class="pname" href="#/profile/${x}">${esc(x===S.me&&PROF.name||x)}</a><div class="hint">${c.calls?`${c.win}% win rate · ${c.calls} calls`:'@'+esc(x)}</div></div>${x===S.me?'':`<button class="btn sm ${fx?'ghost':'primary'}" data-fl="${x}">${fx?'Following':'Follow'}</button>`}</div>`}).join('')}</div>`
+   :`<div class="empty" style="padding:28px 8px"><b>${tab==='following'?'Not following anyone yet':'No followers yet'}</b><p>${tab==='following'?'Follow callers you trust and their calls land in your Following feed.':'Make good calls and people will follow.'}</p>${tab==='following'?'<a class="btn primary" href="#/leaderboard">Find callers</a>':''}</div>`}`;
+  m.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{tab=b.dataset.t;draw(m)});
+  m.querySelectorAll('[data-fl]').forEach(b=>b.onclick=()=>{if(!S.connected)return connectModal();const x=b.dataset.fl;S.following.has(x)?S.following.delete(x):S.following.add(x);draw(m);render()})};
+ modal(esc((h===S.me&&PROF.name)||h),'@'+esc(h),`<div id="fl"></div>`,draw)}
+
 /* ---------- landing ---------- */
 function landingHTML(){const tick=calls.filter(k=>!k.sponsored&&k.entry).map(k=>{const n=nums(k);return `<span class="tk">${avatar(k.c)}<b>${esc(k.c)}</b> called <b>$${k.t}</b> <em class="${n.up?'up':'down'}">${fmtPct(n.p)}</em></span>`}).join('');
  const k=calls.find(x=>x.buy&&x.t==='GLORP')||calls[0];
@@ -1134,7 +1216,7 @@ document.addEventListener('click',e=>{
  const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act;
  if(a==='close'){if(e.target===b||b.tagName!=='DIV'){closeModal()}return}
  const act={
-  newcall:()=>callModal(b.dataset.t),tpick:()=>pickToken(b.dataset.f),
+  newcall:()=>callModal(b.dataset.t),editprof:()=>editProfile(b.dataset.f),follows:()=>followsModal(b.dataset.h,b.dataset.f),mt:()=>{if(S.mt===b.dataset.f)return scrollTo({top:0,behavior:'smooth'});S.mt=b.dataset.f;render()},tpick:()=>pickToken(b.dataset.f),
   signup:()=>connectModal(null,'up'),signin:()=>connectModal(null,'in'),explore:()=>{try{sessionStorage.setItem('callit.explore','1')}catch(_){}syncLanding()},qbuy:()=>quickBuy(b.dataset.t,b.dataset.id),
   back:()=>goBack(),totop:()=>scrollTo({top:0,behavior:'smooth'}),
   join:()=>{const f=b.dataset.f;S.joined.has(f)?S.joined.delete(f):S.joined.add(f);toast(S.joined.has(f)?'Joined':'Left the community');render()},
