@@ -413,11 +413,27 @@ select option{background:var(--bg2);color:var(--text)}
 
 /* ---------- landing ---------- */
 body.lock{overflow:hidden}
-#landing{position:fixed;inset:0;z-index:80;overflow-y:auto;display:flex;flex-direction:column;
- --bg:#0B1B27;--bg2:#10263A;--hover:#16314A;--line:#1E3A54;--text:#FFFFFF;--muted:#8FA6BA;--accent:#FFFFFF;--on-accent:#0B1B27;--hi:#4DA8FF;--up:#3DDC97;--down:#FF6B8A;
- --raise:0 1px 0 rgba(255,255,255,.08) inset,0 4px 0 rgba(0,0,0,.4),0 14px 28px -10px rgba(0,0,0,.7);--raise-sm:0 1px 0 rgba(255,255,255,.06) inset,0 2px 0 rgba(0,0,0,.35),0 6px 12px -6px rgba(0,0,0,.5);
- background:var(--bg);color:var(--text);color-scheme:dark}
-.lbg{position:fixed;inset:0;pointer-events:none;background:radial-gradient(600px 400px at 20% 10%,rgba(77,168,255,.18),transparent 70%),radial-gradient(500px 360px at 90% 80%,rgba(61,220,151,.1),transparent 70%),radial-gradient(circle,rgba(255,255,255,.06) 1px,transparent 1.5px) 0 0/22px 22px}
+#landing{position:fixed;inset:0;z-index:80;overflow-y:auto;display:flex;flex-direction:column;background:var(--bg);color:var(--text)}
+.lbg{position:fixed;inset:0;pointer-events:none;background:radial-gradient(700px 480px at 12% 0%,color-mix(in srgb,var(--hi) 16%,transparent),transparent 70%),radial-gradient(600px 420px at 100% 100%,color-mix(in srgb,var(--up) 9%,transparent),transparent 70%)}
+.lhero h1{font-size:clamp(52px,9vw,112px)!important;line-height:.95!important}
+[data-theme="light"] .lhero h1 span{background:linear-gradient(90deg,#1F7AE0,#0B9366)!important;-webkit-background-clip:text!important;background-clip:text!important}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]) .lhero h1 span{background:linear-gradient(90deg,#1F7AE0,#0B9366)!important;-webkit-background-clip:text!important;background-clip:text!important}}
+.ltheme{box-shadow:var(--raise-sm);background:var(--bg2)}
+.lhero{align-items:start!important}
+.lshow{margin-top:36px}
+.railfoot{display:flex;flex-direction:column;gap:12px;padding:4px 4px 24px}
+.lfoot{display:flex;flex-direction:column;align-items:center;gap:14px;margin-top:64px}
+.soc{display:flex;gap:10px}
+.soc a{display:grid;place-items:center;width:46px;height:46px;border-radius:14px;border:1.5px solid var(--line);background:var(--bg2);color:var(--text);box-shadow:var(--raise-sm);transition:transform .1s,border-color .12s,color .12s}
+.soc a:hover{border-color:var(--hi);color:var(--hi);transform:translateY(-2px)}
+.soc a:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.3)}
+.soc.sm a{width:38px;height:38px;border-radius:12px}
+.legal{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 16px;font-size:13px;color:var(--muted)}
+.legal button{border:0;background:transparent;color:var(--muted);font-weight:600;padding:2px 0}
+.legal button:hover{color:var(--text);text-decoration:underline}
+.lmark::before,.lmark::after{display:none}
+.lmark .mark{box-shadow:0 0 0 1px var(--line),0 20px 40px -18px color-mix(in srgb,var(--hi) 60%,transparent)!important}
+@media (max-width:900px){.lshow{margin-top:0}.lfoot{margin-top:56px}}
 .ltop{position:relative;display:flex;align-items:center;justify-content:space-between;padding:18px clamp(18px,5vw,56px)}
 .lbrand{display:flex;align-items:center;gap:10px;font:800 22px/1 var(--display);letter-spacing:-.03em}
 .lbrand .mark{width:36px;height:36px}
@@ -449,7 +465,7 @@ body.lock{overflow:hidden}
 .lfloat.f1{top:-22px;right:-10px;flex-direction:column;align-items:flex-start;gap:0}.lfloat.f1 b{font:800 26px/1 var(--display)}
 .lfloat.f2{bottom:-24px;left:-18px;animation-delay:1.5s}.lfloat.f2 .av{width:30px;height:30px;font-size:10px}.lfloat.f2 b{font-size:13.5px;color:var(--text)}
 @keyframes bob{50%{transform:translateY(-8px)}}
-.ltick{position:relative;border-top:1px solid var(--line);background:rgba(16,38,58,.6);overflow:hidden;padding:12px 0;mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
+.ltick{position:relative;border-top:1px solid var(--line);background:color-mix(in srgb,var(--bg2) 70%,transparent);overflow:hidden;padding:12px 0;mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
 .ltrack{display:flex;gap:34px;width:max-content;animation:tick 40s linear infinite}
 .tk{display:inline-flex;align-items:center;gap:7px;font-size:14px;color:var(--muted);white-space:nowrap}
 .tk .av{width:22px;height:22px;font-size:8px}.tk b{color:var(--text)}.tk em{font-style:normal;font-weight:800}
@@ -656,6 +672,8 @@ const P={
  gear:'<circle cx="12" cy="12" r="3"/><path d="M12 2.5v2.5M12 19v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M2.5 12H5M19 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/>',
  up:'<path d="M6 15l6-6 6 6"/>',
  back:'<path d="M19 12H5M11 18l-6-6 6-6"/>',
+ discord:'<path d="M8.5 5.5c-1.8.3-3.3.9-4.5 1.8C2.6 10 2 13 2.2 16.3c1.4 1.2 3 2 4.8 2.4l1.1-1.8c-.8-.3-1.5-.7-2.1-1.2.2-.1.3-.2.5-.3 3.4 1.6 7.6 1.6 11 0l.5.3c-.6.5-1.3.9-2.1 1.2l1.1 1.8c1.8-.4 3.4-1.2 4.8-2.4.3-3.8-.6-6.8-2-9-1.2-.9-2.7-1.5-4.5-1.8l-.5 1c-1.8-.3-3.5-.3-5.4 0z" fill="currentColor" stroke="none"/><circle cx="9" cy="12.5" r="1.5" fill="var(--bg2)" stroke="none"/><circle cx="15" cy="12.5" r="1.5" fill="var(--bg2)" stroke="none"/>',
+ telegram:'<path d="M21.5 4.2L2.8 11.4c-1 .4-1 1.6 0 1.9l4.6 1.5 1.8 5.4c.3.8 1.3 1 1.9.4l2.6-2.5 4.8 3.5c.7.5 1.7.1 1.9-.8L23 5.6c.2-1-.6-1.8-1.5-1.4zM9.6 14.4l8.3-6.2-6.6 7.3-.3 3.2-1.4-4.3z" fill="currentColor" stroke="none"/>',
  camera:'<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
  pen:'<path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/>',
  lock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/>',
@@ -981,13 +999,13 @@ function vPromote(){const PK={ads:['Ad board','Your product card rotates through
  <div class="field"><label>Package</label><div class="pkgs">${Object.entries(PK).map(([k,[a,b]])=>`<button class="pkg ${S.pkg===k?'on':''}" data-act="pkg" data-f="${k}" style="text-align:left"><b>${a}</b><p>${b}</p><p style="margin-top:8px">Pricing set before launch</p></button>`).join('')}</div></div>
  <div id="perr" class="err"></div><button class="btn primary" data-act="submitpromo">Send promotion request</button></div>`}
 
-function vAbout(){return `<div class="prose"><b class="h2" style="display:block;margin-bottom:12px">Call it early. Get paid for being right.</b>
+function vAbout(){return `<div class="prose"><div style="margin-bottom:18px">${socials()}</div><b class="h2" style="display:block;margin-bottom:12px">Call it. Get Paid.</b>
  <p>Callit is where crypto calls get tracked. Every call is stamped with the market cap at the moment it's posted, then followed live, so a caller's record is public and can't be edited.</p>
  <p>Callers earn a share of fees when people trade through their calls, but only on calls they bought into with their own wallet. Skin in the game, visible on every call as position and profit. Projects on any chain can promote launches through top callers, always labelled as sponsored.</p>
  <p>Wallets are non-custodial. Sign in with email, Google or X, or bring Phantom, Solflare or Backpack.</p></div>`}
 
 /* ---------- rail ---------- */
-function rail(){return adBoard()+railRest()}
+function rail(){return adBoard()+railRest()+`<div class="railfoot">${socials('sm')}<div class="legal" style="justify-content:flex-start"><button data-act="doc" data-f="terms">Terms</button><button data-act="doc" data-f="privacy">Privacy</button><span>© ${new Date().getFullYear()} Callit</span></div></div>`}
 function railRest(){const trend=Object.values(T).filter(t=>!t.base&&!t.prelaunch).sort((a,b)=>b.chg-a.chg).slice(0,4);
  return `<div class="card"><h3>Trending</h3><div class="list">${trend.map(t=>`<a class="li" href="#/token/${t.sym}">${tokav(t.sym)}<div class="grow"><b>$${t.sym}</b><div class="hint">${(n=>n+(n===1?' call':' calls'))(calls.filter(k=>k.t===t.sym).length)}</div></div><div class="r num"><b>${fmtUsd(mcap(t))}</b><div class="hint ${t.chg>=0?'up':'down'}">${fmtPct(t.chg)}</div></div></a>`).join('')}</div></div>
  <div class="card"><h3>Top callers</h3><div class="list">${ranked().slice(0,4).map(c=>`<div class="li">${avatar(c.h)}<div class="grow"><a class="pname" href="#/profile/${c.h}">${c.h}</a><div class="hint">${c.win}% win rate</div></div><button class="btn sm ${S.following.has(c.h)?'ghost':'primary'}" data-act="follow" data-h="${c.h}">${S.following.has(c.h)?'Following':'Follow'}</button></div>`).join('')}</div>
@@ -1188,20 +1206,28 @@ function followsModal(h,tab){const draw=m=>{const list=tab==='following'?followi
   m.querySelectorAll('[data-fl]').forEach(b=>b.onclick=()=>{if(!S.connected)return connectModal();const x=b.dataset.fl;S.following.has(x)?S.following.delete(x):S.following.add(x);draw(m);render()})};
  modal(esc((h===S.me&&PROF.name)||h),'@'+esc(h),`<div id="fl"></div>`,draw)}
 
+/* ---------- socials + legal ---------- */
+const LINKS={x:'',discord:'',telegram:''}; // paste Callit's real URLs here
+const socials=(cls='')=>`<div class="soc ${cls}">${[['x','X','xlogo'],['discord','Discord','discord'],['telegram','Telegram','telegram']].map(([k,l,i])=>`<a href="${LINKS[k]||'#'}" ${LINKS[k]?'target="_blank" rel="noopener"':`data-act="soclink" data-f="${l}"`} aria-label="Callit on ${l}" title="${l}">${ic(i,cls?17:20)}</a>`).join('')}</div>`;
+const DOCS={terms:['Terms of Service',['Callit is a social platform for sharing and tracking crypto calls. Nothing on Callit is financial advice. Calls are opinions from users, and you trade at your own risk.','Wallets are non-custodial. You control your keys and sign every transaction yourself. Callit cannot reverse or recover transactions.','Crypto assets are volatile and new tokens are especially risky. You can lose everything you put in.','Sponsored content is always labelled and never counts toward caller rankings. Caller fee sharing applies only to calls the caller bought into.','You must be of legal age and allowed to use these services where you live.']],
+ privacy:['Privacy Policy',['We collect what you give us: your sign-in method, public wallet address, profile details and the calls, comments and messages you post.','On-chain activity is public by nature. Your calls, positions and caller stats are shown publicly on your profile.','We use this data to run Callit, rank callers, prevent abuse and improve the product. We do not sell your personal data.','You can edit your profile at any time and ask us to delete your account data, except what is already recorded on-chain.']]};
+function docModal(k){const [t,ps]=DOCS[k];modal(t,'Draft, pending legal review',`<div class="prose" style="padding:0;max-height:60vh;overflow-y:auto">${ps.map(p=>`<p>${esc(p)}</p>`).join('')}</div>`)}
+
 /* ---------- landing ---------- */
 function landingHTML(){const tick=calls.filter(k=>!k.sponsored&&k.entry).map(k=>{const n=nums(k);return `<span class="tk">${avatar(k.c)}<b>${esc(k.c)}</b> called <b>$${k.t}</b> <em class="${n.up?'up':'down'}">${fmtPct(n.p)}</em></span>`}).join('');
  const k=calls.find(x=>x.buy&&x.t==='GLORP')||calls[0];
  return `<div class="lbg" aria-hidden="true"></div>
- <header class="ltop"><span class="lbrand"><span class="mark"></span>Callit</span><button class="btn ghost sm" data-act="signin">Sign in</button></header>
+ <header class="ltop"><span class="lbrand"><span class="mark"></span>Callit</span><button class="ib ltheme" data-act="theme" aria-label="Switch light or dark">${ic('sun')}</button></header>
  <main class="lhero"><div class="lcopy">
   <div class="lmark" aria-hidden="true"><span class="mark"></span></div>
   <p class="lkick">Crypto calls, tracked in public</p>
-  <h1>Call it early.<br><span>Get paid for being right.</span></h1>
+  <h1>Call it.<br><span>Get Paid.</span></h1>
   <p class="lsub">Post a call, buy in with your own wallet, and let the market keep score. Every entry is stamped at the live market cap and followed until it closes.</p>
   <div class="lcta"><button class="btn primary lg" data-act="signup">Create free account</button><button class="btn ghost lg" data-act="signin">Sign in</button></div>
   <button class="lnk lexp" data-act="explore">Just looking? Explore Callit ${ic('back',15).replace('<svg','<svg style="transform:scaleX(-1)"')}</button>
   <div class="lproof"><span>${ic('check',15)} Non-custodial wallet</span><span>${ic('check',15)} Sign in with email, Google or X</span><span>${ic('check',15)} Only bought-in callers earn</span></div></div>
- <div class="lshow" aria-hidden="true"><div class="lcard">${post(k)}</div><div class="lfloat f1"><b class="up">+${Math.round(nums(k).p)}%</b><span>since call</span></div><div class="lfloat f2">${avatar('lagosape')}<span><b>lagosape</b> just bought in</span></div></div></main>
+ <div class="lside"><div class="lshow" aria-hidden="true"><div class="lcard">${post(k)}</div><div class="lfloat f1"><b class="up">+${Math.round(nums(k).p)}%</b><span>since call</span></div><div class="lfloat f2">${avatar('lagosape')}<span><b>lagosape</b> just bought in</span></div></div>
+ <footer class="lfoot">${socials()}<div class="legal"><button data-act="doc" data-f="terms">Terms of Service</button><button data-act="doc" data-f="privacy">Privacy Policy</button><span>© ${new Date().getFullYear()} Callit</span></div></footer></div></main>
  <div class="ltick" aria-label="Live calls"><div class="ltrack">${tick}${tick}</div></div>`}
 function syncLanding(){const el=$('#landing');let exp=false;try{exp=sessionStorage.getItem('callit.explore')==='1'}catch(_){}
  const show=!S.connected&&!exp;if(show&&el.hidden){el.innerHTML=landingHTML();el.hidden=false}else if(!show&&!el.hidden){el.hidden=true;el.innerHTML=''}
@@ -1216,7 +1242,7 @@ document.addEventListener('click',e=>{
  const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act;
  if(a==='close'){if(e.target===b||b.tagName!=='DIV'){closeModal()}return}
  const act={
-  newcall:()=>callModal(b.dataset.t),editprof:()=>editProfile(b.dataset.f),follows:()=>followsModal(b.dataset.h,b.dataset.f),mt:()=>{if(S.mt===b.dataset.f)return scrollTo({top:0,behavior:'smooth'});S.mt=b.dataset.f;render()},tpick:()=>pickToken(b.dataset.f),
+  newcall:()=>callModal(b.dataset.t),doc:()=>docModal(b.dataset.f),soclink:()=>{e.preventDefault();toast(`Callit on ${b.dataset.f} is coming soon`)},editprof:()=>editProfile(b.dataset.f),follows:()=>followsModal(b.dataset.h,b.dataset.f),mt:()=>{if(S.mt===b.dataset.f)return scrollTo({top:0,behavior:'smooth'});S.mt=b.dataset.f;render()},tpick:()=>pickToken(b.dataset.f),
   signup:()=>connectModal(null,'up'),signin:()=>connectModal(null,'in'),explore:()=>{try{sessionStorage.setItem('callit.explore','1')}catch(_){}syncLanding()},qbuy:()=>quickBuy(b.dataset.t,b.dataset.id),
   back:()=>goBack(),totop:()=>scrollTo({top:0,behavior:'smooth'}),
   join:()=>{const f=b.dataset.f;S.joined.has(f)?S.joined.delete(f):S.joined.add(f);toast(S.joined.has(f)?'Joined':'Left the community');render()},
