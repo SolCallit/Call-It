@@ -411,6 +411,35 @@ select option{background:var(--bg2);color:var(--text)}
 .cmenu button:hover{background:var(--hover)}
 .cmenu button.on{color:var(--hi);font-weight:800}
 
+/* ---------- top strips ---------- */
+.strip{padding:14px 0 16px;border-bottom:1px solid var(--line)}
+.sthead{display:flex;align-items:center;gap:10px;padding:0 16px 12px}
+.sthead>div{flex:1;min-width:0}
+.sthead b{display:block;font:800 17px/1.2 var(--display)}
+.sthead div span{font-size:12.5px;color:var(--muted)}
+.stic{display:grid;place-items:center;width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,#FFD66B,#E8B730);color:#0B1B27;flex:none;box-shadow:var(--raise-sm)}
+.starr{display:flex;gap:6px}.starr .ib{width:32px;height:32px}
+@media (max-width:760px){.starr{display:none}}
+.strack{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;padding:4px 16px 8px;scrollbar-width:none;mask-image:linear-gradient(90deg,#000 92%,transparent)}
+.strack::-webkit-scrollbar{display:none}
+.scard{flex:none;width:210px;scroll-snap-align:start;border:1.5px solid var(--line);border-radius:18px;background:var(--bg2);overflow:hidden;box-shadow:var(--raise-sm);transition:transform .1s,border-color .12s}
+.scard:hover{border-color:var(--hi);transform:translateY(-2px)}
+.scard:active{transform:translateY(2px)}
+.sctop{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.sctop .av{width:26px;height:26px;font-size:9px}
+.sctop b{flex:1;min-width:0;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.medal{display:grid;place-items:center;min-width:22px;height:22px;border-radius:999px;font-size:11.5px;font-weight:900;background:var(--bg);color:var(--muted);border:1px solid var(--line)}
+.medal.m0{background:linear-gradient(135deg,#FFE08A,#E8B730);color:#3a2a00;border:0}
+.medal.m1{background:linear-gradient(135deg,#F1F5F9,#9FB0C2);color:#1e293b;border:0}
+.medal.m2{background:linear-gradient(135deg,#F5C08F,#B8743D);color:#3b1d05;border:0}
+.scbody{display:flex;align-items:center;gap:10px;padding:12px}
+.scbody .tokav{width:38px;height:38px;border-radius:12px;font-size:10px;flex:none}
+.scbody .grow{min-width:0}
+.scbody b{display:block;font-size:19px;letter-spacing:-.01em;white-space:nowrap}
+.scbody span{font-size:12.5px;color:var(--muted);white-space:nowrap}
+.scbody em{font-style:normal;font-weight:800}
+.inmkt .strip{border-top:0}
+
 /* ---------- post page, media, attachments ---------- */
 article.post[data-go]{cursor:pointer}
 article.post[data-go]:hover{background:color-mix(in srgb,var(--hover) 35%,transparent)}
@@ -921,6 +950,7 @@ function vHome(){let list=calls,empty='';
   empty=`<div class="empty"><b class="h2">Your watchlist is empty</b><p>Tap the star on any token to add it. Every new call on it shows up here.</p><a class="btn primary" href="#/market">Browse the market</a></div>`}
  return `${homeTabs()}
  <div class="newpill" id="newpill">${S.queued.length&&S.tab==='foryou'?newPill():''}</div>
+ ${S.tab==='foryou'?topCalls():''}
  <div id="feed">${(S.tab==='foryou'?withAds(list):list.map(post).join(''))||empty}</div>`}
 const newPill=()=>`<button data-act="shownew">${S.queued.slice(0,2).map(k=>avatar(k.c)).join('')}<span style="margin-left:${S.queued.length>1?-8:0}px"></span>New calls</button>`;
 
@@ -1282,7 +1312,7 @@ function vMarket(){const t=S.mt||'trenches',M=[['trenches','Trenches','flame'],[
  const bar=`<div class="mtabs" role="tablist">${M.map(([k,l])=>`<button role="tab" aria-selected="${t===k}" class="${t===k?'on':''}" data-act="mt" data-f="${k}">${l}${k==='trenches'?'<span class="live"></span>':'<small>Soon</small>'}</button>`).join('')}</div>`;
  if(t==='perps')return bar+soonCard('Perps are coming','Long or short the tokens you call, with leverage and your caller track record on the line. Built on Solana perp venues.',['Long and short from any call','Position shows on your call card','Same fee share for bought-in callers']);
  if(t==='predict')return bar+soonCard('Predictions are coming','Back your read on outcomes: will it hit the target, will it graduate, who tops the leaderboard this week.',['Markets on live calls','Settle on-chain','Callers can seed their own markets']);
- return bar+`<div class="inmkt">${vTrenches()}</div>`}
+ return bar+topTrades()+`<div class="inmkt">${vTrenches()}</div>`}
 function soonCard(h,p,items){return `<div class="soonx"><div class="sxmark"><span class="mark"></span></div><span class="lkick" style="margin:0 0 12px">Coming soon</span><b class="h2">${h}</b><p>${p}</p><ul>${items.map(x=>`<li>${ic('check',16)} ${x}</li>`).join('')}</ul><button class="btn primary" data-act="mt" data-f="trenches">Open Trenches</button></div>`}
 
 /* ---------- attachments ---------- */
@@ -1300,6 +1330,19 @@ function wireAttach(root,st,onChange){if(!root)return;const txt=root.querySelect
   pop.onclick=ev=>{const x=ev.target.closest('button');if(!x||!txt)return;const a=txt.selectionStart??txt.value.length,z=txt.selectionEnd??a;txt.value=txt.value.slice(0,a)+x.textContent+txt.value.slice(z);txt.focus();const c=a+x.textContent.length;txt.setSelectionRange(c,c);txt.dispatchEvent(new Event('input',{bubbles:true}))}});
  root.addEventListener('click',e=>{const x=e.target.closest('[data-rmm]');if(x){st.media.splice(+x.dataset.rmm,1);onChange()}})}
 document.addEventListener('click',e=>{const p=document.querySelector('.emo');if(p&&!e.target.closest('.emo,[data-att="emoji"]'))p.remove()});
+
+/* ---------- top strips ---------- */
+const medal=i=>i<3?`<span class="medal m${i}">${i+1}</span>`:`<span class="medal">${i+1}</span>`;
+function strip(id,title,sub,cards){return `<section class="strip" aria-label="${title}"><div class="sthead"><span class="stic">${ic('leaderboard',16)}</span><div><b>${title}</b><span>${sub}</span></div>
+ <span class="starr"><button class="ib" data-act="stscroll" data-f="${id}" data-d="-1" aria-label="Scroll left">${ic('back',16)}</button><button class="ib" data-act="stscroll" data-f="${id}" data-d="1" aria-label="Scroll right">${ic('back',16).replace('<svg','<svg style="transform:scaleX(-1)"')}</button></span></div>
+ <div class="strack" id="${id}">${cards}</div></section>`}
+function topCalls(){const list=calls.filter(k=>k.buy&&!k.sponsored&&nums(k)).map(k=>({k,n:nums(k)})).sort((a,b)=>b.n.pnl-a.n.pnl).slice(0,8);if(!list.length)return '';
+ return strip('stc','Top calls this week','Biggest caller profits, bought in with their own wallet',list.map(({k,n},i)=>`<a class="scard" href="#/post/${k.id}"><div class="sctop">${avatar(k.c)}<b>${esc(k.c)}</b>${medal(i)}</div>
+ <div class="scbody">${tokav(k.t)}<div class="grow"><b class="num ${n.pnl>=0?'up':'down'}">${money(n.pnl)}</b><span class="num">$${k.t} · <em class="${n.up?'up':'down'}">${fmtPct(n.p)}</em></span></div></div></a>`).join(''))}
+function topTrades(){const who=ranked().map(c=>c.h),toks=Object.values(T).filter(t=>t.chain==='Solana'&&!t.base&&!t.prelaunch&&t.holders),r=rng(4242);
+ const trades=who.flatMap(h=>toks.slice(0,6).map(t=>({h,t,pnl:Math.round((r()*r())*t.vol*.06*100)/100,x:1+r()*r()*14}))).sort((a,b)=>b.pnl-a.pnl).filter((x,i,a)=>a.findIndex(y=>y.h===x.h)===i).slice(0,8);
+ return strip('stt','Weekly top trades','Largest realized wins in the trenches',trades.map((x,i)=>`<a class="scard" href="#/token/${x.t.sym}"><div class="sctop">${avatar(x.h)}<b>${esc(x.h)}</b>${medal(i)}</div>
+ <div class="scbody">${tokav(x.t.sym)}<div class="grow"><b class="num up">+${fmtUsd(x.pnl).replace('$','$')}</b><span class="num">$${x.t.sym} · <em class="up">${x.x.toFixed(1)}x</em></span></div></div></a>`).join(''))}
 
 /* ---------- full post ---------- */
 const REPLIES={};const RDRAFT={media:[]};
@@ -1400,7 +1443,7 @@ document.addEventListener('click',e=>{
  const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act;
  if(a==='close'){if(e.target===b||b.tagName!=='DIV'){closeModal()}return}
  const act={
-  newcall:()=>callModal(b.dataset.t),
+  newcall:()=>callModal(b.dataset.t),stscroll:()=>{const t=$('#'+b.dataset.f);t&&t.scrollBy({left:+b.dataset.d*t.clientWidth*.8,behavior:'smooth'})},
   lsign:()=>signIn(b.dataset.f),lwallet:()=>connectModal(null,'in'),
   lemail:()=>{const v=($('#lxemail')||{}).value||'';if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())){$('#lxerr').textContent='Enter a valid email address.';$('#lxemail').focus();return}signIn('Email')},
   lexplore:()=>{try{sessionStorage.setItem('callit.explore','1')}catch(_){}location.hash='#/'+b.dataset.f;syncLanding()},
