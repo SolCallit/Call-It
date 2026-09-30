@@ -1,0 +1,620 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Callit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#FFFFFF;--bg2:#F5F3FF;--hover:#EFECFF;--line:#E3E0F4;--text:#1A1150;--muted:#6B6598;
+  --accent:#2A1B8C;--on-accent:#FFFFFF;--indigo:#4B37E0;--up:#0B9366;--down:#D92D55;
+  --display:'Bricolage Grotesque',ui-sans-serif,system-ui,sans-serif;
+  --body:'Schibsted Grotesk',ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
+  --hdr:64px;color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){--bg:#130D3A;--bg2:#1B1350;--hover:#221961;--line:#2C2370;--text:#FFFFFF;--muted:#A9A3D6;--accent:#FFFFFF;--on-accent:#1A1150;--indigo:#8B7DFF;--up:#3DDC97;--down:#FF6B8A;color-scheme:dark}
+}
+:root[data-theme="dark"]{--bg:#130D3A;--bg2:#1B1350;--hover:#221961;--line:#2C2370;--text:#FFFFFF;--muted:#A9A3D6;--accent:#FFFFFF;--on-accent:#1A1150;--indigo:#8B7DFF;--up:#3DDC97;--down:#FF6B8A;color-scheme:dark}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 var(--body);-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--indigo);outline-offset:2px}
+svg{flex:none}
+.num{font-variant-numeric:tabular-nums}
+.up{color:var(--up)}.down{color:var(--down)}.muted{color:var(--muted)}
+
+/* ---------- shell ---------- */
+.shell{display:grid;grid-template-columns:auto minmax(0,1fr)}
+.sb{position:sticky;top:0;height:100vh;width:268px;border-right:1px solid var(--line);display:flex;flex-direction:column;padding:16px 14px;overflow-y:auto;background:var(--bg)}
+.sb-top{display:flex;align-items:center;gap:10px;padding:2px 4px 14px}
+.brand{display:flex;align-items:center;gap:10px;font:800 25px/1 var(--display);letter-spacing:-.03em}
+.mark{width:40px;height:40px;border-radius:12px;background:var(--accent);color:var(--on-accent);display:grid;place-items:center}
+.ib{width:38px;height:38px;border-radius:50%;border:0;background:transparent;display:grid;place-items:center;color:var(--text);position:relative}
+.ib:hover{background:var(--hover)}
+.sb-top .ib:first-of-type{margin-left:auto}
+.searchbtn{display:flex;align-items:center;gap:10px;width:100%;border:1px solid var(--line);border-radius:999px;padding:10px 14px;color:var(--muted);background:var(--bg2);margin-bottom:6px;text-align:left}
+.grp{font-size:13px;color:var(--muted);padding:14px 12px 4px;border-top:1px solid var(--line);margin-top:8px}
+.grp.first{border-top:0;margin-top:0}
+.nav a{display:flex;align-items:center;gap:14px;padding:10px 12px;border-radius:999px;font-size:16px;font-weight:500}
+.nav a:hover{background:var(--hover)}
+.nav a.on{font-weight:800}
+.nav a.on svg{color:var(--indigo)}
+.sb .grow{flex:1;min-height:16px}
+.connect{width:100%}
+.acct{display:flex;align-items:center;gap:10px;width:100%;border:0;background:transparent;padding:8px;border-radius:999px;text-align:left}
+.acct:hover{background:var(--hover)}
+@media (min-width:761px){
+  body.collapsed .sb{width:80px;padding:16px 10px;align-items:center}
+  body.collapsed .lbl,body.collapsed .brand span,body.collapsed .sb-top .settings{display:none}
+  body.collapsed .sb-top{flex-direction:column;padding:2px 0 10px}
+  body.collapsed .sb-top .ib:first-of-type{margin-left:0}
+  body.collapsed .sb-top .collapse svg{transform:rotate(180deg)}
+  body.collapsed .searchbtn{width:48px;height:48px;padding:0;justify-content:center;border-radius:50%}
+  body.collapsed .grp{font-size:0;padding:6px 0;width:40px;margin-top:8px}
+  body.collapsed .grp.first{display:none}
+  body.collapsed .nav a{justify-content:center;padding:12px}
+  body.collapsed .connect{width:48px;height:48px;padding:0;border-radius:50%}
+  body.collapsed .acct{justify-content:center;padding:4px}
+}
+.main{min-width:0}
+.hdr{position:sticky;top:0;z-index:15;height:var(--hdr);display:flex;align-items:center;gap:12px;padding:0 20px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.hdr h1{font:800 22px/1 var(--display);letter-spacing:-.02em;margin:0}
+.hdr .menu{display:none}
+.pill{margin-left:auto;display:flex;align-items:center;gap:2px;border:1.5px solid var(--line);border-radius:999px;padding:3px}
+.pill .ib{width:40px;height:40px}
+.dotn{position:absolute;top:8px;right:9px;width:8px;height:8px;border-radius:50%;background:var(--down);border:2px solid var(--bg)}
+.cols{display:grid;grid-template-columns:minmax(0,640px) 330px;gap:28px;padding:0 20px 0 0}
+.center{border-right:1px solid var(--line);min-height:calc(100vh - var(--hdr));padding-bottom:120px}
+.rail{position:sticky;top:var(--hdr);align-self:start;padding:18px 0;display:flex;flex-direction:column;gap:16px}
+@media (max-width:1279px){.cols{grid-template-columns:minmax(0,680px);padding:0}.rail{display:none}}
+.fab{position:fixed;right:28px;bottom:calc(28px + env(safe-area-inset-bottom,0px));z-index:25;width:62px;height:62px;border-radius:50%;border:0;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;box-shadow:0 10px 30px rgba(19,13,58,.35)}
+.fab:hover{transform:scale(1.05)}
+.bnav,.dscrim{display:none}
+@media (max-width:760px){
+  .shell{grid-template-columns:minmax(0,1fr)}
+  .sb{position:fixed;left:0;top:0;bottom:0;z-index:45;width:290px;transform:translateX(-102%);transition:transform .22s ease;padding-top:calc(16px + env(safe-area-inset-top,0px));padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))}
+  body.drawer .sb{transform:none}
+  body.drawer .dscrim{display:block;position:fixed;inset:0;z-index:44;background:rgba(10,7,30,.55)}
+  .hdr{padding:0 12px}
+  .hdr .menu{display:grid}
+  .hdr h1{font-size:20px}
+  .center{border-right:0}
+  .fab{bottom:calc(92px + env(safe-area-inset-bottom,0px));right:18px;width:56px;height:56px}
+  .bnav{display:flex;gap:10px;position:fixed;left:12px;right:12px;bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:30}
+  .bnav .bar{flex:1;display:flex;justify-content:space-around;align-items:center;background:var(--bg2);border:1px solid var(--line);border-radius:999px;height:64px;box-shadow:0 8px 24px rgba(19,13,58,.25)}
+  .bnav a,.bnav button{display:grid;place-items:center;width:48px;height:48px;border-radius:50%;color:var(--muted);border:0;background:transparent}
+  .bnav a.on{color:var(--text);background:var(--hover)}
+  .bnav .sq{width:64px;height:64px;background:var(--bg2);border:1px solid var(--line);color:var(--text);box-shadow:0 8px 24px rgba(19,13,58,.25)}
+}
+
+/* ---------- controls ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:999px;padding:10px 18px;font-weight:700;background:var(--bg2);color:var(--text);white-space:nowrap}
+.btn:hover{filter:brightness(1.06)}
+.btn.primary{background:var(--accent);color:var(--on-accent)}
+.btn.ghost{background:transparent;border:1.5px solid var(--line)}
+.btn.block{width:100%}
+.btn.sm{padding:6px 14px;font-size:13.5px}
+.btn:disabled{opacity:.45;cursor:not-allowed;filter:none}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.field label{font-size:13px;font-weight:600;color:var(--muted)}
+.input{width:100%;background:var(--bg2);border:1.5px solid var(--line);border-radius:12px;padding:11px 12px;outline:none}
+.input:focus{border-color:var(--indigo)}
+textarea.input{resize:vertical;min-height:96px}
+.hint{font-size:12.5px;color:var(--muted)}
+.err{font-size:12.5px;color:var(--down);min-height:4px}
+.seg{display:inline-flex;background:var(--bg2);border-radius:999px;padding:3px;gap:2px}
+.seg button{border:0;background:transparent;padding:6px 14px;border-radius:999px;font-weight:600;font-size:13.5px;color:var(--muted)}
+.seg button.on{background:var(--accent);color:var(--on-accent)}
+.card{background:var(--bg2);border:1px solid var(--line);border-radius:18px;padding:18px}
+.card h3{margin:0 0 12px;font:800 18px/1.2 var(--display)}
+.pad{padding:18px 16px}
+.av{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:13px;color:#fff;flex:none}
+.av.md{width:46px;height:46px;font-size:15px}
+.av.lg{width:96px;height:96px;font-size:30px;border:4px solid var(--bg)}
+.tokav{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;font-weight:800;font-size:12px;color:#fff;flex:none}
+.chain{font-size:11.5px;font-weight:700;padding:1px 7px;border-radius:999px;background:var(--hover);color:var(--indigo)}
+.h2{font:800 20px/1.2 var(--display);margin:0}
+
+/* ---------- tabs + feed ---------- */
+.tabs{position:sticky;top:var(--hdr);z-index:12;display:flex;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.tabs button{flex:1;border:0;background:transparent;padding:16px 0;font-weight:600;font-size:15.5px;color:var(--muted);position:relative}
+.tabs button:hover{background:var(--hover)}
+.tabs button.on{color:var(--text);font-weight:800}
+.tabs button.on::after{content:'';position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:60px;height:4px;border-radius:4px;background:var(--indigo)}
+.newpill{position:sticky;top:calc(var(--hdr) + 62px);z-index:11;display:flex;justify-content:center;height:0}
+.newpill button{margin-top:10px;display:flex;align-items:center;gap:8px;border:0;border-radius:999px;background:var(--indigo);color:#fff;font-weight:700;padding:7px 16px 7px 10px;box-shadow:0 8px 20px rgba(19,13,58,.3);animation:drop .3s ease-out}
+.newpill .av{width:26px;height:26px;font-size:10px;border:2px solid var(--indigo)}
+@keyframes drop{from{transform:translateY(-10px);opacity:0}}
+.post{display:grid;grid-template-columns:46px minmax(0,1fr);gap:12px;padding:16px 16px 8px;border-bottom:1px solid var(--line)}
+.post:hover{background:color-mix(in srgb,var(--hover) 40%,transparent)}
+.post.fresh{animation:flash 1.6s ease-out}
+@keyframes flash{from{background:var(--hover)}}
+.phead{display:flex;align-items:center;gap:6px;min-width:0}
+.pname{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pname:hover{text-decoration:underline}
+.rk{font-size:12px;font-weight:800;color:var(--indigo);background:var(--hover);padding:1px 7px;border-radius:999px}
+.tag{font-size:11.5px;font-weight:800;padding:2px 8px;border-radius:999px;background:var(--accent);color:var(--on-accent)}
+.phead time{margin-left:auto;color:var(--muted);font-size:14px;white-space:nowrap}
+.ptext{margin:3px 0 10px;font-size:15.5px;overflow-wrap:anywhere}
+.ccard{display:flex;align-items:center;gap:12px;background:var(--bg2);border:1.5px solid var(--line);border-radius:18px;padding:12px 14px}
+.ccard:hover{border-color:var(--indigo)}
+.post.fresh .ccard{animation:pop .45s cubic-bezier(.2,1.5,.4,1)}
+@keyframes pop{from{transform:scale(.94);opacity:.3}}
+.cn{flex:1;min-width:0}
+.cn b{display:block;font-size:16.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cn span{font-size:13px;color:var(--muted)}
+.cr{text-align:right}
+.cr b{display:block;font:800 21px/1.1 var(--display);letter-spacing:-.01em}
+.cr span{font-size:12.5px;color:var(--muted)}
+.pnote{font-size:13px;color:var(--muted);margin-top:8px}
+.pbar{display:flex;align-items:center;gap:8px;margin:6px 0 0 -8px}
+.pbar .icons{display:flex;flex:1;justify-content:space-between;max-width:380px}
+.act{display:inline-flex;align-items:center;gap:5px;border:0;background:transparent;color:var(--muted);padding:7px 8px;border-radius:999px;font-size:13.5px;font-weight:600}
+.act:hover{background:var(--hover);color:var(--indigo)}
+.act.liked{color:var(--down)}.act.reposted{color:var(--up)}
+.pbar .btn{margin-left:auto}
+.pbar .icons{min-width:0}
+@media (max-width:520px){.post{grid-template-columns:40px minmax(0,1fr);gap:10px;padding:14px 12px 6px}.post .av.md{width:40px;height:40px;font-size:13px}.act{padding:6px 4px;font-size:12.5px;gap:4px}.act.views{display:none}.cr b{font-size:19px}}
+.empty{text-align:center;padding:48px 24px}
+.empty p{color:var(--muted);max-width:360px;margin:8px auto 18px}
+.sugg{display:flex;align-items:center;gap:12px;padding:12px 0}
+.sugg .grow{flex:1;min-width:0}
+
+/* ---------- pages ---------- */
+.list{display:flex;flex-direction:column}
+.li{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.li:last-child{border-bottom:0}
+.li .grow{flex:1;min-width:0}
+.li .r{text-align:right}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:560px}
+th,td{text-align:left;padding:13px 16px;border-bottom:1px solid var(--line);font-size:14.5px}
+th{font-size:12.5px;color:var(--muted);font-weight:600}
+tbody tr{cursor:pointer}
+tbody tr:hover td{background:var(--hover)}
+td.rkc{font:800 18px var(--display);width:48px}
+.person{display:flex;align-items:center;gap:10px;font-weight:700}
+.swap .box{background:var(--bg);border:1px solid var(--line);border-radius:16px;padding:12px 14px}
+.card .swap .box{background:var(--bg)}
+.swap .row{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.swap .amt{border:0;background:transparent;font:800 26px/1.2 var(--display);width:100%;min-width:0;outline:none}
+.swap select{border:1.5px solid var(--line);background:var(--bg2);border-radius:999px;padding:6px 10px;font-weight:700}
+.swap .flip{display:grid;place-items:center;margin:-10px auto;position:relative;z-index:1;width:38px;height:38px;border-radius:50%;border:4px solid var(--bg2);background:var(--accent);color:var(--on-accent)}
+.swap .lines{font-size:13px;color:var(--muted);margin:14px 0;display:flex;flex-direction:column;gap:4px}
+.swap .lines div{display:flex;justify-content:space-between}
+.chart{width:100%;height:200px;display:block}
+.chart .line{fill:none;stroke-width:2.2;vector-effect:non-scaling-stroke}
+.chart .line.up{stroke:var(--up)}.chart .line.down{stroke:var(--down)}
+.chart .area.up{fill:var(--up);opacity:.1}.chart .area.down{fill:var(--down);opacity:.1}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin:14px 0}
+.stats div{background:var(--bg);padding:12px}
+.stats span{display:block;font-size:12.5px;color:var(--muted)}
+.stats b{font-size:16px}
+.copyca{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);background:var(--bg2);border:0;border-radius:999px;padding:5px 10px}
+.price{font:800 32px/1 var(--display)}
+.banner{height:150px;background:var(--bg2);border-bottom:1px solid var(--line);background-image:radial-gradient(var(--line) 1.2px,transparent 1.2px);background-size:16px 16px}
+.phero{padding:0 16px}
+.phero .top{display:flex;justify-content:space-between;align-items:flex-end;margin-top:-48px}
+.pstats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin:16px 0}
+.pstats div{background:var(--bg);padding:12px}
+.pstats span{display:block;font-size:12.5px;color:var(--muted)}
+.pstats b{font:800 19px var(--display)}
+@media (max-width:520px){.pstats{grid-template-columns:repeat(2,1fr)}}
+.bal{font:800 42px/1 var(--display);letter-spacing:-.02em}
+.acts3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0 6px}
+.pkgs{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+.pkg{border:1.5px solid var(--line);border-radius:14px;padding:14px;background:var(--bg)}
+.pkg.on{border-color:var(--indigo);box-shadow:0 0 0 3px color-mix(in srgb,var(--indigo) 22%,transparent)}
+.pkg b{display:block;margin-bottom:4px}
+.pkg p{margin:0;font-size:13px;color:var(--muted)}
+.soon{padding:56px 24px;text-align:center}
+.soon .mark{margin:0 auto 16px;width:56px;height:56px;border-radius:16px}
+.soon p{color:var(--muted);max-width:400px;margin:8px auto 0}
+.prose{padding:20px 16px;max-width:580px}
+.prose p{margin:0 0 14px}
+
+/* ---------- modal + toast ---------- */
+.scrim{position:fixed;inset:0;background:rgba(10,7,30,.6);z-index:50;display:grid;place-items:center;padding:16px}
+.modal{background:var(--bg);border:1px solid var(--line);border-radius:22px;width:min(470px,100%);max-height:calc(100% - 20px);overflow:auto;padding:22px;animation:rise .18s ease-out}
+.modal h2{font:800 22px/1.1 var(--display);margin:0 0 4px}
+.modal .sub{color:var(--muted);margin:0 0 18px;font-size:14px}
+.mhead{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+@keyframes rise{from{transform:translateY(8px);opacity:0}}
+.opt{display:flex;align-items:center;gap:12px;width:100%;padding:12px 14px;border-radius:999px;border:1.5px solid var(--line);background:var(--bg2);margin-bottom:8px;font-weight:700;text-align:left}
+.opt:hover{border-color:var(--indigo)}
+.opt .tokav{width:30px;height:30px;border-radius:50%}
+.divider{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12.5px;margin:14px 0 10px}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--line)}
+.preview{display:flex;align-items:center;gap:12px;padding:12px;border:1.5px dashed var(--indigo);border-radius:16px;margin-bottom:14px}
+#toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--indigo);color:#fff;padding:10px 18px;border-radius:999px;font-weight:700;z-index:60;opacity:0;pointer-events:none;transition:opacity .2s}
+#toast.show{opacity:1}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sb" id="sb" aria-label="Main navigation">
+    <div class="sb-top">
+      <a class="brand" href="#/home"><span class="mark" id="markIcon"></span><span>Callit</span></a>
+      <button class="ib settings" data-act="settings" aria-label="Settings" id="setIcon"></button>
+      <button class="ib collapse" data-act="collapse" aria-label="Collapse sidebar" id="colIcon"></button>
+    </div>
+    <button class="searchbtn" data-act="search" id="searchBtn"></button>
+    <div class="grp first lbl-grp">Features</div>
+    <nav class="nav" id="navA"></nav>
+    <div class="grp">Products</div>
+    <nav class="nav" id="navB"></nav>
+    <div class="grow"></div>
+    <div id="acct"></div>
+  </aside>
+  <div class="main">
+    <header class="hdr">
+      <button class="ib menu" data-act="drawer" aria-label="Open menu" id="menuIcon"></button>
+      <h1 id="title">Home</h1>
+      <div class="pill" id="pill"></div>
+    </header>
+    <div class="cols"><section class="center" id="view"></section><aside class="rail" id="rail"></aside></div>
+  </div>
+</div>
+<div class="dscrim" data-act="drawer"></div>
+<button class="fab" data-act="newcall" aria-label="Make a call" id="fab"></button>
+<nav class="bnav" id="bnav"></nav>
+<div id="modal"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+const $=(s,r=document)=>r.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function rng(seed){let s=(seed*2654435761)>>>0||1;return()=>(s=(s*1664525+1013904223)>>>0)/4294967296}
+const fmtUsd=n=>n>=1e9?'$'+(n/1e9).toFixed(2)+'B':n>=1e6?'$'+(n/1e6).toFixed(2)+'M':n>=1e3?'$'+(n/1e3).toFixed(n<1e4?1:0)+'K':'$'+n.toFixed(2);
+const fmtPrice=p=>p>=1?'$'+p.toLocaleString(undefined,{maximumFractionDigits:2}):p>=0.01?'$'+p.toFixed(4):'$'+p.toPrecision(3);
+const fmtPct=n=>(n>=0?'+':'−')+(Math.abs(n)>=1000?Math.round(Math.abs(n)).toLocaleString():Math.abs(n).toFixed(1))+'%';
+const fmtAmt=n=>n>=1e6?(n/1e6).toFixed(2)+'M':n>=1000?Math.round(n).toLocaleString():(+n).toLocaleString(undefined,{maximumFractionDigits:4});
+const fmtK=n=>n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1).replace('.0','')+'K':String(n);
+const short=a=>a.slice(0,4)+'…'+a.slice(-4);
+const hue=s=>{let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))%360;return h};
+const avatar=(h,cls='')=>`<span class="av ${cls}" style="background:hsl(${(hue(h)%120)+220} 55% 48%)">${esc(h.slice(0,2).toUpperCase())}</span>`;
+const tokav=s=>`<span class="tokav" style="background:hsl(${hue(s)} 58% 45%)">${esc(s.slice(0,3))}</span>`;
+
+const P={
+ home:'<path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/>',
+ market:'<path d="M5 20V11M12 20V5M19 20v-8"/>',
+ trenches:'<path d="M12 3c1 4 5 5.5 5 10a5 5 0 01-10 0c0-2.7 1.6-4 2-6 1 1.2 2 2 3 2 0-2.5-.8-4 0-6z"/>',
+ swap:'<path d="M7 4v14M7 18l-3-3M7 18l3-3M17 20V6M17 6l-3 3M17 6l3 3"/>',
+ stake:'<path d="M12 4l9 5-9 5-9-5 9-5zM3 14l9 5 9-5"/>',
+ wallet:'<rect x="3" y="6" width="18" height="13" rx="3"/><path d="M16 12.5h2"/>',
+ profile:'<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>',
+ messages:'<path d="M4 5h16v11H9l-5 4V5z"/>',
+ news:'<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9h8M8 13h8M8 17h5"/>',
+ promote:'<path d="M3 10v4l3 .5V9.5L3 10zM6 9.5l11-5v15l-11-5M9 15l1.5 5h3l-1-4.2"/>',
+ about:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>',
+ leaderboard:'<path d="M8 4h8v5a4 4 0 01-8 0V4zM8 6H5a3 3 0 003 4M16 6h3a3 3 0 01-3 4M12 13v4M8 20h8"/>',
+ search:'<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
+ settings:'<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
+ bell:'<path d="M6 16v-5a6 6 0 0112 0v5l2 2H4l2-2zM10 21h4"/>',
+ sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+ chev:'<path d="M15 6l-6 6 6 6"/>',
+ menu:'<path d="M4 6h16M4 12h16M4 18h16"/>',
+ plus:'<path d="M12 5v14M5 12h14"/>',
+ reply:'<path d="M4 5h16v11H9l-5 4V5z"/>',
+ repost:'<path d="M4 9h13l-3-3M20 15H7l3 3"/>',
+ heart:'<path d="M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z"/>',
+ views:'<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+ share:'<path d="M12 4v11M7 9l5-5 5 5M5 20h14"/>',
+ star:'<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>',
+ copy:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 00-1-1H5a1 1 0 00-1 1v10a1 1 0 001 1h3"/>',
+ x:'<path d="M6 6l12 12M18 6L6 18"/>'
+};
+const ic=(k,s=22,fill=false)=>`<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="${fill?'currentColor':'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[k]}</svg>`;
+
+/* ---------- mock data ---------- */
+const T={
+ SOL:{sym:'SOL',name:'Solana',chain:'Solana',price:142.3,supply:0,chg:1.2,ca:'So11111111111111111111111111111111111111112',seed:1,base:true},
+ USDC:{sym:'USDC',name:'USD Coin',chain:'Solana',price:1,supply:0,chg:0,ca:'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',seed:2,base:true},
+ GLORP:{sym:'GLORP',name:'Glorp',chain:'Solana',price:0.00184,supply:1e9,liq:212e3,vol:3.1e6,holders:4120,age:'3 days',ageH:72,chg:38.2,ca:'7xKpQ2mZr8Hc3vLwN5aYt1BfGdE9sUoJk4XqP6G1rP',seed:3},
+ MOTH:{sym:'MOTH',name:'Lampmoth',chain:'Solana',price:0.000412,supply:1e9,liq:98e3,vol:840e3,holders:1880,age:'19 hours',ageH:19,chg:-12.4,ca:'4hRtW9cVn2LkQ8sPzJ3mYbX7aE5uFdG1oK6iNtM0tH',seed:7},
+ KFSH:{sym:'KFSH',name:'Kingfish',chain:'Solana',price:0.0214,supply:1e9,liq:1.2e6,vol:5.8e6,holders:15300,age:'41 days',ageH:984,chg:6.8,ca:'9KfShX2pLm4Qr7tVw1ZyN8bC3dE5gH6jK0aS9uFiSh',seed:11},
+ DOTB:{sym:'DOTB',name:'dotbook',chain:'Solana',price:0.0000524,supply:1e9,liq:31e3,vol:210e3,holders:640,age:'6 hours',ageH:6,chg:112.5,ca:'5dOtBkQ7mN2pLx9vR4sW1cZ8yT3uE6gH0jK5aF2dOt',seed:13},
+ ORBIT:{sym:'ORBIT',name:'Orbit Protocol',chain:'Base',price:0.37,supply:1e8,liq:2.4e6,vol:1.1e6,holders:9800,age:'120 days',ageH:2880,chg:3.1,ca:'0x4f1a9c2b7e3d8f6a5b0c1d2e3f4a5b6c7d8e9f0a',seed:5},
+ NEBU:{sym:'NEBU',name:'Nebula',chain:'Ethereum',price:0,supply:0,chg:0,prelaunch:'Oct 14',ca:'0xnebula-prelaunch',seed:9}
+};
+const mcap=t=>t.price*t.supply;
+const C={
+ fadedpixel:{h:'fadedpixel',win:68,avg:142,calls:57,best:2140,followers:12400},
+ lagosape:{h:'lagosape',win:61,avg:97,calls:83,best:1310,followers:8900},
+ minnie_sol:{h:'minnie_sol',win:58,avg:88,calls:40,best:960,followers:5100},
+ dr_liquidity:{h:'dr_liquidity',win:54,avg:61,calls:112,best:720,followers:15800},
+ quietmoney:{h:'quietmoney',win:51,avg:44,calls:29,best:410,followers:2300},
+ zerobeta:{h:'zerobeta',win:47,avg:33,calls:66,best:380,followers:1900}
+};
+let calls=[
+ {id:1,c:'fadedpixel',t:'GLORP',entry:412e3,thesis:'Dev locked LP, community took over the X account, and holders doubled overnight. Early for a coin this clean.',target:5e6,horizon:'7 days',ago:'2h',likes:214,reposts:41,replies:38,views:18200},
+ {id:4,sponsored:true,sponsor:'Nebula',c:'lagosape',t:'NEBU',thesis:'Nebula opens its public sale on Ethereum Oct 14. Intent-based bridging with a working testnet and a 40k waitlist.',ago:'3h',likes:88,reposts:17,replies:12,views:9400},
+ {id:7,c:'minnie_sol',t:'DOTB',entry:24.5e3,thesis:'6 hours old, dev still in the chat, and the art is actually good. Tiny bag, big upside.',target:500e3,horizon:'3 days',ago:'4h',likes:52,reposts:9,replies:14,views:5100},
+ {id:2,c:'lagosape',t:'KFSH',entry:9.8e6,thesis:'Survived two dumps and still printing higher lows. Volume is real, not wash.',target:50e6,horizon:'30 days',ago:'5h',likes:131,reposts:22,replies:22,views:11800},
+ {id:3,c:'minnie_sol',t:'MOTH',entry:520e3,thesis:'Fresh deployer wallet, top 10 holders under 20%. Small bet, fast exit if it loses $300K.',target:3e6,horizon:'3 days',ago:'8h',likes:47,reposts:5,replies:9,views:3900},
+ {id:5,c:'dr_liquidity',t:'ORBIT',entry:31e6,thesis:'Base lending market with sticky TVL. Token unlock is behind us. Slow grind, not a flip.',target:80e6,horizon:'30 days',ago:'1d',likes:76,reposts:11,replies:14,views:7300},
+ {id:6,c:'quietmoney',t:'GLORP',entry:1.1e6,thesis:'Late, but the chart says there is room. Following the smart wallets in.',target:4e6,horizon:'3 days',ago:'1d',likes:19,reposts:2,replies:4,views:1600}
+];
+const S={connected:false,addr:'',me:'',tab:'foryou',tf:'1D',lb:'30d',following:new Set(),tracking:new Set(['GLORP','ORBIT']),
+ bal:{SOL:4.2,USDC:310,GLORP:120000},activity:[{k:'Received',d:'2 SOL',t:'Yesterday'}],
+ swap:{from:'SOL',to:'GLORP',amt:''},pkg:'boost',queued:[],unread:true};
+
+/* ---------- helpers ---------- */
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2200)}
+function copy(txt,msg='Copied'){navigator.clipboard?.writeText(txt).catch(()=>{});toast(msg)}
+const perf=k=>{const t=T[k.t];return t.prelaunch?null:(mcap(t)/k.entry-1)*100};
+function chart(seed,up,w=600,h=190){const r=rng(seed);let y=up?.25:.75,p=[];for(let i=0;i<72;i++){y+=(r()-.5)*.11+(up?.008:-.008);y=Math.min(.95,Math.max(.05,y));p.push(y)}
+ const d=p.map((v,i)=>`${i?'L':'M'}${(i/71*w).toFixed(1)},${(h-v*h).toFixed(1)}`).join('');
+ return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" class="chart" role="img" aria-label="Price chart"><path d="${d}L${w},${h}L0,${h}Z" class="area ${up?'up':'down'}"/><path d="${d}" class="line ${up?'up':'down'}"/></svg>`}
+function qr(seed){const r=rng(seed),n=21,c=9;let o='';const f=(x,y)=>(x<7&&y<7)||(x>13&&y<7)||(x<7&&y>13);
+ for(let y=0;y<n;y++)for(let x=0;x<n;x++){const on=f(x,y)?((x%14===0||x%14===6||y%14===0||y%14===6)||(x%14>1&&x%14<5&&y%14>1&&y%14<5)):r()>.5;if(on)o+=`<rect x="${x*c}" y="${y*c}" width="${c}" height="${c}"/>`}
+ return `<svg viewBox="0 0 ${n*c} ${n*c}" width="180" height="180" style="background:#fff;padding:10px;border-radius:14px" fill="#130D3A">${o}</svg>`}
+const ranked=()=>Object.values(C).filter(c=>c.calls>=10).sort((a,b)=>b.win-a.win||b.avg-a.avg);
+const rankOf=h=>{const i=ranked().findIndex(c=>c.h===h);return i<0?null:i+1};
+const usd=(s,a)=>T[s].price*a;
+const tradable=t=>t.chain==='Solana'&&!t.prelaunch;
+
+/* ---------- post (X layout + pump call card) ---------- */
+function post(k){const t=T[k.t],p=perf(k),r=rankOf(k.c);
+ const right=p===null?`<div class="cr"><b>Soon</b><span>Launches ${esc(t.prelaunch)}</span></div>`
+  :`<div class="cr"><b class="num ${p>=0?'up':'down'}" data-perf="${k.id}">${fmtPct(p)}</b><span class="num" data-now="${k.id}">${fmtUsd(k.entry)} to ${fmtUsd(mcap(t))} MC</span></div>`;
+ return `<article class="post${k.fresh?' fresh':''}">
+ <a href="#/profile/${k.c}" aria-label="@${esc(k.c)}">${avatar(k.c,'md')}</a>
+ <div style="min-width:0">
+  <div class="phead"><a class="pname" href="#/profile/${k.c}">${esc(k.c)}</a>${r&&!k.sponsored?`<span class="rk">#${r}</span>`:''}${k.sponsored?'<span class="tag">Sponsored</span>':''}<time>${k.ago==='now'?'now':k.ago+' ago'}</time></div>
+  <p class="ptext">${esc(k.thesis)}</p>
+  <a class="ccard" href="#/token/${t.sym}">${tokav(t.sym)}<div class="cn"><b>${esc(t.name)}</b><span>$${t.sym} <span class="chain">${t.chain}</span></span></div>${right}</a>
+  ${k.sponsored?`<div class="pnote">Paid promotion by ${esc(k.sponsor)}. Not counted in rankings.</div>`:k.target?`<div class="pnote">Target ${fmtUsd(k.target)} within ${esc(k.horizon)}</div>`:''}
+  <div class="pbar"><div class="icons">
+   <button class="act" data-act="reply" aria-label="Reply">${ic('reply',18)}<span class="num">${k.replies||''}</span></button>
+   <button class="act${k.reposted?' reposted':''}" data-act="repost" data-id="${k.id}" aria-label="Repost">${ic('repost',18)}<span class="num">${k.reposts||''}</span></button>
+   <button class="act${k.liked?' liked':''}" data-act="like" data-id="${k.id}" aria-label="Like">${ic('heart',18,k.liked)}<span class="num">${k.likes||''}</span></button>
+   <span class="act views" aria-label="Views">${ic('views',18)}<span class="num">${fmtK(k.views||0)}</span></span>
+   <button class="act" data-act="share" data-id="${k.id}" aria-label="Share">${ic('share',18)}</button></div>
+   ${tradable(t)?`<a class="btn primary sm" href="#/token/${t.sym}">Buy</a>`:''}
+  </div></div></article>`}
+
+/* ---------- swap widget ---------- */
+function swapHTML(){const w=S.swap,f=T[w.from],t=T[w.to],a=parseFloat(w.amt)||0,out=a?usd(w.from,a)*.995/t.price:0;
+ const opts=sel=>Object.values(T).filter(tradable).map(x=>`<option ${x.sym===sel?'selected':''}>${x.sym}</option>`).join('');
+ let label='Swap',dis=false;
+ if(!S.connected)label='Connect wallet';else if(!a){label='Enter an amount';dis=true}else if(a>(S.bal[w.from]||0)){label=`Not enough ${w.from}`;dis=true}
+ return `<div class="swap"><div class="box"><div class="row"><span class="hint">You pay</span><span class="hint num">Balance ${fmtAmt(S.bal[w.from]||0)}</span></div>
+  <div class="row"><input class="amt num" inputmode="decimal" placeholder="0" value="${esc(w.amt)}" data-swap="amt" aria-label="Amount to pay"><select data-swap="from" aria-label="Pay token">${opts(w.from)}</select></div>
+  <div class="hint num">${a?fmtUsd(usd(w.from,a)):'$0'}</div></div>
+  <button class="flip" data-act="flip" aria-label="Flip tokens">${ic('swap',16)}</button>
+  <div class="box"><div class="row"><span class="hint">You get</span><span class="hint num">Balance ${fmtAmt(S.bal[w.to]||0)}</span></div>
+  <div class="row"><div class="amt num">${out?fmtAmt(out):'0'}</div><select data-swap="to" aria-label="Receive token">${opts(w.to)}</select></div></div>
+  <div class="lines num"><div><span>Rate</span><span>1 ${f.sym} = ${fmtAmt(f.price/t.price)} ${t.sym}</span></div><div><span>Callit fee</span><span>0.5% (placeholder)</span></div><div><span>Max slippage</span><span>1%</span></div><div><span>Route</span><span>Jupiter</span></div></div>
+  <button class="btn primary block" data-act="${S.connected?'doswap':'connect'}" ${dis?'disabled':''}>${label}</button></div>`}
+const renderSwaps=()=>document.querySelectorAll('[data-swapbox]').forEach(el=>el.innerHTML=swapHTML());
+
+/* ---------- views ---------- */
+function vHome(){let list=calls,empty='';
+ if(S.tab==='following'){list=calls.filter(k=>S.following.has(k.c));
+  empty=`<div class="pad"><div class="empty" style="padding:28px 12px 8px"><b class="h2">Follow callers you trust</b><p>Their calls land here the moment they post.</p></div>
+  ${ranked().slice(0,4).map(c=>`<div class="sugg">${avatar(c.h,'md')}<div class="grow"><a class="pname" href="#/profile/${c.h}">${c.h}</a><div class="hint">${c.win}% win rate over ${c.calls} calls</div></div><button class="btn sm primary" data-act="follow" data-h="${c.h}">Follow</button></div>`).join('')}</div>`}
+ if(S.tab==='tracking'){list=calls.filter(k=>S.tracking.has(k.t));
+  empty=`<div class="empty"><b class="h2">Track tokens you care about</b><p>Tap the star on any token page. Every new call on it shows up here.</p><a class="btn primary" href="#/market">Browse market</a></div>`}
+ return `<div class="tabs" role="tablist">${[['foryou','For you'],['following','Following'],['tracking','Tracking']].map(([k,l])=>`<button role="tab" aria-selected="${S.tab===k}" class="${S.tab===k?'on':''}" data-act="tab" data-f="${k}">${l}</button>`).join('')}</div>
+ <div class="newpill" id="newpill">${S.queued.length&&S.tab==='foryou'?newPill():''}</div>
+ <div id="feed">${list.map(post).join('')||empty}</div>`}
+const newPill=()=>`<button data-act="shownew">${S.queued.slice(0,2).map(k=>avatar(k.c)).join('')}<span style="margin-left:${S.queued.length>1?-8:0}px"></span>New calls</button>`;
+
+function vMarket(){const rows=Object.values(T).filter(t=>!t.base);
+ return `<div class="tablewrap"><table><thead><tr><th>Token</th><th>Price</th><th>Market cap</th><th>24h</th><th>Calls</th><th></th></tr></thead><tbody>
+ ${rows.map(t=>`<tr data-go="#/token/${t.sym}"><td><div class="person">${tokav(t.sym)}<div>${esc(t.name)}<div class="hint">$${t.sym} <span class="chain">${t.chain}</span></div></div></div></td>
+ <td class="num">${t.prelaunch?'—':fmtPrice(t.price)}</td><td class="num">${t.prelaunch?'Launches '+t.prelaunch:fmtUsd(mcap(t))}</td><td class="num ${t.chg>=0?'up':'down'}">${t.prelaunch?'':fmtPct(t.chg)}</td><td class="num">${calls.filter(k=>k.t===t.sym).length}</td>
+ <td><button class="ib" data-act="track" data-t="${t.sym}" aria-label="Track ${t.sym}" style="color:${S.tracking.has(t.sym)?'var(--indigo)':'var(--muted)'}">${ic('star',20,S.tracking.has(t.sym))}</button></td></tr>`).join('')}</tbody></table></div>`}
+
+function vTrenches(){const fresh=Object.values(T).filter(t=>t.ageH&&t.ageH<=168).sort((a,b)=>a.ageH-b.ageH);
+ return `<div class="pad"><p class="muted" style="margin:0 0 6px">Tokens under 7 days old, newest first. High risk.</p><div class="list">
+ ${fresh.map(t=>`<a class="li" href="#/token/${t.sym}">${tokav(t.sym)}<div class="grow"><b>${esc(t.name)}</b> <span class="hint">$${t.sym}</span><div class="hint">${t.age} old with ${t.holders.toLocaleString()} holders</div></div><div class="r num"><b>${fmtUsd(mcap(t))}</b><div class="hint ${t.chg>=0?'up':'down'}">${fmtPct(t.chg)}</div></div></a>`).join('')}</div></div>`}
+
+function vSwap(){return `<div class="pad"><div class="card" style="max-width:460px;margin:0 auto"><h3>Swap</h3><div data-swapbox></div></div></div>`}
+
+function soon(title,text){return `<div class="soon"><span class="mark">${ic('promote',26)}</span><b class="h2">${title}</b><p>${text}</p></div>`}
+
+function vToken(sym){const t=T[sym];if(!t)return vHome();const on=calls.filter(k=>k.t===sym),tr=S.tracking.has(sym);
+ const head=`<div class="pad" style="padding-bottom:0"><div style="display:flex;align-items:center;gap:12px">${tokav(t.sym)}<div style="flex:1;min-width:0"><b class="h2">${esc(t.name)}</b> <span class="muted">$${t.sym}</span><div><span class="chain">${t.chain}</span> <button class="copyca" data-act="copy" data-v="${esc(t.ca)}">${short(t.ca)} ${ic('copy',13)}</button></div></div>
+ <button class="btn sm ${tr?'primary':'ghost'}" data-act="track" data-t="${sym}">${ic('star',15,tr)} ${tr?'Tracking':'Track'}</button></div>`;
+ if(t.prelaunch)return head+`<div class="card" style="margin-top:16px">Launches ${esc(t.prelaunch)}. Trading opens after launch.${t.chain!=='Solana'?` In-app trading for ${t.chain} tokens isn't available yet.`:''}</div></div><div id="feed" style="margin-top:12px;border-top:1px solid var(--line)">${on.map(post).join('')}</div>`;
+ const up=t.chg>=0;
+ return head+`<div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:16px 0 10px"><span class="price num" data-price="${sym}">${fmtPrice(t.price)}</span><b class="num ${up?'up':'down'}">${fmtPct(t.chg)} today</b>
+ <div class="seg" style="margin-left:auto">${['1H','1D','1W','1M'].map(x=>`<button class="${S.tf===x?'on':''}" data-act="tf" data-f="${x}">${x}</button>`).join('')}</div></div>
+ ${chart(t.seed*7+S.tf.charCodeAt(1)*3,up)}
+ <div class="stats num"><div><span>Market cap</span><b>${fmtUsd(mcap(t))}</b></div><div><span>Liquidity</span><b>${fmtUsd(t.liq)}</b></div><div><span>24h volume</span><b>${fmtUsd(t.vol)}</b></div><div><span>Holders</span><b>${t.holders.toLocaleString()}</b></div><div><span>Age</span><b>${t.age}</b></div></div>
+ ${tradable(t)?`<div class="card"><h3>Trade $${t.sym}</h3><div data-swapbox></div></div>`:`<div class="card">In-app trading for ${t.chain} tokens isn't available yet. You can still call and track it.</div>`}
+ <div style="display:flex;justify-content:space-between;align-items:center;margin:22px 0 4px"><b class="h2">Calls on $${t.sym}</b><button class="btn sm primary" data-act="newcall" data-t="${sym}">Call it</button></div></div>
+ <div id="feed" style="border-top:1px solid var(--line);margin-top:10px">${on.map(post).join('')||'<div class="empty"><b>No calls yet</b><p>Call it first and your entry gets stamped at today’s market cap.</p></div>'}</div>`}
+
+function vLeaders(){return `<div class="pad" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><span class="muted">Ranked by win rate. Minimum 10 calls. Sponsored calls don't count.</span>
+ <div class="seg">${['7d','30d','All time'].map(x=>`<button class="${S.lb===x?'on':''}" data-act="lb" data-f="${x}">${x}</button>`).join('')}</div></div>
+ <div class="tablewrap" style="border-top:1px solid var(--line)"><table><thead><tr><th>Rank</th><th>Caller</th><th>Win rate</th><th>Avg return</th><th>Calls</th><th>Best call</th><th></th></tr></thead><tbody>
+ ${ranked().map((c,i)=>`<tr data-go="#/profile/${c.h}"><td class="rkc">${i+1}</td><td><div class="person">${avatar(c.h)}${c.h}</div></td><td class="num">${c.win}%</td><td class="num up">${fmtPct(c.avg)}</td><td class="num">${c.calls}</td><td class="num up">${fmtPct(c.best)}</td>
+ <td><button class="btn sm ${S.following.has(c.h)?'ghost':'primary'}" data-act="follow" data-h="${c.h}">${S.following.has(c.h)?'Following':'Follow'}</button></td></tr>`).join('')}</tbody></table></div>
+ <p class="hint pad">A call wins if it hits its target, or is up at least 50% when its time window closes.</p>`}
+
+function vWallet(){if(!S.connected)return `<div class="empty"><b class="h2">No wallet connected</b><p>Sign in with email, Google or X and we create a wallet for you. Or connect Phantom, Solflare or Backpack. You always hold your own keys.</p><button class="btn primary" data-act="connect">Connect wallet</button></div>`;
+ const rows=Object.entries(S.bal).filter(([,a])=>a>0),tot=rows.reduce((s,[k,a])=>s+usd(k,a),0);
+ return `<div class="pad"><div class="muted">Total balance</div><div class="bal num">${fmtUsd(tot)}</div>
+ <button class="copyca" style="margin-top:10px" data-act="copy" data-v="${S.addr}">${short(S.addr)} ${ic('copy',13)}</button>
+ <div class="acts3"><button class="btn" data-act="send">Send</button><button class="btn" data-act="receive">Receive</button><a class="btn primary" href="#/swap">Swap</a></div>
+ <div class="list">${rows.map(([k,a])=>`<a class="li" href="#/token/${k}">${tokav(k)}<div class="grow"><b>${T[k].name}</b><div class="hint num">${fmtAmt(a)} ${k}</div></div><div class="r num"><b>${fmtUsd(usd(k,a))}</b><div class="hint ${T[k].chg>=0?'up':'down'}">${fmtPct(T[k].chg)}</div></div></a>`).join('')}</div>
+ <b class="h2" style="display:block;margin:22px 0 4px">Activity</b><div class="list">${S.activity.map(a=>`<div class="li"><div class="grow"><b>${a.k}</b><div class="hint">${a.t}</div></div><div class="r num">${esc(a.d)}</div></div>`).join('')}</div></div>`}
+
+function vProfile(h){if(!h&&S.connected)h=S.me;const c=C[h];
+ if(!c)return `<div class="empty"><b class="h2">Your profile</b><p>Connect a wallet to create your caller profile and start building a track record.</p><button class="btn primary" data-act="connect">Connect wallet</button></div>`;
+ const mine=calls.filter(k=>k.c===h),me=h===S.me,r=rankOf(h),f=S.following.has(h);
+ return `<div class="banner"></div><div class="phero"><div class="top">${avatar(h,'lg')}${me?'<button class="btn ghost sm" data-act="settings">Edit profile</button>':`<button class="btn sm ${f?'ghost':'primary'}" data-act="follow" data-h="${h}">${f?'Following':'Follow'}</button>`}</div>
+ <b class="h2" style="display:block;margin-top:10px">${esc(h)}</b><div class="muted">@${esc(h)}</div>
+ <p class="muted" style="margin:8px 0 0">${r?`Ranked #${r}`:'Not ranked yet. 10 calls to qualify.'} <b style="color:var(--text)">${fmtK(c.followers+(f?1:0))}</b> followers</p>
+ <div class="pstats num"><div><span>Win rate</span><b>${c.calls?c.win+'%':'—'}</b></div><div><span>Avg return</span><b>${c.calls?fmtPct(c.avg):'—'}</b></div><div><span>Calls</span><b>${c.calls}</b></div><div><span>Best call</span><b>${c.best?fmtPct(c.best):'—'}</b></div></div></div>
+ <div class="tabs" style="position:static"><button class="on">Calls</button></div>
+ <div id="feed">${mine.map(post).join('')||`<div class="empty"><b>No calls yet</b>${me?'<p>Your calls and their performance show up here.</p><button class="btn primary" data-act="newcall">Make a call</button>':''}</div>`}</div>`}
+
+function vPromote(){const PK={boost:['Feed boost','Pinned in For you for 24 hours.'],spotlight:['Caller spotlight','One top-10 caller covers your project.'],launch:['Launch push','Three top callers cover your launch day.']};
+ return `<div class="pad"><p class="muted" style="margin:0 0 16px;max-width:560px">Announce a launch or product on any chain. Promotions are labelled sponsored and never count toward a caller's ranking.</p>
+ <div class="field"><label for="pn">Project name</label><input id="pn" class="input" placeholder="e.g. Nebula"></div>
+ <div class="field"><label for="pc">Chain</label><select id="pc" class="input">${['Solana','Base','Ethereum','BNB Chain','Arbitrum','Other'].map(x=>`<option>${x}</option>`).join('')}</select></div>
+ <div class="field"><label for="pl">Contract address or website</label><input id="pl" class="input" placeholder="Paste a CA or https://"></div>
+ <div class="field"><label for="pd">Launch date (optional)</label><input id="pd" type="date" class="input"></div>
+ <div class="field"><label for="pp">What should people know?</label><textarea id="pp" class="input" maxlength="400" placeholder="What it does, why now, where to follow"></textarea></div>
+ <div class="field"><label>Package</label><div class="pkgs">${Object.entries(PK).map(([k,[a,b]])=>`<button class="pkg ${S.pkg===k?'on':''}" data-act="pkg" data-f="${k}" style="text-align:left"><b>${a}</b><p>${b}</p><p style="margin-top:8px">Pricing set before launch</p></button>`).join('')}</div></div>
+ <div id="perr" class="err"></div><button class="btn primary" data-act="submitpromo">Send promotion request</button></div>`}
+
+function vAbout(){return `<div class="prose"><b class="h2" style="display:block;margin-bottom:12px">Call it early. Get paid for being right.</b>
+ <p>Callit is where crypto calls get tracked. Every call is stamped with the market cap at the moment it's posted, then followed live, so a caller's record is public and can't be edited.</p>
+ <p>Callers earn a share of fees when people trade through their calls. Projects on any chain can promote launches through top callers, always labelled as sponsored.</p>
+ <p>Wallets are non-custodial. Sign in with email, Google or X, or bring Phantom, Solflare or Backpack.</p></div>`}
+
+/* ---------- rail ---------- */
+function rail(){const trend=Object.values(T).filter(t=>!t.base&&!t.prelaunch).sort((a,b)=>b.chg-a.chg).slice(0,4);
+ return `<div class="card"><h3>Trending</h3><div class="list">${trend.map(t=>`<a class="li" href="#/token/${t.sym}">${tokav(t.sym)}<div class="grow"><b>$${t.sym}</b><div class="hint">${(n=>n+(n===1?' call':' calls'))(calls.filter(k=>k.t===t.sym).length)}</div></div><div class="r num"><b>${fmtUsd(mcap(t))}</b><div class="hint ${t.chg>=0?'up':'down'}">${fmtPct(t.chg)}</div></div></a>`).join('')}</div></div>
+ <div class="card"><h3>Top callers</h3><div class="list">${ranked().slice(0,4).map(c=>`<div class="li">${avatar(c.h)}<div class="grow"><a class="pname" href="#/profile/${c.h}">${c.h}</a><div class="hint">${c.win}% win rate</div></div><button class="btn sm ${S.following.has(c.h)?'ghost':'primary'}" data-act="follow" data-h="${c.h}">${S.following.has(c.h)?'Following':'Follow'}</button></div>`).join('')}</div>
+ <a class="btn ghost block" style="margin-top:10px" href="#/leaderboard">See leaderboard</a></div>`}
+
+/* ---------- chrome ---------- */
+const NAV_A=[['home','Home'],['market','Market'],['trenches','Trenches'],['swap','Swap'],['stake','Stake'],['wallet','Wallet'],['profile','Profile']];
+const NAV_B=[['messages','Messages'],['news','News'],['promote','Promote'],['about','About'],['leaderboard','Leaderboard']];
+const TITLES=Object.fromEntries([...NAV_A,...NAV_B,['token','Token']]);
+function chrome(route){const link=([k,l])=>`<a href="#/${k}" class="${route===k?'on':''}" title="${l}">${ic(k)}<span class="lbl">${l}</span></a>`;
+ $('#navA').innerHTML=NAV_A.map(link).join('');$('#navB').innerHTML=NAV_B.map(link).join('');
+ $('#acct').innerHTML=S.connected?`<button class="acct" data-act="disconnect" title="Disconnect">${avatar(S.me)}<span class="lbl" style="min-width:0"><b style="display:block">${esc(S.me)}</b><span class="hint num">${short(S.addr)}</span></span></button>`
+  :`<button class="btn primary connect" data-act="connect" title="Connect wallet">${ic('wallet',20)}<span class="lbl">Connect wallet</span></button>`;
+ $('#pill').innerHTML=`<button class="ib" data-act="me" aria-label="Profile">${S.connected?avatar(S.me).replace('class="av ','class="av " style="width:32px;height:32px;font-size:11px;'):ic('profile')}</button>
+  <button class="ib" data-act="notifs" aria-label="Notifications">${ic('bell')}${S.unread?'<span class="dotn"></span>':''}</button>
+  <button class="ib" data-act="theme" aria-label="Switch theme">${ic('sun')}</button>`;
+ $('#bnav').innerHTML=`<div class="bar">${[['home','Home'],['market','Market'],['leaderboard','Leaderboard'],['wallet','Wallet']].map(([k,l])=>`<a href="#/${k}" class="${route===k?'on':''}" aria-label="${l}">${ic(k,24)}</a>`).join('')}</div><button class="sq" data-act="search" aria-label="Search" style="display:grid;place-items:center;border-radius:50%">${ic('search',24)}</button>`;
+ $('#title').textContent=TITLES[route]||'Home'}
+
+function render(){document.body.classList.remove('drawer');const [,r0='home',p]=location.hash.split('/');const r=r0||'home';let html;
+ if(r==='token'){const t=T[p];if(t&&tradable(t)&&p!==S.swap.from)S.swap.to=p;html=vToken(p)}
+ else html=({market:vMarket,trenches:vTrenches,swap:vSwap,wallet:vWallet,profile:()=>vProfile(p),leaderboard:vLeaders,promote:vPromote,about:vAbout,
+  stake:()=>soon('Staking opens with $CALLIT','Stake $CALLIT to unlock premium calls and discounted project promotions. Launching after the product is live on mainnet.'),
+  messages:()=>soon('Messages are coming','Direct messages and token chat rooms arrive in the chat phase.'),
+  news:()=>soon('News is coming','Launch announcements, listings and market news in one place.')}[r]||vHome)();
+ $('#view').innerHTML=html;$('#rail').innerHTML=rail();chrome(r);renderSwaps()}
+
+/* ---------- modals ---------- */
+function modal(title,sub,body,onMount){$('#modal').innerHTML=`<div class="scrim" data-act="close"><div class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="mhead"><div><h2>${title}</h2>${sub?`<p class="sub">${sub}</p>`:''}</div><button class="ib" data-act="close" aria-label="Close">${ic('x',18)}</button></div>${body}</div></div>`;
+ onMount&&onMount($('#modal .modal'));const f=$('#modal input,#modal textarea');f&&f.focus()}
+const closeModal=()=>$('#modal').innerHTML='';
+
+function connectModal(next){modal('Sign in to Callit','New here? We create a Solana wallet for you. You own the keys.',
+ `${['Email','Google','X'].map(l=>`<button class="opt" data-connect="${l}"><span class="tokav" style="background:var(--indigo)">${l[0]}</span>Continue with ${l}</button>`).join('')}
+ <div class="divider">or use your own wallet</div>${['Phantom','Solflare','Backpack'].map(w=>`<button class="opt" data-connect="${w}">${tokav(w)}${w}</button>`).join('')}`,
+ m=>m.addEventListener('click',e=>{const b=e.target.closest('[data-connect]');if(!b)return;
+  S.connected=true;S.addr='CaLL'+Math.random().toString(36).slice(2,10)+'x9Qp2HkWm4Tz7VbN1sRdE3';S.me='caller_'+S.addr.slice(4,8);
+  C[S.me]={h:S.me,win:0,avg:0,calls:0,best:0,followers:0};closeModal();
+  toast(['Phantom','Solflare','Backpack'].includes(b.dataset.connect)?`${b.dataset.connect} connected`:'Wallet created');render();next&&next()}))}
+
+function callModal(pre){if(!S.connected)return connectModal(()=>callModal(pre));
+ modal('Make a call','Your entry is stamped automatically at the live market cap when you post.',
+ `<div class="field"><label for="ct">Token</label><input id="ct" class="input" placeholder="Paste a contract address or ticker" value="${pre?'$'+pre:''}"></div><div id="cprev"></div>
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="field"><label for="cg">Target market cap</label><input id="cg" class="input num" inputmode="decimal" placeholder="e.g. 5M"></div>
+ <div class="field"><label for="ch">Time window</label><select id="ch" class="input">${['24 hours','3 days','7 days','30 days'].map(x=>`<option ${x==='7 days'?'selected':''}>${x}</option>`).join('')}</select></div></div>
+ <div class="field"><label for="cx">Why this token?</label><textarea id="cx" class="input" maxlength="280" placeholder="Your thesis. What do you see that others don't?"></textarea><span class="hint" id="cn">0 / 280</span></div>
+ <div class="err" id="cerr"></div><button class="btn primary block" id="cpost" disabled>Post call</button>`,
+ m=>{let tok=null;const inp=$('#ct',m),tx=$('#cx',m),post=$('#cpost',m);
+  const check=()=>{$('#cn',m).textContent=tx.value.length+' / 280';post.disabled=!(tok&&!tok.prelaunch&&tx.value.trim().length>=10)};
+  const find=()=>{const v=inp.value.trim().replace(/^\$/,'').toUpperCase();tok=Object.values(T).find(t=>!t.base&&(t.sym===v||t.ca.toUpperCase()===v))||null;
+   $('#cprev',m).innerHTML=tok?`<div class="preview">${tokav(tok.sym)}<div style="flex:1"><b>${esc(tok.name)} $${tok.sym}</b> <span class="chain">${tok.chain}</span><div class="hint num">${tok.prelaunch?'Launches '+esc(tok.prelaunch)+'. Calls open at launch.':'Entry would be '+fmtUsd(mcap(tok))+' MC'}</div></div></div>`:(v?'<p class="hint" style="margin-top:-6px">No token found. Try GLORP, DOTB, MOTH, KFSH or ORBIT in this prototype.</p>':'');check()};
+  inp.addEventListener('input',find);tx.addEventListener('input',check);find();
+  post.addEventListener('click',()=>{const g=$('#cg',m).value.trim().toUpperCase(),n=parseFloat(g)*(g.endsWith('B')?1e9:g.endsWith('M')?1e6:g.endsWith('K')?1e3:1);
+   if(g&&!(n>mcap(tok))){$('#cerr',m).textContent='Target must be above the current market cap of '+fmtUsd(mcap(tok))+'.';return}
+   calls.forEach(k=>k.fresh=false);calls.unshift({id:Date.now(),c:S.me,t:tok.sym,entry:mcap(tok),thesis:tx.value.trim(),target:n||null,horizon:$('#ch',m).value,ago:'now',likes:0,reposts:0,replies:0,views:1,fresh:true});
+   C[S.me].calls++;closeModal();S.tab='foryou';if(location.hash!=='#/home')location.hash='#/home';else render();toast('Call posted');scrollTo({top:0})})})}
+
+function searchModal(){modal('Search','',`<input class="input" id="sq" placeholder="Search tokens, tickers or callers"><div class="list" id="sres" style="margin-top:8px"></div>`,
+ m=>{const run=()=>{const q=$('#sq',m).value.trim().toLowerCase().replace(/^[$@]/,'');
+  const toks=Object.values(T).filter(t=>!t.base&&(!q||t.sym.toLowerCase().includes(q)||t.name.toLowerCase().includes(q))).slice(0,5);
+  const ppl=Object.values(C).filter(c=>!q||c.h.includes(q)).slice(0,4);
+  $('#sres',m).innerHTML=toks.map(t=>`<a class="li" href="#/token/${t.sym}" data-act="close">${tokav(t.sym)}<div class="grow"><b>${esc(t.name)}</b><div class="hint">$${t.sym} on ${t.chain}</div></div></a>`).join('')+ppl.map(c=>`<a class="li" href="#/profile/${c.h}" data-act="close">${avatar(c.h)}<div class="grow"><b>${c.h}</b><div class="hint">${c.calls} calls, ${c.win}% win rate</div></div></a>`).join('')||'<p class="hint">Nothing matches that. Try a ticker like GLORP.</p>'};
+  $('#sq',m).addEventListener('input',run);run()})}
+function notifsModal(){S.unread=false;chrome(currentRoute());modal('Notifications','',`<div class="list">
+ ${[['fadedpixel','posted a call on $GLORP','2h'],['lagosape','is promoting the Nebula launch','3h'],['minnie_sol','called $DOTB, now up big','4h']].map(([h,t,a])=>`<a class="li" href="#/profile/${h}" data-act="close">${avatar(h)}<div class="grow"><b>${h}</b> ${t}<div class="hint">${a} ago</div></div></a>`).join('')}</div>`)}
+function settingsModal(){const th=document.documentElement.dataset.theme||'system',col=document.body.classList.contains('collapsed');
+ modal('Settings','',`<div class="field"><label>Theme</label><div class="seg">${[['system','System'],['dark','Indigo'],['light','White']].map(([k,l])=>`<button class="${th===k?'on':''}" data-act="settheme" data-f="${k}">${l}</button>`).join('')}</div></div>
+ <div class="field"><label>Sidebar</label><div class="seg"><button class="${col?'':'on'}" data-act="setside" data-f="open">Expanded</button><button class="${col?'on':''}" data-act="setside" data-f="closed">Icons only</button></div></div>`)}
+function sendModal(){modal('Send','Send tokens to any Solana address.',
+ `<div class="field"><label for="st">Token</label><select id="st" class="input">${Object.keys(S.bal).filter(k=>S.bal[k]>0).map(k=>`<option value="${k}">${k} (${fmtAmt(S.bal[k])})</option>`).join('')}</select></div>
+ <div class="field"><label for="sa">Recipient address</label><input id="sa" class="input" placeholder="Solana address"></div>
+ <div class="field"><label for="sv">Amount</label><div style="display:flex;gap:8px"><input id="sv" class="input num" inputmode="decimal" placeholder="0"><button class="btn" id="smax">Max</button></div></div>
+ <div class="err" id="serr"></div><button class="btn primary block" id="sgo">Send</button>`,
+ m=>{$('#smax',m).onclick=()=>$('#sv',m).value=S.bal[$('#st',m).value];
+  $('#sgo',m).onclick=()=>{const k=$('#st',m).value,to=$('#sa',m).value.trim(),a=parseFloat($('#sv',m).value),e=$('#serr',m);
+   if(!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(to))return e.textContent='That isn’t a valid Solana address. Check it and try again.';
+   if(!(a>0))return e.textContent='Enter an amount above zero.';
+   if(a>S.bal[k])return e.textContent=`You only have ${fmtAmt(S.bal[k])} ${k}.`;
+   S.bal[k]-=a;S.activity.unshift({k:'Sent',d:`${fmtAmt(a)} ${k} to ${short(to)}`,t:'Just now'});closeModal();render();toast('Sent')}})}
+const receiveModal=()=>modal('Receive','Send SOL or any Solana token to this address.',`<div style="text-align:center">${qr(hue(S.addr))}<p class="num" style="overflow-wrap:anywhere;font-size:13px">${S.addr}</p><button class="btn primary block" data-act="copy" data-v="${S.addr}">Copy address</button></div>`);
+
+/* ---------- events ---------- */
+const currentRoute=()=>(location.hash.split('/')[1]||'home');
+document.addEventListener('click',e=>{
+ const row=e.target.closest('[data-go]');if(row&&!e.target.closest('button')){location.hash=row.dataset.go;return}
+ const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act;
+ if(a==='close'){if(e.target===b||b.tagName!=='DIV'){closeModal()}return}
+ const act={
+  newcall:()=>callModal(b.dataset.t),connect:()=>connectModal(),search:()=>searchModal(),notifs:()=>notifsModal(),settings:()=>settingsModal(),
+  disconnect:()=>{S.connected=false;toast('Disconnected');render()},
+  me:()=>S.connected?location.hash='#/profile/'+S.me:connectModal(),
+  drawer:()=>document.body.classList.toggle('drawer'),
+  collapse:()=>document.body.classList.toggle('collapsed'),
+  tab:()=>{S.tab=b.dataset.f;render()},tf:()=>{S.tf=b.dataset.f;render()},lb:()=>{S.lb=b.dataset.f;render()},
+  pkg:()=>{S.pkg=b.dataset.f;document.querySelectorAll('.pkg').forEach(p=>p.classList.toggle('on',p===b))},
+  like:()=>{const k=calls.find(x=>x.id==b.dataset.id);k.liked=!k.liked;k.likes+=k.liked?1:-1;b.classList.toggle('liked',k.liked);b.innerHTML=ic('heart',18,k.liked)+`<span class="num">${k.likes||''}</span>`},
+  repost:()=>{const k=calls.find(x=>x.id==b.dataset.id);k.reposted=!k.reposted;k.reposts+=k.reposted?1:-1;b.classList.toggle('reposted',k.reposted);b.querySelector('span').textContent=k.reposts||'';toast(k.reposted?'Reposted':'Repost removed')},
+  reply:()=>toast('Replies arrive with the chat phase'),
+  share:()=>copy(location.href.split('#')[0]+'#/call/'+b.dataset.id,'Link copied'),
+  copy:()=>copy(b.dataset.v,'Address copied'),
+  follow:()=>{if(!S.connected)return connectModal();const h=b.dataset.h;S.following.has(h)?S.following.delete(h):S.following.add(h);render()},
+  track:()=>{const t=b.dataset.t;S.tracking.has(t)?S.tracking.delete(t):S.tracking.add(t);toast(S.tracking.has(t)?`Tracking $${t}`:`Stopped tracking $${t}`);render()},
+  send:()=>sendModal(),receive:()=>receiveModal(),
+  flip:()=>{const w=S.swap;[w.from,w.to]=[w.to,w.from];w.amt='';renderSwaps()},
+  doswap:()=>{const w=S.swap,x=parseFloat(w.amt),out=usd(w.from,x)*.995/T[w.to].price;S.bal[w.from]-=x;S.bal[w.to]=(S.bal[w.to]||0)+out;
+   S.activity.unshift({k:'Swapped',d:`${fmtAmt(x)} ${w.from} for ${fmtAmt(out)} ${w.to}`,t:'Just now'});w.amt='';toast('Swapped');render()},
+  shownew:()=>{calls.forEach(k=>k.fresh=false);S.queued.forEach(k=>k.fresh=true);calls=[...S.queued,...calls];S.queued=[];render();scrollTo({top:0})},
+  submitpromo:()=>{const n=$('#pn').value.trim(),l=$('#pl').value.trim(),p=$('#pp').value.trim();
+   if(!n||!l||p.length<20)return $('#perr').textContent='Add a project name, a CA or website, and at least 20 characters about the project.';
+   if(!S.connected)return connectModal();toast('Promotion request sent');location.hash='#/home'},
+  theme:()=>{const r=document.documentElement,d=r.dataset.theme&&r.dataset.theme!=='system'?r.dataset.theme:(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');r.dataset.theme=d==='dark'?'light':'dark'},
+  settheme:()=>{const f=b.dataset.f;if(f==='system')delete document.documentElement.dataset.theme;else document.documentElement.dataset.theme=f;settingsModal()},
+  setside:()=>{document.body.classList.toggle('collapsed',b.dataset.f==='closed');settingsModal()}
+ }[a];act&&act()});
+document.addEventListener('input',e=>{if(e.target.dataset.swap!=='amt')return;S.swap.amt=e.target.value.replace(/[^0-9.]/g,'');
+ const all=[...document.querySelectorAll('[data-swap="amt"]')],idx=all.indexOf(e.target),pos=e.target.selectionStart;renderSwaps();
+ const i=document.querySelectorAll('[data-swap="amt"]')[idx];if(i){i.focus();try{i.setSelectionRange(pos,pos)}catch(_){}}});
+document.addEventListener('change',e=>{const k=e.target.dataset.swap;if(k!=='from'&&k!=='to')return;const w=S.swap,v=e.target.value,o=k==='from'?'to':'from';if(w[o]===v)w[o]=w[k];w[k]=v;renderSwaps()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();document.body.classList.remove('drawer')}});
+
+/* live price ticks: patch numbers in place */
+setInterval(()=>{const r=rng(Date.now()%1e6);Object.values(T).forEach(t=>{if(!t.base&&!t.prelaunch)t.price*=1+(r()-.48)*.012});
+ calls.forEach(k=>{const p=perf(k);if(p===null)return;const el=document.querySelector(`[data-perf="${k.id}"]`);if(el){el.textContent=fmtPct(p);el.className='num '+(p>=0?'up':'down')}
+  const n=document.querySelector(`[data-now="${k.id}"]`);if(n)n.textContent=`${fmtUsd(k.entry)} to ${fmtUsd(mcap(T[k.t]))} MC`});
+ document.querySelectorAll('[data-price]').forEach(el=>el.textContent=fmtPrice(T[el.dataset.price].price))},3000);
+
+/* simulated realtime: new calls arrive and wait behind the pill */
+setTimeout(()=>{S.queued.push({id:901,c:'zerobeta',t:'KFSH',entry:mcap(T.KFSH)*.98,thesis:'Whale wallets that bought GLORP early are loading KFSH now. Same pattern.',target:40e6,horizon:'7 days',ago:'now',likes:3,reposts:0,replies:0,views:120},
+ {id:902,c:'dr_liquidity',t:'DOTB',entry:mcap(T.DOTB)*.95,thesis:'Liquidity just doubled on DOTB. Taking a small position.',target:300e3,horizon:'3 days',ago:'now',likes:1,reposts:0,replies:0,views:44});
+ const np=$('#newpill');if(np&&S.tab==='foryou')np.innerHTML=newPill()},12000);
+
+/* static icons */
+$('#markIcon').innerHTML=ic('promote',22);$('#setIcon').innerHTML=ic('settings',20);$('#colIcon').innerHTML=ic('chev',20);
+$('#menuIcon').innerHTML=ic('menu');$('#fab').innerHTML=ic('plus',28);$('#searchBtn').innerHTML=ic('search',18)+'<span class="lbl">Search</span>';
+if(innerWidth>760&&innerWidth<1100)document.body.classList.add('collapsed');
+addEventListener('hashchange',()=>{render();scrollTo({top:0})});
+render();
+</script>
+</body>
+</html>
