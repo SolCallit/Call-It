@@ -414,6 +414,24 @@ select option{background:var(--bg2);color:var(--text)}
 .cmenu button:hover{background:var(--hover)}
 .cmenu button.on{color:var(--hi);font-weight:800}
 
+/* ---------- notifications ---------- */
+.nbadge{position:relative;display:inline-grid}
+.nbadge i{position:absolute;top:-6px;right:-9px;min-width:17px;height:17px;border-radius:9px;background:var(--hi);color:#fff;font:800 10.5px/17px var(--body);text-align:center;padding:0 4px;font-style:normal;border:2px solid var(--bg)}
+.nlist{margin:0 -4px}
+.notif{position:relative;display:flex;align-items:center;gap:12px;padding:12px 8px;border-radius:14px;color:var(--text)}
+.notif:hover{background:var(--hover)}
+.notif.unread{background:color-mix(in srgb,var(--hi) 8%,transparent)}
+.notif .av,.notif .tokav{width:40px;height:40px;flex:none;border-radius:50%;font-size:11px}
+.nic{position:absolute;left:36px;top:36px;z-index:1;display:grid;place-items:center;width:22px;height:22px;border-radius:50%;border:2px solid var(--bg);color:#fff}
+.nic svg{width:12px;height:12px}
+.nic.calls{background:var(--hi)}.nic.earn{background:var(--up);color:#0B1B27}.nic.mentions{background:#8B5CF6}.nic.alerts{background:#E8B730;color:#0B1B27}.nic.follows{background:#3B82F6}
+.notif .grow{flex:1;min-width:0}
+.nl{display:block;line-height:1.35}
+.notif .hint{display:block;font-size:12.5px;margin-top:2px}
+.ndot{width:9px;height:9px;border-radius:50%;background:var(--hi);flex:none}
+.nlist.full{margin:0}.nlist.full .notif{border-radius:0;border-bottom:1px solid var(--line);padding:14px 16px}.nlist.full .nic{left:44px;top:38px}
+.ncount{display:inline-grid;place-items:center;min-width:20px;height:20px;border-radius:10px;background:var(--hi);color:#fff;font-size:11px;font-weight:800;padding:0 5px;margin-left:4px;vertical-align:1px}
+
 /* ---------- premium, news ---------- */
 .hdr{position:sticky}
 .upg{position:absolute;left:50%;transform:translateX(-50%);display:inline-flex;align-items:center;gap:7px;border:1.5px solid var(--line);background:var(--bg2);color:var(--text);border-radius:999px;padding:8px 16px 8px 11px;font-weight:800;font-size:15px;box-shadow:var(--raise-sm);transition:transform .08s,box-shadow .08s,border-color .12s}
@@ -421,7 +439,8 @@ select option{background:var(--bg2);color:var(--text)}
 .upg:hover{border-color:var(--hi)}
 .upg:active{transform:translateX(-50%) translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.3)}
 .upg.on{background:color-mix(in srgb,var(--hi) 14%,var(--bg2));border-color:color-mix(in srgb,var(--hi) 50%,transparent)}
-@media (max-width:430px){.upg{padding:7px 10px 7px 8px;font-size:13.5px}.upg span{display:none}.upg::after{content:'Pro';margin-left:-2px}.upg.on::after{content:'Pro'}}
+@media (max-width:430px){.upg{padding:6px 10px 6px 7px;font-size:13px;gap:5px}.upg svg{width:16px;height:16px}}
+@media (max-width:370px){.upg span{display:none}.upg{padding:7px}}
 .vb{display:inline-grid;color:var(--hi);margin-left:-2px;vertical-align:-3px}
 .prem{padding:24px 18px 40px;max-width:600px;margin:0 auto}
 .phero2{text-align:center;padding:10px 0 22px}
@@ -1203,20 +1222,20 @@ function railRest(){const trend=Object.values(T).filter(t=>!t.base&&!t.prelaunch
  <a class="btn ghost block" style="margin-top:10px" href="#/leaderboard">See leaderboard</a></div>`}
 
 /* ---------- chrome ---------- */
-const NAV_A=[['home','Home'],['market','Market'],['swap','Swap'],['stake','Stake'],['wallet','Wallet'],['profile','Profile']];
+const NAV_A=[['home','Home'],['market','Market'],['notifications','Notifications'],['swap','Swap'],['stake','Stake'],['wallet','Wallet'],['profile','Profile']];
 const NAV_B=[['leaderboard','Leaderboard'],['messages','Messages'],['news','News'],['promote','Promote'],['about','About']];
 const TITLES=Object.fromEntries([...NAV_A,...NAV_B,['token','Token'],['community','Community'],['post','Post'],['premium','Premium']]);
 const NAVH={stack:[],cur:location.hash||'#/home',back:false};
 function goBack(){const prev=NAVH.stack.pop();NAVH.back=true;location.hash=prev&&prev!==location.hash?prev:'#/home'}
-function chrome(route){const link=([k,l])=>`<a href="#/${k}" class="${route===k?'on':''}" title="${l}">${ic(k)}<span class="lbl">${l}</span></a>`;
+function chrome(route){const link=([k,l])=>`<a href="#/${k}" class="${route===k?'on':''}" title="${l}">${k==='notifications'?`<span class="nbadge">${ic('bell')}${unreadN()?`<i>${unreadN()}</i>`:''}</span>`:ic(k)}<span class="lbl">${l}</span></a>`;
  $('#navA').innerHTML=NAV_A.map(link).join('');$('#navB').innerHTML=NAV_B.map(link).join('');
  $('#acct').innerHTML=S.connected?`<button class="acct" data-act="disconnect" title="Disconnect">${avatar(S.me)}<span class="lbl" style="min-width:0"><b style="display:block">${esc(S.me)}</b><span class="hint num">${short(S.addr)}</span></span></button>`
   :`<button class="btn primary connect" data-act="connect" title="Connect wallet">${ic('wallet',20)}<span class="lbl">Connect wallet</span></button>`;
  $('#pill').innerHTML=`<button class="ib" data-act="me" aria-label="Profile">${S.connected?avatar(S.me).replace('class="av ','class="av " style="width:32px;height:32px;font-size:11px;'):ic('profile')}</button>
-  <button class="ib" data-act="notifs" aria-label="Notifications">${ic('bell')}${S.unread?'<span class="dotn"></span>':''}</button>
+  <button class="ib" data-act="notifs" aria-label="Notifications">${ic('bell')}${unreadN()?'<span class="dotn"></span>':''}</button>
   <button class="ib" data-act="theme" aria-label="Switch theme">${ic('sun')}</button>`;
  syncTray();
- $('#title').textContent=TITLES[route]||'Home';{const u=$('#upg'),on=isPrem(S.me);u.hidden=route!=='home';u.classList.toggle('on',!!on);u.innerHTML=`${ic('verified',18)}<span>${on?'Premium':'Upgrade'}</span>`}const bk=$('#back');bk.hidden=route==='home';bk.innerHTML=ic('back',20)}
+ $('#title').textContent=TITLES[route]||'Home';{const u=$('#upg'),on=isPrem(S.me);u.hidden=route!=='home';u.classList.toggle('on',!!on);u.innerHTML=`${ic('verified',18)}<span>Premium</span>`}const bk=$('#back');bk.hidden=route==='home';bk.innerHTML=ic('back',20)}
 
 const isPhone=()=>matchMedia('(max-width:760px)').matches;
 function syncTray(){const open=!document.body.classList.contains('collapsed'),b=$('#brand');b.setAttribute('aria-expanded',open);b.setAttribute('aria-label',open?'Close menu':'Open menu')}
@@ -1227,7 +1246,7 @@ function render(){if(isPhone())document.body.classList.add('collapsed');const [,
  else html=({market:vMarket,trenches:vMarket,swap:vSwap,wallet:vWallet,profile:()=>vProfile(p),leaderboard:vLeaders,promote:vPromote,about:vAbout,
   stake:()=>soon('Staking opens with $CALLIT','Stake $CALLIT to unlock premium calls and discounted project promotions. Launching after the product is live on mainnet.'),
   messages:()=>soon('Messages are coming','Direct messages and token chat rooms arrive in the chat phase.'),
-  news:vNews,premium:vPremium}[r]||vHome)();
+  news:vNews,premium:vPremium,notifications:vNotifs}[r]||vHome)();
  $('#view').innerHTML=html;$('#rail').innerHTML=rail();chrome(r);renderSwaps();skin($('#view'));syncLanding();
  if(r==='post'){wireAttach($('#rbox'),RDRAFT,()=>drawRMedia());if(S.focusReply){S.focusReply=false;setTimeout(()=>{const i=$('#rin');i&&i.focus()},60)}}}
 
@@ -1290,8 +1309,29 @@ function searchModal(){modal('Search','',`<input class="input" id="sq" placehold
   const ppl=Object.values(C).filter(c=>!q||c.h.includes(q)).slice(0,4);
   $('#sres',m).innerHTML=toks.map(t=>`<a class="li" href="#/token/${t.sym}" data-act="close">${tokav(t.sym)}<div class="grow"><b>${esc(t.name)}</b><div class="hint">$${t.sym} on ${t.chain}</div></div></a>`).join('')+ppl.map(c=>`<a class="li" href="#/profile/${c.h}" data-act="close">${avatar(c.h)}<div class="grow"><b>${c.h}</b><div class="hint">${c.calls} calls, ${c.win}% win rate</div></div></a>`).join('')||'<p class="hint">Nothing matches that. Try a ticker like GLORP.</p>'};
   $('#sq',m).addEventListener('input',run);run()})}
-function notifsModal(){S.unread=false;chrome(currentRoute());modal('Notifications','',`<div class="list">
- ${[['fadedpixel','posted a call on $GLORP','2h'],['lagosape','is promoting the Nebula launch','3h'],['minnie_sol','called $DOTB, now up big','4h']].map(([h,t,a])=>`<a class="li" href="#/profile/${h}" data-act="close">${avatar(h)}<div class="grow"><b>${h}</b> ${t}<div class="hint">${a} ago</div></div></a>`).join('')}</div>`)}
+const NOTIFS=[
+ {id:1,k:'calls',h:'fadedpixel',t:'posted a new call on $GLORP',go:'#/post/1',m:12,unread:1},
+ {id:2,k:'earn',h:'quietmoney',t:'bought $GLORP from a call you follow',go:'#/post/1',m:35,unread:1},
+ {id:3,k:'calls',h:'minnie_sol',t:'called $DOTB. It\'s up +113% since',go:'#/token/DOTB',m:70,unread:1},
+ {id:4,k:'mentions',h:'lagosape',t:'mentioned you: "who else is watching KFSH?"',go:'#/token/KFSH',m:130},
+ {id:5,k:'alerts',sym:'NIMB',t:'$NIMB is up 64% in 24h. It\'s on your watchlist',go:'#/token/NIMB',m:180},
+ {id:6,k:'follows',h:'dr_liquidity',t:'followed you',go:'#/profile/dr_liquidity',m:300},
+ {id:7,k:'mentions',h:'zerobeta',t:'replied to your call: "target feels low"',go:'#/post/1',m:420},
+ {id:8,k:'alerts',sym:'GLORP',t:'$GLORP crossed $1.8M market cap',go:'#/token/GLORP',m:600},
+ {id:9,k:'follows',h:'minnie_sol',t:'and 3 others followed you',go:'#/profile/minnie_sol',m:1440},
+ {id:10,k:'earn',t:'Caller fees paid: +0.042 SOL for last week',go:'#/wallet',m:2880}];
+const NKIND={calls:['Call','promote'],earn:['Earnings','wallet'],mentions:['Mention','reply'],alerts:['Alert','bell'],follows:['Follow','profile']};
+const unreadN=()=>NOTIFS.filter(n=>n.unread).length;
+const nAgo=m=>m<60?m+'m':m<1440?Math.round(m/60)+'h':Math.round(m/1440)+'d';
+function nrow(n){const [lab,icn]=NKIND[n.k];
+ return `<a class="notif${n.unread?' unread':''}" href="${n.go}" data-act="nread" data-f="${n.id}"><span class="nic ${n.k}">${ic(icn,16)}</span>
+ ${n.h?avatar(n.h):tokav(n.sym||'SOL')}<span class="grow"><span class="nl">${n.h?`<b>${esc(n.h)}</b> `:''}${esc(n.t)}</span><span class="hint">${lab} · ${nAgo(n.m)} ago</span></span>${n.unread?'<i class="ndot"></i>':''}</a>`}
+function notifsModal(){modal('Notifications',unreadN()?`${unreadN()} new`:'You\'re all caught up',`<div class="nlist">${NOTIFS.slice(0,5).map(nrow).join('')}</div>
+ <a class="btn primary block" href="#/notifications" style="margin-top:14px">View all notifications</a>`)}
+function vNotifs(){const f=S.nt||'all',list=NOTIFS.filter(n=>f==='all'||n.k===f);
+ return `<div class="tabs" role="tablist">${[['all','All'],['calls','Calls'],['mentions','Mentions'],['earn','Earnings'],['alerts','Alerts']].map(([k,l])=>`<button class="${f===k?'on':''}" data-act="nt" data-f="${k}">${l}${k==='all'&&unreadN()?` <span class="ncount">${unreadN()}</span>`:''}</button>`).join('')}</div>
+ ${unreadN()?`<div class="fline"><span>${unreadN()} unread</span><button data-act="nall">Mark all as read</button></div>`:''}
+ <div class="nlist full">${list.map(nrow).join('')||'<div class="empty"><b>Nothing here yet</b></div>'}</div>`}
 function settingsModal(){const th=document.documentElement.dataset.theme||'system',col=document.body.classList.contains('collapsed');
  modal('Settings','',`<div class="field"><label>Theme</label><div class="seg">${[['system','System'],['dark','Navy'],['light','White']].map(([k,l])=>`<button class="${th===k?'on':''}" data-act="settheme" data-f="${k}">${l}</button>`).join('')}</div></div>
  <div class="field"><label>Sidebar</label><div class="seg"><button class="${col?'':'on'}" data-act="setside" data-f="open">Expanded</button><button class="${col?'on':''}" data-act="setside" data-f="closed">Icons only</button></div></div>`)}
@@ -1544,6 +1584,8 @@ document.addEventListener('click',e=>{
  if(a==='close'){if(e.target===b||b.tagName!=='DIV'){closeModal()}return}
  const act={
   newcall:()=>callModal(b.dataset.t),
+  nread:()=>{const n=NOTIFS.find(x=>x.id==b.dataset.f);if(n)n.unread=0;closeModal();chrome(currentRoute())},
+  nall:()=>{NOTIFS.forEach(n=>n.unread=0);toast('All caught up');render()},nt:()=>{S.nt=b.dataset.f;render()},
   gopremium:()=>{location.hash='#/premium'},plan:()=>{S.plan=b.dataset.f;render()},payvia:()=>{S.payvia=b.dataset.f;render()},
   stakewait:()=>{if(!S.connected)return connectModal();S.stakeWait=true;toast('We\'ll let you know when $CALLIT staking opens');render()},
   buyprem:()=>{if(!S.connected)return connectModal(()=>{location.hash='#/premium'});const P=PLANS[S.plan||'yearly'],via=S.payvia||'SOL',amt=via==='SOL'?P.usd/T.SOL.price:P.usd;
