@@ -596,18 +596,18 @@ function callModal(pre){if(!S.connected)return connectModal(()=>callModal(pre));
  m=>{let tok=null,sol='0.25',skip=false;const inp=$('#ct',m),tx=$('#cx',m),post=$('#cpost',m);
   const canBuy=()=>tok&&tradable(tok);
   const buyOn=()=>canBuy()&&!skip;
-  const drawBuy=()=>{const el=$('#cbuy',m);if(!tok||tok.prelaunch){el.innerHTML='';return}
-   if(!canBuy()){el.innerHTML=`<div class="buybox"><b>No buy for this one</b><p class="hint" style="margin:4px 0 0">In-app buys for ${tok.chain} tokens aren't live yet. You can still call it, but it won't earn caller fees.</p></div>`;return}
-   const a=parseFloat(sol)||0,usdV=a*T.SOL.price,got=usdV*.995/tok.price;
-   el.innerHTML=`<div class="buybox"><div class="top"><b>Buy $${tok.sym}</b><span class="hint num" style="white-space:nowrap">Balance ${fmtAmt(S.bal.SOL)} SOL</span></div>
+  const drawBuy=()=>{const el=$('#cbuy',m);if(tok&&tok.prelaunch){el.innerHTML=`<div class="buybox"><b>Buying opens at launch</b><p class="hint" style="margin:4px 0 0">$${tok.sym} launches ${esc(tok.prelaunch)}. You can buy and call it then.</p></div>`;return}
+   if(tok&&!canBuy()){el.innerHTML=`<div class="buybox"><b>No buy for this one</b><p class="hint" style="margin:4px 0 0">In-app buys for ${tok.chain} tokens aren't live yet. You can still call it, but it won't earn caller fees.</p></div>`;return}
+   const a=parseFloat(sol)||0,usdV=a*T.SOL.price,got=tok?usdV*.995/tok.price:0;
+   el.innerHTML=`<div class="buybox"><div class="top"><b>${tok?'Buy $'+tok.sym:'Buy in'}</b><span class="hint num" style="white-space:nowrap">Balance ${fmtAmt(S.bal.SOL)} SOL</span></div>
    ${skip?'':`<div class="presets">${['0.1','0.25','0.5','1'].map(v=>`<button type="button" data-sol="${v}" class="${sol===v?'on':''}">${v} SOL</button>`).join('')}</div>
    <label class="solin"><input id="csol" class="num" inputmode="decimal" value="${esc(sol)}" aria-label="SOL to spend"><span class="muted">SOL</span></label>
-   <div class="hint num" style="margin-top:8px">${a?`≈ ${fmtUsd(usdV)} · you get ~${fmtAmt(got)} $${tok.sym} · via Jupiter`:'Enter an amount'}</div>`}
+   <div class="hint num" style="margin-top:8px">${!a?'Enter an amount':tok?`≈ ${fmtUsd(usdV)} · you get ~${fmtAmt(got)} $${tok.sym} · via Jupiter`:`≈ ${fmtUsd(usdV)} · add a token above to see what you get`}</div>`}
    <label class="skip"><input type="checkbox" id="cskip" ${skip?'checked':''}> Call without buying (won't earn caller fees)</label></div>`;
    const si=$('#csol',el);if(si)si.addEventListener('input',()=>{sol=si.value.replace(/[^0-9.]/g,'');const pos=si.selectionStart;drawBuy();const n=$('#csol',m);n.focus();try{n.setSelectionRange(pos,pos)}catch(_){}check()});
    el.querySelectorAll('[data-sol]').forEach(b=>b.onclick=()=>{sol=b.dataset.sol;drawBuy();check()});
    $('#cskip',el).onchange=e=>{skip=e.target.checked;drawBuy();check()}};
-  const check=()=>{$('#cn',m).textContent=tx.value.length+' / 280';post.textContent=buyOn()?`Buy ${parseFloat(sol)||0} SOL & post call`:'Post call';post.disabled=!(tok&&!tok.prelaunch&&tx.value.trim().length>=10&&(!buyOn()||parseFloat(sol)>0))};
+  const check=()=>{$('#cn',m).textContent=tx.value.length+' / 280';post.textContent=(tok?buyOn():!skip)?`Buy ${parseFloat(sol)||0} SOL & post call`:'Post call';post.disabled=!(tok&&!tok.prelaunch&&tx.value.trim().length>=10&&(!buyOn()||parseFloat(sol)>0))};
   const find=()=>{const v=inp.value.trim().replace(/^\$/,'').toUpperCase();tok=Object.values(T).find(t=>!t.base&&(t.sym===v||t.ca.toUpperCase()===v))||null;
    $('#cprev',m).innerHTML=tok?`<div class="preview">${tokav(tok.sym)}<div style="flex:1"><b>${esc(tok.name)} $${tok.sym}</b> <span class="chain">${tok.chain}</span><div class="hint num">${tok.prelaunch?'Launches '+esc(tok.prelaunch)+'. Calls open at launch.':'Entry would be '+fmtUsd(mcap(tok))+' MC'}</div></div></div>`:(v?'<p class="hint" style="margin-top:-6px">No token found. Try GLORP, DOTB, MOTH, KFSH or ORBIT in this prototype.</p>':'');drawBuy();check()};
   inp.addEventListener('input',find);tx.addEventListener('input',check);find();
