@@ -413,6 +413,31 @@ select option{background:var(--bg2);color:var(--text)}
 
 /* ---------- landing ---------- */
 body.lock{overflow:hidden}
+#landing .lx-top{display:flex;justify-content:flex-end;padding:16px 20px 0}
+.lx{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:12px 24px 40px;width:100%;max-width:420px;margin:0 auto}
+.lmega{width:clamp(180px,40vw,240px);height:auto;margin-bottom:8px}
+.lmega .o{stroke:var(--text);stroke-width:9;opacity:.5}
+.lmega .i{stroke:var(--bg);stroke-width:6.2}
+.lx h1{font:800 clamp(44px,8vw,68px)/1.02 var(--display);letter-spacing:-.045em;margin:6px 0 10px}
+.lx-sub{margin:0 0 32px;font-size:17px;color:var(--muted)}
+.lx-auth{width:100%;display:flex;flex-direction:column;gap:12px}
+.lxb{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:52px;border-radius:999px;border:1.5px solid var(--line);background:var(--text);color:var(--bg);font-weight:800;font-size:16px;box-shadow:var(--raise);transition:transform .08s,box-shadow .08s,filter .12s}
+.lxb:hover{filter:brightness(.94)}
+.lxb:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.35)}
+.lxb svg{flex:none}
+.lxb.primary{background:var(--hi);border-color:var(--hi);color:#fff}
+.lx-or{display:flex;align-items:center;gap:14px;color:var(--muted);font-size:14px;margin:6px 0}
+.lx-or::before,.lx-or::after{content:'';flex:1;height:1px;background:var(--line)}
+.lx-in{width:100%;height:56px;border-radius:14px;border:1.5px solid var(--line);background:transparent;color:var(--text);padding:0 18px;font-size:16px;outline:none;transition:border-color .12s,box-shadow .12s}
+.lx-in:focus{border-color:var(--hi);box-shadow:0 0 0 4px color-mix(in srgb,var(--hi) 20%,transparent)}
+#lxerr{text-align:left;margin:-4px 4px 0;min-height:0}
+.lx-terms{margin:4px 0 0;font-size:13px;line-height:1.5;color:var(--muted)}
+.lx-terms button,.lx-foot nav button{border:0;background:transparent;padding:0;color:var(--muted);font:inherit;text-decoration:underline;text-underline-offset:2px}
+.lx-terms button:hover,.lx-foot nav button:hover{color:var(--text)}
+.lx-look{margin-top:10px;border:0;background:transparent;color:var(--hi);font-weight:700;font-size:15px;padding:6px}
+.lx-foot{display:flex;flex-direction:column;align-items:center;gap:12px;padding:18px 20px calc(18px + env(safe-area-inset-bottom,0px));font-size:13px;color:var(--muted)}
+.lx-foot nav{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 8px}
+.lx-foot nav button{text-decoration:none}
 #landing{position:fixed;inset:0;z-index:80;overflow-y:auto;display:flex;flex-direction:column;background:var(--bg);color:var(--text)}
 .lbg{position:fixed;inset:0;pointer-events:none;background:radial-gradient(700px 480px at 12% 0%,color-mix(in srgb,var(--hi) 16%,transparent),transparent 70%),radial-gradient(600px 420px at 100% 100%,color-mix(in srgb,var(--up) 9%,transparent),transparent 70%)}
 .lhero h1{font-size:clamp(52px,9vw,112px)!important;line-height:.95!important}
@@ -1054,10 +1079,10 @@ const closeModal=()=>$('#modal').innerHTML='';
 function connectModal(next,mode){modal(mode==='up'?'Create your Callit account':mode==='in'?'Welcome back':'Sign in to Callit',mode==='up'?'Pick a way in. We create a Solana wallet for you, and you own the keys.':mode==='in'?'Sign in the same way you signed up.':'New here? We create a Solana wallet for you. You own the keys.',
  `${['Email','Google','X'].map(l=>`<button class="opt" data-connect="${l}"><span class="tokav" style="background:var(--hi)">${l[0]}</span>Continue with ${l}</button>`).join('')}
  <div class="divider">or use your own wallet</div>${['Phantom','Solflare','Backpack'].map(w=>`<button class="opt" data-connect="${w}">${tokav(w)}${w}</button>`).join('')}`,
- m=>m.addEventListener('click',e=>{const b=e.target.closest('[data-connect]');if(!b)return;
-  S.connected=true;S.addr='CaLL'+Math.random().toString(36).slice(2,10)+'x9Qp2HkWm4Tz7VbN1sRdE3';S.me='caller_'+S.addr.slice(4,8);
+ m=>m.addEventListener('click',e=>{const b=e.target.closest('[data-connect]');if(!b)return;signIn(b.dataset.connect,next)}))}
+function signIn(via,next){S.connected=true;S.addr='CaLL'+Math.random().toString(36).slice(2,10)+'x9Qp2HkWm4Tz7VbN1sRdE3';S.me='caller_'+S.addr.slice(4,8);
   C[S.me]={h:S.me,win:0,avg:0,calls:0,best:0,followers:0};closeModal();try{localStorage.setItem('callit.session',JSON.stringify({addr:S.addr,me:S.me}))}catch(_){}
-  toast(['Phantom','Solflare','Backpack'].includes(b.dataset.connect)?`${b.dataset.connect} connected`:'Wallet created');render();next&&next()}))}
+  toast(['Phantom','Solflare','Backpack'].includes(via)?`${via} connected`:'Signed in. Your wallet is ready');render();next&&next()}
 
 function callModal(pre){if(!S.connected)return connectModal(()=>callModal(pre));
  modal('Make a call','Buy in and call it. Your entry is stamped at the live market cap when you post.',
@@ -1214,21 +1239,26 @@ const DOCS={terms:['Terms of Service',['Callit is a social platform for sharing 
 function docModal(k){const [t,ps]=DOCS[k];modal(t,'Draft, pending legal review',`<div class="prose" style="padding:0;max-height:60vh;overflow-y:auto">${ps.map(p=>`<p>${esc(p)}</p>`).join('')}</div>`)}
 
 /* ---------- landing ---------- */
-function landingHTML(){const tick=calls.filter(k=>!k.sponsored&&k.entry).map(k=>{const n=nums(k);return `<span class="tk">${avatar(k.c)}<b>${esc(k.c)}</b> called <b>$${k.t}</b> <em class="${n.up?'up':'down'}">${fmtPct(n.p)}</em></span>`}).join('');
- const k=calls.find(x=>x.buy&&x.t==='GLORP')||calls[0];
- return `<div class="lbg" aria-hidden="true"></div>
- <header class="ltop"><span class="lbrand"><span class="mark"></span>Callit</span><button class="ib ltheme" data-act="theme" aria-label="Switch light or dark">${ic('sun')}</button></header>
- <main class="lhero"><div class="lcopy">
-  <div class="lmark" aria-hidden="true"><span class="mark"></span></div>
-  <p class="lkick">Crypto calls, tracked in public</p>
-  <h1>Call it.<br><span>Get Paid.</span></h1>
-  <p class="lsub">Post a call, buy in with your own wallet, and let the market keep score. Every entry is stamped at the live market cap and followed until it closes.</p>
-  <div class="lcta"><button class="btn primary lg" data-act="signup">Create free account</button><button class="btn ghost lg" data-act="signin">Sign in</button></div>
-  <button class="lnk lexp" data-act="explore">Just looking? Explore Callit ${ic('back',15).replace('<svg','<svg style="transform:scaleX(-1)"')}</button>
-  <div class="lproof"><span>${ic('check',15)} Non-custodial wallet</span><span>${ic('check',15)} Sign in with email, Google or X</span><span>${ic('check',15)} Only bought-in callers earn</span></div></div>
- <div class="lside"><div class="lshow" aria-hidden="true"><div class="lcard">${post(k)}</div><div class="lfloat f1"><b class="up">+${Math.round(nums(k).p)}%</b><span>since call</span></div><div class="lfloat f2">${avatar('lagosape')}<span><b>lagosape</b> just bought in</span></div></div>
- <footer class="lfoot">${socials()}<div class="legal"><button data-act="doc" data-f="terms">Terms of Service</button><button data-act="doc" data-f="privacy">Privacy Policy</button><span>© ${new Date().getFullYear()} Callit</span></div></footer></div></main>
- <div class="ltick" aria-label="Live calls"><div class="ltrack">${tick}${tick}</div></div>`}
+const G_ICON='<svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>';
+const MEGA='<svg class="lmega" viewBox="0 0 240 200" aria-hidden="true"><g fill="none" stroke-linejoin="round" stroke-linecap="round"><path class="o" d="M44 78h30v48H44a12 12 0 01-12-12V90a12 12 0 0112-12zM74 80c36-6 66-20 92-44v132c-26-24-56-38-92-44zM88 126l14 50h24l-10-47"/><ellipse class="o" cx="170" cy="102" rx="22" ry="68"/><path class="o" d="M166 78c10 2 14 12 14 24s-4 22-14 24"/><path class="i" d="M44 78h30v48H44a12 12 0 01-12-12V90a12 12 0 0112-12zM74 80c36-6 66-20 92-44v132c-26-24-56-38-92-44zM88 126l14 50h24l-10-47"/><ellipse class="i" cx="170" cy="102" rx="22" ry="68"/><path class="i" d="M166 78c10 2 14 12 14 24s-4 22-14 24"/></g></svg>';
+function landingHTML(){const yr=new Date().getFullYear();
+ return `<div class="lx-top"><button class="ib ltheme" data-act="theme" aria-label="Switch light or dark">${ic('sun',18)}</button></div>
+ <main class="lx">${MEGA}
+  <h1>Call it.<br>Get Paid.</h1>
+  <p class="lx-sub">Crypto calls, tracked in public. Join today.</p>
+  <div class="lx-auth">
+   <button class="lxb" data-act="lsign" data-f="Google">${G_ICON}<span>Continue with Google</span></button>
+   <button class="lxb" data-act="lsign" data-f="X">${ic('xlogo',18)}<span>Continue with X</span></button>
+   <button class="lxb" data-act="lwallet">${ic('wallet',19)}<span>Connect a Solana wallet</span></button>
+   <div class="lx-or"><span>or</span></div>
+   <input class="lx-in" id="lxemail" type="email" autocomplete="email" placeholder="Email address" aria-label="Email address">
+   <div class="err" id="lxerr"></div>
+   <button class="lxb primary" id="lxgo" data-act="lemail">Continue</button>
+   <p class="lx-terms">By continuing, you agree to our <button data-act="doc" data-f="terms">Terms of Service</button> and <button data-act="doc" data-f="privacy">Privacy Policy</button>.</p>
+   <button class="lx-look" data-act="explore">Just looking? Explore Callit first</button>
+  </div>
+ </main>
+ <footer class="lx-foot">${socials('sm')}<nav><button data-act="lexplore" data-f="about">About</button><span>·</span><button data-act="lexplore" data-f="leaderboard">Leaderboard</button><span>·</span><button data-act="doc" data-f="terms">Terms</button><span>·</span><button data-act="doc" data-f="privacy">Privacy</button><span>·</span><span>© ${yr} Callit</span></nav></footer>`}
 function syncLanding(){const el=$('#landing');let exp=false;try{exp=sessionStorage.getItem('callit.explore')==='1'}catch(_){}
  const show=!S.connected&&!exp;if(show&&el.hidden){el.innerHTML=landingHTML();el.hidden=false}else if(!show&&!el.hidden){el.hidden=true;el.innerHTML=''}
  document.body.classList.toggle('lock',show)}
@@ -1242,7 +1272,11 @@ document.addEventListener('click',e=>{
  const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act;
  if(a==='close'){if(e.target===b||b.tagName!=='DIV'){closeModal()}return}
  const act={
-  newcall:()=>callModal(b.dataset.t),doc:()=>docModal(b.dataset.f),soclink:()=>{e.preventDefault();toast(`Callit on ${b.dataset.f} is coming soon`)},editprof:()=>editProfile(b.dataset.f),follows:()=>followsModal(b.dataset.h,b.dataset.f),mt:()=>{if(S.mt===b.dataset.f)return scrollTo({top:0,behavior:'smooth'});S.mt=b.dataset.f;render()},tpick:()=>pickToken(b.dataset.f),
+  newcall:()=>callModal(b.dataset.t),
+  lsign:()=>signIn(b.dataset.f),lwallet:()=>connectModal(null,'in'),
+  lemail:()=>{const v=($('#lxemail')||{}).value||'';if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())){$('#lxerr').textContent='Enter a valid email address.';$('#lxemail').focus();return}signIn('Email')},
+  lexplore:()=>{try{sessionStorage.setItem('callit.explore','1')}catch(_){}location.hash='#/'+b.dataset.f;syncLanding()},
+  doc:()=>docModal(b.dataset.f),soclink:()=>{e.preventDefault();toast(`Callit on ${b.dataset.f} is coming soon`)},editprof:()=>editProfile(b.dataset.f),follows:()=>followsModal(b.dataset.h,b.dataset.f),mt:()=>{if(S.mt===b.dataset.f)return scrollTo({top:0,behavior:'smooth'});S.mt=b.dataset.f;render()},tpick:()=>pickToken(b.dataset.f),
   signup:()=>connectModal(null,'up'),signin:()=>connectModal(null,'in'),explore:()=>{try{sessionStorage.setItem('callit.explore','1')}catch(_){}syncLanding()},qbuy:()=>quickBuy(b.dataset.t,b.dataset.id),
   back:()=>goBack(),totop:()=>scrollTo({top:0,behavior:'smooth'}),
   join:()=>{const f=b.dataset.f;S.joined.has(f)?S.joined.delete(f):S.joined.add(f);toast(S.joined.has(f)?'Joined':'Left the community');render()},
@@ -1298,7 +1332,7 @@ document.addEventListener('input',e=>{const k=e.target.dataset.fk;if(!k||!SH||SH
  let v=e.target.value;if(e.target.type==='range'){v=+v;e.target.style.setProperty('--v',v+'%');const o=$(`[data-out="${k}"]`);if(o)o.textContent=v>=100?'Any':'≤ '+v+'%';
   document.querySelectorAll('.rcard').forEach(c=>c.classList.remove('on'))}
  SH.d[k]=v;const n=fsCount(),g=$('#fsgo');if(g){g.disabled=!n;g.textContent=n?`Show ${n} token${n>1?'s':''}`:'No tokens match'}});
-document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='msgin'){e.preventDefault();const s=$('[data-act="msend"]');s&&s.click();return}if(e.key==='Escape'){closeModal();closeSheet();if(isPhone()){document.body.classList.add('collapsed');syncTray()}}});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='lxemail'){e.preventDefault();$('#lxgo').click();return}if(e.key==='Enter'&&e.target.id==='msgin'){e.preventDefault();const s=$('[data-act="msend"]');s&&s.click();return}if(e.key==='Escape'){closeModal();closeSheet();if(isPhone()){document.body.classList.add('collapsed');syncTray()}}});
 
 /* live price ticks: patch numbers in place */
 setInterval(()=>{const r=rng(Date.now()%1e6);Object.values(T).forEach(t=>{if(!t.base&&!t.prelaunch)t.price*=1+(r()-.48)*.012});
