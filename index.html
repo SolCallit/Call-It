@@ -210,6 +210,36 @@ textarea.input{resize:vertical;min-height:96px}
 .adboard .adslide{animation:rise .3s ease-out}
 .adlbl{font-size:12px;color:var(--muted);font-weight:600}
 
+/* ---------- trenches (terminal list) ---------- */
+.ttabs{position:sticky;top:var(--hdr);z-index:12;display:flex;align-items:center;gap:4px;padding:6px 10px;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.ttabs>button{border:0;background:transparent;padding:10px 12px;font-weight:700;font-size:17px;color:var(--muted);position:relative;display:grid;place-items:center}
+.ttabs>button.on{color:var(--text)}
+.ttabs>button.on::after{content:'';position:absolute;left:12px;right:12px;bottom:0;height:3px;border-radius:3px;background:var(--text)}
+.ttabs .ib{position:relative}
+.trow{display:grid;grid-template-columns:62px minmax(0,1fr) auto;grid-template-areas:"av mid r" "av st r";column-gap:12px;row-gap:4px;align-items:start;padding:10px 14px;border-bottom:1px solid var(--line)}
+.trow:hover{background:color-mix(in srgb,var(--hover) 50%,transparent)}
+.tav{grid-area:av;position:relative;width:62px;height:62px;border-radius:14px;border:2.5px solid var(--up);padding:2px;align-self:start}
+.tav.bad{border-color:var(--down)}
+.tav .tokav{width:100%;height:100%;border-radius:10px;font-size:13px}
+.chainb{position:absolute;right:-6px;bottom:-6px;width:22px;height:22px;border-radius:50%;background:var(--bg);border:2px solid var(--line);display:grid;place-items:center;color:#9d7bff}
+.tmid{grid-area:mid;min-width:0;display:flex;flex-direction:column;gap:3px}
+.tname{display:flex;align-items:center;gap:6px;min-width:0}
+.tname b{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hot{font-size:10.5px;font-weight:800;color:#ff7a59;border:1.5px solid #ff7a59;border-radius:999px;padding:0 6px;line-height:16px;flex:none}
+.tsub{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--muted);min-width:0}
+.tsub>span{display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
+.tsub .soc{gap:8px;color:var(--text)}
+.tst{grid-area:st;display:flex;flex-wrap:wrap;column-gap:10px;row-gap:2px;font-size:13.5px;font-weight:700}
+.tst span{display:inline-flex;align-items:center;gap:3px}
+.tr{grid-area:r;display:flex;flex-direction:column;align-items:flex-end;gap:4px;font-size:14px;font-weight:700;white-space:nowrap;align-self:start}
+.tr .k{color:var(--muted);font-weight:600}
+.tr svg{vertical-align:-2px;color:#9d7bff}
+.bs{display:flex;gap:4px;width:52px}
+.bs i{height:4px;border-radius:4px;background:var(--up)}
+.bs i+i{background:var(--down)}
+.mb{color:var(--hi)}.my{color:#E8B730}
+@media (max-width:520px){.trow{grid-template-columns:50px minmax(0,1fr) auto;grid-template-areas:"av mid r" "st st st";column-gap:10px;padding:10px}.tst{padding-top:2px}.tav{width:50px;height:50px;border-radius:12px}.tname b{font-size:14.5px}.tsub{font-size:12.5px;gap:7px}.tst{font-size:12px;column-gap:7px}.tr{font-size:12.5px}.ttabs>button{font-size:15.5px;padding:9px 9px}}
+
 /* ---------- pages ---------- */
 .list{display:flex;flex-direction:column}
 .li{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
@@ -352,6 +382,15 @@ const P={
  copy:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 00-1-1H5a1 1 0 00-1 1v10a1 1 0 001 1h3"/>',
  x:'<path d="M6 6l12 12M18 6L6 18"/>',
  check:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+ xlogo:'<path d="M4 4h4.2l4.3 5.8L17.6 4H20l-6.3 7.3L20.5 20h-4.2l-4.7-6.3L6 20H3.6l6.9-7.9z" fill="currentColor" stroke="none"/>',
+ globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>',
+ people:'<circle cx="9" cy="9" r="3"/><circle cx="17" cy="10" r="2.5"/><path d="M3 20c.8-3 3.2-5 6-5s5.2 2 6 5M15 15.5c2.5 0 4.5 1.5 5.5 4"/>',
+ sprout:'<path d="M12 21V11M12 11c0-4-3-6-7-6 0 4 3 6 7 6zM12 13c0-3.5 2.5-5.5 7-5.5 0 3.5-2.5 5.5-7 5.5z"/>',
+ target:'<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
+ sniper:'<path d="M6 11a6 6 0 0112 0v2H6z"/><path d="M8 13v5h8v-5"/>',
+ crown:'<path d="M4 18l-1-10 5 4 4-7 4 7 5-4-1 10z"/>',
+ filter:'<path d="M4 6h16M7 12h10M10 18h4"/>',
+ solglyph:'<path d="M6 6h14l-2 3H4zM6 15h14l-2 3H4zM4 10.5h14l2 3H6z" fill="currentColor" stroke="none"/>',
  eye:'<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'
 };
 const ic=(k,s=22,fill=false)=>`<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="${fill?'currentColor':'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[k]}</svg>`;
@@ -365,8 +404,16 @@ const T={
  KFSH:{sym:'KFSH',name:'Kingfish',chain:'Solana',price:0.0214,supply:1e9,liq:1.2e6,vol:5.8e6,holders:15300,age:'41 days',ageH:984,chg:6.8,ca:'9KfShX2pLm4Qr7tVw1ZyN8bC3dE5gH6jK0aS9uFiSh',seed:11},
  DOTB:{sym:'DOTB',name:'dotbook',chain:'Solana',price:0.0000524,supply:1e9,liq:31e3,vol:210e3,holders:640,age:'6 hours',ageH:6,chg:112.5,ca:'5dOtBkQ7mN2pLx9vR4sW1cZ8yT3uE6gH0jK5aF2dOt',seed:13},
  ORBIT:{sym:'ORBIT',name:'Orbit Protocol',chain:'Base',price:0.37,supply:1e8,liq:2.4e6,vol:1.1e6,holders:9800,age:'120 days',ageH:2880,chg:3.1,ca:'0x4f1a9c2b7e3d8f6a5b0c1d2e3f4a5b6c7d8e9f0a',seed:5},
- NEBU:{sym:'NEBU',name:'Nebula',chain:'Ethereum',price:0,supply:0,chg:0,prelaunch:'Oct 14',ca:'0xnebula-prelaunch',seed:9}
-};
+ NEBU:{sym:'NEBU',name:'Nebula',chain:'Ethereum',price:0,supply:0,chg:0,prelaunch:'Oct 14',ca:'0xnebula-prelaunch',seed:9},
+ NIMB:{sym:'NIMB',name:'Nimbus Agent',chain:'Solana',price:0.00131,supply:1e9,liq:96e3,vol:1.9e6,holders:3600,age:'13 hours',ageH:13,chg:64.2,ca:'NimBu5AgQ7mN2pLx9vR4sW1cZ8yT3uE6gH0jK5aF2dN',seed:17,hot:1,soc:'xw'},
+ BSHK:{sym:'BSHK',name:'Harbor Shark',chain:'Solana',price:0.0012,supply:1e9,liq:180e3,vol:1e6,holders:2000,age:'10 days',ageH:240,chg:22.1,ca:'HaRb0rShk2pLx9vR4sW1cZ8yT3uE6gH0jK5aF2dSk',seed:19,hot:1,soc:''},
+ KOI:{sym:'KOI',name:'Neon Koi',chain:'Solana',price:0.0000581,supply:1e9,liq:22e3,vol:669e3,holders:847,age:'4 hours',ageH:4,chg:-8.4,ca:'NeonKoi7mN2pLx9vR4sW1cZ8yT3uE6gH0jK5aF2dKo',seed:23,hot:1,soc:'xw'},
+ SAND:{sym:'SAND',name:'Sand Kitten',chain:'Solana',price:0.0061,supply:1e9,liq:410e3,vol:2e6,holders:2000,age:'5 days',ageH:120,chg:4.7,ca:'SaNdKit7mN2pLx9vR4sW1cZ8yT3uE6gH0jK5aF2dSd',seed:29,soc:''},
+ FROG:{sym:'FROG',name:'Soggy Frog',chain:'Solana',price:0.0000304,supply:1e9,liq:14e3,vol:91e3,holders:270,age:'7 minutes',ageH:0.12,chg:31.5,ca:'SoGgyFr0g2pLx9vR4sW1cZ8yT3uE6gH0jK5aF2dFg',seed:31,soc:'xw'},
+ PUP:{sym:'PUP',name:'Pixel Pup',chain:'Solana',price:0.0000142,supply:1e9,liq:9e3,vol:15e3,holders:87,age:'33 seconds',ageH:0.01,chg:12.2,ca:'PixeLPup2pLx9vR4sW1cZ8yT3uE6gH0jK5aF2dPp',seed:37,soc:'xw'},
+ WORM:{sym:'WORM',name:'Wagmi Worm',chain:'Solana',price:0.0000089,supply:1e9,liq:7e3,vol:26e3,holders:63,age:'57 seconds',ageH:0.016,chg:-4.1,ca:'WaGmiW0rm2pLx9vR4sW1cZ8yT3uE6gH0jK5aF2dWm',seed:41,soc:'xw'},
+ PAIN:{sym:'PAIN',name:'Paincoin',chain:'Solana',price:0.0000119,supply:1e9,liq:8e3,vol:22e3,holders:79,age:'4 minutes',ageH:0.07,chg:9.3,ca:'PaiNc0in2pLx9vR4sW1cZ8yT3uE6gH0jK5aF2dPn',seed:43,soc:'cxw'},
+ QRC:{sym:'QRC',name:'QR Cat',chain:'Solana',price:0.0000658,supply:1e9,liq:30e3,vol:851e3,holders:1200,age:'2 hours',ageH:2,chg:-15.7,ca:'QrCaTqr02pLx9vR4sW1cZ8yT3uE6gH0jK5aF2dQr',seed:47,soc:'cx'},};
 const mcap=t=>t.price*t.supply;
 const C={
  fadedpixel:{h:'fadedpixel',win:68,avg:142,calls:57,best:2140,followers:12400},
@@ -393,7 +440,7 @@ const ADS=[
 const AD_EVERY=3;
 const S={connected:false,addr:'',me:'',tab:'foryou',tf:'1D',lb:'30d',following:new Set(),watch:new Set(['GLORP','ORBIT']),
  bal:{SOL:4.2,USDC:310,GLORP:120000},activity:[{k:'Received',d:'2 SOL',t:'Yesterday'}],
- swap:{from:'SOL',to:'GLORP',amt:''},pkg:'boost',queued:[],unread:true,adRot:0,board:0};
+ swap:{from:'SOL',to:'GLORP',amt:''},pkg:'boost',queued:[],unread:true,adRot:0,board:0,tt:'movers',tf2:{}};
 
 /* ---------- helpers ---------- */
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2200)}
@@ -469,7 +516,7 @@ function vHome(){let list=calls,empty='';
   empty=`<div class="pad"><div class="empty" style="padding:28px 12px 8px"><b class="h2">Follow callers you trust</b><p>Their calls land here the moment they post.</p></div>
   ${ranked().slice(0,4).map(c=>`<div class="sugg">${avatar(c.h,'md')}<div class="grow"><a class="pname" href="#/profile/${c.h}">${c.h}</a><div class="hint">${c.win}% win rate over ${c.calls} calls</div></div><button class="btn sm primary" data-act="follow" data-h="${c.h}">Follow</button></div>`).join('')}</div>`}
  if(S.tab==='watchlist'){list=calls.filter(k=>S.watch.has(k.t));
-  empty=`<div class="empty"><b class="h2">Your watchlist is empty</b><p>Tap the star on any token to add it. Every new call on it shows up here.</p><a class="btn primary" href="#/market">Browse market</a></div>`}
+  empty=`<div class="empty"><b class="h2">Your watchlist is empty</b><p>Tap the star on any token to add it. Every new call on it shows up here.</p><a class="btn primary" href="#/trenches">Browse Trenches</a></div>`}
  return `<div class="tabs" role="tablist">${[['foryou','For you'],['following','Following'],['watchlist','Watchlist']].map(([k,l])=>`<button role="tab" aria-selected="${S.tab===k}" class="${S.tab===k?'on':''}" data-act="tab" data-f="${k}">${l}</button>`).join('')}</div>
  <div class="newpill" id="newpill">${S.queued.length&&S.tab==='foryou'?newPill():''}</div>
  <div id="feed">${(S.tab==='foryou'?withAds(list):list.map(post).join(''))||empty}</div>`}
@@ -481,9 +528,33 @@ function vMarket(){const rows=Object.values(T).filter(t=>!t.base);
  <td class="num">${t.prelaunch?'—':fmtPrice(t.price)}</td><td class="num">${t.prelaunch?'Launches '+t.prelaunch:fmtUsd(mcap(t))}</td><td class="num ${t.chg>=0?'up':'down'}">${t.prelaunch?'':fmtPct(t.chg)}</td><td class="num">${calls.filter(k=>k.t===t.sym).length}</td>
  <td><button class="ib" data-act="track" data-t="${t.sym}" aria-label="Add ${t.sym} to watchlist" style="color:${S.watch.has(t.sym)?'var(--hi)':'var(--muted)'}">${ic('star',20,S.watch.has(t.sym))}</button></td></tr>`).join('')}</tbody></table></div>`}
 
-function vTrenches(){const fresh=Object.values(T).filter(t=>t.ageH&&t.ageH<=168).sort((a,b)=>a.ageH-b.ageH);
- return `<div class="pad"><p class="muted" style="margin:0 0 6px">Tokens under 7 days old, newest first. High risk.</p><div class="list">
- ${fresh.map(t=>`<a class="li" href="#/token/${t.sym}">${tokav(t.sym)}<div class="grow"><b>${esc(t.name)}</b> <span class="hint">$${t.sym}</span><div class="hint">${t.age} old with ${t.holders.toLocaleString()} holders</div></div><div class="r num"><b>${fmtUsd(mcap(t))}</b><div class="hint ${t.chg>=0?'up':'down'}">${fmtPct(t.chg)}</div></div></a>`).join('')}</div></div>`}
+const ageStr=h=>h<1/60?Math.max(1,Math.round(h*3600))+'s':h<1?Math.round(h*60)+'m':h<48?Math.round(h)+'h':Math.round(h/24)+'d';
+const mcCls=m=>m>=1e5?'mb':m>=2e4?'up':'my';
+function trenchStats(t){const r=rng(t.seed*97);const pct=(a,b)=>Math.round(a+r()*(b-a));
+ if(!t._x)t._x={top:pct(0,t.ageH<1?9:3),dev:t.ageH<1?pct(8,38):pct(0,2),snip:pct(0,t.ageH<1?4:1),ins:pct(0,26),fees:(t.vol/1e6)*(20+r()*40),tx:Math.round(t.vol/(60+r()*40)),buys:.45+r()*.3};return t._x}
+function trow(t){const x=trenchStats(t),m=mcap(t),y=t.ageH<1,red=(v,lim)=>v>lim?'down':'up';
+ const soc=(t.soc||'').split('').map(c=>({x:ic('xlogo',15),w:ic('globe',15),c:ic('people',15)})[c]).join('');
+ return `<a class="trow" href="#/token/${t.sym}"><span class="tav ${t.chg>=0?'ok':'bad'}">${tokav(t.sym)}<i class="chainb">${ic('solglyph',11)}</i></span>
+ <div class="tmid"><div class="tname"><b>${esc(t.name)}</b>${t.hot?'<span class="hot">HOT</span>':''}</div>
+ <div class="tsub"><span>${esc(t.sym)}</span><span class="${y?'my':'up'}">${ic('sprout',13)}${ageStr(t.ageH)}</span><span class="soc">${soc}</span></div></div>
+ <div class="tst num"><span class="up" title="Holders">${ic('profile',13)}${fmtK(t.holders)}</span><span class="${red(x.top,10)}" title="Top 10 holders">${ic('target',13)}${x.top}%</span><span class="${red(x.dev,10)}" title="Dev holding">${ic('stake',13)}${x.dev}%</span><span class="${red(x.snip,5)}" title="Snipers">${ic('sniper',13)}${x.snip}%</span><span class="${red(x.ins,15)}" title="Insiders">${ic('crown',13)}${x.ins}%</span></div>
+ <div class="tr num"><div><span class="k">V</span> ${fmtUsd(t.vol).replace(/\.\d+([KMB])/,'$1')} <span class="k">MC</span> <b class="${mcCls(m)}" data-tmc="${t.sym}">${fmtUsd(m)}</b></div>
+ <div><span class="k">F</span> ${ic('solglyph',12)} ${x.fees.toFixed(2)}</div>
+ <div class="bs"><i style="flex:${x.buys}"></i><i style="flex:${1-x.buys}"></i></div>
+ <div><span class="k">TX</span> ${fmtK(x.tx)}</div></div></a>`}
+function vTrenches(){const all=Object.values(T).filter(t=>t.chain==='Solana'&&!t.base&&!t.prelaunch),f=S.tf2||{};
+ let rows=all.filter(t=>t.holders>=(f.minH||0)&&(!f.clean||trenchStats(t).ins<=15));
+ if(S.tt==='watch')rows=rows.filter(t=>S.watch.has(t.sym));
+ rows=S.tt==='new'?rows.sort((a,b)=>a.ageH-b.ageH):rows.sort((a,b)=>b.vol-a.vol);
+ const tab=(k,l)=>`<button role="tab" aria-selected="${S.tt===k}" class="${S.tt===k?'on':''}" data-act="tt" data-f="${k}">${l}</button>`;
+ return `<div class="ttabs" role="tablist">${tab('watch',ic('star',18,S.tt==='watch'))}${tab('movers','Movers')}${tab('new','New')}
+ <span style="margin-left:auto;display:flex;gap:2px"><button class="ib" data-act="tfilter" aria-label="Filters">${ic('filter',20)}${f.minH||f.clean?'<span class="dotn" style="background:var(--hi)"></span>':''}</button></span></div>
+ <div>${rows.map(trow).join('')||`<div class="empty"><b class="h2">${S.tt==='watch'?'No watchlist tokens yet':'Nothing matches your filters'}</b><p>${S.tt==='watch'?'Open any token and tap Watchlist to pin it here.':'Loosen the filters to see more tokens.'}</p></div>`}</div>
+ <p class="hint pad">Degen zone. New tokens are high risk. Icons: holders, top 10 holders, dev holding, snipers, insiders.</p>`}
+function filterModal(){const f=S.tf2||(S.tf2={});
+ modal('Filters','',`<div class="field"><label>Minimum holders</label><div class="seg">${[[0,'Any'],[100,'100+'],[1000,'1K+']].map(([v,l])=>`<button class="${(f.minH||0)===v?'on':''}" data-act="tfset" data-f="minH:${v}">${l}</button>`).join('')}</div></div>
+ <div class="field"><label>Insiders</label><div class="seg"><button class="${f.clean?'':'on'}" data-act="tfset" data-f="clean:0">Show all</button><button class="${f.clean?'on':''}" data-act="tfset" data-f="clean:1">Hide over 15%</button></div></div>
+ <button class="btn primary block" data-act="close">Done</button>`)}
 
 function vSwap(){return `<div class="pad"><div class="card" style="max-width:460px;margin:0 auto"><h3>Swap</h3><div data-swapbox></div></div></div>`}
 
@@ -567,7 +638,7 @@ const isPhone=()=>matchMedia('(max-width:760px)').matches;
 function syncTray(){const open=!document.body.classList.contains('collapsed'),b=$('#brand');b.setAttribute('aria-expanded',open);b.setAttribute('aria-label',open?'Close menu':'Open menu')}
 function render(){if(isPhone())document.body.classList.add('collapsed');const [,r0='home',p]=location.hash.split('/');const r=r0||'home';let html;
  if(r==='token'){const t=T[p];if(t&&tradable(t)&&p!==S.swap.from)S.swap.to=p;html=vToken(p)}
- else html=({market:vMarket,trenches:vTrenches,swap:vSwap,wallet:vWallet,profile:()=>vProfile(p),leaderboard:vLeaders,promote:vPromote,about:vAbout,
+ else html=({market:()=>soon('Market is coming','A full market view is on the way. For now, find new and moving tokens in Trenches.')+'<div style="text-align:center;margin-top:-24px"><a class="btn primary" href="#/trenches">Open Trenches</a></div>',trenches:vTrenches,swap:vSwap,wallet:vWallet,profile:()=>vProfile(p),leaderboard:vLeaders,promote:vPromote,about:vAbout,
   stake:()=>soon('Staking opens with $CALLIT','Stake $CALLIT to unlock premium calls and discounted project promotions. Launching after the product is live on mainnet.'),
   messages:()=>soon('Messages are coming','Direct messages and token chat rooms arrive in the chat phase.'),
   news:()=>soon('News is coming','Launch announcements, listings and market news in one place.')}[r]||vHome)();
@@ -653,6 +724,8 @@ document.addEventListener('click',e=>{
   disconnect:()=>{S.connected=false;toast('Disconnected');render()},
   me:()=>S.connected?location.hash='#/profile/'+S.me:connectModal(),
   collapse:()=>{document.body.classList.toggle('collapsed');syncTray()},
+  tt:()=>{S.tt=b.dataset.f;render()},tfilter:()=>filterModal(),
+  tfset:()=>{const [k,v]=b.dataset.f.split(':');S.tf2[k]=+v;render();filterModal()},
   adclick:()=>{const a=ADS.find(x=>x.id===b.dataset.id);if(a.href)location.hash=a.href;else toast(`Opens ${a.brand} in a new tab once ads go live`)},
   adgo:()=>{S.board=+b.dataset.f;const el=$('#adboard');if(el)el.outerHTML=adBoard()},
   tab:()=>{S.tab=b.dataset.f;render()},tf:()=>{S.tf=b.dataset.f;render()},lb:()=>{S.lb=b.dataset.f;render()},
@@ -688,7 +761,8 @@ setInterval(()=>{const r=rng(Date.now()%1e6);Object.values(T).forEach(t=>{if(!t.
   let el=q('perf');if(el){el.textContent=fmtPct(n.p);el.className=n.up?'up':'down'}
   el=q('pos');if(el)el.textContent=fmtUsd(n.pos);
   el=q('pnl');if(el){el.textContent=money(n.pnl);el.className=n.pnl>=0?'up':'down'}
-  el=q('mc');if(el){el.innerHTML=`${fmtUsd(n.mc)}<small>MC</small>`;el.classList.toggle('up',n.up);el.classList.toggle('down',!n.up)}});
+  el=null;el=q('mc');if(el){el.innerHTML=`${fmtUsd(n.mc)}<small>MC</small>`;el.classList.toggle('up',n.up);el.classList.toggle('down',!n.up)}});
+ document.querySelectorAll('[data-tmc]').forEach(el=>{const m=mcap(T[el.dataset.tmc]);el.textContent=fmtUsd(m);el.className=mcCls(m)});
  document.querySelectorAll('[data-price]').forEach(el=>el.textContent=fmtPrice(T[el.dataset.price].price))},3000);
 
 /* simulated realtime: new calls arrive and wait behind the pill */
@@ -699,7 +773,7 @@ setTimeout(()=>{S.queued.push({id:901,c:'zerobeta',t:'KFSH',entry:mcap(T.KFSH)*.
 /* static icons */
 $('#setIcon').innerHTML=ic('settings',20);$('#fab').innerHTML=ic('plus',28);$('#searchBtn').innerHTML=ic('search',18)+'<span class="lbl">Search</span>';
 if(innerWidth<1100)document.body.classList.add('collapsed');
-addEventListener('hashchange',()=>{if(currentRoute()==='home')S.adRot++;render();scrollTo({top:0})});
+addEventListener('hashchange',()=>{closeModal();if(currentRoute()==='home')S.adRot++;render();scrollTo({top:0})});
 /* ad board rotates on its own */
 setInterval(()=>{const el=$('#adboard');if(!el||el.matches(':hover'))return;S.board++;el.outerHTML=adBoard()},6000);
 render();
