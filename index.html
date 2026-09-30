@@ -77,7 +77,10 @@ body.collapsed .acct{justify-content:center;padding:4px}
 .cols{display:grid;grid-template-columns:minmax(0,640px) 330px;gap:28px;padding:0 20px 0 0}
 .center{border-right:1px solid var(--line);min-height:calc(100vh - var(--hdr));padding-bottom:120px}
 .rail{position:sticky;top:var(--hdr);align-self:start;padding:18px 0;display:flex;flex-direction:column;gap:16px}
-@media (max-width:1279px){.cols{grid-template-columns:minmax(0,680px);padding:0}.rail{display:none}}
+@media (max-width:1279px){.cols{grid-template-columns:minmax(0,640px) 300px;gap:20px;padding:0 16px 0 0}.rail>*:not(.newscard):not(.railfoot){display:none}}
+@media (max-width:899px){.cols{grid-template-columns:minmax(0,680px);padding:0}.rail{display:none}}
+@media (min-width:900px) and (max-width:1279px){.pbar .views{display:none}}
+.rail{max-height:calc(100vh - var(--hdr));overflow-y:auto;scrollbar-width:none}.rail::-webkit-scrollbar{display:none}
 .fab{position:fixed;right:28px;bottom:calc(28px + env(safe-area-inset-bottom,0px));z-index:25;width:62px;height:62px;border-radius:50%;border:0;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;box-shadow:0 10px 30px rgba(11,27,39,.35)}
 .fab:hover{transform:scale(1.05)}
 .dscrim{display:none}
@@ -411,6 +414,56 @@ select option{background:var(--bg2);color:var(--text)}
 .cmenu button:hover{background:var(--hover)}
 .cmenu button.on{color:var(--hi);font-weight:800}
 
+/* ---------- premium, news ---------- */
+.hdr{position:sticky}
+.upg{position:absolute;left:50%;transform:translateX(-50%);display:inline-flex;align-items:center;gap:7px;border:1.5px solid var(--line);background:var(--bg2);color:var(--text);border-radius:999px;padding:8px 16px 8px 11px;font-weight:800;font-size:15px;box-shadow:var(--raise-sm);transition:transform .08s,box-shadow .08s,border-color .12s}
+.upg svg{color:var(--hi)}
+.upg:hover{border-color:var(--hi)}
+.upg:active{transform:translateX(-50%) translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.3)}
+.upg.on{background:color-mix(in srgb,var(--hi) 14%,var(--bg2));border-color:color-mix(in srgb,var(--hi) 50%,transparent)}
+@media (max-width:430px){.upg{padding:7px 10px 7px 8px;font-size:13.5px}.upg span{display:none}.upg::after{content:'Pro';margin-left:-2px}.upg.on::after{content:'Pro'}}
+.vb{display:inline-grid;color:var(--hi);margin-left:-2px;vertical-align:-3px}
+.prem{padding:24px 18px 40px;max-width:600px;margin:0 auto}
+.phero2{text-align:center;padding:10px 0 22px}
+.pbig{display:inline-grid;place-items:center;width:84px;height:84px;border-radius:26px;background:var(--bg2);border:1.5px solid var(--line);color:var(--hi);box-shadow:var(--raise)}
+.phero2 h2{font:800 clamp(30px,5vw,40px)/1.1 var(--display);letter-spacing:-.03em;margin:16px 0 6px}
+.phero2 p{margin:0;color:var(--muted);font-size:17px}
+.pactive{display:inline-flex;align-items:center;gap:6px;margin-top:14px;color:var(--up);font-weight:700;background:color-mix(in srgb,var(--up) 12%,transparent);border-radius:999px;padding:6px 14px}
+.pben{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.bcard{display:flex;gap:12px;align-items:flex-start;border:1.5px solid var(--line);background:var(--bg2);border-radius:16px;padding:14px;box-shadow:var(--raise-sm)}
+.bic{display:grid;place-items:center;width:38px;height:38px;border-radius:12px;background:color-mix(in srgb,var(--hi) 15%,transparent);color:var(--hi);flex:none}
+.bcard b{display:block;font-size:15px}.bcard span{font-size:13px;color:var(--muted);line-height:1.4}
+.psec{font:800 20px/1.2 var(--display);margin:28px 0 12px}
+.pplan button small{font-size:11px;color:var(--up);font-weight:800;margin-left:4px}
+.popts{display:flex;flex-direction:column;gap:12px;margin-top:14px}
+.popt{border:1.5px solid var(--line);border-radius:20px;padding:16px;background:var(--bg2);box-shadow:var(--raise-sm)}
+.popt.on{border-color:var(--hi)}
+.poh{display:flex;gap:12px;align-items:flex-start}
+.poh b{display:block;font-size:16px}
+.pradio{width:20px;height:20px;border-radius:50%;border:6px solid var(--hi);flex:none;margin-top:2px}
+.pradio.off{border:2px solid var(--line)}
+.pprice{text-align:right}.pprice b{display:block;font:800 26px/1 var(--display)}.pprice span{font-size:12.5px;color:var(--muted)}
+.pvia{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:14px 0}
+.pvia .chip{padding:4px 12px 4px 4px}.pvia .chip .tokav{width:24px;height:24px;border-radius:50%;font-size:8px}.pvia .chip i{display:none}
+.soonb{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#E8B730;border:1.5px solid color-mix(in srgb,#E8B730 50%,transparent);border-radius:999px;padding:3px 9px;white-space:nowrap}
+.pstake{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border-radius:12px;overflow:hidden;margin:14px 0}
+.pstake div{background:var(--bg);padding:10px 12px}.pstake span{display:block;font-size:12px;color:var(--muted)}.pstake b{font-size:14px}
+@media (max-width:520px){.pben{grid-template-columns:1fr}.pstake div{padding:8px 9px}.pstake b{font-size:12.5px}}
+.nrow{display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left;border:0;background:transparent;color:var(--text);padding:14px 16px;border-bottom:1px solid var(--line);cursor:pointer}
+.nrow:hover{background:color-mix(in srgb,var(--hover) 45%,transparent)}
+.nrow .tokav{width:40px;height:40px;border-radius:12px;font-size:10px;flex:none}
+.nwire{display:grid;place-items:center;background:var(--bg2)!important;color:var(--hi);border:1px solid var(--line)}
+.nrow .grow{min-width:0}
+.nrow b{display:block;font-size:15px;line-height:1.35;margin:3px 0}
+.nrow .hint{font-size:12.5px}
+.ntag{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
+.ntag.chain{color:var(--up)}.ntag.crypto{color:var(--hi)}
+.nrow.c{padding:10px 0;border-bottom:1px solid var(--line)}
+.nrow.c:last-child{border-bottom:0}
+.nrow.c .tokav{width:32px;height:32px;border-radius:10px;font-size:9px}
+.nrow.c b{font-size:13.5px}
+.nrow.c:hover{background:transparent}.nrow.c:hover b{color:var(--hi)}
+
 /* ---------- top strips ---------- */
 .strip{padding:14px 0 16px;border-bottom:1px solid var(--line)}
 .sthead{display:flex;align-items:center;gap:10px;padding:0 16px 12px}
@@ -731,6 +784,7 @@ td.rkc{font:800 18px var(--display);width:48px}
     <header class="hdr">
       <button class="ib back" id="back" data-act="back" aria-label="Back" hidden></button>
       <h1 id="title" data-act="totop">Home</h1>
+      <button class="upg" id="upg" data-act="gopremium" hidden></button>
       <div class="pill" id="pill"></div>
     </header>
     <div class="cols"><section class="center" id="view"></section><aside class="rail" id="rail"></aside></div>
@@ -757,6 +811,8 @@ const hue=s=>{let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))%360;return h};
 let PROF={};try{PROF=JSON.parse(localStorage.getItem('callit.profile')||'{}')||{}}catch(_){}
 const saveProf=()=>{try{localStorage.setItem('callit.profile',JSON.stringify(PROF));return true}catch(_){return false}};
 const avatar=(h,cls='')=>h===S.me&&PROF.avatar?`<span class="av ${cls}" style="background:#0B1B27 url(${PROF.avatar}) center/cover" role="img" aria-label="${esc(h)}"></span>`:`<span class="av ${cls}" style="background:hsl(${(hue(h)%70)+185} 52% 42%)">${esc(h.slice(0,2).toUpperCase())}</span>`;
+const isPrem=h=>h===S.me&&S.premium&&S.premium.until>Date.now();
+const vbadge=h=>isPrem(h)?`<span class="vb" title="Callit Premium">${ic('verified',17)}</span>`:'';
 const bannerBg=h=>h===S.me&&PROF.banner?`background:#0B1B27 url(${PROF.banner}) center/cover`:`background:linear-gradient(120deg,hsl(${(hue(h)%70)+185} 55% 26%),#0B1B27 70%),#0B1B27`;
 const followingOf=h=>h===S.me?[...S.following]:ranked().map(c=>c.h).filter(x=>x!==h).slice(0,(hue(h)%3)+2);
 const followersOf=h=>h===S.me?[]:ranked().map(c=>c.h).filter(x=>x!==h&&(S.following.has(x)||hue(x+h)%2===0)).concat(S.following.has(h)&&S.me?[S.me]:[]);
@@ -807,6 +863,7 @@ const P={
  telegram:'<path d="M21.5 4.2L2.8 11.4c-1 .4-1 1.6 0 1.9l4.6 1.5 1.8 5.4c.3.8 1.3 1 1.9.4l2.6-2.5 4.8 3.5c.7.5 1.7.1 1.9-.8L23 5.6c.2-1-.6-1.8-1.5-1.4zM9.6 14.4l8.3-6.2-6.6 7.3-.3 3.2-1.4-4.3z" fill="currentColor" stroke="none"/>',
  image:'<rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/>',
  smile:'<circle cx="12" cy="12" r="9"/><path d="M8.5 14.5c1.8 2 5.2 2 7 0"/><circle cx="9" cy="10" r=".6" fill="currentColor"/><circle cx="15" cy="10" r=".6" fill="currentColor"/>',
+ verified:'<path d="M12 2.5l2.4 1.8 3-.1.9 2.8 2.4 1.8-1 2.8 1 2.8-2.4 1.8-.9 2.8-3-.1L12 21.5l-2.4-1.8-3 .1-.9-2.8-2.4-1.8 1-2.8-1-2.8 2.4-1.8.9-2.8 3 .1z" fill="currentColor" stroke="none"/><path d="M8.5 12.2l2.4 2.4 4.6-4.8" stroke="#fff" stroke-width="2.2" fill="none"/>',
  camera:'<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
  pen:'<path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/>',
  lock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/>',
@@ -889,7 +946,7 @@ function post(k){const t=T[k.t],p=perf(k),r=rankOf(k.c);
  return `<article class="post${k.fresh?' fresh':''}" data-go="#/post/${k.id}" tabindex="0" aria-label="Call by ${esc(k.c)} on $${t.sym}">
  <a href="#/profile/${k.c}" aria-label="Open @${esc(k.c)}'s profile" class="pav">${avatar(k.c,'md')}</a>
  <div style="min-width:0">
-  <div class="phead"><span class="pname">${esc(k.c)}</span>${r&&!k.sponsored?`<span class="rk">#${r}</span>`:''}${k.sponsored?'<span class="tag">Sponsored</span>':''}<time>${k.ago==='now'?'now':k.ago+' ago'}</time></div>
+  <div class="phead"><span class="pname">${esc(k.c)}</span>${vbadge(k.c)}${r&&!k.sponsored?`<span class="rk">#${r}</span>`:''}${k.sponsored?'<span class="tag">Sponsored</span>':''}<time>${k.ago==='now'?'now':k.ago+' ago'}</time></div>
   <p class="ptext">${esc(k.thesis)}</p>${mediaGrid(k.media)}
   <a class="ccard" href="#/token/${t.sym}">${tokav(t.sym)}<div class="cn"><b>${esc(t.name)}</b><span>$${t.sym} <span class="chain">${t.chain}</span></span></div>${right}</a>
   ${k.sponsored?`<div class="pnote">Paid promotion by ${esc(k.sponsor)}. Not counted in rankings.</div>`:`<div class="pnote">${k.target?`Target ${fmtUsd(k.target)} within ${esc(k.horizon)} · `:''}${k.buy?`<span class="bk">${ic('check',13)} Bought in</span>`:`<span class="bk no">No buy · earns no fees</span>`}</div>`}
@@ -1114,7 +1171,7 @@ function vProfile(h){if(!h&&S.connected)h=S.me;const c=C[h];
  const P=me?PROF:{},nm=P.name||h,fg=followingOf(h).length,fr=me?followersOf(h).length:c.followers+(f?1:0);
  return `<div class="banner" style="${bannerBg(h)}">${me?`<button class="bnadd" data-act="editprof" data-f="banner" aria-label="${PROF.banner?'Change':'Add a'} banner">${ic('camera',20)}<span>${PROF.banner?'Change banner':'Add a banner'}</span></button>`:''}</div>
  <div class="phero"><div class="top"><span class="avwrap">${avatar(h,'lg')}${r&&r<=3?`<span class="rkbadge">#${r}</span>`:''}</span>${me?'<button class="btn sm editp" data-act="editprof">'+ic('pen',15)+' Edit profile</button>':`<button class="btn sm ${f?'ghost':'primary'}" data-act="follow" data-h="${h}">${f?'Following':'Follow'}</button>`}</div>
- <div class="pname2"><b class="h2">${esc(nm)}</b>${r?`<span class="rk">${ic('leaderboard',13)} Rank #${r}</span>`:''}</div><div class="muted">@${esc(h)}</div>
+ <div class="pname2"><b class="h2">${esc(nm)}</b>${vbadge(h)}${r?`<span class="rk">${ic('leaderboard',13)} Rank #${r}</span>`:''}</div><div class="muted">@${esc(h)}</div>
  ${P.bio?`<p class="pbio">${esc(P.bio)}</p>`:me?`<p class="pbio muted">Add a bio so people know what you call. <button class="lnk" data-act="editprof" style="padding:0">Add bio</button></p>`:''}
  <div class="pmeta">${P.web?`<a href="${esc(/^https?:/.test(P.web)?P.web:'https://'+P.web)}" target="_blank" rel="noopener">${ic('globe',15)} ${esc(P.web.replace(/^https?:\/\//,''))}</a>`:''}${P.x?`<a href="https://x.com/${esc(P.x.replace('@',''))}" target="_blank" rel="noopener">${ic('xlogo',14)} @${esc(P.x.replace('@',''))}</a>`:''}<span>${ic('wallet',15)} ${me&&S.addr?short(S.addr):'Solana caller'}</span></div>
  <div class="pfollow"><button data-act="follows" data-h="${h}" data-f="following"><b>${fmtK(fg)}</b> Following</button><button data-act="follows" data-h="${h}" data-f="followers"><b>${fmtK(fr)}</b> Followers</button></div>
@@ -1139,7 +1196,7 @@ function vAbout(){return `<div class="prose"><div style="margin-bottom:18px">${s
  <p>Wallets are non-custodial. Sign in with email, Google or X, or bring Phantom, Solflare or Backpack.</p></div>`}
 
 /* ---------- rail ---------- */
-function rail(){return adBoard()+railRest()+`<div class="railfoot">${socials('sm')}<div class="legal" style="justify-content:flex-start"><button data-act="doc" data-f="terms">Terms</button><button data-act="doc" data-f="privacy">Privacy</button><span>© ${new Date().getFullYear()} Callit</span></div></div>`}
+function rail(){return adBoard()+newsCard()+railRest()+`<div class="railfoot">${socials('sm')}<div class="legal" style="justify-content:flex-start"><button data-act="doc" data-f="terms">Terms</button><button data-act="doc" data-f="privacy">Privacy</button><span>© ${new Date().getFullYear()} Callit</span></div></div>`}
 function railRest(){const trend=Object.values(T).filter(t=>!t.base&&!t.prelaunch).sort((a,b)=>b.chg-a.chg).slice(0,4);
  return `<div class="card"><h3>Trending</h3><div class="list">${trend.map(t=>`<a class="li" href="#/token/${t.sym}">${tokav(t.sym)}<div class="grow"><b>$${t.sym}</b><div class="hint">${(n=>n+(n===1?' call':' calls'))(calls.filter(k=>k.t===t.sym).length)}</div></div><div class="r num"><b>${fmtUsd(mcap(t))}</b><div class="hint ${t.chg>=0?'up':'down'}">${fmtPct(t.chg)}</div></div></a>`).join('')}</div></div>
  <div class="card"><h3>Top callers</h3><div class="list">${ranked().slice(0,4).map(c=>`<div class="li">${avatar(c.h)}<div class="grow"><a class="pname" href="#/profile/${c.h}">${c.h}</a><div class="hint">${c.win}% win rate</div></div><button class="btn sm ${S.following.has(c.h)?'ghost':'primary'}" data-act="follow" data-h="${c.h}">${S.following.has(c.h)?'Following':'Follow'}</button></div>`).join('')}</div>
@@ -1148,7 +1205,7 @@ function railRest(){const trend=Object.values(T).filter(t=>!t.base&&!t.prelaunch
 /* ---------- chrome ---------- */
 const NAV_A=[['home','Home'],['market','Market'],['swap','Swap'],['stake','Stake'],['wallet','Wallet'],['profile','Profile']];
 const NAV_B=[['leaderboard','Leaderboard'],['messages','Messages'],['news','News'],['promote','Promote'],['about','About']];
-const TITLES=Object.fromEntries([...NAV_A,...NAV_B,['token','Token'],['community','Community'],['post','Post']]);
+const TITLES=Object.fromEntries([...NAV_A,...NAV_B,['token','Token'],['community','Community'],['post','Post'],['premium','Premium']]);
 const NAVH={stack:[],cur:location.hash||'#/home',back:false};
 function goBack(){const prev=NAVH.stack.pop();NAVH.back=true;location.hash=prev&&prev!==location.hash?prev:'#/home'}
 function chrome(route){const link=([k,l])=>`<a href="#/${k}" class="${route===k?'on':''}" title="${l}">${ic(k)}<span class="lbl">${l}</span></a>`;
@@ -1159,7 +1216,7 @@ function chrome(route){const link=([k,l])=>`<a href="#/${k}" class="${route===k?
   <button class="ib" data-act="notifs" aria-label="Notifications">${ic('bell')}${S.unread?'<span class="dotn"></span>':''}</button>
   <button class="ib" data-act="theme" aria-label="Switch theme">${ic('sun')}</button>`;
  syncTray();
- $('#title').textContent=TITLES[route]||'Home';const bk=$('#back');bk.hidden=route==='home';bk.innerHTML=ic('back',20)}
+ $('#title').textContent=TITLES[route]||'Home';{const u=$('#upg'),on=isPrem(S.me);u.hidden=route!=='home';u.classList.toggle('on',!!on);u.innerHTML=`${ic('verified',18)}<span>${on?'Premium':'Upgrade'}</span>`}const bk=$('#back');bk.hidden=route==='home';bk.innerHTML=ic('back',20)}
 
 const isPhone=()=>matchMedia('(max-width:760px)').matches;
 function syncTray(){const open=!document.body.classList.contains('collapsed'),b=$('#brand');b.setAttribute('aria-expanded',open);b.setAttribute('aria-label',open?'Close menu':'Open menu')}
@@ -1170,7 +1227,7 @@ function render(){if(isPhone())document.body.classList.add('collapsed');const [,
  else html=({market:vMarket,trenches:vMarket,swap:vSwap,wallet:vWallet,profile:()=>vProfile(p),leaderboard:vLeaders,promote:vPromote,about:vAbout,
   stake:()=>soon('Staking opens with $CALLIT','Stake $CALLIT to unlock premium calls and discounted project promotions. Launching after the product is live on mainnet.'),
   messages:()=>soon('Messages are coming','Direct messages and token chat rooms arrive in the chat phase.'),
-  news:()=>soon('News is coming','Launch announcements, listings and market news in one place.')}[r]||vHome)();
+  news:vNews,premium:vPremium}[r]||vHome)();
  $('#view').innerHTML=html;$('#rail').innerHTML=rail();chrome(r);renderSwaps();skin($('#view'));syncLanding();
  if(r==='post'){wireAttach($('#rbox'),RDRAFT,()=>drawRMedia());if(S.focusReply){S.focusReply=false;setTimeout(()=>{const i=$('#rin');i&&i.focus()},60)}}}
 
@@ -1346,6 +1403,42 @@ function topTrades(){const who=ranked().map(c=>c.h),toks=Object.values(T).filter
  return strip('stt','Weekly top trades','Largest realized wins in the trenches',trades.map((x,i)=>`<a class="scard" href="#/token/${x.t.sym}"><div class="sctop">${avatar(x.h)}<b>${esc(x.h)}</b>${medal(i)}</div>
  <div class="scbody">${tokav(x.t.sym)}<div class="grow"><b class="num up">+${fmtUsd(x.pnl).replace('$','$')}</b><span class="num">$${x.t.sym} · <em class="up">${x.x.toFixed(1)}x</em></span></div></div></a>`).join(''))}
 
+/* ---------- news ---------- */
+const WIRE=[['Solana memecoin launches hit a new weekly high as launchpad competition heats up','Callit Wire',38],['Creator fee splits become the new battleground for token launchpads','Callit Wire',95],['Stablecoin balances on Solana keep climbing as traders park profits','Callit Wire',160],['Perp DEX volume climbs as traders chase leverage on majors','Callit Wire',240],['Why bundled supply is the first thing smart money checks now','Callit Wire',410]];
+function newsItems(){const out=[],tk=Object.values(T).filter(t=>t.chain==='Solana'&&!t.base&&!t.prelaunch&&t.holders),r=rng(77);
+ tk.slice(0,8).forEach((t,i)=>{const m=Math.round(8+r()*70)*6,kind=i%4;
+  out.push({kind:'chain',sym:t.sym,min:m,title:kind===0?`Whale bought ${fmtUsd(20e3+r()*180e3)} of $${t.sym} in one swap`:kind===1?`$${t.sym} passes ${fmtK(t.holders)} holders`:kind===2?`$${t.sym} ${t.chg>=0?'up':'down'} ${Math.abs(t.chg).toFixed(1)}% as volume hits ${fmtUsd(t.vol)}`:`Dev wallet on $${t.sym} moved ${Math.round(1+r()*4)}% of supply`,src:'On-chain'})});
+ calls.filter(k=>k.buy&&nums(k)&&nums(k).p>50).slice(0,3).forEach((k,i)=>out.push({kind:'chain',sym:k.t,min:20+i*55,title:`${k.c}'s $${k.t} call is up ${fmtPct(nums(k).p)}`,src:'Callit calls',post:k.id}));
+ WIRE.forEach(([title,src,min])=>out.push({kind:'crypto',title,src,min}));
+ return out.sort((a,b)=>a.min-b.min)}
+const ago2=m=>m<60?m+'m':Math.round(m/60)+'h';
+function newsRow(n,compact){const go=n.post?`#/post/${n.post}`:n.sym?`#/token/${n.sym}`:'';
+ return `<${go?`a href="${go}"`:'button data-act="newsx"'} class="nrow${compact?' c':''}">${n.sym?tokav(n.sym):`<span class="tokav nwire">${ic('news',18)}</span>`}<span class="grow"><span class="ntag ${n.kind}">${n.kind==='chain'?'On-chain':'Crypto'}</span><b>${esc(n.title)}</b><span class="hint">${esc(n.src)} · ${ago2(n.min)}</span></span></${go?'a':'button'}>`}
+function newsCard(){return `<div class="card newscard"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><h3 style="margin:0">Trending news</h3><a class="lnk" href="#/news">See all</a></div>${newsItems().slice(0,5).map(n=>newsRow(n,1)).join('')}</div>`}
+function vNews(){const f=S.nf||'all',list=newsItems().filter(n=>f==='all'||n.kind===f);
+ return `<div class="tabs" role="tablist">${[['all','All'],['chain','On-chain'],['crypto','Crypto']].map(([k,l])=>`<button class="${f===k?'on':''}" data-act="nf" data-f="${k}">${l}</button>`).join('')}</div>
+ <div>${list.map(n=>newsRow(n)).join('')}</div><p class="hint pad">On-chain items come from token and call activity. Crypto headlines are samples until the news feed is connected.</p>`}
+
+/* ---------- premium ---------- */
+const PLANS={monthly:{usd:8,label:'Monthly',per:'/month',days:30},yearly:{usd:80,label:'Yearly',per:'/year',days:365,save:'2 months free'}};
+const STAKE_AMT=50000;
+function vPremium(){const pl=S.plan||'yearly',P=PLANS[pl],via=S.payvia||'SOL',on=isPrem(S.me),amt=via==='SOL'?P.usd/T.SOL.price:P.usd;
+ const ben=[['verified','Verified checkmark','A blue check on your profile, calls and replies.'],['promote','Boosted reach','Your calls get priority in For you and Community.'],['swap','Lower swap fees','Pay less on every buy and sell you make on Callit.'],['wallet','Bigger caller share','Earn a larger cut of fees on calls you bought into.'],['filter','Pro Trenches','Saved filter presets and alerts when new tokens match.'],['market','Early access','First in line for Perps and Predictions.']];
+ return `<div class="prem"><div class="phero2"><span class="pbig">${ic('verified',44)}</span><h2>Callit Premium</h2><p>Get verified. Get seen. Get paid more.</p>
+ ${on?`<div class="pactive">${ic('check',16)} Premium active until ${new Date(S.premium.until).toLocaleDateString()}</div>`:''}</div>
+ <div class="pben">${ben.map(([i,t,d])=>`<div class="bcard"><span class="bic">${ic(i,20)}</span><div><b>${t}</b><span>${d}</span></div></div>`).join('')}</div>
+ <h3 class="psec">Choose how to get it</h3>
+ <div class="seg wide pplan">${Object.entries(PLANS).map(([k,v])=>`<button class="${pl===k?'on':''}" data-act="plan" data-f="${k}">${v.label}${v.save?` <small>${v.save}</small>`:''}</button>`).join('')}</div>
+ <div class="popts">
+  <div class="popt on"><div class="poh"><span class="pradio"></span><div class="grow"><b>Pay from your Callit wallet</b><span class="hint">Renews ${pl==='yearly'?'yearly':'monthly'}. Cancel anytime.</span></div><div class="pprice num"><b>$${P.usd}</b><span>${P.per}</span></div></div>
+   <div class="pvia">${['SOL','USDC'].map(x=>`<button class="chip${via===x?' on':''}" style="--c:var(--hi)" data-act="payvia" data-f="${x}">${tokav(x)}${x}</button>`).join('')}<span class="hint num">${via==='SOL'?`≈ ${amt.toFixed(3)} SOL`:`${amt} USDC`} · Balance ${fmtAmt(S.bal[via]||0)} ${via}</span></div>
+   <button class="btn primary block" data-act="buyprem">${on?'Extend Premium':'Upgrade now'}</button></div>
+  <div class="popt"><div class="poh"><span class="pradio off"></span><div class="grow"><b>Stake $CALLIT</b><span class="hint">Stake ${fmtK(STAKE_AMT)} $CALLIT and keep Premium for as long as it stays staked. Your tokens stay yours.</span></div><span class="soonb">At launch</span></div>
+   <div class="pstake"><div><span>Stake</span><b class="num">${fmtK(STAKE_AMT)} $CALLIT</b></div><div><span>Minimum lock</span><b>30 days</b></div><div><span>Bonus</span><b>Staking rewards</b></div></div>
+   <button class="btn ghost block" data-act="stakewait">${S.stakeWait?'You\'re on the list':'Notify me at $CALLIT launch'}</button></div>
+ </div>
+ <p class="hint" style="text-align:center;margin:18px 0 0">Payments are signed from your own wallet. Premium never affects how call performance is measured.</p></div>`}
+
 /* ---------- full post ---------- */
 const REPLIES={};const RDRAFT={media:[]};
 const RLINES=['Aped a small bag. Chart looks clean.','What is the dev wallet holding right now?','Target feels conservative ngl','In since 1M, not selling here','Liquidity is thin, careful with size','Good call. Following for the next one','Bundled supply worries me a bit','This is the one 🚀'];
@@ -1362,7 +1455,7 @@ function vPost(id){const k=calls.find(x=>String(x.id)===String(id));if(!k)return
   ${k.target?`<div class="tprog"><i style="width:${Math.min(100,Math.max(2,(n.mc-k.entry)/(k.target-k.entry)*100))}%"></i></div>`:''}
   <div class="tact"><span class="${k.buy?'bk':'bk no'}">${k.buy?ic('check',14)+' Caller bought in · earns fees':'Caller didn\'t buy · earns no fees'}</span>${tradable(t)?`<button class="btn primary" data-act="qbuy" data-t="${t.sym}" data-id="${k.id}">Buy $${t.sym}</button>`:''}<a class="btn ghost" href="#/token/${t.sym}">Chart</a></div></div>`
   :`<a class="ccard" href="#/token/${t.sym}">${tokav(t.sym)}<div class="cn"><b>${esc(t.name)}</b><span>$${t.sym} <span class="chain">${t.chain}</span></span></div><div class="cr"><b>Soon</b><span>Launches ${esc(t.prelaunch)}</span></div></a>`;
- return `<article class="fpost"><div class="fhead"><a href="#/profile/${k.c}" aria-label="Open @${esc(k.c)}'s profile">${avatar(k.c,'md')}</a><div class="grow"><div class="phead" style="margin:0"><span class="pname">${esc(k.c)}</span>${r&&!k.sponsored?`<span class="rk">#${r}</span>`:''}${k.sponsored?'<span class="tag">Sponsored</span>':''}</div><div class="hint">@${esc(k.c)}</div></div>
+ return `<article class="fpost"><div class="fhead"><a href="#/profile/${k.c}" aria-label="Open @${esc(k.c)}'s profile">${avatar(k.c,'md')}</a><div class="grow"><div class="phead" style="margin:0"><span class="pname">${esc(k.c)}</span>${vbadge(k.c)}${r&&!k.sponsored?`<span class="rk">#${r}</span>`:''}${k.sponsored?'<span class="tag">Sponsored</span>':''}</div><div class="hint">@${esc(k.c)}</div></div>
   ${k.c===S.me?'':`<button class="btn sm ${S.following.has(k.c)?'ghost':'primary'}" data-act="follow" data-h="${k.c}">${S.following.has(k.c)?'Following':'Follow'}</button>`}</div>
   <p class="ftext">${esc(k.thesis)}</p>${mediaGrid(k.media)}${trade}
   ${k.sponsored?`<div class="pnote">Paid promotion by ${esc(k.sponsor)}. Not counted in rankings.</div>`:''}
@@ -1439,6 +1532,7 @@ function landingHTML(){const yr=new Date().getFullYear();
 function syncLanding(){const el=$('#landing');let exp=false;try{exp=sessionStorage.getItem('callit.explore')==='1'}catch(_){}
  const show=!S.connected&&!exp;if(show&&el.hidden){el.innerHTML=landingHTML();el.hidden=false}else if(!show&&!el.hidden){el.hidden=true;el.innerHTML=''}
  document.body.classList.toggle('lock',show)}
+try{S.premium=JSON.parse(localStorage.getItem('callit.premium')||'null')}catch(_){}
 try{const v=JSON.parse(localStorage.getItem('callit.session')||'null');if(v&&v.me){S.connected=true;S.addr=v.addr;S.me=v.me;C[S.me]=C[S.me]||{h:S.me,win:0,avg:0,calls:0,best:0,followers:0}}}catch(_){}
 
 /* ---------- events ---------- */
@@ -1449,7 +1543,15 @@ document.addEventListener('click',e=>{
  const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act;
  if(a==='close'){if(e.target===b||b.tagName!=='DIV'){closeModal()}return}
  const act={
-  newcall:()=>callModal(b.dataset.t),stscroll:()=>{const t=$('#'+b.dataset.f);t&&t.scrollBy({left:+b.dataset.d*t.clientWidth*.8,behavior:'smooth'})},
+  newcall:()=>callModal(b.dataset.t),
+  gopremium:()=>{location.hash='#/premium'},plan:()=>{S.plan=b.dataset.f;render()},payvia:()=>{S.payvia=b.dataset.f;render()},
+  stakewait:()=>{if(!S.connected)return connectModal();S.stakeWait=true;toast('We\'ll let you know when $CALLIT staking opens');render()},
+  buyprem:()=>{if(!S.connected)return connectModal(()=>{location.hash='#/premium'});const P=PLANS[S.plan||'yearly'],via=S.payvia||'SOL',amt=via==='SOL'?P.usd/T.SOL.price:P.usd;
+   if((S.bal[via]||0)<amt)return toast(`Not enough ${via}. You need ${via==='SOL'?amt.toFixed(3):amt} ${via}`);
+   modal('Confirm upgrade','',`<div class="list"><div class="li"><span class="grow">Plan</span><b>${P.label}</b></div><div class="li"><span class="grow">You pay</span><b class="num">${via==='SOL'?amt.toFixed(3):amt} ${via}</b></div><div class="li"><span class="grow">Renews</span><b>${new Date(Date.now()+P.days*864e5).toLocaleDateString()}</b></div></div><button class="btn primary block" id="pgo" style="margin-top:14px">Confirm and pay</button>`,
+    m=>$('#pgo',m).onclick=()=>{S.bal[via]-=amt;const base=isPrem(S.me)?S.premium.until:Date.now();S.premium={plan:S.plan||'yearly',until:base+P.days*864e5};try{localStorage.setItem('callit.premium',JSON.stringify(S.premium))}catch(_){}
+     S.activity.unshift({k:'Sent',d:`${via==='SOL'?amt.toFixed(3):amt} ${via} for Callit Premium`,t:'Just now'});closeModal();toast('Welcome to Premium ✓');render()})},
+  nf:()=>{S.nf=b.dataset.f;render()},newsx:()=>toast('Full articles open once the news feed is connected'),stscroll:()=>{const t=$('#'+b.dataset.f);t&&t.scrollBy({left:+b.dataset.d*t.clientWidth*.8,behavior:'smooth'})},
   lsign:()=>signIn(b.dataset.f),lwallet:()=>connectModal(null,'in'),
   lemail:()=>{const v=($('#lxemail')||{}).value||'';if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())){$('#lxerr').textContent='Enter a valid email address.';$('#lxemail').focus();return}signIn('Email')},
   lexplore:()=>{try{sessionStorage.setItem('callit.explore','1')}catch(_){}location.hash='#/'+b.dataset.f;syncLanding()},
