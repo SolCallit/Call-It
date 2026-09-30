@@ -240,6 +240,97 @@ textarea.input{resize:vertical;min-height:96px}
 .mb{color:var(--hi)}.my{color:#E8B730}
 @media (max-width:520px){.trow{grid-template-columns:50px minmax(0,1fr) auto;grid-template-areas:"av mid r" "st st st";column-gap:10px;padding:10px}.tst{padding-top:2px}.tav{width:50px;height:50px;border-radius:12px}.tname b{font-size:14.5px}.tsub{font-size:12.5px;gap:7px}.tst{font-size:12px;column-gap:7px}.tr{font-size:12.5px}.ttabs>button{font-size:15.5px;padding:9px 9px}}
 
+/* ---------- trenches v2: feeds, bonding ring, heat ---------- */
+.ttabs{padding:6px 8px 6px 4px}
+.tscroll{display:flex;align-items:center;gap:2px;overflow-x:auto;scrollbar-width:none;min-width:0;flex:1}
+.tscroll::-webkit-scrollbar{display:none}
+.tscroll>button{border:0;background:transparent;padding:10px 12px;font-weight:700;font-size:17px;color:var(--muted);position:relative;display:grid;place-items:center;white-space:nowrap;flex:none}
+.tscroll>button.on{color:var(--text)}
+.tscroll>button.on::after{content:'';position:absolute;left:12px;right:12px;bottom:0;height:3px;border-radius:3px;background:var(--hi)}
+.ttools{display:flex;gap:2px;flex:none;padding-left:6px;border-left:1px solid var(--line)}
+.fbadge{position:absolute;top:2px;right:0;min-width:17px;height:17px;border-radius:9px;background:var(--hi);color:#fff;font-size:10.5px;font-weight:800;display:grid;place-items:center;padding:0 4px}
+.fline{display:flex;justify-content:space-between;align-items:center;padding:8px 14px;font-size:13px;color:var(--muted);background:color-mix(in srgb,var(--hi) 10%,transparent);border-bottom:1px solid var(--line)}
+.fline button{border:0;background:transparent;color:var(--hi);font-weight:700}
+.tav{border:0;padding:3px;background:conic-gradient(var(--up) var(--b),var(--line) 0)}
+.tav.bad{background:conic-gradient(var(--down) var(--b),var(--line) 0)}
+.tav .tokav{border:2px solid var(--bg)}
+.trow.compact{padding-top:6px;padding-bottom:6px}
+.trow.compact .tav{width:46px;height:46px}
+.trow.compact{grid-template-columns:46px minmax(0,1fr) auto}
+.trow.lite{grid-template-areas:"av mid r"}
+.tsub{overflow:hidden}
+.heat{align-self:flex-start;display:inline-flex;align-items:center;gap:0;font-size:12px;font-weight:700;color:var(--hi)}
+.heat .av{width:18px;height:18px;font-size:7px;border:1.5px solid var(--bg);margin-left:-5px}
+.heat .av:first-child{margin-left:0}
+.heat b{margin-left:5px}
+.tr .spark{width:64px;height:22px;color:var(--up)}
+.tr .spark.down{color:var(--down)}
+.spark path{fill:none;stroke:currentColor;stroke-width:1.6;vector-effect:non-scaling-stroke}
+
+/* ---------- sheet ---------- */
+#sheet .sh-scrim{position:fixed;inset:0;z-index:55;background:rgba(3,9,14,.6);opacity:0;transition:opacity .2s}
+#sheet .sh{position:fixed;z-index:56;left:0;right:0;bottom:0;max-height:88vh;display:flex;flex-direction:column;background:var(--bg);border:1px solid var(--line);border-bottom:0;border-radius:24px 24px 0 0;transform:translateY(100%);transition:transform .22s cubic-bezier(.2,.9,.3,1);padding-bottom:env(safe-area-inset-bottom,0px);box-shadow:0 -20px 60px rgba(3,9,14,.45)}
+#sheet.open .sh-scrim{opacity:1}#sheet.open .sh{transform:none}
+#shin{display:flex;flex-direction:column;min-height:0;flex:1}
+.sh-grab{width:40px;height:4px;border-radius:4px;background:var(--line);margin:10px auto 0;flex:none}
+.sh-head{display:flex;align-items:center;gap:8px;padding:10px 18px 12px}
+.sh-head>div{flex:1}
+.sh-head h2{margin:0;font:800 22px/1.1 var(--display)}
+.sh-head .muted{font-size:13px}
+.lnk{border:0;background:transparent;color:var(--hi);font-weight:700;font-size:14px;padding:6px}
+.sh-tabs{display:flex;gap:6px;padding:0 18px 12px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--line)}
+.sh-tabs button{border:1.5px solid var(--line);background:transparent;border-radius:999px;padding:7px 14px;font-weight:700;color:var(--muted);flex:none}
+.sh-tabs button.on{background:var(--text);border-color:var(--text);color:var(--bg)}
+.sh-body{overflow-y:auto;padding:6px 18px 18px;flex:1;min-height:0;overscroll-behavior:contain}
+.sh-foot{display:grid;grid-template-columns:1fr 2fr;gap:10px;padding:12px 18px 16px;border-top:1px solid var(--line)}
+.sh-foot .btn{padding:14px}
+.fgrp{padding:14px 0;border-bottom:1px dashed var(--line)}
+.fgrp:last-child{border-bottom:0}
+.fh{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.fh b{font-size:15px}
+.fh span{font-size:12.5px;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:7px;border:1.5px solid var(--line);background:var(--bg2);border-radius:12px;padding:7px 12px;font-weight:700;font-size:14px;color:var(--muted);transition:all .12s}
+.chip i{width:9px;height:9px;border-radius:50%;background:var(--c);opacity:.45}
+.chip.on{color:var(--text);border-color:var(--c);background:color-mix(in srgb,var(--c) 14%,var(--bg2))}
+.chip.on i{opacity:1;box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 30%,transparent)}
+.chip:disabled{opacity:.5;cursor:not-allowed}
+.chip small{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.pair{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center}
+.pair span{font-size:13px;color:var(--muted)}
+.seg.wide{display:flex}
+.seg.wide button{flex:1}
+.risk{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.rcard{text-align:left;border:1.5px solid var(--line);background:var(--bg2);border-radius:14px;padding:10px 12px}
+.rcard b{display:block;font-size:14.5px}
+.rcard span{font-size:12px;color:var(--muted);line-height:1.3;display:block;margin-top:2px}
+.rcard.on{border-color:var(--hi);box-shadow:0 0 0 3px color-mix(in srgb,var(--hi) 22%,transparent)}
+.slide{display:grid;grid-template-columns:132px 1fr 56px;align-items:center;gap:10px;padding:8px 0}
+.slide label{display:flex;align-items:center;gap:6px;font-size:13.5px;font-weight:600}
+.slide output{font-size:13px;font-weight:800;text-align:right;font-variant-numeric:tabular-nums}
+.slide input{appearance:none;-webkit-appearance:none;height:6px;border-radius:6px;background:linear-gradient(90deg,var(--hi) var(--v),var(--line) 0);outline-offset:4px}
+.slide input::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:#fff;border:3px solid var(--hi);box-shadow:0 2px 6px rgba(0,0,0,.3)}
+.slide input::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:#fff;border:3px solid var(--hi)}
+.trow2,.feedrow{display:flex;align-items:center;gap:12px;padding:10px 0}
+.trow2>div,.feedrow .grow{flex:1;min-width:0}
+.trow2 b,.feedrow b{display:block;font-size:15px}
+.trow2 span,.feedrow span:not(.nb):not(.fnum):not(.mv){font-size:13px;color:var(--muted)}
+.nb{font-size:10.5px;font-weight:800;color:var(--hi);background:color-mix(in srgb,var(--hi) 15%,transparent);border-radius:999px;padding:2px 7px;vertical-align:2px}
+.sw{position:relative;width:48px;height:28px;border-radius:999px;border:0;background:var(--line);flex:none;transition:background .15s}
+.sw i{position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:transform .18s cubic-bezier(.3,1.4,.5,1);box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.sw.on{background:var(--hi)}.sw.on i{transform:translateX(20px)}
+.fnum{width:26px;height:26px;border-radius:50%;background:var(--bg2);border:1px solid var(--line);display:grid;place-items:center;font-size:12.5px;font-weight:800;flex:none}
+.fnum.ghost{visibility:hidden}
+.feedrow.off b{color:var(--muted)}
+.mv{display:flex}.mv .ib{width:32px;height:32px}.mv .ib:disabled{opacity:.3;cursor:default}
+.fsub{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700;margin:12px 0 2px}
+.preview-row{margin:8px -18px 4px;border-top:1px solid var(--line);pointer-events:none}
+@media (min-width:761px){
+ #sheet .sh{left:auto;top:0;width:460px;max-height:none;border-radius:24px 0 0 24px;border-bottom:1px solid var(--line);transform:translateX(100%)}
+ .sh-grab{display:none}.sh-head{padding-top:18px}
+}
+@media (max-width:420px){.sh-tabs{gap:4px}.sh-tabs button{padding:6px 11px;font-size:14px}.slide{grid-template-columns:1fr 52px}.slide label{grid-column:1/-1}.risk{grid-template-columns:1fr 1fr 1fr}.rcard{padding:9px}}
+
 /* ---------- pages ---------- */
 .list{display:flex;flex-direction:column}
 .li{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
@@ -337,6 +428,7 @@ td.rkc{font:800 18px var(--display);width:48px}
 <div class="dscrim" data-act="collapse"></div>
 <button class="fab" data-act="newcall" aria-label="Make a call" id="fab"></button>
 <div id="modal"></div>
+<div id="sheet"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 
 <script>
@@ -390,6 +482,9 @@ const P={
  sniper:'<path d="M6 11a6 6 0 0112 0v2H6z"/><path d="M8 13v5h8v-5"/>',
  crown:'<path d="M4 18l-1-10 5 4 4-7 4 7 5-4-1 10z"/>',
  filter:'<path d="M4 6h16M7 12h10M10 18h4"/>',
+ gear:'<circle cx="12" cy="12" r="3"/><path d="M12 2.5v2.5M12 19v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M2.5 12H5M19 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/>',
+ up:'<path d="M6 15l6-6 6 6"/>',
+ down:'<path d="M6 9l6 6 6-6"/>',
  solglyph:'<path d="M6 6h14l-2 3H4zM6 15h14l-2 3H4zM4 10.5h14l2 3H6z" fill="currentColor" stroke="none"/>',
  eye:'<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'
 };
@@ -440,7 +535,7 @@ const ADS=[
 const AD_EVERY=3;
 const S={connected:false,addr:'',me:'',tab:'foryou',tf:'1D',lb:'30d',following:new Set(),watch:new Set(['GLORP','ORBIT']),
  bal:{SOL:4.2,USDC:310,GLORP:120000},activity:[{k:'Received',d:'2 SOL',t:'Yesterday'}],
- swap:{from:'SOL',to:'GLORP',amt:''},pkg:'boost',queued:[],unread:true,adRot:0,board:0,tt:'movers',tf2:{}};
+ swap:{from:'SOL',to:'GLORP',amt:''},pkg:'boost',queued:[],unread:true,adRot:0,board:0,tt:'movers'};
 
 /* ---------- helpers ---------- */
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2200)}
@@ -532,29 +627,114 @@ const ageStr=h=>h<1/60?Math.max(1,Math.round(h*3600))+'s':h<1?Math.round(h*60)+'
 const mcCls=m=>m>=1e5?'mb':m>=2e4?'up':'my';
 function trenchStats(t){const r=rng(t.seed*97);const pct=(a,b)=>Math.round(a+r()*(b-a));
  if(!t._x)t._x={top:pct(0,t.ageH<1?9:3),dev:t.ageH<1?pct(8,38):pct(0,2),snip:pct(0,t.ageH<1?4:1),ins:pct(0,26),fees:(t.vol/1e6)*(20+r()*40),tx:Math.round(t.vol/(60+r()*40)),buys:.45+r()*.3};return t._x}
-function trow(t){const x=trenchStats(t),m=mcap(t),y=t.ageH<1,red=(v,lim)=>v>lim?'down':'up';
+/* ---------- trenches: feeds, filters, display ---------- */
+const LPS=[['Pump','#4ADE80'],['Bonk','#F59E0B'],['Believe','#22C55E'],['Moonshot','#C084FC'],['Launchlab','#38BDF8'],['Bags','#10B981'],['Jup Studio','#FB923C']];
+const CHAINS=[['Solana','#9d7bff',1],['Base','#3B82F6',0],['BSC','#F0B90B',0],['Ethereum','#8EA2FF',0],['Arbitrum','#60A5FA',0]];
+const FEEDS={movers:['Movers','Biggest price momentum right now','Recommended'],new:['New','Fresh launches, newest first'],called:['Called','Tokens our callers are on, most calls first','Only on Callit'],
+ crowded:['Crowded','Most holders first'],almost:['Almost there','60 to 99% through the bonding curve'],grad:['Graduated','Just finished the bonding curve, newest first']};
+const RISK={degen:['Degen','Show me everything',{top:100,dev:100,snip:100,ins:100}],balanced:['Balanced','Filter the obvious traps',{top:30,dev:15,snip:10,ins:30}],careful:['Careful','Only clean holder books',{top:15,dev:5,snip:3,ins:15}]};
+const bond=t=>Math.min(100,mcap(t)/69e3*100);
+const lpOf=t=>t.lp||(t.lp=LPS[t.seed%LPS.length][0]);
+const callsOn=t=>calls.filter(k=>k.t===t.sym&&!k.sponsored);
+const defFil=()=>({chains:['Solana'],lps:LPS.map(l=>l[0]),inc:'',exc:'',bmin:'',bmax:'',mcMin:'',mcMax:'',volMin:'',hMin:'',ageMax:0,top:100,dev:100,snip:100,ins:100,x:0,web:0,comm:0,called:0,topc:0,bought:0});
+const defDisp=()=>({pro:1,spark:0,heat:1,compact:0});
+const defFeeds=()=>[['movers',1],['new',1],['called',1],['crowded',0],['almost',0],['grad',0]];
+const TS=(()=>{let v={};try{v=JSON.parse(localStorage.getItem('callit.trenches')||'{}')}catch(_){}
+ return {disp:{...defDisp(),...(v.disp||{})},feeds:Array.isArray(v.feeds)?v.feeds:defFeeds(),fil:v.fil||{}}})();
+const saveTS=()=>{try{localStorage.setItem('callit.trenches',JSON.stringify(TS))}catch(_){}};
+const filOf=k=>({...defFil(),...(TS.fil[k]||{})});
+const parseAmt=v=>{v=String(v||'').trim().toUpperCase().replace(/[$,\s]/g,'');if(!v)return null;const n=parseFloat(v);if(isNaN(n))return null;return n*(v.endsWith('B')?1e9:v.endsWith('M')?1e6:v.endsWith('K')?1e3:1)};
+const words=v=>String(v||'').toLowerCase().split(',').map(w=>w.trim()).filter(Boolean);
+function match(t,f){const x=trenchStats(t),m=mcap(t),b=bond(t),nm=(t.name+' '+t.sym).toLowerCase(),n=parseAmt,cs=callsOn(t);
+ if(!f.chains.includes(t.chain)||!f.lps.includes(lpOf(t)))return false;
+ const inc=words(f.inc),exc=words(f.exc);if(inc.length&&!inc.some(w=>nm.includes(w)))return false;if(exc.some(w=>nm.includes(w)))return false;
+ if(f.bmin!==''&&b<+f.bmin)return false;if(f.bmax!==''&&b>+f.bmax)return false;
+ if(n(f.mcMin)!=null&&m<n(f.mcMin))return false;if(n(f.mcMax)!=null&&m>n(f.mcMax))return false;
+ if(n(f.volMin)!=null&&t.vol<n(f.volMin))return false;if(n(f.hMin)!=null&&t.holders<n(f.hMin))return false;
+ if(f.ageMax&&t.ageH>f.ageMax)return false;
+ if(x.top>f.top||x.dev>f.dev||x.snip>f.snip||x.ins>f.ins)return false;
+ const soc=t.soc||'';if(f.x&&!soc.includes('x')||f.web&&!soc.includes('w')||f.comm&&!soc.includes('c'))return false;
+ if(f.called&&!cs.length)return false;if(f.topc&&!cs.some(k=>(rankOf(k.c)||99)<=3))return false;if(f.bought&&!cs.some(k=>k.buy))return false;
+ return true}
+function activeCount(f){const d=defFil();let c=0;for(const k in d){const a=Array.isArray(d[k])?[...d[k]].sort().join():d[k],b=Array.isArray(f[k])?[...f[k]].sort().join():f[k];if(String(a)!==String(b))c++}return c}
+function feedRows(k,f){let r=Object.values(T).filter(t=>t.chain&&!t.base&&!t.prelaunch&&t.holders&&match(t,f));
+ if(k==='watch')return r.filter(t=>S.watch.has(t.sym)).sort((a,b)=>b.vol-a.vol);
+ if(k==='new')return r.sort((a,b)=>a.ageH-b.ageH);
+ if(k==='called')return r.filter(t=>callsOn(t).length).sort((a,b)=>callsOn(b).length-callsOn(a).length||b.vol-a.vol);
+ if(k==='crowded')return r.sort((a,b)=>b.holders-a.holders);
+ if(k==='almost')return r.filter(t=>bond(t)>=60&&bond(t)<100).sort((a,b)=>bond(b)-bond(a));
+ if(k==='grad')return r.filter(t=>bond(t)>=100).sort((a,b)=>a.ageH-b.ageH);
+ return r.sort((a,b)=>b.chg-a.chg)}
+function spark(t){const r=rng(t.seed*13);let y=.5,p=[];for(let i=0;i<24;i++){y+=(r()-.5)*.22+(t.chg>=0?.016:-.016);y=Math.min(.95,Math.max(.05,y));p.push(y)}
+ return `<svg class="spark ${t.chg>=0?'up':'down'}" viewBox="0 0 64 22" preserveAspectRatio="none" aria-hidden="true"><path d="${p.map((v,i)=>(i?'L':'M')+(i/23*64).toFixed(1)+','+(22-v*22).toFixed(1)).join('')}"/></svg>`}
+function heat(t){const cs=callsOn(t);if(!cs.length)return '';const who=[...new Set(cs.map(k=>k.c))];
+ return `<span class="heat" title="${who.length} caller${who.length>1?'s':''} on this">${who.slice(0,3).map(h=>avatar(h)).join('')}<b>${cs.length} call${cs.length>1?'s':''}</b></span>`}
+function trow(t){const x=trenchStats(t),m=mcap(t),y=t.ageH<1,red=(v,lim)=>v>lim?'down':'up',D=TS.disp,b=bond(t);
  const soc=(t.soc||'').split('').map(c=>({x:ic('xlogo',15),w:ic('globe',15),c:ic('people',15)})[c]).join('');
- return `<a class="trow" href="#/token/${t.sym}"><span class="tav ${t.chg>=0?'ok':'bad'}">${tokav(t.sym)}<i class="chainb">${ic('solglyph',11)}</i></span>
+ return `<a class="trow${D.compact?' compact':''}${D.pro?'':' lite'}" href="#/token/${t.sym}"><span class="tav ${t.chg>=0?'ok':'bad'}" style="--b:${b.toFixed(0)}%">${tokav(t.sym)}<i class="chainb">${ic('solglyph',11)}</i></span>
  <div class="tmid"><div class="tname"><b>${esc(t.name)}</b>${t.hot?'<span class="hot">HOT</span>':''}</div>
- <div class="tsub"><span>${esc(t.sym)}</span><span class="${y?'my':'up'}">${ic('sprout',13)}${ageStr(t.ageH)}</span><span class="soc">${soc}</span></div></div>
- <div class="tst num"><span class="up" title="Holders">${ic('profile',13)}${fmtK(t.holders)}</span><span class="${red(x.top,10)}" title="Top 10 holders">${ic('target',13)}${x.top}%</span><span class="${red(x.dev,10)}" title="Dev holding">${ic('stake',13)}${x.dev}%</span><span class="${red(x.snip,5)}" title="Snipers">${ic('sniper',13)}${x.snip}%</span><span class="${red(x.ins,15)}" title="Insiders">${ic('crown',13)}${x.ins}%</span></div>
- <div class="tr num"><div><span class="k">V</span> ${fmtUsd(t.vol).replace(/\.\d+([KMB])/,'$1')} <span class="k">MC</span> <b class="${mcCls(m)}" data-tmc="${t.sym}">${fmtUsd(m)}</b></div>
- <div><span class="k">F</span> ${ic('solglyph',12)} ${x.fees.toFixed(2)}</div>
- <div class="bs"><i style="flex:${x.buys}"></i><i style="flex:${1-x.buys}"></i></div>
- <div><span class="k">TX</span> ${fmtK(x.tx)}</div></div></a>`}
-function vTrenches(){const all=Object.values(T).filter(t=>t.chain==='Solana'&&!t.base&&!t.prelaunch),f=S.tf2||{};
- let rows=all.filter(t=>t.holders>=(f.minH||0)&&(!f.clean||trenchStats(t).ins<=15));
- if(S.tt==='watch')rows=rows.filter(t=>S.watch.has(t.sym));
- rows=S.tt==='new'?rows.sort((a,b)=>a.ageH-b.ageH):rows.sort((a,b)=>b.vol-a.vol);
+ <div class="tsub"><span>${esc(t.sym)}</span><span class="${y?'my':'up'}">${ic('sprout',13)}${ageStr(t.ageH)}</span><span class="soc">${soc}</span></div>${D.heat?heat(t):''}</div>
+ ${D.pro?`<div class="tst num"><span class="up" title="Holders">${ic('profile',13)}${fmtK(t.holders)}</span><span class="${red(x.top,10)}" title="Top 10 holders">${ic('target',13)}${x.top}%</span><span class="${red(x.dev,10)}" title="Dev holding">${ic('stake',13)}${x.dev}%</span><span class="${red(x.snip,5)}" title="Snipers">${ic('sniper',13)}${x.snip}%</span><span class="${red(x.ins,15)}" title="Insiders">${ic('crown',13)}${x.ins}%</span></div>`:''}
+ <div class="tr num">${D.spark?spark(t):''}<div>${D.pro?`<span class="k">V</span> ${fmtUsd(t.vol).replace(/\.\d+([KMB])/,'$1')} `:''}<span class="k">MC</span> <b class="${mcCls(m)}" data-tmc="${t.sym}">${fmtUsd(m)}</b></div>
+ ${D.pro?`<div><span class="k">F</span> ${ic('solglyph',12)} ${x.fees.toFixed(2)}</div><div class="bs"><i style="flex:${x.buys}"></i><i style="flex:${1-x.buys}"></i></div><div><span class="k">TX</span> ${fmtK(x.tx)}</div>`:`<div class="${t.chg>=0?'up':'down'}">${fmtPct(t.chg)}</div>`}</div></a>`}
+function vTrenches(){const on=TS.feeds.filter(f=>f[1]).map(f=>f[0]);if(S.tt!=='watch'&&!on.includes(S.tt))S.tt=on[0]||'watch';
+ const f=filOf(S.tt),rows=feedRows(S.tt,f),n=activeCount(f);
  const tab=(k,l)=>`<button role="tab" aria-selected="${S.tt===k}" class="${S.tt===k?'on':''}" data-act="tt" data-f="${k}">${l}</button>`;
- return `<div class="ttabs" role="tablist">${tab('watch',ic('star',18,S.tt==='watch'))}${tab('movers','Movers')}${tab('new','New')}
- <span style="margin-left:auto;display:flex;gap:2px"><button class="ib" data-act="tfilter" aria-label="Filters">${ic('filter',20)}${f.minH||f.clean?'<span class="dotn" style="background:var(--hi)"></span>':''}</button></span></div>
- <div>${rows.map(trow).join('')||`<div class="empty"><b class="h2">${S.tt==='watch'?'No watchlist tokens yet':'Nothing matches your filters'}</b><p>${S.tt==='watch'?'Open any token and tap Watchlist to pin it here.':'Loosen the filters to see more tokens.'}</p></div>`}</div>
- <p class="hint pad">Degen zone. New tokens are high risk. Icons: holders, top 10 holders, dev holding, snipers, insiders.</p>`}
-function filterModal(){const f=S.tf2||(S.tf2={});
- modal('Filters','',`<div class="field"><label>Minimum holders</label><div class="seg">${[[0,'Any'],[100,'100+'],[1000,'1K+']].map(([v,l])=>`<button class="${(f.minH||0)===v?'on':''}" data-act="tfset" data-f="minH:${v}">${l}</button>`).join('')}</div></div>
- <div class="field"><label>Insiders</label><div class="seg"><button class="${f.clean?'':'on'}" data-act="tfset" data-f="clean:0">Show all</button><button class="${f.clean?'on':''}" data-act="tfset" data-f="clean:1">Hide over 15%</button></div></div>
- <button class="btn primary block" data-act="close">Done</button>`)}
+ return `<div class="ttabs"><div class="tscroll" role="tablist">${tab('watch',ic('star',18,S.tt==='watch'))}${on.map(k=>tab(k,FEEDS[k][0])).join('')}</div>
+ <span class="ttools"><button class="ib" data-act="fsopen" aria-label="Filters${n?`, ${n} active`:''}">${ic('filter',20)}${n?`<span class="fbadge">${n}</span>`:''}</button><button class="ib" data-act="dsopen" aria-label="Display settings">${ic('gear',20)}</button></span></div>
+ ${n?`<div class="fline"><span>${n} filter${n>1?'s':''} on ${S.tt==='watch'?'Watchlist':FEEDS[S.tt][0]}</span><button data-act="fsclear1">Clear</button></div>`:''}
+ <div>${rows.map(trow).join('')||`<div class="empty"><b class="h2">${S.tt==='watch'?'No watchlist tokens yet':'Nothing matches'}</b><p>${S.tt==='watch'?'Open any token and tap Watchlist to pin it here.':'Loosen the filters or try another feed.'}</p>${n?'<button class="btn primary" data-act="fsclear1">Clear filters</button>':''}</div>`}</div>
+ <p class="hint pad">Degen zone. New tokens are high risk. Row icons: holders, top 10, dev, snipers, insiders. The ring around each token fills as it moves through its bonding curve.</p>`}
+
+/* ---------- bottom sheet ---------- */
+let SH=null;
+function openSheet(kind){SH={kind,tab:'source',d:kind==='f'?JSON.parse(JSON.stringify(filOf(S.tt))):null};
+ $('#sheet').innerHTML=`<div class="sh-scrim" data-act="shclose"></div><div class="sh" role="dialog" aria-modal="true" aria-label="${kind==='f'?'Filters':'Display settings'}"><div class="sh-grab"></div><div id="shin"></div></div>`;
+ drawSheet();requestAnimationFrame(()=>$('#sheet').classList.add('open'))}
+function closeSheet(){const s=$('#sheet');if(!s.innerHTML)return;s.classList.remove('open');SH=null;setTimeout(()=>{if(!SH)s.innerHTML=''},220)}
+const sw=(act,on,extra='')=>`<button class="sw${on?' on':''}" role="switch" aria-checked="${!!on}" data-act="${act}" ${extra}><i></i></button>`;
+function drawSheet(){const el=$('#shin');if(!el||!SH)return;const body=el.querySelector('.sh-body'),top=body?body.scrollTop:0;
+ el.innerHTML=SH.kind==='f'?filterSheet():displaySheet();const nb=el.querySelector('.sh-body');if(nb)nb.scrollTop=top}
+function fsCount(){return feedRows(S.tt,SH.d).length}
+function filterSheet(){const d=SH.d,T2=SH.tab,feed=S.tt==='watch'?'Watchlist':FEEDS[S.tt][0];
+ const tabs=[['source','Source'],['metrics','Metrics'],['safety','Safety'],['social','Social']];
+ const chip=(grp,v,col,on,soon)=>`<button class="chip${on?' on':''}" style="--c:${col}" data-act="fschip" data-g="${grp}" data-v="${v}" ${soon?'disabled':''}><i></i>${v}${soon?'<small>soon</small>':''}</button>`;
+ const rng2=(lbl,a,b,pa,pb,hint)=>`<div class="fgrp"><div class="fh"><b>${lbl}</b>${hint?`<span>${hint}</span>`:''}</div><div class="pair"><input class="input num" data-fk="${a}" value="${esc(d[a])}" placeholder="${pa}" inputmode="decimal"><span>to</span>${b?`<input class="input num" data-fk="${b}" value="${esc(d[b])}" placeholder="${pb}" inputmode="decimal">`:'<span class="muted">no cap</span>'}</div></div>`;
+ let h='';
+ if(T2==='source'){const allLp=d.lps.length===LPS.length;
+  h=`<div class="fgrp"><div class="fh"><b>Chains</b></div><div class="chips">${CHAINS.map(([c,col,live])=>chip('chains',c,col,d.chains.includes(c),!live)).join('')}</div></div>
+  <div class="fgrp"><div class="fh"><b>Launchpads</b><button class="lnk" data-act="fslpall">${allLp?'Clear all':'Select all'}</button></div><div class="chips">${LPS.map(([l,col])=>chip('lps',l,col,d.lps.includes(l))).join('')}</div></div>
+  <div class="fgrp"><div class="fh"><b>Must match</b><span>Any of these words, comma separated</span></div><input class="input" data-fk="inc" value="${esc(d.inc)}" placeholder="cat, ai, frog"></div>
+  <div class="fgrp"><div class="fh"><b>Leave out</b><span>Hide names with these words</span></div><input class="input" data-fk="exc" value="${esc(d.exc)}" placeholder="inu, elon"></div>
+  ${rng2('Bonding curve','bmin','bmax','0%','100%','How far along each token is')}`}
+ if(T2==='metrics'){const ages=[[0,'Any'],[.1,'5m'],[1,'1h'],[24,'24h'],[168,'7d']];
+  h=`${rng2('Market cap','mcMin','mcMax','$10K','$5M','Type 50K, 1.2M')}
+  ${rng2('24h volume','volMin','','$25K')}
+  ${rng2('Holders','hMin','','100')}
+  <div class="fgrp"><div class="fh"><b>Younger than</b></div><div class="seg wide">${ages.map(([v,l])=>`<button class="${d.ageMax===v?'on':''}" data-act="fsage" data-v="${v}">${l}</button>`).join('')}</div></div>`}
+ if(T2==='safety'){const cur=Object.entries(RISK).find(([,[,,r]])=>['top','dev','snip','ins'].every(k=>r[k]===d[k]));
+  const sl=(k,lbl,icn)=>`<div class="slide"><label for="sl-${k}">${ic(icn,15)} ${lbl}</label><input id="sl-${k}" type="range" min="0" max="100" step="1" value="${d[k]}" data-fk="${k}" style="--v:${d[k]}%"><output data-out="${k}">${d[k]>=100?'Any':'≤ '+d[k]+'%'}</output></div>`;
+  h=`<div class="fgrp"><div class="fh"><b>Risk appetite</b><span>One tap sets every limit below</span></div>
+  <div class="risk">${Object.entries(RISK).map(([k,[l,s]])=>`<button class="rcard${cur&&cur[0]===k?' on':''}" data-act="fsrisk" data-v="${k}"><b>${l}</b><span>${s}</span></button>`).join('')}</div></div>
+  <div class="fgrp"><div class="fh"><b>Max share of supply</b></div>${sl('top','Top 10 holders','target')}${sl('dev','Dev holding','stake')}${sl('snip','Snipers','sniper')}${sl('ins','Insiders','crown')}</div>`}
+ if(T2==='social'){const row=(k,l,s,badge)=>`<div class="trow2"><div><b>${l}${badge?` <span class="nb">${badge}</span>`:''}</b><span>${s}</span></div>${sw('fsflag',d[k],`data-v="${k}"`)}</div>`;
+  h=`<div class="fgrp"><div class="fh"><b>Callit signal</b></div>${row('called','Has calls','At least one caller is on it','Only on Callit')}${row('topc','Called by a top 3 caller','Leaderboard top 3 only')}${row('bought','Caller bought in','A caller has real money in it')}</div>
+  <div class="fgrp"><div class="fh"><b>Links</b></div>${row('x','Has an X account','')}${row('web','Has a website','')}${row('comm','Has a community','')}</div>`}
+ const n=fsCount();
+ return `<div class="sh-head"><div><h2>Filters</h2><span class="muted">${feed} feed</span></div><button class="ib" data-act="shclose" aria-label="Close">${ic('x',18)}</button></div>
+ <div class="sh-tabs">${tabs.map(([k,l])=>`<button class="${T2===k?'on':''}" data-act="fstab" data-v="${k}">${l}</button>`).join('')}</div>
+ <div class="sh-body">${h}</div>
+ <div class="sh-foot"><button class="btn ghost" data-act="fsclear">Reset</button><button class="btn primary" data-act="fsapply" id="fsgo" ${n?'':'disabled'}>${n?`Show ${n} token${n>1?'s':''}`:'No tokens match'}</button></div>`}
+function displaySheet(){const D=TS.disp;const on=TS.feeds.filter(f=>f[1]),off=TS.feeds.filter(f=>!f[1]);
+ const opt=(k,l,s,badge)=>`<div class="trow2"><div><b>${l}${badge?` <span class="nb">${badge}</span>`:''}</b><span>${s}</span></div>${sw('dsopt',D[k],`data-v="${k}"`)}</div>`;
+ const feed=([k],i,list)=>{const [l,s,badge]=FEEDS[k];const en=list===on;
+  return `<div class="feedrow${en?'':' off'}">${en?`<span class="fnum">${i+1}</span>`:'<span class="fnum ghost"></span>'}<div class="grow"><b>${l}${badge?` <span class="nb">${badge}</span>`:''}</b><span>${s}</span></div>
+  ${en?`<span class="mv"><button class="ib" data-act="dsmove" data-v="${k}" data-d="-1" ${i?'':'disabled'} aria-label="Move ${l} up">${ic('up',16)}</button><button class="ib" data-act="dsmove" data-v="${k}" data-d="1" ${i<on.length-1?'':'disabled'} aria-label="Move ${l} down">${ic('down',16)}</button></span>`:''}
+  ${sw('dsfeed',en,`data-v="${k}" aria-label="Show ${l}"`)}</div>`};
+ return `<div class="sh-head"><div><h2>Display</h2><span class="muted">Saved on this device</span></div><button class="lnk" data-act="dsreset">Reset</button><button class="ib" data-act="shclose" aria-label="Close">${ic('x',18)}</button></div>
+ <div class="sh-body"><div class="preview-row">${trow(T.GLORP)}</div>
+ <div class="fgrp"><div class="fh"><b>Rows</b></div>${opt('pro','Pro data','Holders, risk, volume, fees and TX on every row')}${opt('spark','Mini charts','A small price line on each row')}${opt('heat','Caller heat','See which callers are on a token','New')}${opt('compact','Compact','Fit more tokens on screen')}</div>
+ <div class="fgrp"><div class="fh"><b>Your feeds</b><span>Order sets the tabs. Keep at least one on.</span></div>${on.map((f,i)=>feed(f,i,on)).join('')}${off.length?`<div class="fsub">More feeds</div>${off.map((f,i)=>feed(f,i,off)).join('')}`:''}</div></div>`}
 
 function vSwap(){return `<div class="pad"><div class="card" style="max-width:460px;margin:0 auto"><h3>Swap</h3><div data-swapbox></div></div></div>`}
 
@@ -724,8 +904,22 @@ document.addEventListener('click',e=>{
   disconnect:()=>{S.connected=false;toast('Disconnected');render()},
   me:()=>S.connected?location.hash='#/profile/'+S.me:connectModal(),
   collapse:()=>{document.body.classList.toggle('collapsed');syncTray()},
-  tt:()=>{S.tt=b.dataset.f;render()},tfilter:()=>filterModal(),
-  tfset:()=>{const [k,v]=b.dataset.f.split(':');S.tf2[k]=+v;render();filterModal()},
+  tt:()=>{S.tt=b.dataset.f;render()},
+  fsopen:()=>openSheet('f'),dsopen:()=>openSheet('d'),shclose:()=>closeSheet(),
+  fstab:()=>{SH.tab=b.dataset.v;drawSheet()},
+  fschip:()=>{const a=SH.d[b.dataset.g],v=b.dataset.v,i=a.indexOf(v);i<0?a.push(v):a.splice(i,1);drawSheet()},
+  fslpall:()=>{SH.d.lps=SH.d.lps.length===LPS.length?[]:LPS.map(l=>l[0]);drawSheet()},
+  fsage:()=>{SH.d.ageMax=+b.dataset.v;drawSheet()},
+  fsrisk:()=>{Object.assign(SH.d,RISK[b.dataset.v][2]);drawSheet()},
+  fsflag:()=>{const k=b.dataset.v;SH.d[k]=SH.d[k]?0:1;drawSheet()},
+  fsclear:()=>{SH.d=defFil();drawSheet()},
+  fsapply:()=>{TS.fil[S.tt]=SH.d;saveTS();closeSheet();render()},
+  fsclear1:()=>{delete TS.fil[S.tt];saveTS();render()},
+  dsopt:()=>{const k=b.dataset.v;TS.disp[k]=TS.disp[k]?0:1;saveTS();drawSheet();render()},
+  dsfeed:()=>{const f=TS.feeds.find(x=>x[0]===b.dataset.v);if(f[1]&&TS.feeds.filter(x=>x[1]).length===1)return toast('Keep at least one feed on');f[1]=f[1]?0:1;
+   const onL=TS.feeds.filter(x=>x[1]),offL=TS.feeds.filter(x=>!x[1]);TS.feeds=[...onL,...offL];saveTS();drawSheet();render()},
+  dsmove:()=>{const i=TS.feeds.findIndex(x=>x[0]===b.dataset.v),j=i+ +b.dataset.d;if(j<0||j>=TS.feeds.length||!TS.feeds[j][1])return;[TS.feeds[i],TS.feeds[j]]=[TS.feeds[j],TS.feeds[i]];saveTS();drawSheet();render()},
+  dsreset:()=>{TS.disp=defDisp();TS.feeds=defFeeds();saveTS();drawSheet();render()},
   adclick:()=>{const a=ADS.find(x=>x.id===b.dataset.id);if(a.href)location.hash=a.href;else toast(`Opens ${a.brand} in a new tab once ads go live`)},
   adgo:()=>{S.board=+b.dataset.f;const el=$('#adboard');if(el)el.outerHTML=adBoard()},
   tab:()=>{S.tab=b.dataset.f;render()},tf:()=>{S.tf=b.dataset.f;render()},lb:()=>{S.lb=b.dataset.f;render()},
@@ -753,7 +947,11 @@ document.addEventListener('input',e=>{if(e.target.dataset.swap!=='amt')return;S.
  const all=[...document.querySelectorAll('[data-swap="amt"]')],idx=all.indexOf(e.target),pos=e.target.selectionStart;renderSwaps();
  const i=document.querySelectorAll('[data-swap="amt"]')[idx];if(i){i.focus();try{i.setSelectionRange(pos,pos)}catch(_){}}});
 document.addEventListener('change',e=>{const k=e.target.dataset.swap;if(k!=='from'&&k!=='to')return;const w=S.swap,v=e.target.value,o=k==='from'?'to':'from';if(w[o]===v)w[o]=w[k];w[k]=v;renderSwaps()});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();if(isPhone()){document.body.classList.add('collapsed');syncTray()}}});
+document.addEventListener('input',e=>{const k=e.target.dataset.fk;if(!k||!SH||SH.kind!=='f')return;
+ let v=e.target.value;if(e.target.type==='range'){v=+v;e.target.style.setProperty('--v',v+'%');const o=$(`[data-out="${k}"]`);if(o)o.textContent=v>=100?'Any':'≤ '+v+'%';
+  document.querySelectorAll('.rcard').forEach(c=>c.classList.remove('on'))}
+ SH.d[k]=v;const n=fsCount(),g=$('#fsgo');if(g){g.disabled=!n;g.textContent=n?`Show ${n} token${n>1?'s':''}`:'No tokens match'}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeSheet();if(isPhone()){document.body.classList.add('collapsed');syncTray()}}});
 
 /* live price ticks: patch numbers in place */
 setInterval(()=>{const r=rng(Date.now()%1e6);Object.values(T).forEach(t=>{if(!t.base&&!t.prelaunch)t.price*=1+(r()-.48)*.012});
@@ -773,7 +971,7 @@ setTimeout(()=>{S.queued.push({id:901,c:'zerobeta',t:'KFSH',entry:mcap(T.KFSH)*.
 /* static icons */
 $('#setIcon').innerHTML=ic('settings',20);$('#fab').innerHTML=ic('plus',28);$('#searchBtn').innerHTML=ic('search',18)+'<span class="lbl">Search</span>';
 if(innerWidth<1100)document.body.classList.add('collapsed');
-addEventListener('hashchange',()=>{closeModal();if(currentRoute()==='home')S.adRot++;render();scrollTo({top:0})});
+addEventListener('hashchange',()=>{closeModal();closeSheet();if(currentRoute()==='home')S.adRot++;render();scrollTo({top:0})});
 /* ad board rotates on its own */
 setInterval(()=>{const el=$('#adboard');if(!el||el.matches(':hover'))return;S.board++;el.outerHTML=adBoard()},6000);
 render();
