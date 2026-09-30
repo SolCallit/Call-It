@@ -489,6 +489,8 @@ article.post[data-go]:focus-visible{outline:2px solid var(--hi);outline-offset:-
 .rfoot .attbar{border:0;padding:0;margin:0}
 .rep{display:flex;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line)}
 .rep .grow{min-width:0}
+.rbar{display:flex;justify-content:space-between;max-width:340px;margin:8px 0 -6px -8px}
+.rbar .act{padding:6px 8px}
 @media (max-width:520px){.tgrid{grid-template-columns:repeat(2,1fr)}.tgrid b{font-size:14.5px}}
 
 /* ---------- landing ---------- */
@@ -1348,10 +1350,10 @@ function topTrades(){const who=ranked().map(c=>c.h),toks=Object.values(T).filter
 const REPLIES={};const RDRAFT={media:[]};
 const RLINES=['Aped a small bag. Chart looks clean.','What is the dev wallet holding right now?','Target feels conservative ngl','In since 1M, not selling here','Liquidity is thin, careful with size','Good call. Following for the next one','Bundled supply worries me a bit','This is the one 🚀'];
 function repliesOf(k){if(!REPLIES[k.id]){const r=rng(k.id*7+3),who=ranked().map(c=>c.h).filter(h=>h!==k.c),n=Math.min(k.replies||0,3+Math.floor(r()*3));
- REPLIES[k.id]=Array.from({length:n},(_,i)=>({h:who[Math.floor(r()*who.length)],t:RLINES[Math.floor(r()*RLINES.length)],ago:(i+1)*(7+Math.floor(r()*20))+'m',likes:Math.floor(r()*40)})).reverse()}return REPLIES[k.id]}
+ const lines=[...RLINES].sort(()=>r()-.5);REPLIES[k.id]=Array.from({length:Math.min(n,lines.length)},(_,i)=>({h:who[Math.floor(r()*who.length)],t:lines[i],ago:(i+1)*(7+Math.floor(r()*20))+'m',likes:Math.floor(r()*40),rts:Math.floor(r()*9),reps:Math.floor(r()*5)})).sort((a,b)=>parseInt(b.ago)-parseInt(a.ago))}return REPLIES[k.id]}
 function drawRMedia(){const el=$('#rmedia');if(el)el.innerHTML=mediaGrid(RDRAFT.media,1);const n=$('#rbox [data-attn]');if(n)n.textContent=RDRAFT.media.length?RDRAFT.media.length+'/4':'';const g=$('#rgo'),i=$('#rin');if(g&&i)g.disabled=!(i.value.trim()||RDRAFT.media.length)}
 function sendReply(id){if(!S.connected)return connectModal();const k=calls.find(x=>x.id==id),i=$('#rin'),v=i.value.trim();if(!v&&!RDRAFT.media.length)return;
- repliesOf(k).unshift({h:S.me,t:v,ago:'now',likes:0,media:RDRAFT.media.slice()});k.replies=(k.replies||0)+1;RDRAFT.media=[];render();toast('Reply posted')}
+ repliesOf(k).unshift({h:S.me,t:v,ago:'now',likes:0,rts:0,reps:0,media:RDRAFT.media.slice()});k.replies=(k.replies||0)+1;RDRAFT.media=[];render();toast('Reply posted')}
 function vPost(id){const k=calls.find(x=>String(x.id)===String(id));if(!k)return `<div class="empty"><b class="h2">This post is gone</b><p>It may have been removed.</p><a class="btn primary" href="#/home">Back to Home</a></div>`;
  const t=T[k.t],n=nums(k),r=rankOf(k.c),reps=repliesOf(k);
  const trade=n?`<div class="tpanel"><a class="ccard" href="#/token/${t.sym}">${tokav(t.sym)}<div class="cn"><b>${esc(t.name)}</b><span>$${t.sym} <span class="chain">${t.chain}</span></span></div>${mkt(k)}</a>
@@ -1373,8 +1375,12 @@ function vPost(id){const k=calls.find(x=>String(x.id)===String(id));if(!k)return
    <button class="act" data-act="share" data-id="${k.id}" aria-label="Share">${ic('share',20)}</button></div></div>
   <div class="rbox" id="rbox">${S.connected?avatar(S.me):'<span class="av" style="background:var(--bg2)"></span>'}<div class="grow"><textarea id="rin" class="rin" maxlength="280" rows="1" placeholder="${S.connected?'Post your reply':'Sign in to reply'}" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px';drawRMedia()" ${S.connected?'':'disabled'}></textarea><div id="rmedia"></div>
    <div class="rfoot">${S.connected?attachBar():''}<button class="btn primary sm" id="rgo" data-act="${S.connected?'rsend':'connect'}" data-id="${k.id}" ${S.connected?'disabled':''}>${S.connected?'Reply':'Sign in'}</button></div></div></div></article>
- <div class="replies">${reps.map(x=>`<div class="rep"><a href="#/profile/${x.h}" aria-label="Open @${esc(x.h)}'s profile">${avatar(x.h)}</a><div class="grow"><div class="phead" style="margin:0"><span class="pname">${esc(x.h===S.me&&PROF.name||x.h)}</span><span class="hint">@${esc(x.h)}</span><time>${x.ago==='now'?'now':x.ago}</time></div>
-  <div class="hint" style="font-size:13px">Replying to <span style="color:var(--hi)">@${esc(k.c)}</span></div>${x.t?`<p class="ptext" style="margin:4px 0 0">${esc(x.t)}</p>`:''}${mediaGrid(x.media)}</div></div>`).join('')||'<div class="empty"><b>No replies yet</b><p>Be the first to reply.</p></div>'}</div>`}
+ <div class="replies">${reps.map((x,ri)=>`<div class="rep"><a href="#/profile/${x.h}" aria-label="Open @${esc(x.h)}'s profile">${avatar(x.h)}</a><div class="grow"><div class="phead" style="margin:0"><span class="pname">${esc(x.h===S.me&&PROF.name||x.h)}</span><span class="hint">@${esc(x.h)}</span><time>${x.ago==='now'?'now':x.ago}</time></div>
+  <div class="hint" style="font-size:13px">Replying to <span style="color:var(--hi)">@${esc(k.c)}</span></div>${x.t?`<p class="ptext" style="margin:4px 0 0">${esc(x.t)}</p>`:''}${mediaGrid(x.media)}
+  <div class="rbar"><button class="act" data-act="rrep" data-h="${esc(x.h)}" aria-label="Reply to @${esc(x.h)}">${ic('reply',17)}<span class="num">${x.reps||''}</span></button>
+  <button class="act${x.rted?' reposted':''}" data-act="rrt" data-p="${k.id}" data-i="${ri}" aria-label="Repost">${ic('repost',17)}<span class="num">${x.rts||''}</span></button>
+  <button class="act${x.liked?' liked':''}" data-act="rlike" data-p="${k.id}" data-i="${ri}" aria-label="Like">${ic('heart',17,x.liked)}<span class="num">${x.likes||''}</span></button>
+  <button class="act" data-act="share" data-id="${k.id}" aria-label="Share">${ic('share',17)}</button></div></div></div>`).join('')||'<div class="empty"><b>No replies yet</b><p>Be the first to reply.</p></div>'}</div>`}
 
 /* ---------- edit profile ---------- */
 function editProfile(focus){const D={...PROF};
@@ -1480,6 +1486,9 @@ document.addEventListener('click',e=>{
   repost:()=>{const k=calls.find(x=>x.id==b.dataset.id);k.reposted=!k.reposted;k.reposts+=k.reposted?1:-1;b.classList.toggle('reposted',k.reposted);b.querySelector('span').textContent=k.reposts||'';toast(k.reposted?'Reposted':'Repost removed')},
   reply:()=>{const a=b.closest('[data-go]');if(a&&a.dataset.go.startsWith('#/post/')){S.focusReply=true;location.hash=a.dataset.go}else{const i=$('#rin');i&&i.focus()}},
   rsend:()=>sendReply(b.dataset.id),
+  rlike:()=>{if(!S.connected)return connectModal();const x=REPLIES[b.dataset.p][+b.dataset.i];x.liked=!x.liked;x.likes+=x.liked?1:-1;b.classList.toggle('liked',x.liked);b.innerHTML=`${ic('heart',17,x.liked)}<span class="num">${x.likes||''}</span>`},
+  rrt:()=>{if(!S.connected)return connectModal();const x=REPLIES[b.dataset.p][+b.dataset.i];x.rted=!x.rted;x.rts+=x.rted?1:-1;b.classList.toggle('reposted',x.rted);b.querySelector('.num').textContent=x.rts||'';toast(x.rted?'Reposted':'Repost removed')},
+  rrep:()=>{if(!S.connected)return connectModal();const i=$('#rin');if(!i)return;const tag='@'+b.dataset.h+' ';if(!i.value.startsWith(tag))i.value=tag+i.value;i.focus();i.setSelectionRange(i.value.length,i.value.length);i.dispatchEvent(new Event('input'));$('#rbox').scrollIntoView({block:'center',behavior:'smooth'})},
   share:()=>copy(location.href.split('#')[0]+'#/call/'+b.dataset.id,'Link copied'),
   copy:()=>copy(b.dataset.v,'Address copied'),
   follow:()=>{if(!S.connected)return connectModal();const h=b.dataset.h;S.following.has(h)?S.following.delete(h):S.following.add(h);render()},
