@@ -25,14 +25,24 @@ type LinkedAccount = {
   name?: string;
   chain_type?: string;
   wallet_client_type?: string;
+  first_verified_at?: number | null;
+  verified_at?: number | null;
 };
 
-export type PrivyUserSummary = { solanaWallet: string | null; xUsername: string | null; emailLocal: string | null; name: string | null };
+export type PrivyUserSummary = {
+  solanaWallet: string | null;
+  xUsername: string | null;
+  email: string | null;
+  emailLocal: string | null;
+  name: string | null;
+  /** How the account was created: 'email' | 'google' | 'twitter' | 'wallet' | null */
+  signupMethod: 'email' | 'google' | 'twitter' | 'wallet' | null;
+};
 
 /** Reads the user's linked accounts from Privy (needs PRIVY_APP_SECRET on the server). */
 export async function getPrivyUser(userId: string): Promise<PrivyUserSummary> {
   const secret = process.env.PRIVY_APP_SECRET;
-  const empty = { solanaWallet: null, xUsername: null, emailLocal: null, name: null };
+  const empty: PrivyUserSummary = { solanaWallet: null, xUsername: null, email: null, emailLocal: null, name: null, signupMethod: null };
   if (!secret) return empty;
   const res = await fetch(`https://auth.privy.io/api/v1/users/${encodeURIComponent(userId)}`, {
     headers: {
@@ -49,10 +59,21 @@ export async function getPrivyUser(userId: string): Promise<PrivyUserSummary> {
   const x = acc.find((a) => a.type === 'twitter_oauth');
   const email = acc.find((a) => a.type === 'email')?.address || acc.find((a) => a.type === 'google_oauth')?.email || null;
   const google = acc.find((a) => a.type === 'google_oauth');
+  // The first non-embedded account is how they signed up.
+  const byAge = [...acc].sort((a, b) => (a.first_verified_at ?? a.verified_at ?? 0) - (b.first_verified_at ?? b.verified_at ?? 0));
+  const first = byAge.find((a) => !(a.type === 'wallet' && a.wallet_client_type === 'privy'));
+  const signupMethod =
+    first?.type === 'email' ? 'email'
+    : first?.type === 'google_oauth' ? 'google'
+    : first?.type === 'twitter_oauth' ? 'twitter'
+    : first?.type === 'wallet' ? 'wallet'
+    : null;
   return {
     solanaWallet: wallet,
     xUsername: x?.username || null,
+    email,
     emailLocal: email ? email.split('@')[0] : null,
     name: x?.name || google?.name || null,
+    signupMethod,
   };
 }

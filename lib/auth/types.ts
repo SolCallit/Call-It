@@ -11,3 +11,13 @@ export type CallitProfile = {
   wallet_address: string | null;
   created_at?: string;
 };
+
+export type CallitNotification = {
+  id: string;
+  kind: string;
+  title: string;
+  body: string | null;
+  link: string | null;
+  read_at: string | null;
+  created_at: string;
+};

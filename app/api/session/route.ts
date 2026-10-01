@@ -3,6 +3,7 @@ import { verifyPrivyToken, getPrivyUser } from '@/lib/auth/privy-server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { toHandle } from '@/lib/auth/handle';
 import type { CallitProfile } from '@/lib/auth/types';
+import { welcomeNewUser } from '@/lib/notify/welcome';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -54,7 +55,13 @@ export async function POST(req: Request) {
       .insert({ privy_id: privyId, handle, display_name: info.name, x_handle: info.xUsername, wallet_address: info.solanaWallet })
       .select('*')
       .single();
-    if (!ins.error) return NextResponse.json({ profile: ins.data, isNew: true, persisted: true });
+    if (!ins.error) {
+      await welcomeNewUser(db, {
+        profileId: ins.data.id, handle: ins.data.handle, name: info.name,
+        email: info.email, signupMethod: info.signupMethod,
+      });
+      return NextResponse.json({ profile: ins.data, isNew: true, persisted: true });
+    }
     if (ins.error.code !== '23505') return fallback(`db_write: ${ins.error.message}`);
     // 23505 = unique violation. If it was privy_id (race), read it back; otherwise try another handle.
     const again = await db.from('profiles').select('*').eq('privy_id', privyId).maybeSingle();

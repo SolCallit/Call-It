@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { usePrivy, useLogin, useLoginWithOAuth } from '@privy-io/react-auth';
 import { useWallets } from '@privy-io/react-auth/solana';
 import type { User } from '@privy-io/react-auth';
-import type { CallitProfile } from '@/lib/auth/types';
+import type { CallitProfile, CallitNotification } from '@/lib/auth/types';
 import { toHandle } from '@/lib/auth/handle';
 import WalletSignIn, { type WalletSignInHandle } from '@/components/WalletSignIn';
 
@@ -12,6 +12,16 @@ import WalletSignIn, { type WalletSignInHandle } from '@/components/WalletSignIn
 function apply(p: CallitProfile | null, opts?: { isNew?: boolean }) {
   if (window.callitApplySession) window.callitApplySession(p, opts);
   else window.__callitPendingSession = { p, opts };
+}
+
+/** Pulls the user's real notifications into the UI. */
+async function loadNotifs(token: string) {
+  try {
+    const r = await fetch('/api/notifications', { headers: { authorization: `Bearer ${token}` } });
+    if (!r.ok) return;
+    const j = (await r.json()) as { notifications: CallitNotification[] };
+    window.callitSetNotifs?.(j.notifications);
+  } catch { /* keep whatever is showing */ }
 }
 
 /** Profile built from the Privy user in the browser, used when our API can't be reached. */
@@ -59,6 +69,16 @@ export default function AuthBridge() {
         synced.current = '';
         await logout();
         apply(null);
+        window.callitSetNotifs?.(null);
+      },
+      markRead: async (ids) => {
+        const token = await getAccessToken();
+        if (!token) return;
+        await fetch('/api/notifications', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+          body: JSON.stringify(ids === 'all' ? { all: true } : { ids }),
+        }).catch(() => {});
       },
       saveProfile: async (patch) => {
         const token = await getAccessToken();
@@ -87,7 +107,7 @@ export default function AuthBridge() {
   useEffect(() => {
     if (!ready) return;
     if (!authenticated || !user) {
-      if (synced.current) { synced.current = ''; apply(null); }
+      if (synced.current) { synced.current = ''; apply(null); window.callitSetNotifs?.(null); }
       return;
     }
     const key = `${user.id}|${walletKey}`;
@@ -105,6 +125,7 @@ export default function AuthBridge() {
         // Fall back to the wallet the browser can see if the server hasn't got it yet.
         if (!j.profile.wallet_address && wallet) j.profile.wallet_address = wallet;
         apply(j.profile, { isNew: j.isNew });
+        loadNotifs(token);
       } catch (e) {
         // Never strand a signed-in user: sign them into the UI from the Privy user directly.
         console.error('[callit] session sync failed, using local profile:', e);

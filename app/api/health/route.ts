@@ -51,12 +51,16 @@ export async function GET() {
   }
 
   let profiles_table = 'no_database_config';
+  let notifications_table = 'no_database_config';
   const db = supabaseAdmin();
   if (db) {
     const q = await db.from('profiles').select('id', { count: 'exact', head: true });
     profiles_table = q.error ? `error: ${q.error.message}` : 'ok';
+    const n = await db.from('notifications').select('id', { count: 'exact', head: true });
+    notifications_table = n.error ? `error: ${n.error.message}` : 'ok';
   }
+  const welcome_email = process.env.RESEND_API_KEY && process.env.EMAIL_FROM ? 'configured' : 'not_configured';
 
-  const ok = Object.values(env).every(Boolean) && privy_jwks === 'ok' && profiles_table === 'ok';
-  return NextResponse.json({ ok, service: 'callit-web', time: new Date().toISOString(), env, privy_jwks, privy_login, profiles_table });
+  const ok = Object.values(env).every(Boolean) && privy_jwks === 'ok' && profiles_table === 'ok' && notifications_table === 'ok';
+  return NextResponse.json({ ok, service: 'callit-web', time: new Date().toISOString(), env, privy_jwks, privy_login, profiles_table, notifications_table, welcome_email });
 }

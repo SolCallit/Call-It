@@ -928,3 +928,7 @@ html,body{overflow-x:clip;max-width:100%}
 @keyframes wsiIn{from{opacity:0}}
 @keyframes wsiUp{from{transform:translateY(24px);opacity:0}}
 @media (prefers-reduced-motion:reduce){.wsi-back,.wsi{animation:none}}
+
+/* ---------- real notifications ---------- */
+.notif .nmark{width:40px!important;height:40px!important;flex:none;border-radius:12px!important}
+.nic.welcome{background:var(--up);color:#0B1B27}.nic.system{background:var(--muted)}

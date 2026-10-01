@@ -533,12 +533,17 @@ const NOTIFS=[
  {id:8,k:'alerts',sym:'GLORP',t:'$GLORP crossed $1.8M market cap',go:'#/token/GLORP',m:600},
  {id:9,k:'follows',h:'minnie_sol',t:'and 3 others followed you',go:'#/profile/minnie_sol',m:1440},
  {id:10,k:'earn',t:'Caller fees paid: +0.042 SOL for last week',go:'#/wallet',m:2880}];
-const NKIND={calls:['Call','promote'],earn:['Earnings','wallet'],mentions:['Mention','reply'],alerts:['Alert','bell'],follows:['Follow','profile']};
+const MOCK_NOTIFS=NOTIFS.slice();
+/* Real notifications from the backend replace the demo ones for signed-in users. */
+window.callitSetNotifs=list=>{const now=Date.now();
+ NOTIFS.splice(0,NOTIFS.length,...(list?list.map(n=>({id:n.id,real:1,k:NKIND[n.kind]?n.kind:'system',t:n.title,body:n.body||'',go:n.link||'#/notifications',m:Math.max(0,Math.round((now-Date.parse(n.created_at))/6e4)),unread:n.read_at?0:1})):MOCK_NOTIFS.map(n=>({...n}))));
+ render()};
+const NKIND={welcome:['Callit','promote'],system:['Callit','bell'],calls:['Call','promote'],earn:['Earnings','wallet'],mentions:['Mention','reply'],alerts:['Alert','bell'],follows:['Follow','profile']};
 const unreadN=()=>NOTIFS.filter(n=>n.unread).length;
 const nAgo=m=>m<60?m+'m':m<1440?Math.round(m/60)+'h':Math.round(m/1440)+'d';
 function nrow(n){const [lab,icn]=NKIND[n.k];
  return `<a class="notif${n.unread?' unread':''}" href="${n.go}" data-act="nread" data-f="${n.id}"><span class="nic ${n.k}">${ic(icn,16)}</span>
- ${n.h?avatar(n.h):tokav(n.sym||'SOL')}<span class="grow"><span class="nl">${n.h?`<b>${esc(n.h)}</b> `:''}${esc(n.t)}</span><span class="hint">${lab} · ${nAgo(n.m)} ago</span></span>${n.unread?'<i class="ndot"></i>':''}</a>`}
+ ${n.real&&!n.h?'<span class="mark nmark" aria-hidden="true"></span>':n.h?avatar(n.h):tokav(n.sym||'SOL')}<span class="grow"><span class="nl">${n.h?`<b>${esc(n.h)}</b> `:''}${n.body?`<b>${esc(n.t)}</b> ${esc(n.body)}`:esc(n.t)}</span><span class="hint">${lab} · ${nAgo(n.m)} ago</span></span>${n.unread?'<i class="ndot"></i>':''}</a>`}
 function notifsModal(){modal('Notifications',unreadN()?`${unreadN()} new`:'You\'re all caught up',`<div class="nlist">${NOTIFS.slice(0,5).map(nrow).join('')}</div>
  <a class="btn primary block" href="#/notifications" style="margin-top:14px">View all notifications</a>`)}
 function vNotifs(){const f=S.nt||'all',list=NOTIFS.filter(n=>f==='all'||n.k===f);
@@ -893,8 +898,8 @@ document.addEventListener('click',e=>{
   dmsend:()=>{const i=$('#msgin'),v=i&&i.value.trim();if(!v)return;DMS[b.dataset.f].push(['me',v,'now']);render();const m=$('#msgs');m&&m.lastElementChild&&m.lastElementChild.scrollIntoView({block:'end'});setTimeout(()=>{const n=$('#msgin');n&&n.focus()},50)},
   dmnew:()=>{if(!S.connected)return connectModal();modal('New message','Pick a caller',`<div class="list">${ranked().map(c=>`<a class="li" href="#/messages/${c.h}" data-act="close">${avatar(c.h)}<div class="grow"><b>${c.h}</b><div class="hint">${c.win}% win rate</div></div></a>`).join('')}</div>`)},
   dm:()=>{location.hash='#/messages/'+b.dataset.h},
-  nread:()=>{const n=NOTIFS.find(x=>x.id==b.dataset.f);if(n)n.unread=0;closeModal();chrome(currentRoute())},
-  nall:()=>{NOTIFS.forEach(n=>n.unread=0);toast('All caught up');render()},nt:()=>{S.nt=b.dataset.f;render()},
+  nread:()=>{const n=NOTIFS.find(x=>x.id==b.dataset.f);if(n){if(n.real&&n.unread&&window.CallitAuth&&window.CallitAuth.markRead)window.CallitAuth.markRead([n.id]);n.unread=0}closeModal();chrome(currentRoute())},
+  nall:()=>{if(NOTIFS.some(n=>n.real&&n.unread)&&window.CallitAuth&&window.CallitAuth.markRead)window.CallitAuth.markRead('all');NOTIFS.forEach(n=>n.unread=0);toast('All caught up');render()},nt:()=>{S.nt=b.dataset.f;render()},
   gopremium:()=>{location.hash='#/premium'},plan:()=>{S.plan=b.dataset.f;render()},payvia:()=>{S.payvia=b.dataset.f;render()},
   stakewait:()=>{if(!S.connected)return connectModal();S.stakeWait=true;toast('We\'ll let you know when $CALLIT staking opens');render()},
   buyprem:()=>{if(!S.connected)return connectModal(()=>{location.hash='#/premium'});const P=PLANS[S.plan||'yearly'],via=S.payvia||'SOL',amt=via==='SOL'?P.usd/T.SOL.price:P.usd;
