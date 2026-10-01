@@ -109,7 +109,7 @@ export async function jupList(feed: Feed, interval: '5m' | '1h' | '6h' | '24h' =
   const path =
     feed === 'new' ? '/tokens/v2/recent'
     : `/tokens/v2/${feed === 'movers' ? 'toptrending' : feed === 'traded' ? 'toptraded' : 'toporganicscore'}/${interval}?limit=${limit}`;
-  const data = await getJSON<JupToken[]>(JUP + path, feed === 'new' ? 10 : 20, jupHeaders());
+  const data = await getJSON<JupToken[]>(JUP + path, feed === 'new' ? 5 : 6, jupHeaders());
   if (Array.isArray(data) && data.length) return data.filter((j) => j && j.id).map(fromJup);
   return dsList(feed); // Jupiter unavailable (no key / rate limit): fall back to DexScreener
 }
@@ -132,8 +132,27 @@ async function dsList(feed: Feed): Promise<LiveToken[] | null> {
   return out;
 }
 
+/** Many tokens at once (Jupiter search takes comma-separated mints). DexScreener fills any gaps. */
+export async function jupMany(mints: string[]): Promise<LiveToken[]> {
+  const ids = [...new Set(mints.filter(isMint))].slice(0, 50);
+  if (!ids.length) return [];
+  const data = await getJSON<JupToken[]>(`${JUP}/tokens/v2/search?query=${ids.join(',')}`, 6, jupHeaders());
+  const out = Array.isArray(data) ? data.filter((j) => j && ids.includes(j.id)).map(fromJup) : [];
+  const missing = ids.filter((m) => !out.some((t) => t.mint === m)).slice(0, 30);
+  if (missing.length) {
+    const pairs = await getJSON<DsPair[]>(`${DEXS}/tokens/v1/solana/${missing.join(',')}`, 6);
+    if (Array.isArray(pairs)) {
+      for (const m of missing) {
+        const t = withPair(null, pairs.filter((p) => p.baseToken?.address === m));
+        if (t) out.push(t);
+      }
+    }
+  }
+  return out;
+}
+
 export async function jupSearch(q: string): Promise<LiveToken[]> {
-  const data = await getJSON<JupToken[]>(`${JUP}/tokens/v2/search?query=${encodeURIComponent(q)}`, 15, jupHeaders());
+  const data = await getJSON<JupToken[]>(`${JUP}/tokens/v2/search?query=${encodeURIComponent(q)}`, 6, jupHeaders());
   return Array.isArray(data) ? data.filter((j) => j && j.id).map(fromJup) : [];
 }
 
@@ -148,7 +167,7 @@ type DsPair = {
 };
 
 export async function dsPairs(mint: string): Promise<DsPair[]> {
-  const data = await getJSON<DsPair[]>(`${DEXS}/tokens/v1/solana/${mint}`, 15);
+  const data = await getJSON<DsPair[]>(`${DEXS}/tokens/v1/solana/${mint}`, 8);
   return Array.isArray(data) ? data.filter((p) => p.baseToken?.address === mint) : [];
 }
 

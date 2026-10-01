@@ -18,6 +18,13 @@ export async function fetchToken(mint: string) {
   return (await r.json()).token as unknown;
 }
 
+export async function fetchTokens(mints: string[]) {
+  if (!mints.length) return [];
+  const r = await fetch(`/api/market/tokens?mints=${mints.slice(0, 50).join(',')}`);
+  if (!r.ok) throw new Error(`tokens_${r.status}`);
+  return (await r.json()).tokens as unknown[];
+}
+
 export async function searchTokens(q: string) {
   const r = await fetch(`/api/market/search?q=${encodeURIComponent(q)}`);
   if (!r.ok) return [];

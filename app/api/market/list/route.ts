@@ -15,6 +15,6 @@ export async function GET(req: Request) {
   if (!tokens) return NextResponse.json({ error: 'upstream_unavailable', tokens: [] }, { status: 502, headers: { 'cache-control': 'no-store' } });
   return NextResponse.json(
     { feed, interval: iv, tokens, at: Date.now() },
-    { headers: { 'cache-control': `public, s-maxage=${feed === 'new' ? 10 : 20}, stale-while-revalidate=60` } },
+    { headers: { 'cache-control': `public, s-maxage=${feed === 'new' ? 5 : 6}, stale-while-revalidate=30` } },
   );
 }
