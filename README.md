@@ -30,3 +30,9 @@ and the legacy engine shrinks until it can be deleted.
 
 ## Deploy
 Vercel → Project → Settings → Build & Deployment → Framework Preset: **Next.js**.
+
+## Auth + database (phase 1)
+- **Privy** handles sign-in (email, Google, X, Solana wallets) and creates an embedded Solana wallet for new users.
+- After sign-in the browser calls `POST /api/session` with the Privy token. The server verifies it, reads the user's linked accounts from Privy, and creates or loads their row in Supabase `profiles`.
+- `PATCH /api/profile` saves name, bio, website and X handle.
+- Database schema lives in `supabase/migrations/`. Run each file once in Supabase → SQL Editor.

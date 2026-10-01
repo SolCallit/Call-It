@@ -472,11 +472,14 @@ function skin(root){(root||document).querySelectorAll('select.input:not([data-sk
 document.addEventListener('click',e=>{const m=document.querySelector('.cmenu');if(m&&!e.target.closest('.cmenu'))m.remove()},true);
 const closeModal=()=>$('#modal').innerHTML='';
 
-function connectModal(next,mode){modal(mode==='up'?'Create your Callit account':mode==='in'?'Welcome back':'Sign in to Callit',mode==='up'?'Pick a way in. We create a Solana wallet for you, and you own the keys.':mode==='in'?'Sign in the same way you signed up.':'New here? We create a Solana wallet for you. You own the keys.',
+const realAuth=()=>!!window.__callitRealAuth;
+let pendingNext=null;
+function realLogin(via,opts,next){pendingNext=next||null;closeModal();if(window.CallitAuth&&window.CallitAuth.login)window.CallitAuth.login(via,opts);else toast('Sign-in is loading, try again in a second')}
+function connectModal(next,mode){if(realAuth())return realLogin(undefined,undefined,next);modal(mode==='up'?'Create your Callit account':mode==='in'?'Welcome back':'Sign in to Callit',mode==='up'?'Pick a way in. We create a Solana wallet for you, and you own the keys.':mode==='in'?'Sign in the same way you signed up.':'New here? We create a Solana wallet for you. You own the keys.',
  `${['Email','Google','X'].map(l=>`<button class="opt" data-connect="${l}"><span class="tokav" style="background:var(--hi)">${l[0]}</span>Continue with ${l}</button>`).join('')}
  <div class="divider">or use your own wallet</div>${['Phantom','Solflare','Backpack'].map(w=>`<button class="opt" data-connect="${w}">${tokav(w)}${w}</button>`).join('')}`,
  m=>m.addEventListener('click',e=>{const b=e.target.closest('[data-connect]');if(!b)return;signIn(b.dataset.connect,next)}))}
-function signIn(via,next){S.connected=true;S.addr='CaLL'+Math.random().toString(36).slice(2,10)+'x9Qp2HkWm4Tz7VbN1sRdE3';S.me='caller_'+S.addr.slice(4,8);
+function signIn(via,next,opts){if(realAuth())return realLogin(via,opts,next);S.connected=true;S.addr='CaLL'+Math.random().toString(36).slice(2,10)+'x9Qp2HkWm4Tz7VbN1sRdE3';S.me='caller_'+S.addr.slice(4,8);
   C[S.me]={h:S.me,win:0,avg:0,calls:0,best:0,followers:0};closeModal();try{localStorage.setItem('callit.session',JSON.stringify({addr:S.addr,me:S.me}))}catch(_){}
   toast(['Phantom','Solflare','Backpack'].includes(via)?`${via} connected`:'Signed in. Your wallet is ready');render();next?next():maybeOnboard()}
 
@@ -798,7 +801,9 @@ function editProfile(focus){const D={...PROF};
   $('#epb',m).oninput=e=>$('#epbc',m).textContent=e.target.value.length+'/160';
   m.querySelectorAll('[data-up]').forEach(i=>i.onchange=()=>{const f=i.files[0];if(!f)return;if(!/^image\//.test(f.type)){$('#eperr',m).textContent='Pick an image file.';return}keep();shrink(f,i.dataset.up==='banner'?1400:400,url=>{D[i.dataset.up]=url;draw(m)})});
   m.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{keep();delete D[b.dataset.rm];draw(m)});
-  $('#epsave',m).onclick=()=>{keep();const old=PROF;PROF=D;if(!saveProf()){PROF=old;$('#eperr',m).textContent='That image is too large to save. Try a smaller one.';return}closeModal();toast('Profile updated');render()};
+  $('#epsave',m).onclick=()=>{keep();const old=PROF;PROF=D;if(!saveProf()){PROF=old;$('#eperr',m).textContent='That image is too large to save. Try a smaller one.';return}
+   if(realAuth()&&window.CallitAuth)window.CallitAuth.saveProfile({display_name:D.name||null,bio:D.bio||null,website:D.web||null,x_handle:D.x||null}).then(p=>{if(!p)toast('Saved on this device. Couldn’t sync to your account yet')});
+   closeModal();toast('Profile updated');render()};
   if(focus==='banner')m.querySelector('[data-up="banner"]').click()};
  modal('Edit profile','',`<div id="ep"></div>`,draw)}
 function followsModal(h,tab){const draw=m=>{const list=tab==='following'?followingOf(h):followersOf(h);
@@ -839,10 +844,11 @@ function landingHTML(){const yr=new Date().getFullYear();
  </main>
  <footer class="lx-foot">${socials('sm')}<nav><button data-act="lexplore" data-f="about">About</button><span>·</span><button data-act="lexplore" data-f="leaderboard">Leaderboard</button><span>·</span><button data-act="doc" data-f="terms">Terms</button><span>·</span><button data-act="doc" data-f="privacy">Privacy</button><span>·</span><span>© ${yr} Callit</span></nav></footer>`}
 function syncLanding(){const el=$('#landing');let exp=false;try{exp=sessionStorage.getItem('callit.explore')==='1'}catch(_){}
- const show=!S.connected&&!exp;if(show&&el.hidden){el.innerHTML=landingHTML();el.hidden=false}else if(!show&&!el.hidden){el.hidden=true;el.innerHTML=''}
+ const A=window.CallitAuth,restoring=realAuth()&&A&&A.ready&&A.authenticated&&!S.connected;
+ const show=!S.connected&&!exp&&!restoring;if(show&&el.hidden){el.innerHTML=landingHTML();el.hidden=false}else if(!show&&!el.hidden){el.hidden=true;el.innerHTML=''}
  document.body.classList.toggle('lock',show)}
 try{S.premium=JSON.parse(localStorage.getItem('callit.premium')||'null')}catch(_){}
-try{const v=JSON.parse(localStorage.getItem('callit.session')||'null');if(v&&v.me){S.connected=true;S.addr=v.addr;S.me=v.me;C[S.me]=C[S.me]||{h:S.me,win:0,avg:0,calls:0,best:0,followers:0}}}catch(_){}
+if(!realAuth())try{const v=JSON.parse(localStorage.getItem('callit.session')||'null');if(v&&v.me){S.connected=true;S.addr=v.addr;S.me=v.me;C[S.me]=C[S.me]||{h:S.me,win:0,avg:0,calls:0,best:0,followers:0}}}catch(_){}
 
 /* ---------- offline + install ---------- */
 const syncNet=()=>{const o=$('#offline');if(o)o.hidden=navigator.onLine};addEventListener('online',()=>{syncNet();toast('Back online')});addEventListener('offline',syncNet);
@@ -862,6 +868,17 @@ function installApp(){if(deferredInstall){deferredInstall.prompt();deferredInsta
  modal('Install Callit','',isIOS()?`<div class="obsteps"><div class="obs"><span class="obi">${ic('share',20)}</span><div><b>1. Tap Share</b><span>The square with an arrow at the bottom of Safari.</span></div></div><div class="obs"><span class="obi">${ic('wallet',20)}</span><div><b>2. Add to Home Screen</b><span>Scroll the share menu and tap it.</span></div></div><div class="obs"><span class="obi">${ic('check',20)}</span><div><b>3. Open Callit</b><span>It opens full-screen from your home screen, like an app.</span></div></div></div>`
   :`<div class="obsteps"><div class="obs"><span class="obi">${ic('settings',20)}</span><div><b>1. Open your browser menu</b><span>The ⋮ button in Chrome, Edge or Brave.</span></div></div><div class="obs"><span class="obi">${ic('down',20)}</span><div><b>2. Tap Install app</b><span>Or Add to Home screen.</span></div></div><div class="obs"><span class="obi">${ic('check',20)}</span><div><b>3. Open Callit</b><span>It opens full-screen like an app.</span></div></div></div>`)}
 if(isIOS()&&!isStandalone())setTimeout(()=>{if(S.connected)showInstallBar()},4000);
+
+/* ---------- real sign-in (Privy) ---------- */
+window.callitApplySession=(p,o={})=>{
+ if(!p){if(S.connected){S.connected=false;S.addr='';S.me='';S.profile=null;toast('Signed out')}render();return}
+ const first=!S.connected;S.connected=true;S.profile=p;S.me=p.handle;S.addr=p.wallet_address||'';
+ C[S.me]=C[S.me]||{h:S.me,win:0,avg:0,calls:0,best:0,followers:0};
+ PROF={...PROF,name:p.display_name??PROF.name??'',bio:p.bio??PROF.bio??'',web:p.website??PROF.web??'',x:p.x_handle??PROF.x??''};saveProf();
+ closeModal();render();
+ if(first){toast(o.isNew?'Welcome to Callit. Your wallet is ready':'Signed in');const n=pendingNext;pendingNext=null;if(n)n();else if(o.isNew)maybeOnboard()}};
+window.callitAuthChanged=()=>syncLanding();
+if(window.__callitPendingSession){const q=window.__callitPendingSession;delete window.__callitPendingSession;window.callitApplySession(q.p,q.opts)}
 
 /* ---------- events ---------- */
 const currentRoute=()=>(location.hash.split('/')[1]||'home');
@@ -887,7 +904,7 @@ document.addEventListener('click',e=>{
      S.activity.unshift({k:'Sent',d:`${via==='SOL'?amt.toFixed(3):amt} ${via} for Callit Premium`,t:'Just now'});render();toast('Welcome to Premium ✓')})})},
   nf:()=>{S.nf=b.dataset.f;render()},newsx:()=>toast('Full articles open once the news feed is connected'),stscroll:()=>{const t=$('#'+b.dataset.f);t&&t.scrollBy({left:+b.dataset.d*t.clientWidth*.8,behavior:'smooth'})},
   lsign:()=>signIn(b.dataset.f),lwallet:()=>connectModal(null,'in'),
-  lemail:()=>{const v=($('#lxemail')||{}).value||'';if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())){$('#lxerr').textContent='Enter a valid email address.';$('#lxemail').focus();return}signIn('Email')},
+  lemail:()=>{const v=($('#lxemail')||{}).value||'';if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())){$('#lxerr').textContent='Enter a valid email address.';$('#lxemail').focus();return}signIn('Email',null,{email:v.trim()})},
   lexplore:()=>{try{sessionStorage.setItem('callit.explore','1')}catch(_){}location.hash='#/'+b.dataset.f;syncLanding()},
   doc:()=>docModal(b.dataset.f),soclink:()=>{e.preventDefault();toast(`Callit on ${b.dataset.f} is coming soon`)},editprof:()=>editProfile(b.dataset.f),follows:()=>followsModal(b.dataset.h,b.dataset.f),mt:()=>{if(S.mt===b.dataset.f)return scrollTo({top:0,behavior:'smooth'});S.mt=b.dataset.f;render()},tpick:()=>pickToken(b.dataset.f),
   signup:()=>connectModal(null,'up'),signin:()=>connectModal(null,'in'),explore:()=>{try{sessionStorage.setItem('callit.explore','1')}catch(_){}syncLanding()},qbuy:()=>quickBuy(b.dataset.t,b.dataset.id),
@@ -895,7 +912,7 @@ document.addEventListener('click',e=>{
   join:()=>{const f=b.dataset.f;S.joined.has(f)?S.joined.delete(f):S.joined.add(f);toast(S.joined.has(f)?'Joined':'Left the community');render()},
   msend:()=>{const i=$('#msgin'),v=i&&i.value.trim();if(!v)return;(MSG[b.dataset.f]=MSG[b.dataset.f]||[]).push([S.me,v,'now']);render();const m=$('#msgs');m&&m.lastElementChild&&m.lastElementChild.scrollIntoView({block:'end',behavior:'smooth'});setTimeout(()=>{const n=$('#msgin');n&&n.focus()},50)},
   ptab:()=>{S.ptab=b.dataset.f;render()},connect:()=>connectModal(),search:()=>searchModal(),notifs:()=>notifsModal(),settings:()=>settingsModal(),
-  disconnect:()=>{S.connected=false;try{localStorage.removeItem('callit.session');sessionStorage.removeItem('callit.explore')}catch(_){}toast('Signed out');render()},
+  disconnect:()=>{if(realAuth()){try{sessionStorage.removeItem('callit.explore')}catch(_){}window.CallitAuth&&window.CallitAuth.logout();return}S.connected=false;try{localStorage.removeItem('callit.session');sessionStorage.removeItem('callit.explore')}catch(_){}toast('Signed out');render()},
   me:()=>S.connected?location.hash='#/profile/'+S.me:connectModal(),
   collapse:()=>{document.body.classList.toggle('collapsed');syncTray()},
   tt:()=>{if(S.tt===b.dataset.f)return scrollTo({top:0,behavior:'smooth'});S.tt=b.dataset.f;render();scrollTo({top:0})},
