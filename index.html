@@ -888,8 +888,17 @@ td.rkc{font:800 18px var(--display);width:48px}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 #upg{position:absolute}
 #fab{position:fixed}
+@media (max-width:520px){#pill .dep{padding:6px 11px;font-size:12.5px;min-width:0;letter-spacing:0}#pill .dep svg{display:none}#pill{padding:2px;gap:4px}#upg{left:calc(50% - 28px)}}
 .balx{display:inline-flex;align-items:center;gap:6px}
-.mx{border:1.5px solid color-mix(in srgb,var(--hi) 45%,transparent);background:color-mix(in srgb,var(--hi) 12%,transparent);color:var(--hi);border-radius:8px;padding:2px 8px;font-weight:800;font-size:12px;letter-spacing:.02em;flex:none;box-shadow:var(--raise-sm);transition:scale .35s var(--spring),filter .15s}
+.swap .box .row:first-child{margin-bottom:10px;flex-wrap:wrap;gap:6px}
+.dep{display:inline-flex;align-items:center;gap:5px;padding:7px 14px 7px 11px;font-size:14px}
+.pill{gap:6px;align-items:center}
+.fchip{display:inline-flex;align-items:center;gap:3px;border:1.5px solid var(--hi);background:transparent;color:var(--hi);border-radius:999px;padding:1px 9px;font-size:12px;font-weight:800;line-height:18px;flex:none;transition:scale .35s var(--spring),background-color .2s,color .2s}
+.fchip:active{scale:.9;transition-duration:.08s}
+.fchip.on{border-color:var(--line);color:var(--muted);background:var(--bg2)}
+.fchip.on svg{color:var(--up)}
+@media (max-width:520px){.dep{padding:6px 10px 6px 8px;font-size:12.5px;gap:3px}.dep svg{width:13px;height:13px}.pill .ib{width:32px;height:32px}.upg{padding:5px 9px 5px 7px;font-size:12.5px}.fchip span{display:none}.fchip{padding:1px 7px}.fchip.on{padding:1px 5px}}
+.mx{border:0;background:color-mix(in srgb,var(--hi) 14%,transparent);color:var(--hi);border-radius:8px;padding:3px 9px;font-weight:800;font-size:12px;letter-spacing:.02em;flex:none;box-shadow:none;transition:scale .35s var(--spring),filter .15s}
 .mx:hover{filter:brightness(1.15)}.mx:active{scale:.9;transition-duration:.08s}
 .mx.lg{padding:0 14px;font-size:14px;border-radius:12px}
 </style>
@@ -1084,7 +1093,7 @@ function post(k){const t=T[k.t],p=perf(k),r=rankOf(k.c);
  return `<article class="post${k.fresh?' fresh':''}" data-go="#/post/${k.id}" tabindex="0" aria-label="Call by ${esc(k.c)} on $${t.sym}">
  <a href="#/profile/${k.c}" aria-label="Open @${esc(k.c)}'s profile" class="pav">${avatar(k.c,'md')}</a>
  <div style="min-width:0">
-  <div class="phead"><span class="pname">${esc(k.c)}</span>${vbadge(k.c)}${r&&!k.sponsored?`<span class="rk">#${r}</span>`:''}${k.sponsored?'<span class="tag">Sponsored</span>':''}<time>${k.ago==='now'?'now':k.ago+' ago'}</time></div>
+  <div class="phead"><span class="pname">${esc(k.c)}</span>${vbadge(k.c)}${r&&!k.sponsored?`<span class="rk">#${r}</span>`:''}${k.sponsored?'<span class="tag">Sponsored</span>':''}${k.c!==S.me?`<button class="fchip${S.following.has(k.c)?' on':''}" data-act="follow" data-h="${k.c}" aria-label="${S.following.has(k.c)?'Following':'Follow'} ${esc(k.c)}">${S.following.has(k.c)?ic('check',12)+'<span>Following</span>':'+<span>Follow</span>'}</button>`:''}<time>${k.ago==='now'?'now':k.ago+' ago'}</time></div>
   <p class="ptext">${esc(k.thesis)}</p>${mediaGrid(k.media)}
   <a class="ccard" href="#/token/${t.sym}">${tokav(t.sym)}<div class="cn"><b>${esc(t.name)}</b><span>$${t.sym} <span class="chain">${t.chain}</span></span></div>${right}</a>
   ${k.sponsored?`<div class="pnote">Paid promotion by ${esc(k.sponsor)}. Not counted in rankings.</div>`:`<div class="pnote">${k.target?`Target ${fmtUsd(k.target)} within ${esc(k.horizon)} · `:''}${k.buy?`<span class="bk">${ic('check',13)} Bought in</span>`:`<span class="bk no">No buy · earns no fees</span>`}${k.sold?` · <span class="sold">${ic('repost',13)} Caller sold ${k.sold.pct}% · ${k.sold.ago} ago</span>`:''}</div>`}
@@ -1354,8 +1363,7 @@ function chrome(route){const link=([k,l])=>`<a href="#/${k}" class="${route===k?
  $('#navA').innerHTML=NAV_A.map(link).join('');$('#navB').innerHTML=NAV_B.map(link).join('');
  $('#acct').innerHTML=S.connected?`<button class="acct" data-act="disconnect" title="Disconnect">${avatar(S.me)}<span class="lbl" style="min-width:0"><b style="display:block">${esc(S.me)}</b><span class="hint num">${short(S.addr)}</span></span></button>`
   :`<button class="btn primary connect" data-act="connect" title="Connect wallet">${ic('wallet',20)}<span class="lbl">Connect wallet</span></button>`;
- $('#pill').innerHTML=`<button class="ib" data-act="me" aria-label="Profile">${S.connected?avatar(S.me).replace('class="av ','class="av " style="width:32px;height:32px;font-size:11px;'):ic('profile')}</button>
-  <button class="ib" data-act="notifs" aria-label="Notifications">${ic('bell')}${unreadN()?'<span class="dotn"></span>':''}</button>
+ $('#pill').innerHTML=`<button class="btn primary sm dep" data-act="deposit">${ic('down',15)}<span>Deposit</span></button>
   <button class="ib" data-act="theme" aria-label="Switch theme">${ic('sun')}</button>`;
  syncTray();
  $('#title').textContent=TITLES[route]||'Home';{const u=$('#upg'),on=isPrem(S.me);u.hidden=route!=='home';u.classList.toggle('on',!!on);u.innerHTML=`${ic('verified',18)}<span>Premium</span>`}const bk=$('#back');bk.hidden=route==='home';bk.innerHTML=ic('back',20)}
@@ -1473,7 +1481,7 @@ function sendModal(){modal('Send','Send tokens to any Solana address.',
    if(!(a>0))return e.textContent='Enter an amount above zero.';
    if(a>S.bal[k])return e.textContent=`You only have ${fmtAmt(S.bal[k])} ${k}.`;
    closeModal();txRun(`Send ${fmtAmt(a)} ${k} to ${short(to)}`,()=>{S.bal[k]-=a;S.activity.unshift({k:'Sent',d:`${fmtAmt(a)} ${k} to ${short(to)}`,t:'Just now'});render()})}})}
-const receiveModal=()=>modal('Receive','Send SOL or any Solana token to this address.',`<div style="text-align:center">${qr(hue(S.addr))}<p class="num" style="overflow-wrap:anywhere;font-size:13px">${S.addr}</p><button class="btn primary block" data-act="copy" data-v="${S.addr}">Copy address</button></div>`);
+const receiveModal=(title='Receive')=>modal(title,title==='Deposit'?'Send SOL, USDC or any Solana token to your Callit wallet address below.':'Send SOL or any Solana token to this address.',`<div style="text-align:center">${qr(hue(S.addr))}<p class="num" style="overflow-wrap:anywhere;font-size:13px">${S.addr}</p><button class="btn primary block" data-act="copy" data-v="${S.addr}">Copy address</button></div>`);
 
 /* ---------- quick buy from a call ---------- */
 function quickBuy(sym,cid){if(!S.connected)return connectModal();const t=T[sym],k=calls.find(x=>x.id==cid);let sol='0.25';
@@ -1829,7 +1837,7 @@ document.addEventListener('click',e=>{
   copy:()=>copy(b.dataset.v,'Address copied'),
   follow:()=>{if(!S.connected)return connectModal();const h=b.dataset.h;S.following.has(h)?S.following.delete(h):S.following.add(h);render()},
   track:()=>{const t=b.dataset.t;S.watch.has(t)?S.watch.delete(t):S.watch.add(t);toast(S.watch.has(t)?`$${t} added to watchlist`:`$${t} removed from watchlist`);render()},
-  send:()=>sendModal(),receive:()=>receiveModal(),
+  send:()=>sendModal(),receive:()=>receiveModal(),deposit:()=>S.connected?receiveModal('Deposit'):connectModal(()=>receiveModal('Deposit')),
   flip:()=>{const w=S.swap;[w.from,w.to]=[w.to,w.from];w.amt='';renderSwaps()},
   doswap:()=>{const w=S.swap,x=parseFloat(w.amt),out=usd(w.from,x)*.995/T[w.to].price,imp=impact(w.to,usd(w.from,x));
    const go=()=>{const f=w.from,t=w.to;w.amt='';renderSwaps();txRun(`Swap ${fmtAmt(x)} ${f} → ${fmtAmt(out)} ${t}`,()=>{S.bal[f]-=x;S.bal[t]=(S.bal[t]||0)+out;S.activity.unshift({k:'Swapped',d:`${fmtAmt(x)} ${f} for ${fmtAmt(out)} ${t}`,t:'Just now'});render()})};
