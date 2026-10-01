@@ -375,9 +375,9 @@ textarea.input{resize:vertical;min-height:96px}
 body:has(.composer) .fab{display:none}
 
 /* raised buttons: Callit's tactile look */
-:root{--raise:0 1px 0 rgba(255,255,255,.12) inset,0 0 0 1px rgba(255,255,255,.05),0 4px 0 rgba(0,0,0,.55),0 14px 26px -8px rgba(0,0,0,.75);--raise-sm:0 1px 0 rgba(255,255,255,.1) inset,0 3px 0 rgba(0,0,0,.5),0 9px 16px -6px rgba(0,0,0,.7)}
-[data-theme="light"]{--raise:0 1px 0 rgba(255,255,255,.8) inset,0 4px 0 rgba(11,27,39,.28),0 14px 26px -8px rgba(11,27,39,.45);--raise-sm:0 1px 0 rgba(255,255,255,.8) inset,0 3px 0 rgba(11,27,39,.24),0 9px 16px -6px rgba(11,27,39,.38)}
-@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--raise:0 1px 0 rgba(255,255,255,.8) inset,0 4px 0 rgba(11,27,39,.28),0 14px 26px -8px rgba(11,27,39,.45);--raise-sm:0 1px 0 rgba(255,255,255,.8) inset,0 3px 0 rgba(11,27,39,.24),0 9px 16px -6px rgba(11,27,39,.38)}}
+:root{--raise:0 1px 0 rgba(255,255,255,.07) inset,0 3px 0 rgba(0,0,0,.35),0 10px 20px -8px rgba(0,0,0,.55);--raise-sm:0 1px 0 rgba(255,255,255,.06) inset,0 2px 0 rgba(0,0,0,.3),0 6px 12px -6px rgba(0,0,0,.5)}
+[data-theme="light"]{--raise:0 1px 0 rgba(255,255,255,.7) inset,0 3px 0 rgba(11,27,39,.16),0 10px 20px -8px rgba(11,27,39,.3);--raise-sm:0 2px 0 rgba(11,27,39,.12),0 6px 12px -6px rgba(11,27,39,.25)}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--raise:0 1px 0 rgba(255,255,255,.7) inset,0 3px 0 rgba(11,27,39,.16),0 10px 20px -8px rgba(11,27,39,.3);--raise-sm:0 2px 0 rgba(11,27,39,.12),0 6px 12px -6px rgba(11,27,39,.25)}}
 .btn,.fab,.searchbtn,.pill,.chip,.rcard,.presets button,.opt,.pkg,.newpill button,.sw,.sh-tabs button,.brand .mark{box-shadow:var(--raise);transition:transform .08s ease,box-shadow .08s ease,filter .12s}
 .btn.sm,.seg,.chip,.presets button,.sw,.sh-tabs button{box-shadow:var(--raise-sm)}
 .seg button.on{box-shadow:var(--raise-sm)}
@@ -438,10 +438,32 @@ select option{background:var(--bg2);color:var(--text)}
 .swarn{display:flex;align-items:center;gap:8px;margin:0 0 12px;padding:10px 12px;border-radius:12px;font-size:13.5px;font-weight:600;background:color-mix(in srgb,#E8B730 14%,transparent);color:#E8B730}
 .swarn.bad{background:color-mix(in srgb,var(--down) 14%,transparent);color:var(--down)}
 .sold{display:inline-flex;align-items:center;gap:4px;color:#E8B730;font-weight:700}
-.shcard{border-radius:20px;padding:18px;background:linear-gradient(135deg,#0B1B27,#10304A);color:#fff;border:1px solid rgba(255,255,255,.1)}
+.shwrap{perspective:900px;padding:2px}
+.shcard{position:relative;overflow:hidden;border-radius:22px;padding:18px;color:#fff;border:1px solid rgba(255,255,255,.12);
+ background:linear-gradient(135deg,#0B1B27,#10304A 55%,#0E3A35);background-size:200% 200%;animation:shbg 8s ease-in-out infinite,shin .6s var(--spring) both;
+ transform:rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));transition:transform .25s ease;box-shadow:0 24px 50px -20px rgba(0,0,0,.7),0 0 0 1px rgba(77,168,255,.15);--c:#3DDC97}
+.shcard.dn{--c:#FF6B8A}
+.shcard>*{position:relative;z-index:1}
+@keyframes shbg{50%{background-position:100% 100%}}
+@keyframes shin{from{opacity:0;translate:0 16px;scale:.96}}
+.shglow{position:absolute!important;z-index:0!important;inset:-2px;border-radius:24px;padding:2px;background:conic-gradient(from var(--a,0deg),transparent 0 70%,var(--c) 85%,transparent);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:shspin 4s linear infinite}
+@property --a{syntax:'<angle>';initial-value:0deg;inherits:false}
+@keyframes shspin{to{--a:360deg}}
+.shorb{position:absolute!important;z-index:0!important;border-radius:50%;filter:blur(30px);opacity:.45;animation:shfloat 6s ease-in-out infinite}
+.shorb.o1{width:160px;height:160px;right:-40px;top:-50px;background:#4DA8FF}.shorb.o2{width:120px;height:120px;left:-30px;bottom:-40px;background:var(--c);animation-delay:-3s}
+@keyframes shfloat{50%{transform:translate(-14px,12px) scale(1.1)}}
+.shsheen{position:absolute!important;inset:0;z-index:2!important;pointer-events:none;background:radial-gradient(circle at var(--mx,50%) 0%,rgba(255,255,255,.14),transparent 55%)}
+.shtok{position:relative;display:inline-grid}.shtok::after{content:'';position:absolute;inset:-5px;border-radius:15px;border:2px solid var(--c);animation:shring 1.8s ease-out infinite}
+@keyframes shring{from{transform:scale(.85);opacity:.9}to{transform:scale(1.25);opacity:0}}
+.shok{color:#3DDC97;font-weight:700}
+.shline{display:block;width:100%;height:64px;margin:4px 0 10px;color:var(--c)}
+.shpath{fill:none;stroke:var(--c);stroke-width:2.5;stroke-linecap:round;vector-effect:non-scaling-stroke;stroke-dasharray:1;stroke-dashoffset:1;animation:shdraw 1.3s .2s ease-out forwards}
+.shfill{opacity:0;animation:shfade .6s 1.2s forwards}
+.shdot{fill:var(--c);opacity:0;animation:shfade .3s 1.4s forwards,shpulse 1.6s 1.7s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+@keyframes shdraw{to{stroke-dashoffset:0}}@keyframes shfade{to{opacity:1}}@keyframes shpulse{50%{transform:scale(1.8);opacity:.5}}
 .sht{display:flex;align-items:center;gap:8px}.sht .mark{width:30px;height:30px;border-radius:9px}.sht .hint{color:#8FA6BA;margin-left:auto;font-size:12.5px}
 .shb{display:flex;align-items:center;gap:10px;margin:16px 0 10px}.shb .grow b{display:block}.shb .hint{color:#8FA6BA}.shb .tokav{width:40px;height:40px;border-radius:12px;font-size:10px}
-.shn{display:grid;grid-template-columns:1fr 1fr 1.2fr;gap:10px;align-items:end}.shn span{display:block;font-size:12px;color:#8FA6BA}.shn .big{font:900 30px/1 var(--display);text-align:right}
+.shn{display:grid;grid-template-columns:1fr 1fr 1.2fr;gap:10px;align-items:end}.shn .big{color:var(--c)!important;text-shadow:0 0 24px color-mix(in srgb,var(--c) 50%,transparent)}.shn span{display:block;font-size:12px;color:#8FA6BA}.shn .big{font:900 30px/1 var(--display);text-align:right}
 .shacts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}.shacts .btn{display:flex;align-items:center;justify-content:center;gap:6px}
 .obdots{display:flex;gap:6px;margin:-4px 0 14px}.obdots i{width:22px;height:5px;border-radius:5px;background:var(--line)}.obdots i.on{background:var(--hi)}
 .obsteps{display:flex;flex-direction:column;gap:12px}.obs{display:flex;gap:12px;align-items:flex-start}.obs b{display:block}.obs span{font-size:13.5px;color:var(--muted);line-height:1.4}
@@ -474,7 +496,7 @@ button:focus:not(:focus-visible),a:focus:not(:focus-visible){outline:none}
 .upg:hover{border-color:var(--hi)}
 .upg:active{transform:translateX(-50%) translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.3)}
 .upg.on{background:color-mix(in srgb,var(--hi) 14%,var(--bg2));border-color:color-mix(in srgb,var(--hi) 50%,transparent)}
-@media (max-width:520px){.upg{position:static;transform:none;margin-left:auto;padding:6px 10px 6px 7px;font-size:13px;gap:5px}.upg:active{transform:translateY(2px)}.upg svg{width:16px;height:16px}.upg:not([hidden])+.pill{margin-left:6px}}
+@media (max-width:520px){.upg{padding:6px 11px 6px 8px;font-size:13px;gap:5px}.upg svg{width:16px;height:16px}.pill [data-act="me"]{display:none}}
 @media (max-width:370px){.upg span{display:none}.upg{padding:7px}}
 .vb{display:inline-grid;color:var(--hi);margin-left:-2px;vertical-align:-3px}
 .prem{padding:24px 18px 40px;max-width:600px;margin:0 auto}
@@ -822,13 +844,20 @@ td.rkc{font:800 18px var(--display);width:48px}
 :root{--spring:cubic-bezier(.34,1.56,.64,1)}
 .btn,.lxb,.buyb,.upg,.fab,.chip,.tpick,.mtabs button,.pfollow button,.scard,.rcard,.presets button,.seg button,.ib,.soc a,.sw,.tabs button,.tscroll>button,.att,.slips button,.bnadd,.pvia .chip{transition:scale .4s var(--spring),translate .35s var(--spring),box-shadow .25s ease,filter .15s,background-color .2s,border-color .2s,color .2s}
 .btn,.lxb,.buyb,.upg,.fab,.chip,.tpick,.mtabs button{position:relative;overflow:hidden;-webkit-tap-highlight-color:transparent}
-@media (hover:hover){
+@media (any-hover:hover){
  .btn:hover:not(:disabled),.lxb:hover,.buyb:hover,.upg:hover,.tpick:hover,.mtabs button:hover,.pfollow button:hover,.chip:hover:not(:disabled),.soc a:hover,.bnadd:hover{translate:0 -2px;filter:brightness(1.08)}
  .btn.primary:hover:not(:disabled),.buyb:hover,.lxb:hover{box-shadow:var(--raise),0 0 0 4px color-mix(in srgb,var(--hi) 22%,transparent)}
  .fab:hover{scale:1.08}.fab:hover svg{rotate:90deg}
  .scard:hover,.rcard:hover{translate:0 -4px}
  .act:hover svg{scale:1.15}
 }
+/* same feel for pen hover and finger touch (class set from JS) */
+.hov.btn:not(:disabled),.hov.lxb,.hov.buyb,.hov.upg,.hov.tpick,.hov.chip,.hov.soc,.mtabs button.hov,.pfollow button.hov,.soc a.hov,.bnadd.hov,.ib.hov,.tabs button.hov,.tscroll>button.hov{translate:0 -2px;filter:brightness(1.1)}
+.hov.btn.primary:not(:disabled),.hov.buyb,.hov.lxb{box-shadow:var(--raise),0 0 0 4px color-mix(in srgb,var(--hi) 22%,transparent)}
+.hov.btn.primary:not(:disabled)::after,.hov.buyb::after,.hov.lxb.primary::after{animation:shine .7s ease-out;opacity:1}
+.fab.hov{scale:1.08}.fab.hov svg{rotate:90deg}
+.scard.hov,.rcard.hov,.notif.hov,.comm.hov{translate:0 -3px}
+.act.hov svg{scale:1.18}.act.hov{background:color-mix(in srgb,var(--hi) 12%,transparent)}
 .btn:active:not(:disabled),.lxb:active,.buyb:active,.upg:active,.chip:active,.tpick:active,.mtabs button:active,.pfollow button:active,.scard:active,.rcard:active,.presets button:active,.seg button:active,.ib:active,.soc a:active,.att:active,.slips button:active,.tabs button:active,.tscroll>button:active,.bnadd:active{scale:.94;transition-duration:.08s}
 .fab:active{scale:.88;transition-duration:.08s}
 .sw:active i{scale:1.15 .9}
@@ -857,6 +886,7 @@ td.rkc{font:800 18px var(--display);width:48px}
 .fab{animation:fabin .7s var(--spring) .3s both}
 @keyframes fabin{from{scale:.4;opacity:0}to{scale:1;opacity:1}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+#upg{position:absolute}
 </style>
 </head>
 <body>
@@ -1608,12 +1638,22 @@ function vPost(id){const k=calls.find(x=>String(x.id)===String(id));if(!k)return
 const postURL=id=>location.href.split('#')[0]+'#/post/'+id;
 function shareSheet(id){const k=calls.find(x=>String(x.id)===String(id));if(!k)return;const t=T[k.t],n=nums(k),url=postURL(id);
  const text=n?`${k.c} called $${k.t} at ${fmtUsd(k.entry)} MC. It's ${fmtPct(n.p)} since. Tracked on Callit`:`${k.c} is calling $${k.t} on Callit`;
- modal('Share this call','',`<div class="shcard"><div class="sht"><span class="mark"></span><b>Callit</b><span class="hint">Call it. Get Paid.</span></div>
-  <div class="shb">${avatar(k.c,'md')}<div class="grow"><b>${esc(k.c)}</b><span class="hint">called $${k.t}</span></div>${tokav(k.t)}</div>
-  ${n?`<div class="shn num"><div><span>Called at</span><b>${fmtUsd(k.entry)}</b></div><div><span>Now</span><b>${fmtUsd(n.mc)}</b></div><div class="big ${n.up?'up':'down'}">${fmtPct(n.p)}</div></div>`:''}</div>
+ const pts=(()=>{const r=rng(k.id*31+7);let y=n&&n.up?.8:.3,a=[];for(let i=0;i<28;i++){y+=(r()-.5)*.16+(n&&n.up?-.022:.022);y=Math.min(.92,Math.max(.08,y));a.push(y)}return a})();
+ const path=pts.map((v,i)=>(i?'L':'M')+(i/27*300).toFixed(1)+','+(v*70).toFixed(1)).join('');
+ modal('Share this call','',`<div class="shwrap"><div class="shcard ${n&&!n.up?'dn':''}"><i class="shglow"></i><i class="shorb o1"></i><i class="shorb o2"></i>
+  <div class="sht"><span class="mark"></span><b>Callit</b><span class="hint">Call it. Get Paid.</span></div>
+  <div class="shb">${avatar(k.c,'md')}<div class="grow"><b>${esc(k.c)}</b><span class="hint">called $${k.t}${k.buy?' · <span class="shok">✓ bought in</span>':''}</span></div><span class="shtok">${tokav(k.t)}</span></div>
+  ${n?`<svg class="shline" viewBox="0 0 300 70" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="shg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity=".35"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></linearGradient></defs><path class="shfill" d="${path}L300,70L0,70Z" fill="url(#shg)"/><path class="shpath" d="${path}" pathLength="1"/><circle class="shdot" r="4" cx="300" cy="${(pts[27]*70).toFixed(1)}"/></svg>
+  <div class="shn num"><div><span>Called at</span><b>${fmtUsd(k.entry)}</b></div><div><span>Now</span><b>${fmtUsd(n.mc)}</b></div><div class="big ${n.up?'up':'down'}" data-count="${n.p.toFixed(1)}">${fmtPct(0)}</div></div>`:''}
+  <i class="shsheen"></i></div></div>
   <div class="shacts"><button class="btn primary" data-act="copy" data-v="${url}">${ic('share',16)} Copy link</button>
   <a class="btn ghost" target="_blank" rel="noopener" href="https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}">${ic('xlogo',15)} Post on X</a>
-  <button class="btn ghost" data-act="shdl" data-id="${id}">${ic('image',16)} Save image</button>${navigator.share?`<button class="btn ghost" data-act="shnative" data-id="${id}">More…</button>`:''}</div>`)}
+  <button class="btn ghost" data-act="shdl" data-id="${id}">${ic('image',16)} Save image</button>${navigator.share?`<button class="btn ghost" data-act="shnative" data-id="${id}">More…</button>`:''}</div>`,
+ m=>{const el=m.querySelector('[data-count]');if(!el)return;const to=+el.dataset.count,t0=performance.now(),dur=1100;
+  const step=t=>{const q=Math.min(1,(t-t0)/dur),e=1-Math.pow(1-q,3);el.textContent=fmtPct(to*e);if(q<1&&el.isConnected)requestAnimationFrame(step)};
+  if(matchMedia('(prefers-reduced-motion:reduce)').matches)el.textContent=fmtPct(to);else setTimeout(()=>requestAnimationFrame(step),250);
+  const card=m.querySelector('.shcard');card.addEventListener('pointermove',e=>{const r=card.getBoundingClientRect(),x=(e.clientX-r.left)/r.width-.5,y=(e.clientY-r.top)/r.height-.5;card.style.setProperty('--rx',(-y*8)+'deg');card.style.setProperty('--ry',(x*10)+'deg');card.style.setProperty('--mx',(x*100+50)+'%')});
+  card.addEventListener('pointerleave',()=>{card.style.setProperty('--rx','0deg');card.style.setProperty('--ry','0deg')})})}
 function shareImage(id,mode){const k=calls.find(x=>String(x.id)===String(id)),t=T[k.t],n=nums(k),c=document.createElement('canvas');c.width=1200;c.height=630;const g=c.getContext('2d');
  const grd=g.createLinearGradient(0,0,1200,630);grd.addColorStop(0,'#0B1B27');grd.addColorStop(1,'#10304A');g.fillStyle=grd;g.fillRect(0,0,1200,630);
  g.fillStyle='rgba(77,168,255,.15)';g.beginPath();g.arc(1050,80,260,0,7);g.fill();
@@ -1829,7 +1869,13 @@ setInterval(()=>{const el=$('#adboard');if(!el||el.matches(':hover'))return;S.bo
 render();
 
 /* ---------- motion helpers ---------- */
-(()=>{const RIP='.btn,.lxb,.buyb,.upg,.fab,.chip,.tpick,.mtabs button';const reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
+(()=>{const RIP='.btn,.lxb,.buyb,.upg,.fab,.chip,.tpick,.mtabs button';
+ const HOV='.btn,.lxb,.buyb,.upg,.fab,.chip,.tpick,.mtabs button,.pfollow button,.soc a,.bnadd,.ib,.tabs button,.tscroll>button,.scard,.rcard,.act,.notif,.comm';
+ let hovEl=null;const setHov=el=>{if(hovEl===el)return;hovEl&&hovEl.classList.remove('hov');hovEl=el;el&&el.classList.add('hov')};
+ document.addEventListener('pointerover',e=>{if(e.pointerType==='mouse')return;setHov(e.target.closest(HOV))},{passive:true});
+ document.addEventListener('pointerout',e=>{if(e.pointerType==='mouse')return;if(hovEl&&!hovEl.contains(e.relatedTarget))setHov(null)},{passive:true});
+ document.addEventListener('pointerdown',e=>{if(e.pointerType==='touch')setHov(e.target.closest(HOV))},{passive:true});
+ ['pointerup','pointercancel'].forEach(t=>document.addEventListener(t,e=>{if(e.pointerType==='touch'){const el=hovEl;setTimeout(()=>{if(hovEl===el)setHov(null)},260)}},{passive:true}));const reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
  document.addEventListener('pointerdown',e=>{const b=e.target.closest(RIP);if(!b||b.disabled)return;
   if(navigator.vibrate&&e.pointerType==='touch')try{navigator.vibrate(8)}catch(_){}
   if(reduce)return;const r=b.getBoundingClientRect(),d=Math.max(r.width,r.height)*2.2,s=document.createElement('span');s.className='rip';
