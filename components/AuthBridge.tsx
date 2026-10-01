@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { usePrivy, useLogin, useLoginWithOAuth } from '@privy-io/react-auth';
-import { useWallets } from '@privy-io/react-auth/solana';
+import { useSignTransaction, useWallets } from '@privy-io/react-auth/solana';
 import type { User } from '@privy-io/react-auth';
 import type { CallitProfile, CallitNotification } from '@/lib/auth/types';
 import { toHandle } from '@/lib/auth/handle';
@@ -47,6 +47,29 @@ export default function AuthBridge() {
   const synced = useRef<string>('');
   const [resync, setResync] = useState(0);
   const walletFlow = useRef<WalletSignInHandle>(null);
+  const { signTransaction } = useSignTransaction();
+
+  // Expose the user's wallet to the engine: real balances, swaps and withdrawals.
+  // The engine only ever gets back signed bytes; keys stay in Privy / Phantom / Solflare.
+  useEffect(() => {
+    const b64ToBytes = (b: string) => Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
+    const bytesToB64 = (u: Uint8Array) => {
+      let s = '';
+      for (let i = 0; i < u.length; i++) s += String.fromCharCode(u[i]);
+      return btoa(s);
+    };
+    window.CallitWallet = {
+      addresses: authenticated ? wallets.map((w) => w.address) : [],
+      token: () => getAccessToken(),
+      signTx: async (tx, owner) => {
+        const w = (owner && wallets.find((x) => x.address === owner)) || wallets[0];
+        if (!authenticated || !w) throw new Error('No wallet connected. Sign in again.');
+        const { signedTransaction } = await signTransaction({ transaction: b64ToBytes(tx), wallet: w });
+        return bytesToB64(signedTransaction);
+      },
+    };
+    window.callitWalletChanged?.();
+  }, [authenticated, wallets, signTransaction, getAccessToken]);
 
   // Expose controls to the legacy engine.
   useEffect(() => {

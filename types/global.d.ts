@@ -20,6 +20,13 @@ declare global {
     /** Set by the engine; replaces the notification list (null restores the demo list). */
     callitSetNotifs?: (list: CallitNotification[] | null) => void;
     __callitRealAuth?: boolean;
+    /** Wallet bridge: the signed-in user's Solana wallet(s). Signing happens in the wallet; keys never leave it. */
+    CallitWallet?: {
+      addresses: string[];
+      token: () => Promise<string | null>;
+      signTx: (base64Tx: string, owner?: string) => Promise<string>;
+    };
+    callitWalletChanged?: () => void;
   }
 }
 export {};

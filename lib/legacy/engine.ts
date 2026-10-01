@@ -8,6 +8,7 @@
  * and its data into /lib. This file shrinks until it's gone.
  */
 import { fetchFeed, fetchToken, fetchTokens, searchTokens, mountChart, fmtSmall } from '@/lib/market/client';
+import { walletBalances, swap as jupSwap, withdraw as doWithdraw, toBaseUnits, qrSvg, SOL_MINT, USDC_MINT } from '@/lib/wallet/client';
 
 let booted = false;
 
@@ -181,6 +182,37 @@ function txRun(desc,apply,opt={}){const el=$('#txt'),sig=fakeSig();let step=0;
  setTimeout(()=>{if(!navigator.onLine){draw('bad','You’re offline. Nothing was sent.');return}draw('wait','Sending to Solana…');
   setTimeout(()=>{if(!navigator.onLine){draw('bad','Network dropped. Nothing was sent.');return}apply&&apply();draw('ok',`Confirmed · ${sig.slice(0,4)}…${sig.slice(-4)}`);el._h=setTimeout(()=>el.classList.remove('show'),5000)},opt.slow?1400:900)},opt.instantApprove?200:800)}
 function copy(txt,msg='Copied'){navigator.clipboard?.writeText(txt).catch(()=>{});toast(msg)}
+/* ---------- real wallet (Privy): live balances, Jupiter swaps, withdrawals ----------
+ * When a real user is signed in, balances come from Solana and every Buy/Sell/Swap/Withdraw
+ * is a real transaction the user signs in their own wallet. Demo mode keeps the old flow. */
+const DEC={SOL:9,USDC:6},RAW={};
+const REALW=()=>realAuth()&&S.connected&&isMintStr(S.addr)&&!!window.CallitWallet;
+const mintOf=k=>k==='SOL'?SOL_MINT:k==='USDC'?USDC_MINT:(T[k]&&isMintStr(T[k].ca)?T[k].ca:k);
+const keyOfMint=m=>m===SOL_MINT?'SOL':m===USDC_MINT?'USDC':m;
+const decOf=k=>DEC[k]!=null?DEC[k]:(T[k]&&T[k].L&&T[k].L.decimals!=null?T[k].L.decimals:null);
+/* Whole balance -> exact raw amount from chain (no rounding dust left behind). */
+const baseOf=(k,a)=>{const d=decOf(k);if(d==null)throw new Error('Token details are still loading. Try again in a second.');return RAW[k]&&k!=='SOL'&&a>=(S.bal[k]||0)*(1-1e-9)?RAW[k]:toBaseUnits(a,d)};
+function balRender(){const ae=document.activeElement;if(ae&&ae.dataset&&ae.dataset.swap==='amt')return;
+ if($('#modal').innerHTML||document.querySelector('.sheet.open')){S.dirty=1;renderSwaps();return}
+ const r=currentRoute();if(r==='wallet'||r==='profile')render();else renderSwaps()}
+let BALBUSY=0;
+function loadBalances(){if(!REALW()||BALBUSY)return;BALBUSY=1;const who=S.addr;
+ walletBalances(who).then(r=>{if(S.addr!==who)return;const b={SOL:r.sol},raw={SOL:r.lamports},miss=[];
+  r.tokens.forEach(x=>{const k=keyOfMint(x.mint);DEC[k]=x.decimals;b[k]=(b[k]||0)+x.ui;raw[k]=x.amount;if(!T[k])miss.push(x.mint)});
+  const changed=JSON.stringify(b)!==JSON.stringify(S.bal);S.bal=b;for(const k in RAW)delete RAW[k];Object.assign(RAW,raw);S.balAt=Date.now();
+  if(miss.length)fetchTokens(miss.slice(0,50)).then(l=>{l.forEach(regLive);balRender()}).catch(()=>{});
+  if(changed)balRender()}).catch(e=>console.warn('[callit] balances',e)).finally(()=>{BALBUSY=0})}
+/* Same toast as txRun, driven by a real transaction. run(step) resolves to the signature. */
+function realTx(desc,run,done){const el=$('#txt');let sig='';
+ const draw=(st,msg)=>{el.className='txt show '+st;el.innerHTML=`<span class="txi">${st==='ok'?ic('check',18):st==='bad'?ic('x',18):'<i class="spin"></i>'}</span><div class="grow"><b>${esc(desc)}</b><span class="hint">${esc(msg)}</span></div>${st==='ok'&&sig?`<a class="lnk" href="https://solscan.io/tx/${sig}" target="_blank" rel="noopener noreferrer">View</a>`:st==='bad'?'<button class="lnk" id="txretry">Retry</button>':''}<button class="ib" id="txx" aria-label="Dismiss">${ic('x',16)}</button>`;
+  $('#txx').onclick=()=>el.classList.remove('show');const r=$('#txretry');if(r)r.onclick=()=>realTx(desc,run,done)};
+ clearTimeout(el._h);draw('wait','Preparing…');
+ run(m=>draw('wait',m)).then(s=>{sig=s||'';draw('ok',sig?`Confirmed · ${sig.slice(0,4)}…${sig.slice(-4)}`:'Done');el._h=setTimeout(()=>el.classList.remove('show'),9000);done&&done(true);loadBalances();setTimeout(loadBalances,5000)})
+  .catch(e=>{const m=String(e&&e.message||e);draw('bad',/reject|denied|cancel|declin|closed/i.test(m)?'You cancelled it. Nothing was sent.':m.slice(0,160));done&&done(false)})}
+function realSwap(from,to,amt,desc,done){let base;try{base=baseOf(from,amt)}catch(e){toast(e.message);done&&done(false);return}
+ realTx(desc,step=>jupSwap({inputMint:mintOf(from),outputMint:mintOf(to),amount:base,taker:S.addr,slippageBps:S.slip?Math.round(S.slip*100):undefined},step).then(r=>{
+  const od=decOf(to),got=r.outAmount&&od!=null?Number(r.outAmount)/10**od:null;
+  S.activity.unshift({k:from==='SOL'?'Bought':to==='SOL'?'Sold':'Swapped',d:`${fmtAmt(amt)} ${symOf(from)} → ${got!=null?fmtAmt(got)+' ':''}${symOf(to)}`,t:'Just now',sig:r.signature});return r.signature}),done)}
 const perf=k=>{const t=T[k.t];return t.prelaunch?null:(mcap(t)/k.entry-1)*100};
 function chart(seed,up,w=600,h=190){const r=rng(seed);let y=up?.25:.75,p=[];for(let i=0;i<72;i++){y+=(r()-.5)*.11+(up?.008:-.008);y=Math.min(.95,Math.max(.05,y));p.push(y)}
  const d=p.map((v,i)=>`${i?'L':'M'}${(i/71*w).toFixed(1)},${(h-v*h).toFixed(1)}`).join('');
@@ -191,7 +223,8 @@ function qr(seed){const r=rng(seed),n=21,c=9;let o='';const f=(x,y)=>(x<7&&y<7)|
 const ranked=()=>Object.values(C).filter(c=>c.calls>=10).sort((a,b)=>b.win-a.win||b.avg-a.avg);
 const rankOf=h=>{const i=ranked().findIndex(c=>c.h===h);return i<0?null:i+1};
 const usd=(s,a)=>T[s].price*a;
-const tradable=t=>t.chain==='Solana'&&!t.prelaunch;
+/* Real wallets can only trade real tokens (demo tokens have made-up mints). */
+const tradable=t=>t.chain==='Solana'&&!t.prelaunch&&(!REALW()||!!t.base||!!t.live);
 
 /* ---------- post (X layout + pump call card) ---------- */
 const money=n=>(n>=0?'+':'−')+fmtUsd(Math.abs(n));
@@ -235,7 +268,7 @@ function adBoard(){const a=ADS[S.board%ADS.length];
 const FEE_RESERVE=0.01;
 const maxOf=sym=>{const b=S.bal[sym]||0;const v=sym==='SOL'?Math.max(0,b-FEE_RESERVE):b;return String(+v.toFixed(6))};
 const impact=(sym,usdIn)=>{const t=T[sym];return t&&t.liq?usdIn/(t.liq/2+usdIn)*100:0};
-function swapHTML(tok){const w=S.swap,side=tok?(w.from===tok?'sell':'buy'):null,f=T[w.from],t=T[w.to],a=parseFloat(w.amt)||0,out=a?usd(w.from,a)*.995/t.price:0,imp=a?impact(w.to,usd(w.from,a)):0,sl=S.slip||1;
+function swapHTML(tok){const w=S.swap,side=tok?(w.from===tok?'sell':'buy'):null,f=T[w.from],t=T[w.to],a=parseFloat(w.amt)||0,out=a?usd(w.from,a)*.995/t.price:0,imp=a?impact(w.to,usd(w.from,a)):0,sl=S.slip||0;
  const opts=sel=>Object.values(T).filter(tradable).map(x=>`<option ${x.sym===sel?'selected':''}>${x.sym}</option>`).join('');
  let label='Swap',dis=false;const warn=a&&imp>5?`<div class="swarn ${imp>15?'bad':''}">${ic('bell',15)} ${imp>15?'Very high':'High'} price impact. Thin liquidity on $${t.sym}.</div>`:'';
  const held=tok?(S.bal[tok]||0):0;
@@ -248,8 +281,8 @@ function swapHTML(tok){const w=S.swap,side=tok?(w.from===tok?'sell':'buy'):null,
   <button class="flip" data-act="flip" aria-label="Flip tokens">${ic('swap',16)}</button>
   <div class="box"><div class="row"><span class="hint">You get</span><span class="hint num">Balance ${fmtAmt(S.bal[w.to]||0)}</span></div>
   <div class="row"><div class="amt num">${out?fmtAmt(out):'0'}</div>${tbtn('to',w.to)}</div></div>
-  <div class="lines num"><div><span>Rate</span><span>1 ${f.sym} = ${fmtAmt(f.price/t.price)} ${t.sym}</span></div><div><span>Callit fee</span><span>0.5% (placeholder)</span></div><div><span>Max slippage</span><span class="slips">${[.5,1,3].map(v=>`<button class="${sl===v?'on':''}" data-act="slip" data-f="${v}">${v}%</button>`).join('')}</span></div>
-  ${a?`<div><span>Price impact</span><span class="${imp>15?'down':imp>5?'warn':'up'}">${imp<.01?'<0.01':imp.toFixed(2)}%</span></div><div><span>Minimum received</span><span>${fmtAmt(out*(1-sl/100))} ${t.sym}</span></div>`:''}<div><span>Route</span><span>Jupiter</span></div></div>
+  <div class="lines num"><div><span>Rate</span><span>1 ${f.sym} = ${fmtAmt(f.price/t.price)} ${t.sym}</span></div>${REALW()?'':'<div><span>Callit fee</span><span>0.5% (placeholder)</span></div>'}<div><span>Max slippage</span><span class="slips">${[0,.5,1,3].map(v=>`<button class="${sl===v?'on':''}" data-act="slip" data-f="${v}">${v?v+'%':'Auto'}</button>`).join('')}</span></div>
+  ${a?`<div><span>Price impact</span><span class="${imp>15?'down':imp>5?'warn':'up'}">${imp<.01?'<0.01':imp.toFixed(2)}%</span></div>${sl?`<div><span>Minimum received</span><span>${fmtAmt(out*(1-sl/100))} ${t.sym}</span></div>`:''}`:''}<div><span>Route</span><span>Jupiter</span></div></div>
   ${warn}<button class="btn primary block${side==='sell'&&S.connected?' sellb':''}" data-act="${S.connected?'doswap':'connect'}" ${dis?'disabled':''}>${label}</button></div>`}
 const tbtn=(k,sym)=>`<button class="tpick" data-act="tpick" data-f="${k}" aria-label="${k==='from'?'Pay':'Receive'} token, ${esc(symOf(sym))}">${tokav(sym)}<b>${esc(symOf(sym))}</b>${ic('down',16)}</button>`;
 function pickToken(k){const w=S.swap,cur=w[k],all=Object.values(T).filter(tradable);let q='';
@@ -488,12 +521,12 @@ function vLeaders(){return `<div class="pad" style="display:flex;justify-content
  <p class="hint pad">A call wins if it hits its target, or is up at least 50% when its time window closes. Only calls backed by a buy earn caller fees.</p>`}
 
 function vWallet(){if(!S.connected)return `<div class="empty"><b class="h2">No wallet connected</b><p>Sign in with email, Google or X and we create a wallet for you. Or connect Phantom, Solflare or Backpack. You always hold your own keys.</p><button class="btn primary" data-act="connect">Connect wallet</button></div>`;
- const rows=Object.entries(S.bal).filter(([,a])=>a>0),tot=rows.reduce((s,[k,a])=>s+usd(k,a),0);
+ const rows=Object.entries(S.bal).filter(([k,a])=>a>0&&T[k]).sort((x,y)=>(usd(y[0],y[1])||0)-(usd(x[0],x[1])||0)),tot=rows.reduce((s,[k,a])=>s+(usd(k,a)||0),0);
  return `<div class="pad"><div class="muted">Total balance</div><div class="bal num">${fmtUsd(tot)}</div>
  <button class="copyca" style="margin-top:10px" data-act="copy" data-v="${S.addr}">${short(S.addr)} ${ic('copy',13)}</button>
- <div class="acts3"><button class="btn" data-act="send">Send</button><button class="btn" data-act="receive">Receive</button><a class="btn primary" href="#/swap">Swap</a></div>
- <div class="list">${rows.map(([k,a])=>`<a class="li" href="#/token/${k}">${tokav(k)}<div class="grow"><b>${T[k].name}</b><div class="hint num">${fmtAmt(a)} ${esc(symOf(k))}</div></div><div class="r num"><b>${fmtUsd(usd(k,a))}</b><div class="hint ${T[k].chg>=0?'up':'down'}">${fmtPct(T[k].chg)}</div></div></a>`).join('')}</div>
- <b class="h2" style="display:block;margin:22px 0 4px">Activity</b><div class="list">${S.activity.map(a=>`<div class="li"><div class="grow"><b>${a.k}</b><div class="hint">${a.t}</div></div><div class="r num">${esc(a.d)}</div></div>`).join('')}</div></div>`}
+ <div class="acts2"><button class="btn primary" data-act="deposit">${ic('down',16)} Deposit</button><button class="btn" data-act="withdraw">${ic('up',16)} Withdraw</button></div>
+ <div class="list">${rows.map(([k,a])=>`<a class="li" href="#/token/${k}">${tokav(k)}<div class="grow"><b>${T[k].name}</b><div class="hint num">${fmtAmt(a)} ${esc(symOf(k))}</div></div><div class="r num"><b>${fmtUsd(usd(k,a)||0)}</b><div class="hint ${T[k].chg>=0?'up':'down'}">${fmtPct(T[k].chg)}</div></div></a>`).join('')}</div>
+ <b class="h2" style="display:block;margin:22px 0 4px">Activity</b><div class="list">${S.activity.map(a=>`<div class="li"><div class="grow"><b>${esc(a.k)}</b><div class="hint">${esc(a.t)}${a.sig?` · <a class="lnk" href="https://solscan.io/tx/${a.sig}" target="_blank" rel="noopener noreferrer">View</a>`:''}</div></div><div class="r num">${esc(a.d)}</div></div>`).join('')||'<div class="empty" style="padding:18px 8px"><b>No activity yet</b><p>Deposits, trades and withdrawals show up here.</p></div>'}</div></div>`}
 
 function vProfile(h){if(!h&&S.connected)h=S.me;const c=C[h];
  if(!c)return `<div class="empty"><b class="h2">Your profile</b><p>Connect a wallet to create your caller profile and start building a track record.</p><button class="btn primary" data-act="connect">Connect wallet</button></div>`;
@@ -560,7 +593,8 @@ function mountLiveChart(){const el=$('#lchart');if(!el)return;const t=T[el.datas
 let LTICK=0;setInterval(()=>{if(document.hidden)return;LTICK++;const [,r,p]=location.hash.split('/');
  if(r==='market'&&LTICK%2===0&&!document.querySelector('.sheet.open')){(lfIds(S.tt,filOf(S.tt))||[]).forEach(id=>loadFeed(id))}
  else if(r==='token'&&T[p]&&T[p].live&&LTICK%2===0)loadLiveToken(p,true);
- if(LTICK%3===0&&(!r||r==='home'||r==='post'||r==='profile'))refreshCallTokens()},3000);
+ if(LTICK%3===0&&(!r||r==='home'||r==='post'||r==='profile'))refreshCallTokens();
+ if(LTICK%7===0&&['wallet','token','swap','profile'].includes(r||'home'))loadBalances()},3000);
 function render(){if(isPhone())document.body.classList.add('collapsed');const [,r0='home',p]=location.hash.split('/');const r=r0||'home';let html;
  if(r==='token'&&p&&!T[p]&&LIVEMAP[p]){location.replace('#/token/'+LIVEMAP[p]);return}
  if(r==='community')html=vRoom(p);
@@ -632,9 +666,9 @@ function callModal(pre){if(!S.connected)return connectModal(()=>callModal(pre));
   post.addEventListener('click',()=>{const g=$('#cg',m).value.trim().toUpperCase(),n=parseFloat(g)*(g.endsWith('B')?1e9:g.endsWith('M')?1e6:g.endsWith('K')?1e3:1);
    if(g&&!(n>mcap(tok))){$('#cerr',m).textContent='Target must be above the current market cap of '+fmtUsd(mcap(tok))+'.';return}
    let buy=0;if(buyOn()){const a=parseFloat(sol);if(a>S.bal.SOL){$('#cerr',m).textContent=`You only have ${fmtAmt(S.bal.SOL)} SOL. Lower the amount or deposit more.`;return}
-    buy=a*T.SOL.price;const got=buy*.995/tok.price;S.bal.SOL-=a;S.bal[tok.key]=(S.bal[tok.key]||0)+got;S.activity.unshift({k:'Bought',d:`${fmtAmt(got)} ${tok.sym} for ${a} SOL`,t:'Just now'})}
-   calls.forEach(k=>k.fresh=false);calls.unshift({id:Date.now(),c:S.me,t:tok.key,entry:mcap(tok),buy,thesis:tx.value.trim(),media:CD.media.slice(),target:n||null,horizon:$('#ch',m).dataset.v,ago:'now',likes:0,reposts:0,replies:0,views:1,fresh:true});
-   C[S.me].calls++;closeModal();S.tab='foryou';if(location.hash!=='#/home')location.hash='#/home';else render();buy?txRun(`Buy-in for your $${tok.sym} call`,null,{instantApprove:1}):toast('Call posted');scrollTo({top:0})})})}
+    buy=a*T.SOL.price;if(!REALW()){const got=buy*.995/tok.price;S.bal.SOL-=a;S.bal[tok.key]=(S.bal[tok.key]||0)+got;S.activity.unshift({k:'Bought',d:`${fmtAmt(got)} ${tok.sym} for ${a} SOL`,t:'Just now'})}}
+   const cid=Date.now(),solIn=parseFloat(sol);calls.forEach(k=>k.fresh=false);calls.unshift({id:cid,c:S.me,t:tok.key,entry:mcap(tok),buy,thesis:tx.value.trim(),media:CD.media.slice(),target:n||null,horizon:$('#ch',m).dataset.v,ago:'now',likes:0,reposts:0,replies:0,views:1,fresh:true});
+   C[S.me].calls++;closeModal();S.tab='foryou';if(location.hash!=='#/home')location.hash='#/home';else render();buy?(REALW()?realSwap('SOL',tok.key,solIn,`Buy-in for your $${tok.sym} call`,ok=>{if(ok)return;const c=calls.find(x=>x.id===cid);if(c){c.buy=0;render()}toast('Buy-in didn\'t go through. Your call is posted without it')}):txRun(`Buy-in for your $${tok.sym} call`,null,{instantApprove:1})):toast('Call posted');scrollTo({top:0})})})}
 
 let SRT=0,STR=0;
 function searchModal(){S.stf=TF_OK.includes(S.stf)?S.stf:'1h';
@@ -697,18 +731,31 @@ function settingsModal(){const th=document.documentElement.dataset.theme||'syste
  modal('Settings','',`<div class="field"><label>Theme</label><div class="seg">${[['system','System'],['dark','Navy'],['light','White']].map(([k,l])=>`<button class="${th===k?'on':''}" data-act="settheme" data-f="${k}">${l}</button>`).join('')}</div></div>
  <div class="field"><label>App</label><button class="btn ghost block" data-act="install">${ic('down',16)} Install Callit on this device</button></div>
  <div class="field"><label>Sidebar</label><div class="seg"><button class="${col?'':'on'}" data-act="setside" data-f="open">Expanded</button><button class="${col?'on':''}" data-act="setside" data-f="closed">Icons only</button></div></div>`)}
-function sendModal(){modal('Send','Send tokens to any Solana address.',
- `<div class="field"><label for="st">Token</label><select id="st" class="input">${Object.keys(S.bal).filter(k=>S.bal[k]>0).map(k=>`<option value="${k}">${k} (${fmtAmt(S.bal[k])})</option>`).join('')}</select></div>
- <div class="field"><label for="sa">Recipient address</label><input id="sa" class="input" placeholder="Solana address"></div>
+function withdrawModal(){if(!S.connected)return connectModal(()=>withdrawModal());const real=REALW();
+ const held=Object.keys(S.bal).filter(k=>S.bal[k]>0&&T[k]).sort((a,b)=>usd(b,S.bal[b])-usd(a,S.bal[a]));
+ if(!held.length)return modal('Withdraw','',`<div class="empty" style="padding:18px 8px"><b>Nothing to withdraw yet</b><p>Deposit SOL or a Solana token first.</p><button class="btn primary" data-act="deposit">Deposit</button></div>`);
+ modal('Withdraw','Send from your Callit wallet to any Solana address, like Phantom or an exchange.',
+ `<div class="field"><label for="st">Token</label><select id="st" class="input">${held.map(k=>`<option value="${esc(k)}">${esc(symOf(k))} (${fmtAmt(S.bal[k])})</option>`).join('')}</select></div>
+ <div class="field"><label for="sa">To address</label><input id="sa" class="input" placeholder="Solana address" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
  <div class="field"><label for="sv">Amount</label><div style="display:flex;gap:8px"><input id="sv" class="input num" inputmode="decimal" placeholder="0"><button class="mx lg" id="smax">Max</button></div></div>
- <div class="err" id="serr"></div><button class="btn primary block" id="sgo">Send</button>`,
- m=>{$('#smax',m).onclick=()=>$('#sv',m).value=maxOf($('#st',m).value);
-  $('#sgo',m).onclick=()=>{const k=$('#st',m).value,to=$('#sa',m).value.trim(),a=parseFloat($('#sv',m).value),e=$('#serr',m);
+ <p class="hint" style="margin:-4px 0 10px">Only send to a Solana address. If it's an exchange, make sure it accepts this token on Solana. Transfers can't be reversed.</p>
+ <div class="err" id="serr"></div><button class="btn primary block" id="sgo">Withdraw</button>`,
+ m=>{$('#smax',m).onclick=()=>{$('#sv',m).value=maxOf($('#st',m).value)};
+  $('#sgo',m).onclick=()=>{const k=$('#st',m).value,to=$('#sa',m).value.trim(),a=parseFloat($('#sv',m).value),e=$('#serr',m),sy=symOf(k);
    if(!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(to))return e.textContent='That isn’t a valid Solana address. Check it and try again.';
+   if(to===S.addr)return e.textContent='That’s your own Callit wallet. Paste a different address.';
    if(!(a>0))return e.textContent='Enter an amount above zero.';
-   if(a>S.bal[k])return e.textContent=`You only have ${fmtAmt(S.bal[k])} ${k}.`;
-   closeModal();txRun(`Send ${fmtAmt(a)} ${k} to ${short(to)}`,()=>{S.bal[k]-=a;S.activity.unshift({k:'Sent',d:`${fmtAmt(a)} ${k} to ${short(to)}`,t:'Just now'});render()})}})}
-const receiveModal=(title='Receive')=>modal(title,title==='Deposit'?'Send SOL, USDC or any Solana token to your Callit wallet address below.':'Send SOL or any Solana token to this address.',`<div style="text-align:center">${qr(hue(S.addr))}<p class="num" style="overflow-wrap:anywhere;font-size:13px">${S.addr}</p><button class="btn primary block" data-act="copy" data-v="${S.addr}">Copy address</button></div>`);
+   if(a>(S.bal[k]||0)+1e-12)return e.textContent=`You only have ${fmtAmt(S.bal[k]||0)} ${sy}.`;
+   if(k==='SOL'&&a>+maxOf('SOL'))return e.textContent=`Keep ${FEE_RESERVE} SOL for network fees. You can send up to ${maxOf('SOL')} SOL.`;
+   if(k!=='SOL'&&(S.bal.SOL||0)<0.003)return e.textContent='You need a little SOL (about 0.003) to pay the network fee.';
+   const desc=`Withdraw ${fmtAmt(a)} ${sy} to ${short(to)}`;closeModal();
+   if(!real)return txRun(desc,()=>{S.bal[k]-=a;S.activity.unshift({k:'Withdrew',d:`${fmtAmt(a)} ${sy} to ${short(to)}`,t:'Just now'});render()});
+   let base;try{base=baseOf(k,a)}catch(err){return toast(err.message)}
+   realTx(desc,step=>doWithdraw({from:S.addr,to,mint:k==='SOL'?'SOL':mintOf(k),amount:base},step).then(r=>{
+    S.activity.unshift({k:'Withdrew',d:`${fmtAmt(a)} ${sy} to ${short(to)}`,t:'Just now',sig:r.signature});if(r.pending)toast('Sent. Confirmation is taking longer than usual');return r.signature}))}})}
+function depositModal(){if(!S.connected)return connectModal(()=>depositModal());const ok=isMintStr(S.addr);
+ modal('Deposit','Send SOL, USDC or any Solana token to your Callit wallet. Only use the Solana network.',ok?`<div style="text-align:center">${qrSvg(S.addr)}<p class="num" style="overflow-wrap:anywhere;font-size:13px;margin:12px 0">${esc(S.addr)}</p><button class="btn primary block" data-act="copy" data-v="${esc(S.addr)}">Copy address</button><p class="hint" style="margin:12px 0 0">Funds show up here automatically within a few seconds of landing.</p></div>`
+  :`<div class="empty" style="padding:18px 8px"><b>Your wallet is still being set up</b><p>Give it a few seconds, then try again.</p></div>`)}
 
 /* ---------- quick buy from a call ---------- */
 function quickBuy(sym,cid,startSide){if(!S.connected)return connectModal();const t=T[sym],k=calls.find(x=>x.id==cid),SY=t.sym;let side=startSide==='sell'?'sell':'buy',sol='0.25',pct='',amt='';
@@ -740,10 +787,11 @@ function quickBuy(sym,cid,startSide){if(!S.connected)return connectModal();const
   const mx=$('#qmax',m);if(mx)mx.onclick=e=>{e.preventDefault();if(side==='buy')sol=maxOf('SOL');else{pct='100';amt=String(h)}draw(m)};
   const go=$('#qgo',m);if(!go)return;
   go.onclick=()=>{if(side==='buy'){const a=parseFloat(sol)||0,got=a*T.SOL.price*.995/t.price;
-    if(a>S.bal.SOL){$('#qerr',m).textContent=`You only have ${fmtAmt(S.bal.SOL)} SOL.`;return}
+    if(a>(S.bal.SOL||0)){$('#qerr',m).textContent=`You only have ${fmtAmt(S.bal.SOL||0)} SOL.`;return}
+    if(REALW()){closeModal();return realSwap('SOL',sym,a,`Buy $${SY} with ${fmtAmt(a)} SOL`)}
     closeModal();txRun(`Buy ${fmtAmt(got)} $${esc(SY)}`,()=>{S.bal.SOL-=a;S.bal[sym]=(S.bal[sym]||0)+got;S.activity.unshift({k:'Bought',d:`${fmtAmt(got)} ${SY} for ${a} SOL${k?` from ${k.c}'s call`:''}`,t:'Just now'});render()})}
    else{const a=pct==='100'?h:Math.min(parseFloat(amt)||0,h),got=a*t.price*.995/T.SOL.price;
-    if(!a)return;closeModal();txRun(`Sell ${fmtAmt(a)} $${esc(SY)}`,()=>{S.bal[sym]=Math.max(0,(S.bal[sym]||0)-a);if(S.bal[sym]<1e-9)delete S.bal[sym];S.bal.SOL+=got;S.activity.unshift({k:'Sold',d:`${fmtAmt(a)} ${SY} for ${fmtAmt(got)} SOL`,t:'Just now'});render()})}}};
+    if(!a)return;closeModal();if(REALW())return realSwap(sym,'SOL',a,`Sell ${fmtAmt(a)} $${SY}`);txRun(`Sell ${fmtAmt(a)} $${esc(SY)}`,()=>{S.bal[sym]=Math.max(0,(S.bal[sym]||0)-a);if(S.bal[sym]<1e-9)delete S.bal[sym];S.bal.SOL+=got;S.activity.unshift({k:'Sold',d:`${fmtAmt(a)} ${SY} for ${fmtAmt(got)} SOL`,t:'Just now'});render()})}}};
  modal(side==='sell'?'Quick sell':'Quick trade','',`<div id="qb"></div>`,m=>draw(m))}
 
 /* ---------- community ---------- */
@@ -1062,12 +1110,14 @@ if(isIOS()&&!isStandalone())setTimeout(()=>{if(S.connected)showInstallBar()},400
 /* ---------- real sign-in (Privy) ---------- */
 window.callitApplySession=(p,o={})=>{
  if(!p){if(S.connected){S.connected=false;S.addr='';S.me='';S.profile=null;toast('Signed out')}render();return}
- const first=!S.connected;S.connected=true;S.profile=p;S.me=p.handle;S.addr=p.wallet_address||'';
+ const first=!S.connected,prevAddr=S.addr;S.connected=true;S.profile=p;S.me=p.handle;S.addr=p.wallet_address||'';
+ if(realAuth()&&S.addr!==prevAddr){S.bal={SOL:0};S.activity=[];S.balAt=0;for(const k in RAW)delete RAW[k];S.swap.amt=''}
  C[S.me]=C[S.me]||{h:S.me,win:0,avg:0,calls:0,best:0,followers:0};
  PROF={...PROF,name:p.display_name??PROF.name??'',bio:p.bio??PROF.bio??'',web:p.website??PROF.web??'',x:p.x_handle??PROF.x??''};saveProf();
- closeModal();render();
+ closeModal();render();loadBalances();
  if(first){toast(o.isNew?'Welcome to Callit. Your wallet is ready':'Signed in');const n=pendingNext;pendingNext=null;if(n)n();else if(o.isNew)maybeOnboard()}};
 window.callitAuthChanged=()=>syncLanding();
+window.callitWalletChanged=()=>{if(REALW())loadBalances()};
 if(window.__callitPendingSession){const q=window.__callitPendingSession;delete window.__callitPendingSession;window.callitApplySession(q.p,q.opts)}
 
 /* ---------- events ---------- */
@@ -1087,7 +1137,7 @@ document.addEventListener('click',e=>{
   nall:()=>{if(NOTIFS.some(n=>n.real&&n.unread)&&window.CallitAuth&&window.CallitAuth.markRead)window.CallitAuth.markRead('all');NOTIFS.forEach(n=>n.unread=0);toast('All caught up');render()},nt:()=>{S.nt=b.dataset.f;render()},
   gopremium:()=>{location.hash='#/premium'},plan:()=>{S.plan=b.dataset.f;render()},payvia:()=>{S.payvia=b.dataset.f;render()},
   stakewait:()=>{if(!S.connected)return connectModal();S.stakeWait=true;toast('We\'ll let you know when $CALLIT staking opens');render()},
-  buyprem:()=>{if(!S.connected)return connectModal(()=>{location.hash='#/premium'});const P=PLANS[S.plan||'yearly'],via=S.payvia||'SOL',amt=via==='SOL'?P.usd/T.SOL.price:P.usd;
+  buyprem:()=>{if(!S.connected)return connectModal(()=>{location.hash='#/premium'});if(REALW())return toast('Premium payments open soon. Nothing was charged');const P=PLANS[S.plan||'yearly'],via=S.payvia||'SOL',amt=via==='SOL'?P.usd/T.SOL.price:P.usd;
    if((S.bal[via]||0)<amt)return toast(`Not enough ${via}. You need ${via==='SOL'?amt.toFixed(3):amt} ${via}`);
    modal('Confirm upgrade','',`<div class="list"><div class="li"><span class="grow">Plan</span><b>${P.label}</b></div><div class="li"><span class="grow">You pay</span><b class="num">${via==='SOL'?amt.toFixed(3):amt} ${via}</b></div><div class="li"><span class="grow">Renews</span><b>${new Date(Date.now()+P.days*864e5).toLocaleDateString()}</b></div></div><button class="btn primary block" id="pgo" style="margin-top:14px">Confirm and pay</button>`,
     m=>$('#pgo',m).onclick=()=>{closeModal();txRun(`Callit Premium · ${P.label}`,()=>{S.bal[via]-=amt;const base=isPrem(S.me)?S.premium.until:Date.now();S.premium={plan:S.plan||'yearly',until:base+P.days*864e5};try{localStorage.setItem('callit.premium',JSON.stringify(S.premium))}catch(_){}
@@ -1138,12 +1188,12 @@ document.addEventListener('click',e=>{
   copy:()=>copy(b.dataset.v,'Address copied'),
   follow:()=>{if(!S.connected)return connectModal();const h=b.dataset.h;S.following.has(h)?S.following.delete(h):S.following.add(h);render()},
   track:()=>{const t=b.dataset.t;S.watch.has(t)?S.watch.delete(t):S.watch.add(t);toast(S.watch.has(t)?`$${symOf(t)} added to watchlist`:`$${symOf(t)} removed from watchlist`);render()},
-  send:()=>sendModal(),receive:()=>receiveModal(),deposit:()=>S.connected?receiveModal('Deposit'):connectModal(()=>receiveModal('Deposit')),
+  withdraw:()=>withdrawModal(),send:()=>withdrawModal(),receive:()=>depositModal(),deposit:()=>depositModal(),
   ltf:()=>{S.ltf=b.dataset.f;render()},lmode:()=>{S.lmode=b.dataset.f;render()},lretry:()=>{(lfIds(S.tt,filOf(S.tt))||[]).forEach(id=>{LIVE.err[id]=0;loadFeed(id)});render()},ltokretry:()=>{LIVE.tokErr[b.dataset.t]=0;render()},
   tside:()=>{const w=S.swap,t=b.dataset.t;if(b.dataset.f==='sell'){w.from=t;w.to='SOL'}else{w.from='SOL';w.to=t}w.amt='';renderSwaps()},
   flip:()=>{const w=S.swap;[w.from,w.to]=[w.to,w.from];w.amt='';renderSwaps()},
   doswap:()=>{const w=S.swap,x=parseFloat(w.amt),out=usd(w.from,x)*.995/T[w.to].price,imp=impact(w.to,usd(w.from,x));
-   const go=()=>{const f=w.from,t=w.to;w.amt='';renderSwaps();txRun(`Swap ${fmtAmt(x)} ${symOf(f)} → ${fmtAmt(out)} ${symOf(t)}`,()=>{S.bal[f]-=x;S.bal[t]=(S.bal[t]||0)+out;S.activity.unshift({k:'Swapped',d:`${fmtAmt(x)} ${symOf(f)} for ${fmtAmt(out)} ${symOf(t)}`,t:'Just now'});render()})};
+   const go=()=>{const f=w.from,t=w.to;w.amt='';renderSwaps();if(REALW())return realSwap(f,t,x,f==='SOL'?`Buy $${symOf(t)} with ${fmtAmt(x)} SOL`:t==='SOL'?`Sell ${fmtAmt(x)} $${symOf(f)}`:`Swap ${fmtAmt(x)} ${symOf(f)} → ${symOf(t)}`);txRun(`Swap ${fmtAmt(x)} ${symOf(f)} → ${fmtAmt(out)} ${symOf(t)}`,()=>{S.bal[f]-=x;S.bal[t]=(S.bal[t]||0)+out;S.activity.unshift({k:'Swapped',d:`${fmtAmt(x)} ${symOf(f)} for ${fmtAmt(out)} ${symOf(t)}`,t:'Just now'});render()})};
    if(imp>15)return modal('High price impact',`This swap moves the price about ${imp.toFixed(1)}%. You may get much less than shown.`,`<button class="btn block" style="background:var(--down);color:#fff;border-color:var(--down)" id="impgo">Swap anyway</button><button class="btn ghost block" data-act="close" style="margin-top:8px">Cancel</button>`,m=>$('#impgo',m).onclick=()=>{closeModal();go()});
    go()},
   swmax:()=>{const w=S.swap,f=+b.dataset.f;w.amt=f===1?maxOf(w.from):String(+(+maxOf(w.from)*f).toFixed(6));renderSwaps();if(f===1&&w.from==='SOL')toast(`Kept ${FEE_RESERVE} SOL for network fees`)},

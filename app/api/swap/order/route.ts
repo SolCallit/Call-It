@@ -1,6 +1,7 @@
 // app/api/swap/order/route.ts
 // GET /api/swap/order?inputMint=...&outputMint=...&amount=...&taker=...&slippageBps=...
 import { NextRequest, NextResponse } from "next/server";
+import { verifyPrivyToken } from "@/lib/auth/privy-server";
 import { getOrder } from "@/lib/jupiter";
 
 export const runtime = "nodejs";
@@ -10,6 +11,8 @@ const PUBKEY = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const UINT = /^\d+$/;
 
 export async function GET(req: NextRequest) {
+  if (!(await verifyPrivyToken(req))) return NextResponse.json({ error: "Sign in to trade" }, { status: 401 });
+
   const sp = req.nextUrl.searchParams;
   const inputMint = sp.get("inputMint") ?? "";
   const outputMint = sp.get("outputMint") ?? "";

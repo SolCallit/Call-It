@@ -31,6 +31,7 @@ export type LiveToken = {
   audit: { mintOff: boolean | null; freezeOff: boolean | null; top10: number | null; dev: number | null; sus: boolean };
   socials: { x: string | null; web: string | null; tg: string | null };
   launchpad: string | null;
+  decimals: number | null;
 };
 
 const JUP = 'https://api.jup.ag';
@@ -60,7 +61,7 @@ const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : t
 
 type JupStats = { priceChange?: number; buyVolume?: number; sellVolume?: number; numBuys?: number; numSells?: number; numTraders?: number };
 type JupToken = {
-  id: string; name: string; symbol: string; icon: string | null; createdAt?: string;
+  id: string; name: string; symbol: string; icon: string | null; createdAt?: string; decimals?: number;
   twitter?: string; website?: string; telegram?: string; launchpad?: string;
   fdv: number | null; mcap: number | null; usdPrice: number | null; liquidity: number | null; holderCount: number | null;
   organicScore?: number; isVerified: boolean | null;
@@ -101,6 +102,7 @@ function fromJup(j: JupToken): LiveToken {
     },
     socials: { x: j.twitter || null, web: j.website || null, tg: j.telegram || null },
     launchpad: j.launchpad || null,
+    decimals: num(j.decimals),
   };
 }
 
@@ -185,7 +187,7 @@ export function withPair(t: LiveToken | null, pairs: DsPair[]): LiveToken | null
     createdAt: best.pairCreatedAt ? new Date(best.pairCreatedAt).toISOString() : null,
     pool: null, dex: null, verified: false, organic: null,
     audit: { mintOff: null, freezeOff: null, top10: null, dev: null, sus: false },
-    socials: { x: null, web: null, tg: null }, launchpad: null,
+    socials: { x: null, web: null, tg: null }, launchpad: null, decimals: null,
   };
   return {
     ...base,

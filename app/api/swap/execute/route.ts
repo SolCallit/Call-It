@@ -1,6 +1,7 @@
 // app/api/swap/execute/route.ts
 // POST /api/swap/execute  body: { signedTransaction: string (base64), requestId: string }
 import { NextRequest, NextResponse } from "next/server";
+import { verifyPrivyToken } from "@/lib/auth/privy-server";
 import { executeOrder } from "@/lib/jupiter";
 
 export const runtime = "nodejs";
@@ -10,6 +11,8 @@ export const maxDuration = 60; // execute waits for landing; give it room on Ver
 const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
 
 export async function POST(req: NextRequest) {
+  if (!(await verifyPrivyToken(req))) return NextResponse.json({ error: "Sign in to trade" }, { status: 401 });
+
   let body: { signedTransaction?: unknown; requestId?: unknown };
   try {
     body = await req.json();
