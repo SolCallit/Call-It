@@ -11,6 +11,9 @@
   },
   "dependencies": {
     "@privy-io/react-auth": "3.46.0",
+    "@solana-program/memo": "0.15.0",
+    "@solana-program/system": "0.15.0",
+    "@solana-program/token": "0.17.0",
     "@solana/kit": "8.4.0",
     "@supabase/supabase-js": "2.117.2",
     "jose": "6.2.12",
