@@ -1,0 +1,96 @@
+// lib/jupiter.ts
+// Server-only Jupiter Swap V2 client (Meta-Aggregator: /order + /execute).
+// Never import this from a "use client" file — it reads the secret API key.
+import "server-only";
+
+const JUP_BASE = "https://api.jup.ag/swap/v2";
+
+// Key is optional: without it Jupiter serves keyless traffic at a lower rate limit.
+function authHeaders(): Record<string, string> {
+  const key = process.env.JUPITER_API_KEY;
+  return key ? { "x-api-key": key } : {};
+}
+
+export type OrderParams = {
+  inputMint: string;
+  outputMint: string;
+  amount: string; // smallest units of the input token
+  taker: string; // user's wallet pubkey (required to get a transaction back)
+  slippageBps?: number; // omit to let Jupiter pick
+};
+
+export type JupiterOrder = {
+  requestId: string;
+  transaction: string | null; // base64 unsigned tx; "" if it couldn't be built
+  inputMint: string;
+  outputMint: string;
+  inAmount: string;
+  outAmount: string;
+  otherAmountThreshold: string;
+  inUsdValue?: number;
+  outUsdValue?: number;
+  priceImpact?: number; // percentage points, e.g. -0.1 = -0.1%
+  slippageBps: number;
+  feeBps?: number;
+  router?: "metis" | "jupiterz" | "dflow" | "okx";
+  gasless?: boolean;
+  errorCode?: number;
+  errorMessage?: string;
+  error?: string;
+};
+
+export type JupiterExecuteResult = {
+  status: "Success" | "Failed";
+  signature?: string;
+  error?: string;
+  code?: number;
+  [k: string]: unknown;
+};
+
+export async function getOrder(p: OrderParams): Promise<JupiterOrder> {
+  const qs = new URLSearchParams({
+    inputMint: p.inputMint,
+    outputMint: p.outputMint,
+    amount: p.amount,
+    taker: p.taker,
+  });
+
+  if (p.slippageBps !== undefined) qs.set("slippageBps", String(p.slippageBps));
+
+  // Referral fees: only attached when BOTH are configured (Jupiter requires the pair).
+  const referralAccount = process.env.JUPITER_REFERRAL_ACCOUNT;
+  const referralFee = process.env.JUPITER_REFERRAL_FEE_BPS;
+  if (referralAccount && referralFee) {
+    qs.set("referralAccount", referralAccount);
+    qs.set("referralFee", referralFee); // 50–255 bps
+  }
+
+  const res = await fetch(`${JUP_BASE}/order?${qs}`, {
+    headers: authHeaders(),
+    cache: "no-store",
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data?.error ?? `Jupiter /order failed (${res.status})`);
+  }
+  return data as JupiterOrder;
+}
+
+export async function executeOrder(
+  signedTransaction: string,
+  requestId: string
+): Promise<JupiterExecuteResult> {
+  const res = await fetch(`${JUP_BASE}/execute`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ signedTransaction, requestId }),
+    cache: "no-store",
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data?.error ?? `Jupiter /execute failed (${res.status})`);
+  }
+  return data as JupiterExecuteResult;
+}
