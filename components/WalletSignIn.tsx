@@ -64,9 +64,12 @@ const WalletSignIn = forwardRef<WalletSignInHandle>(function WalletSignIn(_, ref
     const w = wallets.find((x) => x.address === address);
     if (!w) { setErr('Wallet disconnected. Connect it again.'); return; }
     setBusy(true); setErr('');
+    let stage: 'start' | 'sign' | 'verify' = 'start';
     try {
       const message = await generateSiwsMessage({ address });
+      stage = 'sign';
       const { signature } = await w.signMessage({ message: new TextEncoder().encode(message) });
+      stage = 'verify';
       await loginWithSiws({
         message,
         signature: toB64(signature),
@@ -74,8 +77,12 @@ const WalletSignIn = forwardRef<WalletSignInHandle>(function WalletSignIn(_, ref
         connectorType: 'injected',
       });
     } catch (e) {
-      console.error('[callit] wallet sign-in failed:', e);
-      setErr(isRejection(e) ? 'You cancelled the signature. Tap Sign message to try again.' : 'Couldn’t verify your wallet. Tap Sign message to try again.');
+      console.error(`[callit] wallet sign-in failed at ${stage}:`, e);
+      const detail = String((e as Error)?.message ?? e).slice(0, 160);
+      if (stage === 'sign' && isRejection(e)) setErr('You cancelled the signature. Tap Sign message to try again.');
+      else if (stage === 'start') setErr(`Couldn’t start wallet sign-in. (${detail})`);
+      else if (stage === 'sign') setErr(`Your wallet didn’t sign the message. (${detail})`);
+      else setErr(`Privy rejected the sign-in. (${detail})`);
     } finally {
       setBusy(false);
     }

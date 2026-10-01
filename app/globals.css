@@ -921,7 +921,7 @@ html,body{overflow-x:clip;max-width:100%}
 .wsi h2{margin:0;font:800 21px/1.2 var(--display);letter-spacing:-.02em}
 .wsi-sub{margin:0 0 8px;color:var(--muted);font-size:14.5px;line-height:1.5}
 .wsi-sub b{color:var(--text)}
-.wsi-err{margin:0;padding:10px 12px;border-radius:12px;font-size:13.5px;color:var(--down);background:color-mix(in srgb,var(--down) 12%,transparent)}
+.wsi-err{margin:0;overflow-wrap:anywhere;padding:10px 12px;border-radius:12px;font-size:13.5px;color:var(--down);background:color-mix(in srgb,var(--down) 12%,transparent)}
 .wsi .btn{padding:14px 18px;font-size:15.5px}
 .wsi .btn:disabled{opacity:.6}
 @media (min-width:600px){.wsi-back{align-items:center}}
