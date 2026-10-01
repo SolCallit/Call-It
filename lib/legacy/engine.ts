@@ -127,7 +127,9 @@ function regLive(x){if(!x||!x.mint)return null;const o=T[x.mint]||{},price=x.pri
   soc:(x.socials.x?'x':'')+(x.socials.web?'w':'')+(x.socials.tg?'c':''),L:{...(o.L||{}),...x,pool:x.pool||(o.L&&o.L.pool)||null}});
  delete o._x;T[x.mint]=o;return o}
 /* Engine feeds -> live lists. almost/grad are built from the newest + trending lists. */
-const LF={movers:['movers:1h'],new:['new'],crowded:['traded:24h'],almost:['new','movers:5m'],grad:['movers:1h','new']};
+const LF={movers:['movers:1h'],new:['new'],crowded:['traded:24h'],almost:['new','movers:5m'],grad:['movers:1h','new'],og:['traded:24h','organic:24h']};
+/* Majors, stables and staked SOL aren't memecoins: keep them out of OG memes. */
+const NOT_MEME=new Set(['SOL','WSOL','USDC','USDT','USDS','PYUSD','USD1','EURC','JUP','JTO','PYTH','RAY','ORCA','JLP','JITOSOL','MSOL','BSOL','INF','JUPSOL','BNSOL','WBTC','CBBTC','ZBTC','WETH','ETH','BTC','HNT','RENDER','RNDR','W','KMNO','DRIFT','MEW_NOT']);
 function loadFeed(id){if(LIVE.busy[id])return;LIVE.busy[id]=1;const [feed,iv]=id.split(':');
  fetchFeed(feed,iv||'1h').then(list=>{LIVE.feeds[id]=list.map(regLive).filter(Boolean).map(t=>t.key);LIVE.err[id]=0})
   .catch(()=>{LIVE.err[id]=1}).finally(()=>{LIVE.busy[id]=0;if(currentRoute()==='market'&&!document.querySelector('.sheet.open'))render()})}
@@ -285,7 +287,7 @@ function trenchStats(t){if(t.live){const L=t.L||{},a=L.audit||{},bs=(L.buys24||0
 const LPS=[['Pump','#4ADE80'],['Bonk','#F59E0B'],['Believe','#22C55E'],['Moonshot','#C084FC'],['Launchlab','#38BDF8'],['Bags','#10B981'],['Jup Studio','#FB923C']];
 const CHAINS=[['Solana','#9d7bff',1],['Base','#3B82F6',0],['BSC','#F0B90B',0],['Ethereum','#8EA2FF',0],['Arbitrum','#60A5FA',0]];
 const FEEDS={movers:['Movers','Biggest price momentum right now','Recommended'],new:['New','Fresh launches, newest first'],called:['Called','Tokens our callers are on, most calls first','Only on Callit'],
- crowded:['Crowded','Most holders first'],almost:['Almost there','60 to 99% through the bonding curve'],grad:['Graduated','Just finished the bonding curve, newest first']};
+ crowded:['Crowded','Most holders first'],almost:['Almost there','60 to 99% through the bonding curve'],grad:['Graduated','Just finished the bonding curve, newest first'],og:['OG memes','Older memecoins still trading, most volume first']};
 const RISK={degen:['Degen','Show me everything',{top:100,dev:100,snip:100,ins:100}],balanced:['Balanced','Filter the obvious traps',{top:30,dev:15,snip:10,ins:30}],careful:['Careful','Only clean holder books',{top:15,dev:5,snip:3,ins:15}]};
 const isLaunch=t=>!t.live||!!t.lp;
 /* Bonding progress. Live tokens: approximated from market cap (pump-style curves finish near $69K). */
@@ -294,9 +296,10 @@ const lpOf=t=>t.live?t.lp:(t.lp||(t.lp=LPS[t.seed%LPS.length][0]));
 const callsOn=t=>calls.filter(k=>k.t===t.key&&!k.sponsored);
 const defFil=()=>({chains:['Solana'],lps:LPS.map(l=>l[0]),inc:'',exc:'',bmin:'',bmax:'',mcMin:'',mcMax:'',volMin:'',hMin:'',ageMax:0,top:100,dev:100,snip:100,ins:100,x:0,web:0,comm:0,called:0,topc:0,bought:0});
 const defDisp=()=>({pro:1,spark:0,heat:1,compact:0});
-const defFeeds=()=>[['movers',1],['new',1],['called',1],['crowded',0],['almost',0],['grad',0]];
+const defFeeds=()=>[['movers',1],['new',1],['og',1],['called',1],['crowded',0],['almost',0],['grad',0]];
 const TS=(()=>{let v={};try{v=JSON.parse(localStorage.getItem('callit.trenches')||'{}')}catch(_){}
- return {disp:{...defDisp(),...(v.disp||{})},feeds:Array.isArray(v.feeds)?v.feeds:defFeeds(),fil:v.fil||{}}})();
+ let feeds=Array.isArray(v.feeds)?v.feeds.filter(f=>FEEDS[f[0]]):defFeeds();defFeeds().forEach(d=>{if(!feeds.some(f=>f[0]===d[0]))feeds.push(d)});
+ return {disp:{...defDisp(),...(v.disp||{})},feeds,fil:v.fil||{}}})();
 const saveTS=()=>{try{localStorage.setItem('callit.trenches',JSON.stringify(TS))}catch(_){}};
 const filOf=k=>({...defFil(),...(TS.fil[k]||{})});
 const parseAmt=v=>{v=String(v||'').trim().toUpperCase().replace(/[$,\s]/g,'');if(!v)return null;const n=parseFloat(v);if(isNaN(n))return null;return n*(v.endsWith('B')?1e9:v.endsWith('M')?1e6:v.endsWith('K')?1e3:1)};
@@ -321,6 +324,7 @@ function feedRows(k,f){
   if(k==='crowded')return r.sort((a,b)=>b.holders-a.holders);
   if(k==='almost')return r.filter(t=>isLaunch(t)&&bond(t)>=60&&bond(t)<100).sort((a,b)=>bond(b)-bond(a));
   if(k==='grad')return r.filter(t=>t.lp&&bond(t)>=100).sort((a,b)=>a.ageH-b.ageH);
+  if(k==='og')return r.filter(t=>t.L&&t.L.createdAt&&t.ageH>=24*30&&!NOT_MEME.has(String(t.sym).toUpperCase())).sort((a,b)=>b.vol-a.vol);
   return r}
  let r=Object.values(T).filter(t=>t.chain&&!t.base&&!t.prelaunch&&(t.holders||t.live)&&match(t,f));
  if(k==='watch')return r.filter(t=>S.watch.has(t.key)).sort((a,b)=>b.vol-a.vol);
@@ -1119,7 +1123,7 @@ document.addEventListener('input',e=>{const k=e.target.dataset.fk;if(!k||!SH||SH
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches('article.post[data-go]')){location.hash=e.target.dataset.go;return}if(e.key==='Enter'&&e.target.id==='lxemail'){e.preventDefault();$('#lxgo').click();return}if(e.key==='Enter'&&e.target.id==='msgin'){e.preventDefault();const s=$('[data-act="msend"]')||$('[data-act="dmsend"]');s&&s.click();return}if(e.key==='Escape'){closeModal();closeSheet();if(isPhone()){document.body.classList.add('collapsed');syncTray()}}});
 
 /* live price ticks: patch numbers in place */
-setInterval(()=>{const r=rng(Date.now()%1e6);Object.values(T).forEach(t=>{if(!t.base&&!t.prelaunch)t.price*=1+(r()-.48)*.012});
+setInterval(()=>{const r=rng(Date.now()%1e6);Object.values(T).forEach(t=>{if(!t.base&&!t.prelaunch&&!t.live)t.price*=1+(r()-.48)*.012});
  calls.forEach(k=>{const n=nums(k);if(!n)return;const q=a=>document.querySelector(`[data-${a}="${k.id}"]`);
   let el=q('perf');if(el){el.textContent=fmtPct(n.p);el.className=n.up?'up':'down'}
   el=q('pos');if(el)el.textContent=fmtUsd(n.pos);
