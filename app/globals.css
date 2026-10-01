@@ -1002,3 +1002,52 @@ html,body{overflow-x:clip;max-width:100%}
 .bootmark{width:76px!important;height:76px!important;border-radius:22px!important;animation:bootpulse 1.2s ease-in-out infinite}
 @keyframes bootpulse{50%{transform:scale(.92);opacity:.7}}
 @media (prefers-reduced-motion:reduce){.bootmark{animation:none}}
+
+/* ---------- live market ---------- */
+.tokav.img{position:relative;overflow:hidden;display:inline-grid;place-items:center}
+.tokav.img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:var(--bg2)}
+.tokav.img i{font-style:normal}
+.vbadge{display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;background:var(--hi);color:#fff;margin-left:5px;vertical-align:2px}
+.lpchip{background:color-mix(in srgb,var(--up) 14%,transparent);color:var(--up)}
+.lhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:16px 0 10px}
+.lhead .lmode{margin-left:auto}
+.livedot{display:inline-flex;align-items:center;gap:5px;font:800 10.5px/1 var(--body);letter-spacing:.08em;color:var(--up)}
+.livedot::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--up);animation:tkpulse 1.6s ease-out infinite}
+.ltf{display:flex;width:100%;margin-bottom:8px}.ltf button{flex:1}
+.lchart{position:relative;height:300px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--bg);margin-bottom:12px}
+@media (max-width:520px){.lchart{height:260px}}
+.lchart-msg{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:14px;z-index:2;pointer-events:none}
+.lchart-msg[hidden]{display:none}
+#lstats .stats{grid-template-columns:repeat(3,1fr)}
+@media (max-width:520px){#lstats .stats{grid-template-columns:repeat(2,1fr)}}
+.lchg{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:10px 0}
+.lchg span{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;border:1px solid var(--line);border-radius:12px;min-width:0}
+.lchg i{font-style:normal;font-size:11.5px;color:var(--muted);font-weight:700}
+.lchg b{font-size:14px}
+.lbs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;margin:0 0 12px}
+.lbs .bs{flex:1;min-width:70px;height:6px;display:flex;border-radius:4px;overflow:hidden;gap:2px}
+.lbs .bs i:first-child{background:var(--up)}.lbs .bs i:last-child{background:var(--down)}
+.llinks{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 14px}
+.lk{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;border:1px solid var(--line);font-size:13px;font-weight:700;color:var(--text)}
+.lk:hover{background:var(--hover)}
+.sflist{display:flex;flex-direction:column;gap:2px}
+.sf{display:flex;align-items:center;gap:10px;padding:8px 2px;font-size:14px}
+.sf b{font-variant-numeric:tabular-nums}
+.sfi{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;font:800 12px/1 var(--body);flex:none}
+.sf.ok .sfi{background:color-mix(in srgb,var(--up) 18%,transparent);color:var(--up)}
+.sf.bad .sfi{background:color-mix(in srgb,var(--down) 18%,transparent);color:var(--down)}.sf.bad b{color:var(--down)}
+.sf.unk .sfi{background:var(--bg2);color:var(--muted)}
+.sfwarn{display:flex;gap:8px;align-items:center;padding:10px 12px;margin-bottom:8px;border-radius:12px;color:var(--down);background:color-mix(in srgb,var(--down) 12%,transparent);font-weight:700;font-size:13.5px}
+.tsec{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:12px 0 4px}
+.muted{color:var(--muted)}
+/* skeletons */
+.trow.skel{pointer-events:none}
+.trow.skel .tokav,.trow.skel i,.lskel i,.lskel .tokav{background:var(--bg2);border-radius:8px;animation:skel 1.2s ease-in-out infinite}
+.trow.skel .tmid{display:flex;flex-direction:column;gap:6px;flex:1}
+.trow.skel .tmid i{display:block;height:12px;width:60%}.trow.skel .tmid i+i{width:35%}
+.trow.skel .tr i{display:block;height:14px;width:64px}
+.lsk-h{display:flex;gap:12px;align-items:center}.lsk-h div{display:flex;flex-direction:column;gap:6px;flex:1}.lsk-h i{display:block;height:14px;width:50%}.lsk-h i+i{width:30%}
+.lsk-p{display:block;height:28px;width:40%;margin:18px 0 12px}
+@keyframes skel{50%{opacity:.45}}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.sf .grow{flex:1;min-width:0}
