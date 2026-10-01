@@ -882,10 +882,20 @@ function landingHTML(){const yr=new Date().getFullYear();
  </main>
  ${lxTicker(LX_TICK_B,' rev')}
  <footer class="lx-foot">${socials('sm')}<nav><button data-act="lexplore" data-f="about">About</button><span>·</span><button data-act="lexplore" data-f="leaderboard">Leaderboard</button><span>·</span><button data-act="doc" data-f="terms">Terms</button><span>·</span><button data-act="doc" data-f="privacy">Privacy</button><span>·</span><span>© ${yr} Callit</span></nav></footer>`}
+/* Boot splash: covers the page until we know whether to show the landing or the app,
+   so a reload or a return from Google/X never flashes the wrong screen. */
+const BOOT_AT=Date.now(),BOOT_MAX=7000;
+function authPending(){if(!realAuth())return false;if(Date.now()-BOOT_AT>BOOT_MAX)return false;
+ const A=window.CallitAuth;if(!A||!A.ready)return true;
+ if(A.authenticated&&!S.connected)return true;
+ return /[?&]privy_oauth_/.test(location.search)&&!A.authenticated}
+function hideBoot(){const b=$('#boot');if(!b||b.classList.contains('out'))return;b.classList.add('out');setTimeout(()=>b.remove(),300)}
+setTimeout(()=>syncLanding(),BOOT_MAX+50);
 function syncLanding(){const el=$('#landing');let exp=false;try{exp=sessionStorage.getItem('callit.explore')==='1'}catch(_){}
+ if(authPending())return;
  const A=window.CallitAuth,restoring=realAuth()&&A&&A.ready&&A.authenticated&&!S.connected;
  const show=!S.connected&&!exp&&!restoring;if(show&&el.hidden){el.innerHTML=landingHTML();el.hidden=false}else if(!show&&!el.hidden){el.hidden=true;el.innerHTML=''}
- document.body.classList.toggle('lock',show)}
+ document.body.classList.toggle('lock',show);hideBoot()}
 try{S.premium=JSON.parse(localStorage.getItem('callit.premium')||'null')}catch(_){}
 if(!realAuth())try{const v=JSON.parse(localStorage.getItem('callit.session')||'null');if(v&&v.me){S.connected=true;S.addr=v.addr;S.me=v.me;C[S.me]=C[S.me]||{h:S.me,win:0,avg:0,calls:0,best:0,followers:0}}}catch(_){}
 

@@ -995,3 +995,10 @@ html,body{overflow-x:clip;max-width:100%}
 @keyframes fxr2{0%,100%{translate:0 45%}50%{translate:0 calc(45% - 9px)}}
 @media (max-width:760px){.fx.lxs.l2{right:calc(100% + 12px)}.fx.lxs.r2{left:calc(100% + 14px)}}
 @media (max-width:340px){.fx.lxs.l2{right:calc(100% + 6px)}.fx.lxs.r2{left:calc(100% + 6px)}}
+
+/* ---------- boot splash ---------- */
+.boot{position:fixed;inset:0;z-index:3000;display:grid;place-items:center;background:var(--bg);transition:opacity .25s ease}
+.boot.out{opacity:0;pointer-events:none}
+.bootmark{width:76px!important;height:76px!important;border-radius:22px!important;animation:bootpulse 1.2s ease-in-out infinite}
+@keyframes bootpulse{50%{transform:scale(.92);opacity:.7}}
+@media (prefers-reduced-motion:reduce){.bootmark{animation:none}}
