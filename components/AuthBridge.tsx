@@ -6,6 +6,7 @@ import { useWallets } from '@privy-io/react-auth/solana';
 import type { User } from '@privy-io/react-auth';
 import type { CallitProfile } from '@/lib/auth/types';
 import { toHandle } from '@/lib/auth/handle';
+import WalletSignIn, { type WalletSignInHandle } from '@/components/WalletSignIn';
 
 /** Hands a session (or sign-out) to the UI engine, queueing it if the engine hasn't booted yet. */
 function apply(p: CallitProfile | null, opts?: { isNew?: boolean }) {
@@ -35,6 +36,7 @@ export default function AuthBridge() {
   const { initOAuth } = useLoginWithOAuth();
   const synced = useRef<string>('');
   const [resync, setResync] = useState(0);
+  const walletFlow = useRef<WalletSignInHandle>(null);
 
   // Expose controls to the legacy engine.
   useEffect(() => {
@@ -49,8 +51,9 @@ export default function AuthBridge() {
         if (via === 'Google') return void initOAuth({ provider: 'google' }).catch(() => login());
         if (via === 'X') return void initOAuth({ provider: 'twitter' }).catch(() => login());
         if (via === 'Email' && opts?.email) return login({ loginMethods: ['email'], prefill: { type: 'email', value: opts.email } });
-        if (via && ['Phantom', 'Solflare', 'Backpack', 'wallet'].includes(via)) return login({ loginMethods: ['wallet'], walletChainType: 'solana-only' });
-        login();
+        if (via === 'Email') return login({ loginMethods: ['email'] });
+        if (via && ['Phantom', 'Solflare', 'Backpack', 'wallet'].includes(via)) return walletFlow.current?.start();
+        login({ loginMethods: ['email', 'google', 'twitter'] });
       },
       logout: async () => {
         synced.current = '';
@@ -110,5 +113,5 @@ export default function AuthBridge() {
     })();
   }, [ready, authenticated, user, walletKey, wallets, getAccessToken, resync]);
 
-  return null;
+  return <WalletSignIn ref={walletFlow} />;
 }

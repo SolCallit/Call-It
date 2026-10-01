@@ -475,7 +475,7 @@ const closeModal=()=>$('#modal').innerHTML='';
 const realAuth=()=>!!window.__callitRealAuth;
 let pendingNext=null;
 function realLogin(via,opts,next){pendingNext=next||null;closeModal();if(window.CallitAuth&&window.CallitAuth.login)window.CallitAuth.login(via,opts);else toast('Sign-in is loading, try again in a second')}
-function connectModal(next,mode){if(realAuth())return realLogin(undefined,undefined,next);modal(mode==='up'?'Create your Callit account':mode==='in'?'Welcome back':'Sign in to Callit',mode==='up'?'Pick a way in. We create a Solana wallet for you, and you own the keys.':mode==='in'?'Sign in the same way you signed up.':'New here? We create a Solana wallet for you. You own the keys.',
+function connectModal(next,mode){modal(mode==='up'?'Create your Callit account':mode==='in'?'Welcome back':'Sign in to Callit',mode==='up'?'Pick a way in. We create a Solana wallet for you, and you own the keys.':mode==='in'?'Sign in the same way you signed up.':'New here? We create a Solana wallet for you. You own the keys.',
  `${['Email','Google','X'].map(l=>`<button class="opt" data-connect="${l}"><span class="tokav" style="background:var(--hi)">${l[0]}</span>Continue with ${l}</button>`).join('')}
  <div class="divider">or use your own wallet</div>${['Phantom','Solflare','Backpack'].map(w=>`<button class="opt" data-connect="${w}">${tokav(w)}${w}</button>`).join('')}`,
  m=>m.addEventListener('click',e=>{const b=e.target.closest('[data-connect]');if(!b)return;signIn(b.dataset.connect,next)}))}
@@ -903,7 +903,7 @@ document.addEventListener('click',e=>{
     m=>$('#pgo',m).onclick=()=>{closeModal();txRun(`Callit Premium · ${P.label}`,()=>{S.bal[via]-=amt;const base=isPrem(S.me)?S.premium.until:Date.now();S.premium={plan:S.plan||'yearly',until:base+P.days*864e5};try{localStorage.setItem('callit.premium',JSON.stringify(S.premium))}catch(_){}
      S.activity.unshift({k:'Sent',d:`${via==='SOL'?amt.toFixed(3):amt} ${via} for Callit Premium`,t:'Just now'});render();toast('Welcome to Premium ✓')})})},
   nf:()=>{S.nf=b.dataset.f;render()},newsx:()=>toast('Full articles open once the news feed is connected'),stscroll:()=>{const t=$('#'+b.dataset.f);t&&t.scrollBy({left:+b.dataset.d*t.clientWidth*.8,behavior:'smooth'})},
-  lsign:()=>signIn(b.dataset.f),lwallet:()=>connectModal(null,'in'),
+  lsign:()=>signIn(b.dataset.f),lwallet:()=>realAuth()?realLogin('wallet',undefined,null):connectModal(null,'in'),
   lemail:()=>{const v=($('#lxemail')||{}).value||'';if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())){$('#lxerr').textContent='Enter a valid email address.';$('#lxemail').focus();return}signIn('Email',null,{email:v.trim()})},
   lexplore:()=>{try{sessionStorage.setItem('callit.explore','1')}catch(_){}location.hash='#/'+b.dataset.f;syncLanding()},
   doc:()=>docModal(b.dataset.f),soclink:()=>{e.preventDefault();toast(`Callit on ${b.dataset.f} is coming soon`)},editprof:()=>editProfile(b.dataset.f),follows:()=>followsModal(b.dataset.h,b.dataset.f),mt:()=>{if(S.mt===b.dataset.f)return scrollTo({top:0,behavior:'smooth'});S.mt=b.dataset.f;render()},tpick:()=>pickToken(b.dataset.f),

@@ -888,3 +888,43 @@ td.rkc{font:800 18px var(--display);width:48px}
 .instbar .mark{width:40px;height:40px;border-radius:11px;flex:none}
 .instbar .grow{min-width:0}.instbar b{display:block}.instbar .hint{font-size:12.5px;line-height:1.35}
 .instbar .ib{width:30px;height:30px;box-shadow:none;background:transparent}
+
+/* ---------- narrow phones (≤400px) ---------- */
+/* Safety net: nothing may widen the page past the screen, or fixed layers (landing,
+   floating chips, modals) get laid out wider than the phone and clip at the edge. */
+html,body{overflow-x:clip;max-width:100%}
+.fx{white-space:nowrap}
+@media (max-width:400px){
+ .pbar .icons{min-width:0!important;gap:0!important}
+ .pbar .act{padding:6px 2px!important;gap:2px!important}
+ .pbar .act svg{width:16px;height:16px}
+ .pbar .act .num{font-size:12px}
+ .pright .mc{font-size:12px!important}
+ .buyb{padding:5px 10px!important}
+}
+/* Landing chips on portrait phones: keep them inside the screen and clear of the
+   logo, headline and theme button. */
+@media (max-width:760px) and (orientation:portrait){
+ .fx{font-size:11.5px;padding:5px 9px;gap:3px;max-width:42vw}
+ .fx.m{font-size:11px}
+ .fx svg{width:12px;height:12px}
+ .fx.a{top:calc(env(safe-area-inset-top,0px) + 76px);left:3%;right:auto}
+ .fx.b{top:calc(env(safe-area-inset-top,0px) + 132px);right:3%;left:auto}
+ .fx.g{top:calc(env(safe-area-inset-top,0px) + 22px);left:4%;right:auto;margin:0}
+}
+@media (max-width:340px) and (orientation:portrait){.fx.g{display:none}}
+
+/* ---------- wallet sign-in sheet ---------- */
+.wsi-back{position:fixed;inset:0;z-index:1000;display:flex;align-items:flex-end;justify-content:center;background:rgba(4,12,20,.62);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));animation:wsiIn .18s ease-out}
+.wsi{width:100%;max-width:400px;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:24px;padding:26px 22px 18px;text-align:center;display:flex;flex-direction:column;gap:10px;box-shadow:0 24px 60px -20px rgba(0,0,0,.6);animation:wsiUp .26s cubic-bezier(.2,.9,.3,1.2)}
+.wsi-mark{width:56px!important;height:56px!important;border-radius:16px!important;margin:0 auto 6px}
+.wsi h2{margin:0;font:800 21px/1.2 var(--display);letter-spacing:-.02em}
+.wsi-sub{margin:0 0 8px;color:var(--muted);font-size:14.5px;line-height:1.5}
+.wsi-sub b{color:var(--text)}
+.wsi-err{margin:0;padding:10px 12px;border-radius:12px;font-size:13.5px;color:var(--down);background:color-mix(in srgb,var(--down) 12%,transparent)}
+.wsi .btn{padding:14px 18px;font-size:15.5px}
+.wsi .btn:disabled{opacity:.6}
+@media (min-width:600px){.wsi-back{align-items:center}}
+@keyframes wsiIn{from{opacity:0}}
+@keyframes wsiUp{from{transform:translateY(24px);opacity:0}}
+@media (prefers-reduced-motion:reduce){.wsi-back,.wsi{animation:none}}
