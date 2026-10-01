@@ -178,7 +178,7 @@ function post(k){const t=T[k.t],p=perf(k),r=rankOf(k.c);
    <button class="act${k.liked?' liked':''}" data-act="like" data-id="${k.id}" aria-label="Like">${ic('heart',18,k.liked)}<span class="num">${k.likes||''}</span></button>
    <span class="act views" aria-label="Views">${ic('views',18)}<span class="num">${fmtK(k.views||0)}</span></span>
    <button class="act" data-act="share" data-id="${k.id}" aria-label="Share">${ic('share',18)}</button></div>
-   ${p===null?'':`<span class="pright"><a class="mc num ${nums(k).up?'up':'down'}" href="#/token/${t.sym}" data-mc="${k.id}" title="Trade $${t.sym}">${fmtUsd(mcap(t))}<small>MC</small></a>${tradable(t)?`<button class="btn primary sm buyb" data-act="qbuy" data-t="${t.sym}" data-id="${k.id}">Buy</button>`:''}</span>`}
+   ${p===null?'':`<span class="pright"><a class="mc num ${nums(k).up?'up':'down'}" href="#/token/${t.sym}" data-mc="${k.id}" title="Trade $${t.sym}">${fmtUsd(mcap(t))}<small>MC</small></a>${tradable(t)?`<span class="bsrow"><button class="btn primary sm buyb" data-act="qbuy" data-t="${t.sym}" data-id="${k.id}">Buy</button>${S.connected&&S.bal[t.sym]>0?`<button class="btn sm sellq" data-act="qsell" data-t="${t.sym}" data-id="${k.id}">Sell</button>`:''}</span>`:''}</span>`}
   </div></div></article>`}
 
 /* ---------- ads ---------- */
@@ -199,11 +199,14 @@ function adBoard(){const a=ADS[S.board%ADS.length];
 const FEE_RESERVE=0.01;
 const maxOf=sym=>{const b=S.bal[sym]||0;const v=sym==='SOL'?Math.max(0,b-FEE_RESERVE):b;return String(+v.toFixed(6))};
 const impact=(sym,usdIn)=>{const t=T[sym];return t&&t.liq?usdIn/(t.liq/2+usdIn)*100:0};
-function swapHTML(){const w=S.swap,f=T[w.from],t=T[w.to],a=parseFloat(w.amt)||0,out=a?usd(w.from,a)*.995/t.price:0,imp=a?impact(w.to,usd(w.from,a)):0,sl=S.slip||1;
+function swapHTML(tok){const w=S.swap,side=tok?(w.from===tok?'sell':'buy'):null,f=T[w.from],t=T[w.to],a=parseFloat(w.amt)||0,out=a?usd(w.from,a)*.995/t.price:0,imp=a?impact(w.to,usd(w.from,a)):0,sl=S.slip||1;
  const opts=sel=>Object.values(T).filter(tradable).map(x=>`<option ${x.sym===sel?'selected':''}>${x.sym}</option>`).join('');
  let label='Swap',dis=false;const warn=a&&imp>5?`<div class="swarn ${imp>15?'bad':''}">${ic('bell',15)} ${imp>15?'Very high':'High'} price impact. Thin liquidity on $${t.sym}.</div>`:'';
- if(!S.connected)label='Connect wallet';else if(!a){label='Enter an amount';dis=true}else if(a>(S.bal[w.from]||0)){label=`Not enough ${w.from}`;dis=true}
- return `<div class="swap"><div class="box"><div class="row"><span class="hint">You pay</span><span class="balx"><span class="hint num">Balance ${fmtAmt(S.bal[w.from]||0)}</span>${S.connected&&(S.bal[w.from]||0)>0?`<button class="mx" data-act="swmax" data-f=".5">Half</button><button class="mx" data-act="swmax" data-f="1">Max</button>`:''}</span></div>
+ const held=tok?(S.bal[tok]||0):0;
+ if(!S.connected)label='Connect wallet';else if(side==='sell'&&!held){label=`You don't hold $${tok}`;dis=true}else if(!a){label='Enter an amount';dis=true}else if(a>(S.bal[w.from]||0)){label=`Not enough ${w.from}`;dis=true}else if(side)label=`${side==='sell'?'Sell':'Buy'} $${tok}`;
+ const tabs=tok?`<div class="bstabs" role="tablist" aria-label="Buy or sell"><button role="tab" aria-selected="${side==='buy'}" class="${side==='buy'?'on buy':''}" data-act="tside" data-f="buy" data-t="${tok}">Buy</button><button role="tab" aria-selected="${side==='sell'}" class="${side==='sell'?'on sell':''}" data-act="tside" data-f="sell" data-t="${tok}">Sell${held?` <span class="num">${fmtAmt(held)}</span>`:''}</button></div>`:'';
+ const quick=S.connected&&(S.bal[w.from]||0)>0?(side==='sell'?[['.25','25%'],['.5','50%'],['.75','75%'],['1','Max']]:[['.5','Half'],['1','Max']]).map(([f,l])=>`<button class="mx" data-act="swmax" data-f="${f}">${l}</button>`).join(''):'';
+ return `${tabs}<div class="swap${side?' side-'+side:''}"><div class="box"><div class="row"><span class="hint">${side==='sell'?'You sell':'You pay'}</span><span class="balx"><span class="hint num">Balance ${fmtAmt(S.bal[w.from]||0)}</span>${quick}</span></div>
   <div class="row"><input class="amt num" inputmode="decimal" placeholder="0" value="${esc(w.amt)}" data-swap="amt" aria-label="Amount to pay">${tbtn('from',w.from)}</div>
   <div class="hint num">${a?fmtUsd(usd(w.from,a)):'$0'}</div></div>
   <button class="flip" data-act="flip" aria-label="Flip tokens">${ic('swap',16)}</button>
@@ -211,7 +214,7 @@ function swapHTML(){const w=S.swap,f=T[w.from],t=T[w.to],a=parseFloat(w.amt)||0,
   <div class="row"><div class="amt num">${out?fmtAmt(out):'0'}</div>${tbtn('to',w.to)}</div></div>
   <div class="lines num"><div><span>Rate</span><span>1 ${f.sym} = ${fmtAmt(f.price/t.price)} ${t.sym}</span></div><div><span>Callit fee</span><span>0.5% (placeholder)</span></div><div><span>Max slippage</span><span class="slips">${[.5,1,3].map(v=>`<button class="${sl===v?'on':''}" data-act="slip" data-f="${v}">${v}%</button>`).join('')}</span></div>
   ${a?`<div><span>Price impact</span><span class="${imp>15?'down':imp>5?'warn':'up'}">${imp<.01?'<0.01':imp.toFixed(2)}%</span></div><div><span>Minimum received</span><span>${fmtAmt(out*(1-sl/100))} ${t.sym}</span></div>`:''}<div><span>Route</span><span>Jupiter</span></div></div>
-  ${warn}<button class="btn primary block" data-act="${S.connected?'doswap':'connect'}" ${dis?'disabled':''}>${label}</button></div>`}
+  ${warn}<button class="btn primary block${side==='sell'&&S.connected?' sellb':''}" data-act="${S.connected?'doswap':'connect'}" ${dis?'disabled':''}>${label}</button></div>`}
 const tbtn=(k,sym)=>`<button class="tpick" data-act="tpick" data-f="${k}" aria-label="${k==='from'?'Pay':'Receive'} token, ${sym}">${tokav(sym)}<b>${sym}</b>${ic('down',16)}</button>`;
 function pickToken(k){const w=S.swap,cur=w[k],all=Object.values(T).filter(tradable);let q='';
  const pop=['SOL','USDC','GLORP','KFSH','NIMB'].filter(x=>T[x]);
@@ -222,7 +225,7 @@ function pickToken(k){const w=S.swap,cur=w[k],all=Object.values(T).filter(tradab
   <div class="tpop">${pop.map(x=>`<button class="chip${x===cur?' on':''}" style="--c:var(--hi)" data-pick="${x}">${tokav(x)}${x}</button>`).join('')}</div><div class="tlist" id="tl"></div>`,
  m=>{draw(m);$('#tq',m).addEventListener('input',e=>{q=e.target.value.trim().toLowerCase();draw(m)});
   m.addEventListener('click',e=>{const b=e.target.closest('[data-pick]');if(!b)return;const v=b.dataset.pick,o=k==='from'?'to':'from';if(w[o]===v)w[o]=w[k];w[k]=v;closeModal();renderSwaps()})})}
-const renderSwaps=()=>document.querySelectorAll('[data-swapbox]').forEach(el=>el.innerHTML=swapHTML());
+const renderSwaps=()=>document.querySelectorAll('[data-swapbox]').forEach(el=>el.innerHTML=swapHTML(el.dataset.tok||null));
 
 /* ---------- views ---------- */
 function homeTabs(){return `<div class="tabs" role="tablist">${[['foryou','For you'],['following','Following'],['community','Community'],['watchlist','Watchlist']].map(([k,l])=>`<button role="tab" aria-selected="${S.tab===k}" class="${S.tab===k?'on':''}" data-act="tab" data-f="${k}">${l}</button>`).join('')}</div>`}
@@ -371,7 +374,7 @@ function vToken(sym){const t=T[sym];if(!t)return vHome();const on=calls.filter(k
  <div class="seg" style="margin-left:auto">${['1H','1D','1W','1M'].map(x=>`<button class="${S.tf===x?'on':''}" data-act="tf" data-f="${x}">${x}</button>`).join('')}</div></div>
  ${chart(t.seed*7+S.tf.charCodeAt(1)*3,up)}
  <div class="stats num"><div><span>Market cap</span><b>${fmtUsd(mcap(t))}</b></div><div><span>Liquidity</span><b>${fmtUsd(t.liq)}</b></div><div><span>24h volume</span><b>${fmtUsd(t.vol)}</b></div><div><span>Holders</span><b>${t.holders.toLocaleString()}</b></div><div><span>Age</span><b>${t.age}</b></div></div>
- ${tradable(t)?`<div class="card"><h3>Trade $${t.sym}</h3><div data-swapbox></div></div>`:`<div class="card">In-app trading for ${t.chain} tokens isn't available yet. You can still call it and add it to your watchlist.</div>`}
+ ${tradable(t)?`<div class="card"><h3>Trade $${t.sym}</h3><div data-swapbox data-tok="${t.sym}"></div></div>`:`<div class="card">In-app trading for ${t.chain} tokens isn't available yet. You can still call it and add it to your watchlist.</div>`}
  <div style="display:flex;justify-content:space-between;align-items:center;margin:22px 0 4px"><b class="h2">Calls on $${t.sym}</b><button class="btn sm primary" data-act="newcall" data-t="${sym}">Call it</button></div></div>
  <div id="feed" style="border-top:1px solid var(--line);margin-top:10px">${on.map(post).join('')||'<div class="empty"><b>No calls yet</b><p>Call it first and your entry gets stamped at today’s market cap.</p></div>'}</div>`}
 
@@ -448,7 +451,7 @@ function syncTray(){const open=!document.body.classList.contains('collapsed'),b=
 function render(){if(isPhone())document.body.classList.add('collapsed');const [,r0='home',p]=location.hash.split('/');const r=r0||'home';let html;
  if(r==='community')html=vRoom(p);
  else if(r==='post')html=vPost(p);
- else if(r==='token'){const t=T[p];if(t&&tradable(t)&&p!==S.swap.from)S.swap.to=p;html=vToken(p)}
+ else if(r==='token'){const t=T[p];if(t&&tradable(t)&&p!==S.swap.from){S.swap.from=S.swap.from===p?S.swap.from:(S.swap.from===S.swap.to||!T[S.swap.from]?'SOL':S.swap.from);S.swap.to=p}html=vToken(p)}
  else html=({market:vMarket,trenches:vMarket,swap:vSwap,wallet:vWallet,profile:()=>vProfile(p),leaderboard:vLeaders,promote:vPromote,about:vAbout,
   stake:()=>`<div class="prem"><div class="phero2"><span class="pbig">${ic('stake',40)}</span><h2>Stake $CALLIT</h2><p>Opens when $CALLIT launches on mainnet.</p></div>
    <div class="pben">${[['verified','Unlock Premium','Keep Premium for as long as you stay staked.'],['wallet','Earn rewards','Get a share of protocol rewards while staked.'],['promote','Cheaper promotions','Discounts on ad slots and sponsored calls.'],['leaderboard','Your tokens stay yours','Non-custodial. Unstake after the lock ends.']].map(([i,t,d])=>`<div class="bcard"><span class="bic">${ic(i,20)}</span><div><b>${t}</b><span>${d}</span></div></div>`).join('')}</div>
@@ -568,21 +571,40 @@ function sendModal(){modal('Send','Send tokens to any Solana address.',
 const receiveModal=(title='Receive')=>modal(title,title==='Deposit'?'Send SOL, USDC or any Solana token to your Callit wallet address below.':'Send SOL or any Solana token to this address.',`<div style="text-align:center">${qr(hue(S.addr))}<p class="num" style="overflow-wrap:anywhere;font-size:13px">${S.addr}</p><button class="btn primary block" data-act="copy" data-v="${S.addr}">Copy address</button></div>`);
 
 /* ---------- quick buy from a call ---------- */
-function quickBuy(sym,cid){if(!S.connected)return connectModal();const t=T[sym],k=calls.find(x=>x.id==cid);let sol='0.25';
- const draw=m=>{const a=parseFloat(sol)||0,usdV=a*T.SOL.price,got=usdV*.995/t.price;
-  $('#qb',m).innerHTML=`<div class="qhead">${tokav(sym)}<div class="grow"><b>${esc(t.name)}</b><div class="hint num">$${sym} · ${fmtUsd(mcap(t))} MC · <span class="${t.chg>=0?'up':'down'}">${fmtPct(t.chg)}</span></div></div></div>
-  <div class="buybox" style="margin-top:14px"><div class="top"><b>Amount</b><span class="hint num" style="white-space:nowrap">Balance ${fmtAmt(S.bal.SOL)} SOL</span></div>
-  <div class="presets">${['0.1','0.25','0.5','1'].map(v=>`<button type="button" data-sol="${v}" class="${sol===v?'on':''}">${v} SOL</button>`).join('')}</div>
-  <label class="solin"><input id="qsol" class="num" inputmode="decimal" value="${esc(sol)}" aria-label="SOL to spend"><button type="button" class="mx" id="qmax">Max</button><span class="muted">SOL</span></label>
-  <div class="hint num" style="margin-top:8px">${a?`≈ ${fmtUsd(usdV)} · you get ~${fmtAmt(got)} $${sym} · via Jupiter`:'Enter an amount'}</div></div>
-  ${k?`<p class="hint" style="margin:0 0 14px">${k.buy?`Buying from <b style="color:var(--text)">${esc(k.c)}</b>'s call. They bought in, so they earn a share of the fee.`:`${esc(k.c)} didn't buy in, so this call earns them no fee.`}</p>`:''}
-  <div id="qerr" class="err"></div><button class="btn primary block" id="qgo" ${a>0?'':'disabled'}>Buy ${a||0} SOL of $${sym}</button>`;
-  const si=$('#qsol',m);si.addEventListener('input',()=>{sol=si.value.replace(/[^0-9.]/g,'');const pos=si.selectionStart;draw(m);const n=$('#qsol',m);n.focus();try{n.setSelectionRange(pos,pos)}catch(_){}});
-  m.querySelectorAll('[data-sol]').forEach(b=>b.onclick=()=>{sol=b.dataset.sol;draw(m)});
-  $('#qmax',m).onclick=e=>{e.preventDefault();sol=maxOf('SOL');draw(m)};
-  $('#qgo',m).onclick=()=>{if(a>S.bal.SOL){$('#qerr',m).textContent=`You only have ${fmtAmt(S.bal.SOL)} SOL.`;return}
-   closeModal();txRun(`Buy ${fmtAmt(got)} $${sym}`,()=>{S.bal.SOL-=a;S.bal[sym]=(S.bal[sym]||0)+got;S.activity.unshift({k:'Bought',d:`${fmtAmt(got)} ${sym} for ${a} SOL${k?` from ${k.c}'s call`:''}`,t:'Just now'});render()})}};
- modal('Quick buy','',`<div id="qb"></div>`,m=>draw(m))}
+function quickBuy(sym,cid,startSide){if(!S.connected)return connectModal();const t=T[sym],k=calls.find(x=>x.id==cid);let side=startSide==='sell'?'sell':'buy',sol='0.25',pct='',amt='';
+ const held=()=>S.bal[sym]||0;
+ const draw=m=>{const h=held();
+  const head=`<div class="qhead">${tokav(sym)}<div class="grow"><b>${esc(t.name)}</b><div class="hint num">$${sym} · ${fmtUsd(mcap(t))} MC · <span class="${t.chg>=0?'up':'down'}">${fmtPct(t.chg)}</span></div></div></div>
+  <div class="bstabs" role="tablist" style="margin-top:14px"><button role="tab" data-side="buy" aria-selected="${side==='buy'}" class="${side==='buy'?'on buy':''}">Buy</button><button role="tab" data-side="sell" aria-selected="${side==='sell'}" class="${side==='sell'?'on sell':''}">Sell${h?` <span class="num">${fmtAmt(h)}</span>`:''}</button></div>`;
+  let body;
+  if(side==='buy'){const a=parseFloat(sol)||0,usdV=a*T.SOL.price,got=usdV*.995/t.price;
+   body=`<div class="buybox"><div class="top"><b>Amount</b><span class="hint num" style="white-space:nowrap">Balance ${fmtAmt(S.bal.SOL)} SOL</span></div>
+   <div class="presets">${['0.1','0.25','0.5','1'].map(v=>`<button type="button" data-sol="${v}" class="${sol===v?'on':''}">${v} SOL</button>`).join('')}</div>
+   <label class="solin"><input id="qin" class="num" inputmode="decimal" value="${esc(sol)}" aria-label="SOL to spend"><button type="button" class="mx" id="qmax">Max</button><span class="muted">SOL</span></label>
+   <div class="hint num" style="margin-top:8px">${a?`≈ ${fmtUsd(usdV)} · you get ~${fmtAmt(got)} $${sym} · via Jupiter`:'Enter an amount'}</div></div>
+   ${k?`<p class="hint" style="margin:0 0 14px">${k.buy?`Buying from <b style="color:var(--text)">${esc(k.c)}</b>'s call. They bought in, so they earn a share of the fee.`:`${esc(k.c)} didn't buy in, so this call earns them no fee.`}</p>`:''}
+   <div id="qerr" class="err"></div><button class="btn primary block" id="qgo" ${a>0?'':'disabled'}>Buy ${a||0} SOL of $${sym}</button>`;
+  }else if(!h){
+   body=`<div class="empty" style="padding:22px 8px"><b>You don't hold $${sym}</b><p>Buy some first, then you can sell it here any time.</p><button class="btn primary" data-side="buy">Buy $${sym}</button></div>`;
+  }else{const a=Math.min(parseFloat(amt)||0,h),usdV=a*t.price,got=usdV*.995/T.SOL.price;
+   body=`<div class="buybox"><div class="top"><b>Sell</b><span class="hint num" style="white-space:nowrap">You hold ${fmtAmt(h)} $${sym} · ${fmtUsd(h*t.price)}</span></div>
+   <div class="presets">${['25','50','75','100'].map(v=>`<button type="button" data-pct="${v}" class="${pct===v?'on':''}">${v==='100'?'All':v+'%'}</button>`).join('')}</div>
+   <label class="solin"><input id="qin" class="num" inputmode="decimal" value="${esc(amt)}" placeholder="0" aria-label="Amount of $${sym} to sell"><button type="button" class="mx" id="qmax">Max</button><span class="muted">$${esc(sym)}</span></label>
+   <div class="hint num" style="margin-top:8px">${a?`≈ ${fmtUsd(usdV)} · you get ~${fmtAmt(got)} SOL · via Jupiter`:'Pick a % or enter an amount'}</div></div>
+   <div id="qerr" class="err"></div><button class="btn block sellb" id="qgo" ${a>0?'':'disabled'}>${pct==='100'?`Sell all $${sym}`:`Sell ${a?fmtAmt(a):0} $${sym}`}</button>`}
+  $('#qb',m).innerHTML=head+body;
+  m.querySelectorAll('[data-side]').forEach(x=>x.onclick=()=>{side=x.dataset.side;draw(m)});
+  const si=$('#qin',m);if(si)si.addEventListener('input',()=>{const v=si.value.replace(/[^0-9.]/g,'');if(side==='buy')sol=v;else{amt=v;pct=''}const pos=si.selectionStart;draw(m);const n=$('#qin',m);n.focus();try{n.setSelectionRange(pos,pos)}catch(_){}});
+  m.querySelectorAll('[data-sol]').forEach(x=>x.onclick=()=>{sol=x.dataset.sol;draw(m)});
+  m.querySelectorAll('[data-pct]').forEach(x=>x.onclick=()=>{pct=x.dataset.pct;amt=pct==='100'?String(h):String(+(h*pct/100).toFixed(6));draw(m)});
+  const mx=$('#qmax',m);if(mx)mx.onclick=e=>{e.preventDefault();if(side==='buy')sol=maxOf('SOL');else{pct='100';amt=String(h)}draw(m)};
+  const go=$('#qgo',m);if(!go)return;
+  go.onclick=()=>{if(side==='buy'){const a=parseFloat(sol)||0,got=a*T.SOL.price*.995/t.price;
+    if(a>S.bal.SOL){$('#qerr',m).textContent=`You only have ${fmtAmt(S.bal.SOL)} SOL.`;return}
+    closeModal();txRun(`Buy ${fmtAmt(got)} $${sym}`,()=>{S.bal.SOL-=a;S.bal[sym]=(S.bal[sym]||0)+got;S.activity.unshift({k:'Bought',d:`${fmtAmt(got)} ${sym} for ${a} SOL${k?` from ${k.c}'s call`:''}`,t:'Just now'});render()})}
+   else{const a=pct==='100'?h:Math.min(parseFloat(amt)||0,h),got=a*t.price*.995/T.SOL.price;
+    if(!a)return;closeModal();txRun(`Sell ${fmtAmt(a)} $${sym}`,()=>{S.bal[sym]=Math.max(0,(S.bal[sym]||0)-a);if(S.bal[sym]<1e-9)delete S.bal[sym];S.bal.SOL+=got;S.activity.unshift({k:'Sold',d:`${fmtAmt(a)} ${sym} for ${fmtAmt(got)} SOL`,t:'Just now'});render()})}}};
+ modal(side==='sell'?'Quick sell':'Quick trade','',`<div id="qb"></div>`,m=>draw(m))}
 
 /* ---------- community ---------- */
 const COMMS=[
@@ -623,7 +645,7 @@ function ptabBody(h,me){const tab=S.ptab||'calls';
   if(!hs.length)return `<div class="empty"><b>No holdings yet</b><p>${me?'Buy into a call and it shows up here.':'This caller has no bought-in positions.'}</p></div>`;
   return `<div class="pad" style="padding-bottom:0"><div class="hint">${me?'Wallet value':'Open positions'}</div><b class="h2 num">${fmtUsd(tot)}</b></div><div class="list pad">${hs.map(x=>`<a class="li" href="#/token/${x.t.sym}">${tokav(x.t.sym)}<div class="grow"><b>${esc(x.t.name)}</b><div class="hint num">${x.amt!=null?fmtAmt(x.amt)+' '+x.t.sym:'$'+x.t.sym}</div></div><div class="r num"><b>${fmtUsd(x.val)}</b><div class="hint ${x.pnl!=null?(x.pnl>=0?'up':'down'):(x.t.chg>=0?'up':'down')}">${x.pnl!=null?money(x.pnl):fmtPct(x.t.chg)}</div></div></a>`).join('')}</div>`}
  if(tab==='activity'){const a=activityOf(h);if(!a.length)return `<div class="empty"><b>No activity yet</b></div>`;
-  return `<div class="list pad">${a.map(([k,d,t])=>`<div class="li"><span class="tokav act-${k.toLowerCase()}" style="background:var(--bg2);color:var(--text)">${ic(k==='Bought'?'swap':k==='Called'?'promote':k==='Sent'?'share':'wallet',18)}</span><div class="grow"><b>${esc(k)}</b><div class="hint">${esc(d)}</div></div><span class="hint">${esc(t)}</span></div>`).join('')}</div>`}
+  return `<div class="list pad">${a.map(([k,d,t])=>`<div class="li"><span class="tokav act-${k.toLowerCase()}" style="background:var(--bg2);color:var(--text)">${ic(k==='Bought'||k==='Sold'?'swap':k==='Called'?'promote':k==='Sent'?'share':'wallet',18)}</span><div class="grow"><b>${esc(k)}</b><div class="hint">${esc(d)}</div></div><span class="hint">${esc(t)}</span></div>`).join('')}</div>`}
  return null}
 
 /* ---------- market ---------- */
@@ -829,10 +851,21 @@ function docModal(k){const [t,ps]=DOCS[k];modal(t,'Draft, pending legal review',
 /* ---------- landing ---------- */
 const G_ICON='<svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>';
 const MEGA='<svg class="lmega" viewBox="0 0 240 200" aria-hidden="true"><g fill="none" stroke-linejoin="round" stroke-linecap="round"><path class="o" d="M44 78h30v48H44a12 12 0 01-12-12V90a12 12 0 0112-12zM74 80c36-6 66-20 92-44v132c-26-24-56-38-92-44zM88 126l14 50h24l-10-47"/><ellipse class="o" cx="170" cy="102" rx="22" ry="68"/><path class="o" d="M166 78c10 2 14 12 14 24s-4 22-14 24"/><path class="i" d="M44 78h30v48H44a12 12 0 01-12-12V90a12 12 0 0112-12zM74 80c36-6 66-20 92-44v132c-26-24-56-38-92-44zM88 126l14 50h24l-10-47"/><ellipse class="i" cx="170" cy="102" rx="22" ry="68"/><path class="i" d="M166 78c10 2 14 12 14 24s-4 22-14 24"/></g></svg>';
+/* Live-calls ticker on the landing page: the thing X doesn't have. */
+const LX_TICK_A=[['c','fadedpixel','GLORP','+$519.90'],['g','GLORP','+346.6%'],['m','KFSH','$1.84M MC'],['c','lagosape','KFSH','+$355.10'],['f','+0.42 SOL','caller fees'],['g','DOTB','+113.9%'],['c','quietmoney','GLORP','+$60.55'],['g','NIMB','+64.2%']];
+const LX_TICK_B=[['n','minnie_sol','DOTB','3m'],['g','KFSH','+118.4%'],['m','GLORP','$21.4M MC'],['c','minnie_sol','DOTB','+$45.55'],['n','dr_liquidity','NIMB','8m'],['g','MOTH','+213%'],['f','+1.8 SOL','paid to callers today'],['m','NIMB','$412K MC']];
+function lxChip(x){const [k,a,b,v]=x;
+ if(k==='g')return `<span class="tk">${tokav(a)}<b>$${esc(a)}</b><em class="up">${ic('up',12)}${esc(b)}</em></span>`;
+ if(k==='m')return `<span class="tk">${tokav(a)}<b>$${esc(a)}</b><i>${esc(b)}</i></span>`;
+ if(k==='c')return `<span class="tk">${avatar(a)}<b>@${esc(a)}</b><i>called $${esc(b)}</i><em class="up">${esc(v)}</em></span>`;
+ if(k==='n')return `<span class="tk"><span class="tklive"></span>${avatar(a)}<b>@${esc(a)}</b><i>called $${esc(b)} · ${esc(v)} ago</i></span>`;
+ return `<span class="tk tkfee"><em class="up">${esc(a)}</em><i>${esc(b)}</i></span>`}
+function lxTicker(items,cls){const row=items.map(lxChip).join('');
+ return `<div class="lxtick${cls}" aria-hidden="true"><div class="lxtrack">${row}${row}</div></div>`}
 function landingHTML(){const yr=new Date().getFullYear();
- return `<div class="lx-top"><button class="ib ltheme" data-act="theme" aria-label="Switch light or dark">${ic('sun',18)}</button></div>
+ return `<div class="lx-top">${lxTicker(LX_TICK_A,'')}<button class="ib ltheme" data-act="theme" aria-label="Switch light or dark">${ic('sun',18)}</button></div>
  <div class="lfx" aria-hidden="true">${[['+347%','p a'],['$1.84M MC','m b'],['+118%','p c'],['$21.4M MC','m d'],['+64%','p e'],['$412K MC','m f'],['+213%','p g']].map(([t,c])=>`<span class="fx ${c}">${c[0]==='p'?ic('up',14):''}${t}</span>`).join('')}</div>
- <main class="lx"><span class="mark lxmark" role="img" aria-label="Callit"></span>
+ <main class="lx"><div class="lxlogo"><span class="fx lxs l">${ic('up',13)}+347%</span><span class="fx lxs l2 fee">+0.42 SOL</span><span class="mark lxmark" role="img" aria-label="Callit"></span><span class="fx m lxs r">$1.84M MC</span><span class="fx lxs r2">${ic('up',13)}+118%</span></div>
   <h1>Call it.<br>Get Paid.</h1>
   <p class="lx-sub">Crypto calls, tracked in public. Join today.</p>
   <div class="lx-auth">
@@ -847,6 +880,7 @@ function landingHTML(){const yr=new Date().getFullYear();
    <button class="lx-look" data-act="explore">Just looking? Explore Callit first</button>
   </div>
  </main>
+ ${lxTicker(LX_TICK_B,' rev')}
  <footer class="lx-foot">${socials('sm')}<nav><button data-act="lexplore" data-f="about">About</button><span>·</span><button data-act="lexplore" data-f="leaderboard">Leaderboard</button><span>·</span><button data-act="doc" data-f="terms">Terms</button><span>·</span><button data-act="doc" data-f="privacy">Privacy</button><span>·</span><span>© ${yr} Callit</span></nav></footer>`}
 function syncLanding(){const el=$('#landing');let exp=false;try{exp=sessionStorage.getItem('callit.explore')==='1'}catch(_){}
  const A=window.CallitAuth,restoring=realAuth()&&A&&A.ready&&A.authenticated&&!S.connected;
@@ -912,7 +946,7 @@ document.addEventListener('click',e=>{
   lemail:()=>{const v=($('#lxemail')||{}).value||'';if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())){$('#lxerr').textContent='Enter a valid email address.';$('#lxemail').focus();return}signIn('Email',null,{email:v.trim()})},
   lexplore:()=>{try{sessionStorage.setItem('callit.explore','1')}catch(_){}location.hash='#/'+b.dataset.f;syncLanding()},
   doc:()=>docModal(b.dataset.f),soclink:()=>{e.preventDefault();toast(`Callit on ${b.dataset.f} is coming soon`)},editprof:()=>editProfile(b.dataset.f),follows:()=>followsModal(b.dataset.h,b.dataset.f),mt:()=>{if(S.mt===b.dataset.f)return scrollTo({top:0,behavior:'smooth'});S.mt=b.dataset.f;render()},tpick:()=>pickToken(b.dataset.f),
-  signup:()=>connectModal(null,'up'),signin:()=>connectModal(null,'in'),explore:()=>{try{sessionStorage.setItem('callit.explore','1')}catch(_){}syncLanding()},qbuy:()=>quickBuy(b.dataset.t,b.dataset.id),
+  signup:()=>connectModal(null,'up'),signin:()=>connectModal(null,'in'),explore:()=>{try{sessionStorage.setItem('callit.explore','1')}catch(_){}syncLanding()},qbuy:()=>quickBuy(b.dataset.t,b.dataset.id),qsell:()=>quickBuy(b.dataset.t,b.dataset.id,'sell'),
   back:()=>goBack(),totop:()=>scrollTo({top:0,behavior:'smooth'}),
   join:()=>{const f=b.dataset.f;S.joined.has(f)?S.joined.delete(f):S.joined.add(f);toast(S.joined.has(f)?'Joined':'Left the community');render()},
   msend:()=>{const i=$('#msgin'),v=i&&i.value.trim();if(!v)return;(MSG[b.dataset.f]=MSG[b.dataset.f]||[]).push([S.me,v,'now']);render();const m=$('#msgs');m&&m.lastElementChild&&m.lastElementChild.scrollIntoView({block:'end',behavior:'smooth'});setTimeout(()=>{const n=$('#msgin');n&&n.focus()},50)},
@@ -952,6 +986,7 @@ document.addEventListener('click',e=>{
   follow:()=>{if(!S.connected)return connectModal();const h=b.dataset.h;S.following.has(h)?S.following.delete(h):S.following.add(h);render()},
   track:()=>{const t=b.dataset.t;S.watch.has(t)?S.watch.delete(t):S.watch.add(t);toast(S.watch.has(t)?`$${t} added to watchlist`:`$${t} removed from watchlist`);render()},
   send:()=>sendModal(),receive:()=>receiveModal(),deposit:()=>S.connected?receiveModal('Deposit'):connectModal(()=>receiveModal('Deposit')),
+  tside:()=>{const w=S.swap,t=b.dataset.t;if(b.dataset.f==='sell'){w.from=t;w.to='SOL'}else{w.from='SOL';w.to=t}w.amt='';renderSwaps()},
   flip:()=>{const w=S.swap;[w.from,w.to]=[w.to,w.from];w.amt='';renderSwaps()},
   doswap:()=>{const w=S.swap,x=parseFloat(w.amt),out=usd(w.from,x)*.995/T[w.to].price,imp=impact(w.to,usd(w.from,x));
    const go=()=>{const f=w.from,t=w.to;w.amt='';renderSwaps();txRun(`Swap ${fmtAmt(x)} ${f} → ${fmtAmt(out)} ${t}`,()=>{S.bal[f]-=x;S.bal[t]=(S.bal[t]||0)+out;S.activity.unshift({k:'Swapped',d:`${fmtAmt(x)} ${f} for ${fmtAmt(out)} ${t}`,t:'Just now'});render()})};

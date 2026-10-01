@@ -902,17 +902,7 @@ html,body{overflow-x:clip;max-width:100%}
  .pright .mc{font-size:12px!important}
  .buyb{padding:5px 10px!important}
 }
-/* Landing chips on portrait phones: keep them inside the screen and clear of the
-   logo, headline and theme button. */
-@media (max-width:760px) and (orientation:portrait){
- .fx{font-size:11.5px;padding:5px 9px;gap:3px;max-width:42vw}
- .fx.m{font-size:11px}
- .fx svg{width:12px;height:12px}
- .fx.a{top:calc(env(safe-area-inset-top,0px) + 76px);left:3%;right:auto}
- .fx.b{top:calc(env(safe-area-inset-top,0px) + 132px);right:3%;left:auto}
- .fx.g{top:calc(env(safe-area-inset-top,0px) + 22px);left:4%;right:auto;margin:0}
-}
-@media (max-width:340px) and (orientation:portrait){.fx.g{display:none}}
+
 
 /* ---------- wallet sign-in sheet ---------- */
 .wsi-back{position:fixed;inset:0;z-index:1000;display:flex;align-items:flex-end;justify-content:center;background:rgba(4,12,20,.62);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));animation:wsiIn .18s ease-out}
@@ -932,3 +922,76 @@ html,body{overflow-x:clip;max-width:100%}
 /* ---------- real notifications ---------- */
 .notif .nmark{width:40px!important;height:40px!important;flex:none;border-radius:12px!important}
 .nic.welcome{background:var(--up);color:#0B1B27}.nic.system{background:var(--muted)}
+
+/* ---------- landing: live-calls tickers + logo chips ---------- */
+#landing .lx-top{align-items:center;gap:12px;padding:calc(env(safe-area-inset-top,0px) + 14px) 16px 0}
+#landing .lx-top .ltheme{flex:none}
+.lxtick{flex:1;min-width:0;overflow:hidden;position:relative;z-index:1;padding:6px 0;
+ -webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
+.lxtrack{display:flex;gap:10px;width:max-content;animation:lxscroll 46s linear infinite}
+.lxtick.rev .lxtrack{animation-direction:reverse;animation-duration:54s}
+.lxtick:hover .lxtrack{animation-play-state:paused}
+@keyframes lxscroll{to{transform:translateX(calc(-50% - 5px))}}
+.tk{display:inline-flex;align-items:center;gap:7px;flex:none;white-space:nowrap;height:34px;padding:0 13px 0 5px;border-radius:999px;
+ background:color-mix(in srgb,var(--bg2) 88%,transparent);border:1px solid var(--line);font:600 13px/1 var(--body);color:var(--text);
+ box-shadow:0 6px 18px -12px rgba(0,0,0,.6)}
+.tk b{font-weight:800}
+.tk i{font-style:normal;color:var(--muted);font-weight:600}
+.tk em{display:inline-flex;align-items:center;gap:2px;font-style:normal;font-weight:800;font-variant-numeric:tabular-nums}
+.tk em.up{color:var(--up)}
+.tk em svg{width:12px;height:12px}
+.tk .av,.tk .tokav{width:24px!important;height:24px!important;border-radius:50%;font-size:8.5px!important;flex:none;display:grid;place-items:center;color:#fff;font-weight:800}
+.tkfee{padding-left:13px;border-color:color-mix(in srgb,var(--up) 45%,transparent);background:color-mix(in srgb,var(--up) 12%,var(--bg))}
+.tklive{width:8px;height:8px;border-radius:50%;background:var(--up);margin-left:6px;box-shadow:0 0 0 0 color-mix(in srgb,var(--up) 60%,transparent);animation:tkpulse 1.6s ease-out infinite}
+@keyframes tkpulse{to{box-shadow:0 0 0 7px transparent}}
+#landing > .lxtick{flex:none;margin:4px 0 6px}
+
+/* Logo flanked by two live chips, always in view on every screen size. */
+.lxlogo{position:relative;display:inline-block;margin-bottom:22px}
+.lxlogo .lxmark{margin-bottom:0}
+.fx.lxs{top:50%;z-index:2;white-space:nowrap}
+.fx.lxs.l{right:calc(100% + 12px);translate:0 -90%;transform:rotate(-7deg)}
+.fx.lxs.r{left:calc(100% + 12px);translate:0 -10%;transform:rotate(6deg);animation-delay:-3s}
+@keyframes fxl{0%,100%{translate:0 -90%}50%{translate:0 calc(-90% - 10px)}}
+@keyframes fxr{0%,100%{translate:0 -10%}50%{translate:0 calc(-10% - 10px)}}
+.fx.lxs.l{animation-name:fxl}.fx.lxs.r{animation-name:fxr}
+/* the background chips duplicate the logo chips, so drop those two */
+.lfx .fx.a,.lfx .fx.b{display:none}
+@media (max-width:760px){
+ .lfx{display:none}
+ .fx.lxs{font-size:12px;padding:6px 10px;gap:3px}
+ .fx.lxs svg{width:12px;height:12px}
+ .fx.lxs.l{right:calc(100% + 8px)}.fx.lxs.r{left:calc(100% + 8px)}
+ .tk{height:32px;font-size:12.5px}
+}
+@media (max-width:340px){.fx.lxs{font-size:11px;padding:5px 8px}.fx.lxs.l{right:calc(100% + 4px)}.fx.lxs.r{left:calc(100% + 4px)}}
+@media (prefers-reduced-motion:reduce){.lxtrack{animation:none}.lxtick{overflow-x:auto;scrollbar-width:none}.tklive{animation:none}}
+
+/* ---------- buy / sell ---------- */
+.bstabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;margin:0 0 12px;border-radius:14px;background:var(--bg);border:1px solid var(--line)}
+.bstabs button{border:0;background:transparent;color:var(--muted);font:800 15px/1 var(--body);padding:11px 8px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;gap:6px;transition:background-color .15s,color .15s}
+.bstabs button .num{font-size:12px;font-weight:700;opacity:.8}
+.bstabs button.on.buy{background:var(--up);color:#06231A}
+.bstabs button.on.sell{background:var(--down);color:#fff}
+.bstabs button:not(.on):hover{color:var(--text);background:var(--hover)}
+.btn.sellb,.btn.primary.sellb{background:var(--down);color:#fff}
+.btn.sellb:disabled{opacity:.5}
+.bsrow{display:inline-flex;align-items:center;gap:6px}
+.btn.sellq{padding:6px 14px;background:transparent;color:var(--down);border:1.5px solid color-mix(in srgb,var(--down) 55%,transparent)}
+.btn.sellq:hover{background:color-mix(in srgb,var(--down) 12%,transparent)}
+@media (max-width:520px){.btn.sellq{padding:4px 10px!important}.pright .bsrow{gap:4px}}
+@media (max-width:400px){.btn.sellq{padding:4px 9px!important}}
+
+/* Four live chips around the logo (two per side), plus no clash with the top ticker. */
+.lfx .fx.g,.lfx .fx.c{display:none}
+.fx.lxs.l{translate:0 -125%}
+.fx.lxs.l2{right:calc(100% + 22px);translate:0 30%;transform:rotate(5deg);animation-name:fxl2;animation-delay:-5s}
+.fx.lxs.r{translate:0 -95%}
+.fx.lxs.r2{left:calc(100% + 26px);translate:0 45%;transform:rotate(-5deg);animation-name:fxr2;animation-delay:-1.5s}
+.fx.lxs.fee{color:var(--up);background:color-mix(in srgb,var(--up) 16%,var(--bg));border-style:dashed}
+@keyframes fxl{0%,100%{translate:0 -125%}50%{translate:0 calc(-125% - 9px)}}
+@keyframes fxr{0%,100%{translate:0 -95%}50%{translate:0 calc(-95% - 9px)}}
+@keyframes fxl2{0%,100%{translate:0 30%}50%{translate:0 calc(30% - 9px)}}
+@keyframes fxr2{0%,100%{translate:0 45%}50%{translate:0 calc(45% - 9px)}}
+@media (max-width:760px){.fx.lxs.l2{right:calc(100% + 12px)}.fx.lxs.r2{left:calc(100% + 14px)}}
+@media (max-width:340px){.fx.lxs.l2{right:calc(100% + 6px)}.fx.lxs.r2{left:calc(100% + 6px)}}
