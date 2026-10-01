@@ -18,18 +18,22 @@ export async function POST(req: Request) {
   const info = await getPrivyUser(privyId);
   const db = supabaseAdmin();
 
-  // No database yet: still let the user in with a derived profile.
-  if (!db) {
+  // A signed-in user must never be locked out because the database is missing or failing.
+  // They get a derived profile; it just isn't saved until the database is healthy.
+  const fallback = (reason: string) => {
+    console.error('[session] serving unsaved profile:', reason);
     const p: CallitProfile = {
       id: privyId, privy_id: privyId, handle: toHandle(info.xUsername || info.emailLocal, info.solanaWallet),
       display_name: info.name, bio: null, website: null, x_handle: info.xUsername, avatar_url: null, banner_url: null,
       wallet_address: info.solanaWallet,
     };
-    return NextResponse.json({ profile: p, isNew: false, persisted: false });
-  }
+    return NextResponse.json({ profile: p, isNew: false, persisted: false, reason });
+  };
+
+  if (!db) return fallback('no_database_config');
 
   const existing = await db.from('profiles').select('*').eq('privy_id', privyId).maybeSingle();
-  if (existing.error) return NextResponse.json({ error: 'db_read', detail: existing.error.message }, { status: 500 });
+  if (existing.error) return fallback(`db_read: ${existing.error.message}`);
 
   if (existing.data) {
     const patch: Record<string, unknown> = {};
@@ -51,10 +55,10 @@ export async function POST(req: Request) {
       .select('*')
       .single();
     if (!ins.error) return NextResponse.json({ profile: ins.data, isNew: true, persisted: true });
-    if (ins.error.code !== '23505') return NextResponse.json({ error: 'db_write', detail: ins.error.message }, { status: 500 });
+    if (ins.error.code !== '23505') return fallback(`db_write: ${ins.error.message}`);
     // 23505 = unique violation. If it was privy_id (race), read it back; otherwise try another handle.
     const again = await db.from('profiles').select('*').eq('privy_id', privyId).maybeSingle();
     if (again.data) return NextResponse.json({ profile: again.data, isNew: false, persisted: true });
   }
-  return NextResponse.json({ error: 'handle_taken' }, { status: 409 });
+  return fallback('handle_taken');
 }
