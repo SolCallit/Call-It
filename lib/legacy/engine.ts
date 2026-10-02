@@ -98,7 +98,13 @@ assistant:'<path d="M11 3.5l1.8 4.7 4.7 1.8-4.7 1.8L11 16.5l-1.8-4.7L4.5 10l4.7-
  lock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/>',
  down:'<path d="M6 9l6 6 6-6"/>',
  solglyph:'<path d="M6 6h14l-2 3H4zM6 15h14l-2 3H4zM4 10.5h14l2 3H6z" fill="currentColor" stroke="none"/>',
- eye:'<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'
+ eye:'<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+ logout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/>',
+ bookmark:'<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>',
+ bookmarks:'<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>',
+ draft:'<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M8 13h8M8 17h5"/>',
+ rotate:'<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>',
+ zoom:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M11 8v6M8 11h6"/>'
 };
 const ic=(k,s=22,fill=false)=>`<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="${fill?'currentColor':'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[k]}</svg>`;
 
@@ -199,7 +205,9 @@ try{S.notifyOn=JSON.parse(localStorage.getItem('callit.notify')||'{}')||{}}catch
  * follows, mutes, blocks, lists, watchlist, transactions and media. The UI updates
  * instantly; the server write happens in the background. */
 Object.assign(S,{cat:(()=>{try{const v=localStorage.getItem('callit.cat');return ['meme','perps','random'].includes(v)?v:'meme'}catch(_){return 'meme'}})(),
- muted:new Set(),blocked:new Set(),lists:[],followers:null});
+ muted:new Set(),blocked:new Set(),lists:[],followers:null,
+ bm:(()=>{try{return new Set(JSON.parse(localStorage.getItem('callit.bm')||'[]'))}catch(_){return new Set()}})()});
+const saveBm=()=>{try{localStorage.setItem('callit.bm',JSON.stringify([...S.bm]))}catch(_){}};
 const PUB={},AVURL={},RLOADED={};let SYNCWARN=0;
 async function API(path,o={}){const w=window.CallitWallet,tok=w&&w.token?await w.token().catch(()=>null):null,has=o.body!==undefined;
  const r=await fetch(path,{method:o.method||(has?'POST':'GET'),headers:{...(has?{'content-type':'application/json'}:{}),...(tok?{authorization:'Bearer '+tok}:{})},body:has?JSON.stringify(o.body):undefined,cache:'no-store'});
@@ -221,10 +229,14 @@ function bg(path,body,method){if(!SYNC())return Promise.resolve(null);
  return API(path,{body,method}).catch(e=>{console.warn('[callit] sync',path,e.message);if(!SYNCWARN++)toast('Couldn’t save that to your account. It’ll show until you reload');return null})}
 async function upMedia(list,kind='post'){const out=[];for(const u of list||[]){if(/^https?:/.test(u)){out.push(u);continue}const r=await API('/api/media',{body:{data:u,kind}});out.push(r.url)}return out}
 function liveAgo(o,at){if(!at)return o;o.at=at;Object.defineProperty(o,'ago',{configurable:true,enumerable:true,get(){const m=(Date.now()-o.at)/6e4;return m<1?'now':m<60?Math.round(m)+'m':m<1440?Math.round(m/60)+'h':Math.round(m/1440)+'d'}});return o}
-function nameOf(h){return h===S.me?(PROF.name||h):(PUB[h]&&PUB[h].display_name)||h}
+/* Display names seen on posts/replies, so every feed shows "Name @handle" without a profile fetch each. */
+const DN={};
+function nameOf(h){return h===S.me?(PROF.name||h):(PUB[h]&&!PUB[h].pending&&PUB[h].display_name)||DN[h]||h}
+/* X-style author line: bold display name, verified badge, muted @handle. Tapping it opens the profile. */
+function who(h){const n=nameOf(h);return `<a class="pwho" href="#/profile/${esc(h)}"><span class="pname">${esc(n)}</span>${vbadge(h)}${n!==h?`<span class="phandle">@${esc(h)}</span>`:''}</a>`}
 
 /* server rows -> feed items */
-function fromRow(r){if(!r||!r.handle)return null;if(r.avatar_url)AVURL[r.handle]=r.avatar_url;
+function fromRow(r){if(!r||!r.handle)return null;if(r.avatar_url)AVURL[r.handle]=r.avatar_url;if(r.display_name)DN[r.handle]=r.display_name;
  if(!C[r.handle])C[r.handle]={h:r.handle,win:0,avg:0,calls:0,best:0,followers:0,real:1};
  const k={id:r.id,srv:1,c:r.handle,kind:r.kind,thesis:r.body||'',media:r.media||[],likes:r.likes||0,reposts:r.reposts||0,replies:r.replies||0,views:Math.max(1,(r.likes||0)*9+(r.replies||0)*14),liked:!!r.liked,reposted:!!r.reposted,horizon:r.horizon||null};
  if(r.kind==='meme'){Object.assign(k,{t:r.mint,entry:+r.entry_mc,target:r.target_mc?+r.target_mc:null,buy:+r.buy_usd||0,snap:{sym:r.token_sym,name:r.token_name}})}
@@ -241,6 +253,7 @@ function loadPosts(){if(PBUSY)return;PBUSY=1;API('/api/posts?limit=60').then(j=>
 function loadMe(){if(!SYNC())return;API('/api/me').then(j=>{
   S.following=new Set(j.following||[]);S.muted=new Set(j.muted||[]);S.blocked=new Set(j.blocked||[]);S.lists=j.lists||[];S.followers=j.followers||0;
   if(j.watchlist&&j.watchlist.length)S.watch=new Set(j.watchlist);
+  if(Array.isArray(j.bookmarks)){const local=[...S.bm].filter(x=>!j.bookmarks.includes(x));S.bm=new Set([...j.bookmarks,...local]);saveBm();local.forEach(ref=>bg('/api/social',{action:'bookmark',ref,on:true}))}
   const R={};(j.reactions||[]).forEach(x=>{(R[x.post_ref]=R[x.post_ref]||{})[x.kind]=1});
   calls.forEach(k=>{const r=R[String(k.id)];if(!r)return;if(r.like&&!k.liked){k.liked=true;if(!k.srv)k.likes++}if(r.repost&&!k.reposted){k.reposted=true;if(!k.srv)k.reposts++}});
   S.ledger=j.transactions||[];S.activity=S.ledger.map(txRow);render()}).catch(e=>console.warn('[callit] /api/me',e.message))}
@@ -280,7 +293,7 @@ function pubP(h){const p=PUB[h];return p&&!p.pending?{name:p.display_name||'',bi
 const CATS=[['meme','Memes','trenches'],['perps','Perps','market'],['random','Random','smile']];
 function catOf(k){return k.kind||'meme'}
 function visible(k){return !S.muted.has(k.c)&&!S.blocked.has(k.c)}
-function catBar(){return `<div class="cats" role="tablist" aria-label="Feed type">${CATS.map(([k,l,i])=>`<button role="tab" aria-selected="${S.cat===k}" class="${S.cat===k?'on':''}" data-act="cat" data-f="${k}">${ic(i,15)}<span>${l}</span></button>`).join('')}</div>`}
+function catBar(){const i=CATS.findIndex(c=>c[0]===S.cat);return `<div class="cats tgl${S.cat==='perps'?' perps-on':''}" style="--i:${i};--n:${CATS.length}" role="tablist" aria-label="Feed type">${CATS.map(([k,l,i])=>`<button role="tab" aria-selected="${S.cat===k}" class="${S.cat===k?'on':''}" data-act="cat" data-f="${k}">${ic(i,15)}<span>${l}</span></button>`).join('')}</div>`}
 function catEmpty(){const E={meme:['No calls yet','Call a token you believe in. Your entry is stamped at the live market cap.','Make a call'],
  perps:['No perps calls yet','Call a long or short on SOL, BTC or ETH. Callit tracks the ROE live.','Call a perp'],
  random:['Nothing here yet','Not every post needs a chart. Share what you’re seeing, thinking or building.','Write a post']}[S.cat];
@@ -302,13 +315,17 @@ function perpNote(k,n){const p=k.perp,b=[];if(p.target)b.push('Target '+fmtPrice
  return b.join(' · ')+(b.length?' · ':'')+st}
 function followChip(h){return h!==S.me?`<button class="fchip${S.following.has(h)?' on':''}" data-act="follow" data-h="${h}" aria-label="${S.following.has(h)?'Following':'Follow'} ${esc(h)}">${S.following.has(h)?ic('check',12)+'<span>Following</span>':'+<span>Follow</span>'}</button>`:''}
 function moreBtn(k){return `<button class="ib pmore" data-act="pmenu" data-id="${k.id}" aria-label="More options">${ic('more',18)}</button>`}
-function phead(k){const r=rankOf(k.c);return `<div class="phead"><span class="pname">${esc(k.c)}</span>${vbadge(k.c)}${r&&catOf(k)==='meme'?`<span class="rk">#${r}</span>`:''}${catOf(k)==='perps'?'<span class="tag pk">Perps</span>':''}${followChip(k.c)}<time>${k.ago==='now'?'now':k.ago+' ago'}</time>${moreBtn(k)}</div>`}
+function phead(k){const r=rankOf(k.c);return `<div class="phead">${who(k.c)}${r&&catOf(k)==='meme'?`<span class="rk">#${r}</span>`:''}${catOf(k)==='perps'?'<span class="tag pk">Perps</span>':''}${followChip(k.c)}<time>${k.ago==='now'?'now':k.ago+' ago'}</time>${moreBtn(k)}</div>`}
+/* Watchlist star for meme + perps calls, bookmark for every post (random posts only get the bookmark). */
+function watchKey(k){return k.perp?(PERPM[k.perp.m]&&PERPM[k.perp.m].mint):k.kind==='random'?null:k.t}
+function xacts(k,sz=18){if(k.sponsored)return '';const wk=watchKey(k),w=wk&&S.watch.has(wk),bm=S.bm.has(String(k.id));
+ return `${wk?`<button class="act wact${w?' on':''}" data-act="track" data-t="${esc(wk)}" aria-pressed="${w}" aria-label="${w?'Remove from':'Add to'} watchlist" title="Watchlist">${ic('star',sz,w)}</button>`:''}<button class="act bmact${bm?' on':''}" data-act="bmark" data-id="${esc(String(k.id))}" aria-pressed="${bm}" aria-label="${bm?'Remove bookmark':'Bookmark'}" title="Bookmark">${ic('bookmark',sz,bm)}</button>`}
 function pbar(k,right=''){return `<div class="pbar"><div class="icons">
  <button class="act" data-act="reply" aria-label="Reply">${ic('reply',18)}<span class="num">${k.replies||''}</span></button>
  <button class="act${k.reposted?' reposted':''}" data-act="repost" data-id="${k.id}" aria-label="Repost">${ic('repost',18)}<span class="num">${k.reposts||''}</span></button>
  <button class="act${k.liked?' liked':''}" data-act="like" data-id="${k.id}" aria-label="Like">${ic('heart',18,k.liked)}<span class="num">${k.likes||''}</span></button>
  <span class="act views" aria-label="Views">${ic('views',18)}<span class="num">${fmtK(k.views||0)}</span></span>
- <button class="act" data-act="share" data-id="${k.id}" aria-label="Share">${ic('share',18)}</button></div>${right}</div>`}
+ ${xacts(k)}<button class="act" data-act="share" data-id="${k.id}" aria-label="Share">${ic('share',18)}</button></div>${right}</div>`}
 function perpCard(k){const p=k.perp,n=perpNums(k),L=p.side==='long';
  return `<div class="ccard pcard">${perpAv(p.m)}<div class="cn"><b>${p.m}-PERP</b><span><span class="pside ${L?'long':'short'}">${L?'Long':'Short'} ${+p.lev}x</span></span></div>
  <div class="cr2 num"><div><span>Entry</span><b>${fmtPrice(p.entry)}</b></div><div><span>${n&&n.liqd?'Liquidated':'ROE'}</span><b class="${n?(n.up?'up':'down'):'muted'}" data-roe="${k.id}">${n?fmtPct(n.roe):'—'}</b></div></div></div>`}
@@ -330,10 +347,15 @@ function perpTick(){calls.forEach(k=>{if(!k.perp)return;const n=perpNums(k);if(!
  Object.keys(PERPM).forEach(m=>{const px=perpPx(m);if(px)document.querySelectorAll(`[data-ppx="${m}"]`).forEach(el=>el.textContent=fmtPrice(px))})}
 
 /* ---------- compose: one sheet, three kinds ---------- */
-function kindSeg(cur){return `<div class="kseg" role="tablist" aria-label="What are you posting?">${CATS.map(([k,l,i])=>`<button type="button" role="tab" aria-selected="${cur===k}" class="${cur===k?'on':''}${k==='perps'?' klock':''}" data-ck="${k}"${k==='perps'?' aria-disabled="true"':''}>${ic(k==='perps'?'lock':i,16)}<span>${{meme:'Meme',perps:'Perps',random:'Random'}[k]}</span>${k==='perps'?'<small>Soon</small>':''}</button>`).join('')}</div>`}
-function wireKind(m,cur){m.querySelectorAll('[data-ck]').forEach(b=>b.onclick=()=>{if(b.dataset.ck==='perps')return toast('Perps calls are coming soon');if(b.dataset.ck===cur)return;const d=($('#cx',m)||{}).value||'';composeModal(b.dataset.ck,{draft:d})})}
+function kindSeg(cur){return `<div class="kseg tgl" style="--i:${CATS.findIndex(c=>c[0]===cur)};--n:3" role="tablist" aria-label="What are you posting?">${CATS.map(([k,l,i])=>`<button type="button" role="tab" aria-selected="${cur===k}" class="${cur===k?'on':''}${k==='perps'?' klock':''}" data-ck="${k}"${k==='perps'?' aria-disabled="true"':''}>${ic(k==='perps'?'lock':i,15)}<span class="kl">${{meme:'Meme',perps:'Perps',random:'Random'}[k]}</span>${k==='perps'?'<small class="ksoon">Soon</small>':''}</button>`).join('')}</div>
+ <div class="drow"><button type="button" class="lnk" data-drafts>${ic('draft',15)} Drafts${DRAFTS.length?` <span class="dcount">${DRAFTS.length}</span>`:''}</button><button type="button" class="lnk" data-dsave>Save draft</button></div>`}
+function wireKind(m,cur){m.querySelectorAll('[data-ck]').forEach(b=>b.onclick=()=>{if(b.dataset.ck==='perps')return toast('Perps calls are coming soon');if(b.dataset.ck===cur)return;const d=($('#cx',m)||{}).value||'';
+  const go=()=>{S.noDraft=1;composeModal(b.dataset.ck,{draft:d})};slideTo(b)?setTimeout(go,170):go()});
+ const ds=$('[data-dsave]',m),dl=$('[data-drafts]',m);
+ if(ds)ds.onclick=()=>{const tx=($('#cx',m)||{}).value||'',tk=($('#ct',m)||{}).value||'';if(!addDraft(cur,tx,tk))return toast('Write something first');S.noDraft=1;closeModal();toast('Saved to drafts')};
+ if(dl)dl.onclick=()=>{const tx=($('#cx',m)||{}).value||'',tk=($('#ct',m)||{}).value||'';if(addDraft(cur,tx,tk))toast('Current post saved to drafts');S.noDraft=1;draftsModal()}}
 function composeModal(kind,o={}){if(kind==='perps'){toast('Perps calls are coming soon');kind='meme'}if(!S.connected)return connectModal(()=>composeModal(kind,o));if(kind==='random')return randomModal(o);return callModal(o.pre,o.draft)}
-function afterPost(k,msg){calls.forEach(x=>x.fresh=false);calls.unshift(k);S.cat=catOf(k);try{localStorage.setItem('callit.cat',S.cat)}catch(_){}S.tab='foryou';closeModal();
+function afterPost(k,msg){calls.forEach(x=>x.fresh=false);calls.unshift(k);S.cat=catOf(k);try{localStorage.setItem('callit.cat',S.cat)}catch(_){}S.tab='foryou';S.noDraft=1;closeModal();
  if(location.hash!=='#/home')location.hash='#/home';else render();if(msg)toast(msg);scrollTo({top:0})}
 function perpModal(o={}){let mk='SOL',side='long',lev=10,hz='7 days';const CD={media:[]};
  modal('Make a call','Call a long or short. Entry is stamped at the live price when you post.',`${kindSeg('perps')}
@@ -563,7 +585,7 @@ function post(k){if(k.kind==='random')return postRandom(k);if(k.kind==='perps')r
  return `<article class="post${k.fresh?' fresh':''}" data-go="#/post/${k.id}" tabindex="0" aria-label="Call by ${esc(k.c)} on $${t.sym}">
  <a href="#/profile/${k.c}" aria-label="Open @${esc(k.c)}'s profile" class="pav">${avatar(k.c,'md')}</a>
  <div style="min-width:0">
-  <div class="phead"><span class="pname">${esc(k.c)}</span>${vbadge(k.c)}${r&&!k.sponsored?`<span class="rk">#${r}</span>`:''}${k.sponsored?'<span class="tag">Sponsored</span>':''}${k.c!==S.me?`<button class="fchip${S.following.has(k.c)?' on':''}" data-act="follow" data-h="${k.c}" aria-label="${S.following.has(k.c)?'Following':'Follow'} ${esc(k.c)}">${S.following.has(k.c)?ic('check',12)+'<span>Following</span>':'+<span>Follow</span>'}</button>`:''}<time>${k.ago==='now'?'now':k.ago+' ago'}</time>${k.sponsored?'':moreBtn(k)}</div>
+  <div class="phead">${who(k.c)}${r&&!k.sponsored?`<span class="rk">#${r}</span>`:''}${k.sponsored?'<span class="tag">Sponsored</span>':''}${k.c!==S.me?`<button class="fchip${S.following.has(k.c)?' on':''}" data-act="follow" data-h="${k.c}" aria-label="${S.following.has(k.c)?'Following':'Follow'} ${esc(k.c)}">${S.following.has(k.c)?ic('check',12)+'<span>Following</span>':'+<span>Follow</span>'}</button>`:''}<time>${k.ago==='now'?'now':k.ago+' ago'}</time>${k.sponsored?'':moreBtn(k)}</div>
   <p class="ptext">${esc(k.thesis)}</p>${mediaGrid(k.media)}
   <a class="ccard" href="#/token/${t.key}">${tokav(t.key)}<div class="cn"><b>${esc(t.name)}</b><span>$${t.sym} <span class="chain">${t.chain}</span></span></div>${right}</a>
   ${k.sponsored?`<div class="pnote">Paid promotion by ${esc(k.sponsor)}. Not counted in rankings.</div>`:`<div class="pnote">${k.target?`Target ${fmtUsd(k.target)} within ${esc(k.horizon)} · `:''}${k.buy?`<span class="bk">${ic('check',13)} Bought in</span>`:`<span class="bk no">No buy · earns no fees</span>`}${k.sold?` · <span class="sold">${ic('repost',13)} Caller sold ${k.sold.pct}% · ${k.sold.ago} ago</span>`:''}</div>`}
@@ -572,7 +594,7 @@ function post(k){if(k.kind==='random')return postRandom(k);if(k.kind==='perps')r
    <button class="act${k.reposted?' reposted':''}" data-act="repost" data-id="${k.id}" aria-label="Repost">${ic('repost',18)}<span class="num">${k.reposts||''}</span></button>
    <button class="act${k.liked?' liked':''}" data-act="like" data-id="${k.id}" aria-label="Like">${ic('heart',18,k.liked)}<span class="num">${k.likes||''}</span></button>
    <span class="act views" aria-label="Views">${ic('views',18)}<span class="num">${fmtK(k.views||0)}</span></span>
-   <button class="act" data-act="share" data-id="${k.id}" aria-label="Share">${ic('share',18)}</button></div>
+   ${xacts(k)}<button class="act" data-act="share" data-id="${k.id}" aria-label="Share">${ic('share',18)}</button></div>
    ${p===null?'':`<span class="pright"><a class="mc num ${nums(k).up?'up':'down'}" href="#/token/${t.key}" data-mc="${k.id}" title="Trade $${t.sym}">${fmtUsd(mcap(t))}<small>MC</small></a>${tradable(t)?`<span class="bsrow"><button class="btn primary sm buyb" data-act="qbuy" data-t="${t.key}" data-id="${k.id}">Buy</button>${S.connected&&S.bal[t.key]>0?`<button class="btn sm sellq" data-act="qsell" data-t="${t.key}" data-id="${k.id}">Sell</button>`:''}</span>`:''}</span>`}
   </div></div></article>`}
 
@@ -631,12 +653,31 @@ function vHome(){let list=calls.filter(k=>visible(k)&&catOf(k)===S.cat),empty=ca
  if(S.tab==='following'){list=list.filter(k=>S.following.has(k.c));
   empty=`<div class="pad"><div class="empty" style="padding:28px 12px 8px"><b class="h2">Follow callers you trust</b><p>Their calls land here the moment they post.</p></div>
   ${ranked().slice(0,4).map(c=>`<div class="sugg">${avatar(c.h,'md')}<div class="grow"><a class="pname" href="#/profile/${c.h}">${c.h}</a><div class="hint">${c.win}% win rate over ${c.calls} calls</div></div><button class="btn sm primary" data-act="follow" data-h="${c.h}">Follow</button></div>`).join('')}</div>`}
- if(S.tab==='watchlist'){list=list.filter(k=>S.watch.has(k.t));
-  empty=`<div class="empty"><b class="h2">Your watchlist is empty</b><p>Tap the star on any token to add it. Every new call on it shows up here.</p><a class="btn primary" href="#/market">Browse the market</a></div>`}
+ if(S.tab==='watchlist')return homeTabs()+vWatch();
  return `${homeTabs()}
  <div class="newpill" id="newpill">${S.queued.length&&S.tab==='foryou'?newPill():''}</div>
  ${S.tab==='foryou'&&S.cat==='meme'?topCalls():''}
  <div id="feed">${(S.tab==='foryou'?withAds(list):list.map(post).join(''))||empty}</div>`}
+/* Watchlist: just the token, price, volume and market cap, with Buy / Sell that open the real trade sheet. */
+let WLOAD=0;
+function watchFill(){const miss=[...S.watch].filter(k=>isMintStr(k)&&(!T[k]||!T[k].live));const now=Date.now();
+ if(!miss.length||now-WLOAD<8000)return;WLOAD=now;fetchTokens(miss.slice(0,50)).then(l=>{l.forEach(regLive);if(S.tab==='watchlist'&&currentRoute()==='home')render()}).catch(()=>{})}
+function wrow(t){const key=t.key,h=S.bal[key]||0,ch=chgOf(t,'24h'),can=tradable(t);
+ return `<div class="wrow" data-go="#/token/${esc(key)}">${tokav(key)}<div class="wname"><b>${esc(t.name||t.sym)}</b><span class="hint">$${esc(t.sym)}${ch!=null?` · <span class="${pcls(ch)}">${pctS(ch)}</span>`:''}</span></div>
+ <div class="wnums num"><div><span>Price</span><b data-wpx="${esc(key)}">${t.price?fmtSmall(t.price):'—'}</b></div><div><span>Vol</span><b>${t.vol?fmtSmall(t.vol):'—'}</b></div><div><span>MC</span><b data-wmc="${esc(key)}">${t.price?fmtSmall(mcap(t)):'—'}</b></div></div>
+ <div class="wbtns">${can?`<button class="btn primary sm" data-act="qbuy" data-t="${esc(key)}">Buy</button><button class="btn sm sellq${h>0?'':' dim'}" data-act="${h>0?'qsell':'nosell'}" data-t="${esc(key)}">Sell</button>`:''}<button class="ib sm wrm" data-act="track" data-t="${esc(key)}" aria-label="Remove $${esc(t.sym)} from watchlist" title="Remove">${ic('star',17,true)}</button></div></div>`}
+function vWatch(){watchFill();const keys=[...S.watch],rows=keys.map(k=>T[k]).filter(t=>t&&!t.base),wait=keys.filter(k=>!T[k]&&isMintStr(k)).length;
+ if(!keys.length)return `<div class="empty"><b class="h2">Your watchlist is empty</b><p>Tap the star on any token in the Market, Search or on a call and it shows up here with live price, volume and market cap.</p><a class="btn primary" href="#/market">Browse the market</a></div>`;
+ return `<div class="wlist">${rows.map(wrow).join('')}${wait?`<div class="wrow skel" aria-hidden="true"><span class="tokav"></span><div class="wname"><i></i><i></i></div></div>`.repeat(Math.min(wait,3)):''}</div>
+ <p class="hint pad">Prices update live. Buy and Sell swap through Jupiter from your own wallet.</p>`}
+/* Bookmarks: posts you saved, newest saved first. Posts not in the loaded feed are fetched by id. */
+let BLOAD=0;
+function vBookmarks(){const ids=[...S.bm].reverse(),have=new Map(calls.map(k=>[String(k.id),k]));
+ const miss=ids.filter(id=>!have.has(id)&&/^[0-9a-f-]{36}$/i.test(id));
+ if(miss.length&&Date.now()-BLOAD>10000){BLOAD=Date.now();API('/api/posts?ids='+miss.slice(0,60).join(',')).then(j=>{if(mergePosts(j.posts||[])&&currentRoute()==='bookmarks')render()}).catch(()=>{})}
+ const list=ids.map(id=>have.get(id)).filter(k=>k&&visible(k));
+ if(!S.bm.size)return `<div class="empty"><span class="eic">${ic('bookmark',26)}</span><b class="h2">Save posts for later</b><p>Tap the bookmark on any call or post. Only you can see what you save.</p><a class="btn primary" href="#/home">Go to Home</a></div>`;
+ return `<div class="pad bmhead"><span class="muted">${S.bm.size} saved</span><button class="lnk" data-act="bmclear">Clear all</button></div><div id="feed">${list.map(post).join('')}${miss.length&&list.length<ids.length?`<div class="post pskel" aria-hidden="true"><span class="av md"></span><div><i></i><i></i><i></i><b></b></div></div>`:''}</div>`}
 const newPill=()=>`<button data-act="shownew">${S.queued.slice(0,2).map(k=>avatar(k.c)).join('')}<span style="margin-left:${S.queued.length>1?-8:0}px"></span>New calls</button>`;
 
 function vMarket(){const rows=Object.values(T).filter(t=>!t.base);
@@ -710,7 +751,7 @@ function heat(t){const cs=callsOn(t);if(!cs.length)return '';const who=[...new S
 function trow(t){const x=trenchStats(t),m=mcap(t),y=t.ageH<1,red=(v,lim)=>v==null?'muted':v>lim?'down':'up',pv=v=>v==null?'—':v+'%',D=TS.disp,b=bond(t),tf=S.rowTf||'1h',cv=chgOf(t,tf),fl=t._pm&&t._pm!==m?(m>t._pm?' fl-up':' fl-dn'):'';t._pm=m;
  const soc=(t.soc||'').split('').map(c=>({x:ic('xlogo',15),w:ic('globe',15),c:ic('people',15)})[c]).join('');
  return `<a class="trow${D.compact?' compact':''}${D.pro?'':' lite'}" href="#/token/${t.key}"><span class="tav ${t.chg>=0?'ok':'bad'}" style="--b:${b.toFixed(0)}%">${tokav(t.key)}<i class="chainb">${ic('solglyph',11)}</i></span>
- <div class="tmid"><div class="tname"><b>${esc(t.name)}</b>${t.hot?'<span class="hot">HOT</span>':''}</div>
+ <div class="tmid"><div class="tname"><b>${esc(t.name)}</b>${t.hot?'<span class="hot">HOT</span>':''}<button class="wstar${S.watch.has(t.key)?' on':''}" data-act="track" data-t="${esc(t.key)}" aria-pressed="${S.watch.has(t.key)}" aria-label="${S.watch.has(t.key)?'Remove from':'Add to'} watchlist" title="Watchlist">${ic('star',15,S.watch.has(t.key))}</button></div>
  <div class="tsub"><span>${esc(t.sym)}</span><span class="${y?'my':'up'}">${ic('sprout',13)}${ageStr(t.ageH)}</span><span class="soc">${soc}</span></div>${D.heat?heat(t):''}</div>
  ${D.pro?`<div class="tst num"><span class="up" title="Holders">${ic('profile',13)}${fmtK(t.holders)}</span><span class="${red(x.top,10)}" title="Top 10 holders">${ic('target',13)}${pv(x.top)}</span><span class="${red(x.dev,10)}" title="Dev holding">${ic('stake',13)}${pv(x.dev)}</span>${x.snip==null?'':`<span class="${red(x.snip,5)}" title="Snipers">${ic('sniper',13)}${pv(x.snip)}</span>`}${x.ins==null?'':`<span class="${red(x.ins,15)}" title="Insiders">${ic('crown',13)}${pv(x.ins)}</span>`}<em class="tchg ${pcls(cv)}" title="Price change, ${tf}">${pctS(cv)}<small>${tf}</small></em></div>`:''}
  <div class="tr num">${D.spark?spark(t):''}<div>${D.pro?`<span class="k">V</span> ${fmtUsd(t.vol).replace(/\.\d+([KMB])/,'$1')} `:''}<span class="k">MC</span> <b class="${mcCls(m)}${fl}" data-tmc="${t.key}">${fmtUsd(m)}</b></div>
@@ -827,7 +868,8 @@ function vLiveToken(t){const key=t.key,tr=S.watch.has(key),on=calls.filter(k=>k.
  <div id="feed" style="border-top:1px solid var(--line);margin-top:10px">${on.map(post).join('')||'<div class="empty"><b>No calls yet</b><p>Call it first and your entry gets stamped at the live market cap.</p></div>'}</div>`}
 /* Light refresh of a live token page without touching the chart. */
 function liveTick(t){const pr=$('#lprice'),cg=$('#lchg'),st=$('#lstats');if(!pr)return;const ch=((t.L||{}).chg||{}).h24;
- pr.textContent=S.lmode==='mc'?fmtSmall(mcap(t)):fmtSmall(t.price);cg.className='num '+pcls(ch);cg.textContent=pctS(ch)+' 24h';st.innerHTML=liveStats(t);renderSwaps()}
+ const dir=t._lp?Math.sign(t.price-t._lp):0;t._lp=t.price;if(LCHART&&LCHART.tick)LCHART.tick(t.price);
+ flashSet(pr,S.lmode==='mc'?fmtSmall(mcap(t)):fmtSmall(t.price),dir);cg.className='num '+pcls(ch);cg.textContent=pctS(ch)+' 24h';st.innerHTML=liveStats(t);renderSwaps()}
 function vToken(sym){const t=T[sym];if(!t)return isMintStr(sym)?(loadLiveToken(sym),vTokenLoading(sym)):vHome();if(t.live)return vLiveToken(t);const on=calls.filter(k=>k.t===sym),tr=S.watch.has(sym);
  const head=`<div class="pad" style="padding-bottom:0"><div style="display:flex;align-items:center;gap:12px">${tokav(t.key)}<div style="flex:1;min-width:0"><b class="h2">${esc(t.name)}</b> <span class="muted">$${t.sym}</span><div><span class="chain">${t.chain}</span> <button class="copyca" data-act="copy" data-v="${esc(t.ca)}">${short(t.ca)} ${ic('copy',13)}</button></div></div>
  <button class="btn sm ${tr?'primary':'ghost'}" data-act="track" data-t="${sym}">${ic('star',15,tr)} ${tr?'On watchlist':'Watchlist'}</button></div>`;
@@ -851,24 +893,26 @@ function vLeaders(){return `<div class="pad" style="display:flex;justify-content
 function vWallet(){if(!S.connected)return `<div class="empty"><b class="h2">No wallet connected</b><p>Sign in with email, Google or X and we create a wallet for you. Or connect Phantom, Solflare or Backpack. You always hold your own keys.</p><button class="btn primary" data-act="connect">Connect wallet</button></div>`;
  const rows=Object.entries(S.bal).filter(([k,a])=>a>0&&T[k]).sort((x,y)=>(usd(y[0],y[1])||0)-(usd(x[0],x[1])||0)),tot=rows.reduce((s,[k,a])=>s+(usd(k,a)||0),0);
  return `<div class="pad"><div class="muted">Total balance</div><div class="bal num">${fmtUsd(tot)}</div>${(()=>{const st=statsOf(S.me);return st.n?`<div class="wpnl num"><span class="${st.pnl>=0?'up':'down'}">${money(st.pnl)}</span> all-time PnL${st.vol?` · ${fmtUsd(st.vol)} volume`:''}</div>`:''})()}
+ <div style="margin-top:14px">${ytdCard()}</div>
  <button class="copyca" style="margin-top:10px" data-act="copy" data-v="${S.addr}">${short(S.addr)} ${ic('copy',13)}</button>
  <div class="acts2"><button class="btn primary" data-act="deposit">${ic('down',16)} Deposit</button><button class="btn" data-act="withdraw">${ic('up',16)} Withdraw</button></div>
  <div class="list">${(()=>{const B=pnlBook();return rows.map(([k,a])=>{const x=posPnl(k,B);return holdRow(k,a,usd(k,a)||0,x?x.pnl:null,x?x.pct:null,1)}).join('')})()}</div>
  <b class="h2" style="display:block;margin:22px 0 4px">History</b><div class="list">${S.activity.map(a=>`<div class="li"><div class="grow"><b>${esc(a.k)}</b><div class="hint">${esc(a.t)}${a.sig?` · <a class="lnk" href="https://solscan.io/tx/${a.sig}" target="_blank" rel="noopener noreferrer">View</a>`:''}</div></div><div class="r num">${esc(a.d)}</div></div>`).join('')||'<div class="empty" style="padding:18px 8px"><b>No history yet</b><p>Deposits, trades and withdrawals show up here.</p></div>'}</div></div>`}
 
-function vProfile(h){if(!h&&S.connected)h=S.me;if(h&&!C[h]&&/^[A-Za-z0-9_]{1,30}$/.test(h)){C[h]={h,win:0,avg:0,calls:0,best:0,followers:0,real:1}}if(h&&h!==S.me&&!PUB[h])loadPub(h);const c=C[h];
+let MEAT=0;
+function vProfile(h){if(!h&&S.connected)h=S.me;if(h&&h===S.me&&realAuth()&&Date.now()-MEAT>15000){MEAT=Date.now();setTimeout(loadMe,0)}if(h&&!C[h]&&/^[A-Za-z0-9_]{1,30}$/.test(h)){C[h]={h,win:0,avg:0,calls:0,best:0,followers:0,real:1}}if(h&&h!==S.me&&!PUB[h])loadPub(h);const c=C[h];
  if(!c)return `<div class="empty"><b class="h2">Your profile</b><p>Connect a wallet to create your caller profile and start building a track record.</p><button class="btn primary" data-act="connect">Connect wallet</button></div>`;
  if(S.ptabFor!==h){S.ptab='calls';S.ptabFor=h}
  if(S.blocked.has(h))return blockedView(h);
  const mine=calls.filter(k=>k.c===h),me=h===S.me,r=rankOf(h),f=S.following.has(h);
- const pb=PUB[h]&&!PUB[h].pending?PUB[h]:null,P=me?PROF:pubP(h),nm=P.name||h,fg=me?S.following.size:pb?pb.following:followingOf(h).length,fr=me?(S.followers!=null?S.followers:followersOf(h).length):pb?pb.followers:c.followers+(f?1:0);
+ const pb=PUB[h]&&!PUB[h].pending?PUB[h]:null,P=me?PROF:pubP(h),nm=P.name||DN[h]||h,fg=me?S.following.size:pb?pb.following:c.real?0:followingOf(h).length,fr=me?(S.followers!=null?S.followers:0):pb?pb.followers:c.real?0:c.followers+(f?1:0);
  return `<div class="banner" style="${bannerBg(h)}">${me?`<button class="bnadd" data-act="editprof" data-f="banner" aria-label="${PROF.banner?'Change':'Add a'} banner">${ic('camera',20)}<span>${PROF.banner?'Change banner':'Add a banner'}</span></button>`:''}</div>
- <div class="phero"><div class="top"><span class="avwrap">${avatar(h,'lg')}${r&&r<=3?`<span class="rkbadge">#${r}</span>`:''}</span>${me?'<span style="display:flex;gap:8px"><button class="ib" data-act="shprof" data-h="'+esc(h)+'" aria-label="Share your profile">'+ic('share',18)+'</button><button class="btn sm editp" data-act="editprof">'+ic('pen',15)+' Edit profile</button></span>':`<span style="display:flex;gap:8px"><button class="ib" data-act="shprof" data-h="${esc(h)}" aria-label="Share ${esc(h)}'s profile">${ic('share',18)}</button><button class="ib" data-act="profmenu" data-h="${h}" aria-label="More options for ${esc(h)}">${ic('more',18)}</button><button class="ib" data-act="dm" data-h="${h}" aria-label="Message ${esc(h)}">${ic('messages',18)}</button><button class="btn sm ${f?'ghost':'primary'}" data-act="follow" data-h="${h}">${f?'Following':'Follow'}</button></span>`}</div>
+ <div class="phero"><div class="top"><button class="avwrap avbtn" data-act="viewav" data-h="${esc(h)}" aria-label="View profile photo">${avatar(h,'lg')}${r&&r<=3?`<span class="rkbadge">#${r}</span>`:''}</button>${me?'<span style="display:flex;gap:8px"><button class="ib" data-act="shprof" data-h="'+esc(h)+'" aria-label="Share your profile">'+ic('share',18)+'</button><button class="btn sm editp" data-act="editprof">'+ic('pen',15)+' Edit profile</button></span>':`<span style="display:flex;gap:8px"><button class="ib" data-act="shprof" data-h="${esc(h)}" aria-label="Share ${esc(h)}'s profile">${ic('share',18)}</button><button class="ib" data-act="profmenu" data-h="${h}" aria-label="More options for ${esc(h)}">${ic('more',18)}</button><button class="ib" data-act="dm" data-h="${h}" aria-label="Message ${esc(h)}">${ic('messages',18)}</button><button class="btn sm ${f?'ghost':'primary'}" data-act="follow" data-h="${h}">${f?'Following':'Follow'}</button></span>`}</div>
  <div class="pname2"><b class="h2">${esc(nm)}</b>${vbadge(h)}${r?`<span class="rk">${ic('leaderboard',13)} Rank #${r}</span>`:''}</div><div class="muted">@${esc(h)}</div>
  ${P.bio?`<p class="pbio">${esc(P.bio)}</p>`:me?`<p class="pbio muted">Add a bio so people know what you call. <button class="lnk" data-act="editprof" style="padding:0">Add bio</button></p>`:''}
  <div class="pmeta">${P.web?`<a href="${esc(/^https?:/.test(P.web)?P.web:'https://'+P.web)}" target="_blank" rel="noopener">${ic('globe',15)} ${esc(P.web.replace(/^https?:\/\//,''))}</a>`:''}${P.x?`<a href="https://x.com/${esc(P.x.replace('@',''))}" target="_blank" rel="noopener">${ic('xlogo',14)} @${esc(P.x.replace('@',''))}</a>`:''}<span>${ic('wallet',15)} ${me&&S.addr?short(S.addr):'Solana caller'}</span></div>
- <div class="pfollow"><button data-act="follows" data-h="${h}" data-f="following"><b>${fmtK(fg)}</b> Following</button><button data-act="follows" data-h="${h}" data-f="followers"><b>${fmtK(fr)}</b> Followers</button><a class="rkchip${r?' on':''}" href="#/leaderboard">${ic('leaderboard',14)}${r?`Rank <b>#${r}</b>`:'Unranked'}</a></div>
- ${r?'':`<p class="hint" style="margin:6px 0 0">Not ranked yet. 10 calls to qualify for the leaderboard.</p>`}
+ <div class="pfollow"><button data-act="follows" data-h="${h}" data-f="following"><b>${fmtK(fg)}</b> Following</button><button data-act="follows" data-h="${h}" data-f="followers"><b>${fmtK(fr)}</b> Followers</button>${rankChip(h)}</div>
+ ${me?ytdCard():''}
  <div class="pstats p6 num">${(()=>{const st=statsOf(h);return `<div><span>All-time PnL</span><b class="${st.n?(st.pnl>=0?'up':'down'):''}">${st.n?money(st.pnl):'—'}</b></div><div><span>Volume</span><b>${st.vol?fmtUsd(st.vol):'—'}</b></div>`})()}<div><span>Win rate</span><b>${c.calls?c.win+'%':'—'}</b></div><div><span>Avg return</span><b>${c.calls?fmtPct(c.avg):'—'}</b></div><div><span>Calls</span><b>${c.calls}</b></div><div><span>Best call</span><b>${c.best?fmtPct(c.best):'—'}</b></div></div></div>
  <div class="tabs" style="position:static">${[['calls','Calls'],['holdings','Holdings'],['activity','Activity']].map(([k,l])=>`<button class="${(S.ptab||'calls')===k?'on':''}" data-act="ptab" data-f="${k}">${l}</button>`).join('')}</div>
  <div id="feed">${ptabBody(h,me)||mine.map(post).join('')||`<div class="empty"><b>No calls yet</b>${me?'<p>Your calls and their performance show up here.</p><button class="btn primary" data-act="newcall">Make a call</button>':''}</div>`}</div>`}
@@ -922,19 +966,24 @@ async function astSend(text){const q=String(text||'').trim();if(!q||AST.busy)ret
 
 /* ---------- chrome ---------- */
 const NAV_A=[['home','Home'],['market','Market'],['notifications','Notifications'],['swap','Swap'],['stake','Stake'],['wallet','Wallet'],['profile','Profile'],['assistant','Assistant']];
-const NAV_B=[['leaderboard','Leaderboard'],['messages','Messages'],['lists','Lists'],['news','News'],['promote','Promote'],['about','About']];
-const TITLES=Object.fromEntries([...NAV_A,...NAV_B,['token','Token'],['community','Community'],['post','Post'],['premium','Premium'],['messages','Messages']]);
+const NAV_B=[['leaderboard','Leaderboard'],['messages','Messages'],['bookmarks','Bookmarks'],['lists','Lists'],['news','News'],['promote','Promote'],['about','About']];
+const TITLES=Object.fromEntries([...NAV_A,...NAV_B,['bookmarks','Bookmarks'],['token','Token'],['community','Community'],['post','Post'],['premium','Premium'],['messages','Messages']]);
 P.lists=P.list;
 const NAVH={stack:[],cur:location.hash||'#/home',back:false};
 function goBack(){const prev=NAVH.stack.pop();NAVH.back=true;location.hash=prev&&prev!==location.hash?prev:'#/home'}
 function chrome(route){const link=([k,l])=>`<a href="#/${k}" class="${route===k?'on':''}" title="${l}">${k==='notifications'?`<span class="nbadge">${ic('bell')}${unreadN()?`<i>${unreadN()}</i>`:''}</span>`:ic(k)}<span class="lbl">${l}</span></a>`;
- $('#navA').innerHTML=NAV_A.map(link).join('');$('#navB').innerHTML=NAV_B.map(link).join('');
- $('#acct').innerHTML=S.connected?`<button class="acct" data-act="disconnect" title="Disconnect">${avatar(S.me)}<span class="lbl" style="min-width:0"><b style="display:block">${esc(S.me)}</b><span class="hint num">${short(S.addr)}</span></span></button>`
+ $('#navA').innerHTML=NAV_A.map(link).join('');$('#navB').innerHTML=NAV_B.map(link).join('')+`<a href="#/premium" class="navprem${route==='premium'?' on':''}${isPrem(S.me)?' active':''}" title="Premium">${ic('verified',20)}<span class="lbl">Premium</span></a>`;
+ $('#acct').innerHTML=S.connected?`<div class="acctrow"><a class="acct" href="#/profile/${esc(S.me)}" title="Your profile">${avatar(S.me)}<span class="lbl" style="min-width:0"><b style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(nameOf(S.me))}</b><span class="hint num">@${esc(S.me)}</span></span></a><button class="ib logout" data-act="logout" aria-label="Log out" title="Log out">${ic('logout',19)}</button></div>`
   :`<button class="btn primary connect" data-act="connect" title="Connect wallet">${ic('wallet',20)}<span class="lbl">Connect wallet</span></button>`;
- $('#pill').innerHTML=`<button class="btn primary sm dep" data-act="deposit">${ic('down',15)}<span>Deposit</span></button>
+ $('#pill').innerHTML=`<a class="btn sm swp${route==='swap'?' on':''}" href="#/swap">${ic('swap',15)}<span>Swap</span></a><button class="btn primary sm dep" data-act="deposit">${ic('down',15)}<span>Deposit</span></button>
   <button class="ib" data-act="theme" aria-label="Switch theme">${ic('sun')}</button>`;
  syncTray();
- $('#title').textContent=TITLES[route]||'Home';{const u=$('#upg'),on=isPrem(S.me);u.hidden=route!=='home';u.classList.toggle('on',!!on);u.innerHTML=`${ic('verified',18)}<span>Premium</span>`}const bk=$('#back');bk.hidden=route==='home';bk.innerHTML=ic('back',20)}
+ {let bt=$('#btabs');if(!bt){bt=document.createElement('nav');bt.id='btabs';bt.className='btabs';bt.setAttribute('aria-label','Main');document.body.appendChild(bt)}
+  bt.innerHTML=[['home','Home','home'],['market','Market','market'],['swap','Swap','swap'],['notifications','Alerts','bell'],[S.connected?'profile/'+S.me:'profile','Profile','profile']].map(([h,l,i])=>{const on=route===h.split('/')[0];
+   return `<a href="#/${h}" class="${on?'on':''}" aria-label="${l}">${i==='bell'?`<span class="nbadge">${ic('bell',23)}${unreadN()?`<i>${unreadN()}</i>`:''}</span>`:ic(i,23)}<span>${l}</span></a>`}).join('')}
+ $('#title').textContent=TITLES[route]||'Home';{const u=$('#upg'),on=isPrem(S.me);u.hidden=true;u.classList.toggle('on',!!on);u.innerHTML=`${ic('verified',18)}<span>Premium</span>`}const bk=$('#back');bk.hidden=route==='home';bk.innerHTML=ic('back',20);
+ // phones: the side tray is hidden, so the logo in the header opens it (like X's avatar menu)
+ if(!$('#mmenu')){const mm=document.createElement('button');mm.id='mmenu';mm.className='mmenu';mm.dataset.act='collapse';mm.setAttribute('aria-label','Open menu');mm.innerHTML='<span class="mark" aria-hidden="true"></span>';$('.hdr').prepend(mm)}}
 
 const isPhone=()=>matchMedia('(max-width:760px)').matches;
 function syncTray(){const open=!document.body.classList.contains('collapsed'),b=$('#brand');b.setAttribute('aria-expanded',open);b.setAttribute('aria-label',open?'Close menu':'Open menu')}
@@ -946,9 +995,15 @@ function mountLiveChart(){const el=$('#lchart');if(!el)return;const t=T[el.datas
 /* Keep live screens fresh. Paused when the tab is hidden. Market + open token every 6s, call tokens every 9s. */
 let LTICK=0;setInterval(()=>{if(document.hidden)return;LTICK++;const [,r,p]=location.hash.split('/');
  if(r==='market'&&LTICK%2===0&&!document.querySelector('.sheet.open')){(lfIds(S.tt,filOf(S.tt))||[]).forEach(id=>loadFeed(id))}
- else if(r==='token'&&T[p]&&T[p].live&&LTICK%2===0)loadLiveToken(p,true);
+ else if(r==='token'&&T[p]&&T[p].live&&!LIVE.tokBusy[p]&&false)loadLiveToken(p,true);
  if(LTICK%3===0&&(!r||r==='home'||r==='post'||r==='profile'))refreshCallTokens();
  if(LTICK%7===0&&['wallet','token','swap','profile'].includes(r||'home'))loadBalances()},3000);
+/* Live token page: price, stats and the newest candle refresh every 2 seconds. */
+setInterval(()=>{if(document.hidden)return;const [,r,p]=location.hash.split('/');if(r==='token'&&p&&T[p]&&T[p].live)loadLiveToken(p,true)},2000);
+/* Watchlist prices on Home: every 6 seconds, patched in place. */
+setInterval(()=>{if(document.hidden||S.tab!=='watchlist'||currentRoute()!=='home')return;const ks=[...S.watch].filter(isMintStr);if(!ks.length)return;
+ fetchTokens(ks.slice(0,50)).then(l=>l.forEach(x=>{const t=regLive(x);if(!t)return;const a=document.querySelector(`[data-wpx="${t.key}"]`),b=document.querySelector(`[data-wmc="${t.key}"]`);
+  const dir=t._wp?Math.sign(t.price-t._wp):0;t._wp=t.price;if(a)flashSet(a,fmtSmall(t.price),dir);if(b)flashSet(b,fmtSmall(mcap(t)),dir)})).catch(()=>{})},6000);
 function render(){if(isPhone())document.body.classList.add('collapsed');const [,r0='home',p]=location.hash.split('/');const r=r0||'home';let html;
  if(r==='token'&&p&&!T[p]&&LIVEMAP[p]){location.replace('#/token/'+LIVEMAP[p]);return}
  if(r==='community')html=vRoom(p);
@@ -960,7 +1015,7 @@ function render(){if(isPhone())document.body.classList.add('collapsed');const [,
    <div class="popt" style="margin-top:16px"><div class="pstake" style="margin:0 0 14px"><div><span>Your $CALLIT</span><b class="num">0</b></div><div><span>Staked</span><b class="num">0</b></div><div><span>Rewards</span><b class="num">0</b></div></div>
    <button class="btn primary block" data-act="stakewait">${S.stakeWait?'You\'re on the list':'Notify me at launch'}</button><a class="btn ghost block" href="#/premium" style="margin-top:8px">See Premium</a></div></div>`,'stake','$CALLIT staking is coming','Stake $CALLIT to keep Premium, earn protocol rewards and get cheaper promotions. Opens when $CALLIT launches on mainnet.',['Non-custodial: your tokens stay yours','Premium for as long as you stay staked']),
   messages:()=>vMessages(p),lists:()=>vLists(p),
-  news:vNews,premium:vPremium,notifications:vNotifs,assistant:vAssistant}[r]||vHome)();
+  news:vNews,premium:vPremium,notifications:vNotifs,assistant:vAssistant,bookmarks:vBookmarks}[r]||vHome)();
  if(LCHART){LCHART();LCHART=null}
  $('#view').innerHTML=html;$('#rail').innerHTML=rail();chrome(r);renderSwaps();skin($('#view'));syncLanding();mountLiveChart();
  if(r==='post'){wireAttach($('#rbox'),RDRAFT,()=>drawRMedia());if(S.focusReply){S.focusReply=false;setTimeout(()=>{const i=$('#rin');i&&i.focus()},60)}}}
@@ -976,7 +1031,9 @@ function skin(root){(root||document).querySelectorAll('select.input:not([data-sk
   m.innerHTML=[...sel.options].map((o,i)=>`<button type="button" role="option" aria-selected="${i===sel.selectedIndex}" class="${i===sel.selectedIndex?'on':''}" data-i="${i}">${esc(o.text)}${i===sel.selectedIndex?ic('check',16):''}</button>`).join('');
   b.after(m);m.onclick=ev=>{const x=ev.target.closest('[data-i]');if(!x)return;ev.stopPropagation();sel.selectedIndex=+x.dataset.i;sel.dispatchEvent(new Event('change',{bubbles:true}));lab();m.remove()}}})}
 document.addEventListener('click',e=>{const m=document.querySelector('.cmenu');if(m&&!e.target.closest('.cmenu'))m.remove()},true);
-const closeModal=()=>{$('#modal').innerHTML='';if(S.dirty){S.dirty=0;render()}};
+const closeModal=()=>{const m=$('#modal');
+ if(!S.noDraft&&m.querySelector('[data-dsave]')){const tx=($('#cx',m)||{}).value||'',tk=($('#ct',m)||{}).value||'',k=(m.querySelector('[data-ck].on')||{dataset:{}}).dataset.ck||'meme';if(tx.trim()&&addDraft(k,tx,tk))setTimeout(()=>toast('Saved to drafts'),0)}
+ S.noDraft=0;m.innerHTML='';if(S.dirty){S.dirty=0;render()}};
 
 const realAuth=()=>!!window.__callitRealAuth;
 let pendingNext=null;
@@ -1034,7 +1091,7 @@ let SRT=0,STR=0;
 function searchModal(){S.stf=TF_OK.includes(S.stf)?S.stf:'1h';
  modal('Search','',`<div class="tsearch">${ic('search',18)}<input id="sq" placeholder="Search tokens, tickers, callers or paste a CA" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search"></div><div class="list" id="sres" style="margin-top:6px"></div>`,
  m=>{const box=$('#sres',m),inp=$('#sq',m),qv=()=>inp.value.trim().replace(/^[$@]/,'');
-  const trow2=(t,tf)=>{const v=chgOf(t,tf);return `<a class="li srow" href="#/token/${t.key}" data-act="close">${tokav(t.key)}<div class="grow"><b>${esc(t.name)}</b>${t.L&&t.L.verified?`<span class="vbadge">${ic('check',10)}</span>`:''}<div class="hint num">$${esc(t.sym)} · ${fmtSmall(mcap(t))} MC${t.vol?` · V ${fmtSmall(t.vol)}`:''}</div></div><b class="num ${pcls(v)}">${pctS(v)}</b></a>`};
+  const trow2=(t,tf)=>{const v=chgOf(t,tf);return `<a class="li srow" href="#/token/${t.key}" data-act="close">${tokav(t.key)}<div class="grow"><b>${esc(t.name)}</b>${t.L&&t.L.verified?`<span class="vbadge">${ic('check',10)}</span>`:''}<div class="hint num">$${esc(t.sym)} · ${fmtSmall(mcap(t))} MC${t.vol?` · V ${fmtSmall(t.vol)}`:''}</div></div><b class="num ${pcls(v)}">${pctS(v)}</b><button class="wstar${S.watch.has(t.key)?' on':''}" data-act="track" data-t="${esc(t.key)}" aria-pressed="${S.watch.has(t.key)}" aria-label="Watchlist" title="Watchlist">${ic('star',17,S.watch.has(t.key))}</button></a>`};
   const prow=c=>`<a class="li" href="#/profile/${c.h}" data-act="close">${avatar(c.h)}<div class="grow"><b>${esc(c.h)}</b><div class="hint">${c.calls} calls, ${c.win}% win rate</div></div></a>`;
   const loadTrend=force=>{const id='movers:'+S.stf;if(LIVE.busy[id]||(!force&&LIVE.feeds[id]))return;LIVE.busy[id]=1;
    fetchFeed('movers',S.stf).then(l=>{LIVE.feeds[id]=l.map(regLive).filter(Boolean).map(t=>t.key);LIVE.err[id]=0;LIVE.at[id]=Date.now()}).catch(()=>{LIVE.err[id]=1}).finally(()=>{LIVE.busy[id]=0;if(box.isConnected&&!qv())draw()})};
@@ -1073,18 +1130,22 @@ const NOTIFS=[
 const MOCK_NOTIFS=NOTIFS.slice();
 /* Real notifications from the backend replace the demo ones for signed-in users. */
 window.callitSetNotifs=list=>{const now=Date.now();
- NOTIFS.splice(0,NOTIFS.length,...(list?list.map(n=>({id:n.id,real:1,k:NKIND[n.kind]?n.kind:'system',t:n.title,body:n.body||'',go:n.link||'#/notifications',m:Math.max(0,Math.round((now-Date.parse(n.created_at))/6e4)),unread:n.read_at?0:1})):MOCK_NOTIFS.map(n=>({...n}))));
- render()};
-const NKIND={welcome:['Callit','promote'],system:['Callit','bell'],calls:['Call','promote'],earn:['Earnings','wallet'],mentions:['Mention','reply'],alerts:['Alert','bell'],follows:['Follow','profile']};
+ const before=NOTIFS.map(n=>n.id+':'+n.unread).join();
+ NOTIFS.splice(0,NOTIFS.length,...(list?list.map(n=>({id:n.id,real:1,k:NKIND[n.kind]?n.kind:'system',h:n.actor_handle||null,t:n.title,body:n.body||'',go:n.link||'#/notifications',m:Math.max(0,Math.round((now-Date.parse(n.created_at))/6e4)),unread:n.read_at?0:1})):MOCK_NOTIFS.map(n=>({...n}))));
+ if(NOTIFS.map(n=>n.id+':'+n.unread).join()===before)return;
+ // Only redraw the page when it's the notifications page; elsewhere just the badges (don't wipe a half-typed reply).
+ if(currentRoute()==='notifications')render();else chrome(currentRoute())};
+const NKIND={welcome:['Callit','promote'],system:['Callit','bell'],calls:['Call','promote'],earn:['Earnings','wallet'],mentions:['Mention','reply'],alerts:['Alert','bell'],follows:['Follow','profile'],likes:['Like','heart'],reposts:['Repost','repost'],replies:['Reply','reply']};
+const SOCIALK=new Set(['follows','likes','reposts','replies','mentions']);
 const unreadN=()=>NOTIFS.filter(n=>n.unread).length;
 const nAgo=m=>m<60?m+'m':m<1440?Math.round(m/60)+'h':Math.round(m/1440)+'d';
 function nrow(n){const [lab,icn]=NKIND[n.k];
  return `<a class="notif${n.unread?' unread':''}" href="${n.go}" data-act="nread" data-f="${n.id}"><span class="nic ${n.k}">${ic(icn,16)}</span>
- ${n.real&&!n.h?'<span class="mark nmark" aria-hidden="true"></span>':n.h?avatar(n.h):tokav(n.sym||'SOL')}<span class="grow"><span class="nl">${n.h?`<b>${esc(n.h)}</b> `:''}${n.body?`<b>${esc(n.t)}</b> ${esc(n.body)}`:esc(n.t)}</span><span class="hint">${lab} · ${nAgo(n.m)} ago</span></span>${n.unread?'<i class="ndot"></i>':''}</a>`}
+ ${n.real&&!n.h?'<span class="mark nmark" aria-hidden="true"></span>':n.h?avatar(n.h):tokav(n.sym||'SOL')}<span class="grow"><span class="nl">${n.real?(n.body?`<b>${esc(n.t)}</b><span class="nbody">${esc(n.body)}</span>`:`<b>${esc(n.t)}</b>`):`${n.h?`<b>${esc(n.h)}</b> `:''}${n.body?`<b>${esc(n.t)}</b> ${esc(n.body)}`:esc(n.t)}`}</span><span class="hint">${lab} · ${nAgo(n.m)} ago</span></span>${n.unread?'<i class="ndot"></i>':''}</a>`}
 function notifsModal(){modal('Notifications',unreadN()?`${unreadN()} new`:'You\'re all caught up',`<div class="nlist">${NOTIFS.slice(0,5).map(nrow).join('')}</div>
  <a class="btn primary block" href="#/notifications" style="margin-top:14px">View all notifications</a>`)}
-function vNotifs(){const f=S.nt||'all',list=NOTIFS.filter(n=>f==='all'||n.k===f);
- return `<div class="tabs" role="tablist">${[['all','All'],['calls','Calls'],['mentions','Mentions'],['earn','Earnings'],['alerts','Alerts']].map(([k,l])=>`<button class="${f===k?'on':''}" data-act="nt" data-f="${k}">${l}${k==='all'&&unreadN()?` <span class="ncount">${unreadN()}</span>`:''}</button>`).join('')}</div>
+function vNotifs(){const f=S.nt||'all',list=NOTIFS.filter(n=>f==='all'||(f==='social'?SOCIALK.has(n.k):n.k===f));
+ return `<div class="tabs" role="tablist">${[['all','All'],['social','Social'],['calls','Calls'],['earn','Earnings'],['alerts','Alerts']].map(([k,l])=>`<button class="${f===k?'on':''}" data-act="nt" data-f="${k}">${l}${k==='all'&&unreadN()?` <span class="ncount">${unreadN()}</span>`:''}</button>`).join('')}</div>
  ${unreadN()?`<div class="fline"><span>${unreadN()} unread</span><button data-act="nall">Mark all as read</button></div>`:''}
  <div class="nlist full">${list.map(nrow).join('')||'<div class="empty"><b>Nothing here yet</b></div>'}</div>`}
 function settingsModal(){const th=document.documentElement.dataset.theme||'system',col=document.body.classList.contains('collapsed');
@@ -1217,7 +1278,7 @@ function ptabBody(h,me){const tab=S.ptab||'calls';
 
 /* ---------- market ---------- */
 function vMarket(){const t=S.mt||'trenches',M=[['trenches','Trenches','flame'],['perps','Perps'],['predict','Predictions']];
- const bar=`<div class="mtabs" role="tablist">${M.map(([k,l])=>`<button role="tab" aria-selected="${t===k}" class="${t===k?'on':''}" data-act="mt" data-f="${k}">${l}${k==='trenches'?'<span class="live"></span>':'<small>Soon</small>'}</button>`).join('')}</div>`;
+ const bar=`<div class="mtabs tgl${t==='perps'?' perps-on':''}" style="--i:${M.findIndex(x=>x[0]===t)};--n:${M.length}" role="tablist">${M.map(([k,l])=>`<button role="tab" aria-selected="${t===k}" class="${t===k?'on':''}" data-act="mt" data-f="${k}">${l}${k==='trenches'?'<span class="live"></span>':'<small>Soon</small>'}</button>`).join('')}</div>`;
  if(t==='perps')return bar+locked(mockPerps(),'perps','Perps are coming','Long or short the tokens you call, with leverage and your caller track record on the line.',['Long and short from any call','Position shows on your call card','Same fee share for bought-in callers']);
  if(0)return bar+soonCard('Perps are coming','Long or short the tokens you call, with leverage and your caller track record on the line. Built on Solana perp venues.',['Long and short from any call','Position shows on your call card','Same fee share for bought-in callers']);
  if(t==='predict')return bar+locked(mockPredict(),'predict','Predictions are coming','Back your read on outcomes: will it hit the target, will it graduate, who tops the leaderboard this week.',['Markets on live calls','Settle on-chain','Callers can seed their own markets']);
@@ -1306,7 +1367,7 @@ function vPremium(){const pl=S.plan||'yearly',P=PLANS[pl],via=S.payvia||'SOL',on
 /* ---------- full post ---------- */
 const REPLIES={};const RDRAFT={media:[]};
 const RLINES=['Aped a small bag. Chart looks clean.','What is the dev wallet holding right now?','Target feels conservative ngl','In since 1M, not selling here','Liquidity is thin, careful with size','Good call. Following for the next one','Bundled supply worries me a bit','This is the one 🚀'];
-function repliesOf(k){if(!RLOADED[k.id]&&realAuth()){RLOADED[k.id]=1;fetch('/api/posts/replies?ref='+encodeURIComponent(k.id)).then(r=>r.ok?r.json():null).then(j=>{if(!j||!j.replies.length)return;j.replies.forEach(x=>{if(x.avatar_url)AVURL[x.handle]=x.avatar_url});const real=j.replies.map(x=>liveAgo({h:x.handle,t:x.body,likes:0,rts:0,reps:0,media:x.media,id:x.id},Date.parse(x.created_at)));REPLIES[k.id]=[...real,...(REPLIES[k.id]||[]).filter(x=>!x.mine)];k.replies=Math.max(k.replies||0,REPLIES[k.id].length);if(currentRoute()==='post')render()}).catch(()=>{})}
+function repliesOf(k){if(!RLOADED[k.id]&&realAuth()){RLOADED[k.id]=1;fetch('/api/posts/replies?ref='+encodeURIComponent(k.id)).then(r=>r.ok?r.json():null).then(j=>{if(!j||!j.replies.length)return;j.replies.forEach(x=>{if(x.avatar_url)AVURL[x.handle]=x.avatar_url;if(x.display_name)DN[x.handle]=x.display_name});const real=j.replies.map(x=>liveAgo({h:x.handle,t:x.body,likes:0,rts:0,reps:0,media:x.media,id:x.id},Date.parse(x.created_at)));REPLIES[k.id]=[...real,...(REPLIES[k.id]||[]).filter(x=>!x.mine)];k.replies=Math.max(k.replies||0,REPLIES[k.id].length);if(currentRoute()==='post')render()}).catch(()=>{})}
  if(k.srv&&!REPLIES[k.id])REPLIES[k.id]=[];
  if(!REPLIES[k.id]){const r=rng(k.id*7+3),who=ranked().map(c=>c.h).filter(h=>h!==k.c),n=Math.min(k.replies||0,3+Math.floor(r()*3));
  const lines=[...RLINES].sort(()=>r()-.5);REPLIES[k.id]=Array.from({length:Math.min(n,lines.length)},(_,i)=>({h:who[Math.floor(r()*who.length)],t:lines[i],ago:(i+1)*(7+Math.floor(r()*20))+'m',likes:Math.floor(r()*40),rts:Math.floor(r()*9),reps:Math.floor(r()*5)})).sort((a,b)=>parseInt(b.ago)-parseInt(a.ago))}return REPLIES[k.id]}
@@ -1322,7 +1383,7 @@ function vPost(id){const k=calls.find(x=>String(x.id)===String(id));if(!k)return
   ${k.target?`<div class="tprog"><i style="width:${Math.min(100,Math.max(2,(n.mc-k.entry)/(k.target-k.entry)*100))}%"></i></div>`:''}
   <div class="tact"><span class="${k.buy?'bk':'bk no'}">${k.buy?ic('check',14)+' Caller bought in · earns fees':'Caller didn\'t buy · earns no fees'}</span>${tradable(t)?`<button class="btn primary" data-act="qbuy" data-t="${t.key}" data-id="${k.id}">Buy $${t.sym}</button>`:''}<a class="btn ghost" href="#/token/${t.key}">Chart</a></div></div>`
   :t?`<a class="ccard" href="#/token/${t.key}">${tokav(t.key)}<div class="cn"><b>${esc(t.name)}</b><span>$${t.sym} <span class="chain">${t.chain}</span></span></div><div class="cr"><b>Soon</b><span>Launches ${esc(t.prelaunch)}</span></div></a>`:'';
- return `<article class="fpost"><div class="fhead"><a href="#/profile/${k.c}" aria-label="Open @${esc(k.c)}'s profile">${avatar(k.c,'md')}</a><div class="grow"><div class="phead" style="margin:0"><span class="pname">${esc(k.c)}</span>${vbadge(k.c)}${r&&!k.sponsored?`<span class="rk">#${r}</span>`:''}${k.sponsored?'<span class="tag">Sponsored</span>':''}</div><div class="hint">@${esc(k.c)}</div></div>
+ return `<article class="fpost"><div class="fhead"><a href="#/profile/${k.c}" aria-label="Open @${esc(k.c)}'s profile">${avatar(k.c,'md')}</a><div class="grow"><div class="phead" style="margin:0"><span class="pname">${esc(nameOf(k.c))}</span>${vbadge(k.c)}${r&&!k.sponsored?`<span class="rk">#${r}</span>`:''}${k.sponsored?'<span class="tag">Sponsored</span>':''}</div><div class="hint">@${esc(k.c)}</div></div>
   ${k.c===S.me?'':`<button class="btn sm ${S.following.has(k.c)?'ghost':'primary'}" data-act="follow" data-h="${k.c}">${S.following.has(k.c)?'Following':'Follow'}</button>`}${k.sponsored?'':moreBtn(k)}</div>
   <p class="ftext">${esc(k.thesis)}</p>${mediaGrid(k.media)}${trade}
   ${k.sponsored?`<div class="pnote">Paid promotion by ${esc(k.sponsor)}. Not counted in rankings.</div>`:''}
@@ -1332,10 +1393,10 @@ function vPost(id){const k=calls.find(x=>String(x.id)===String(id));if(!k)return
    <button class="act" data-act="reply" aria-label="Reply">${ic('reply',20)}</button>
    <button class="act${k.reposted?' reposted':''}" data-act="repost" data-id="${k.id}" aria-label="Repost">${ic('repost',20)}</button>
    <button class="act${k.liked?' liked':''}" data-act="like" data-id="${k.id}" aria-label="Like">${ic('heart',20,k.liked)}</button>
-   <button class="act" data-act="share" data-id="${k.id}" aria-label="Share">${ic('share',20)}</button></div></div>
+   ${xacts(k,20)}<button class="act" data-act="share" data-id="${k.id}" aria-label="Share">${ic('share',20)}</button></div></div>
   <div class="rbox" id="rbox">${S.connected?avatar(S.me):'<span class="av" style="background:var(--bg2)"></span>'}<div class="grow"><textarea id="rin" class="rin" maxlength="280" rows="1" placeholder="${S.connected?'Post your reply':'Sign in to reply'}" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px';window.drawRMedia&&window.drawRMedia()" ${S.connected?'':'disabled'}></textarea><div id="rmedia"></div>
    <div class="rfoot">${S.connected?attachBar():''}<button class="btn primary sm" id="rgo" data-act="${S.connected?'rsend':'connect'}" data-id="${k.id}" ${S.connected?'disabled':''}>${S.connected?'Reply':'Sign in'}</button></div></div></div></article>
- <div class="replies">${reps.map((x,ri)=>`<div class="rep"><a href="#/profile/${x.h}" aria-label="Open @${esc(x.h)}'s profile">${avatar(x.h)}</a><div class="grow"><div class="phead" style="margin:0"><span class="pname">${esc(x.h===S.me&&PROF.name||x.h)}</span><span class="hint">@${esc(x.h)}</span><time>${x.ago==='now'?'now':x.ago}</time></div>
+ <div class="replies">${reps.map((x,ri)=>`<div class="rep"><a href="#/profile/${x.h}" aria-label="Open @${esc(x.h)}'s profile">${avatar(x.h)}</a><div class="grow"><div class="phead" style="margin:0"><span class="pname">${esc(nameOf(x.h))}</span><span class="hint">@${esc(x.h)}</span><time>${x.ago==='now'?'now':x.ago}</time></div>
   <div class="hint" style="font-size:13px">Replying to <span style="color:var(--hi)">@${esc(k.c)}</span></div>${x.t?`<p class="ptext" style="margin:4px 0 0">${esc(x.t)}</p>`:''}${mediaGrid(x.media)}
   <div class="rbar"><button class="act" data-act="rrep" data-h="${esc(x.h)}" aria-label="Reply to @${esc(x.h)}">${ic('reply',17)}<span class="num">${x.reps||''}</span></button>
   <button class="act${x.rted?' reposted':''}" data-act="rrt" data-p="${k.id}" data-i="${ri}" aria-label="Repost">${ic('repost',17)}<span class="num">${x.rts||''}</span></button>
@@ -1367,33 +1428,152 @@ function vMessages(h){if(h&&DMS[h]!==undefined||h&&C[h]){DMS[h]=DMS[h]||[];const
  <div>${th.map(([h,m])=>{const l=m[m.length-1];return `<a class="comm" href="#/messages/${h}">${avatar(h,'md')}<div class="grow"><div class="cn1"><b>${esc(h)}</b><span class="hint">· ${l[2]}</span></div><p class="lastm">${l[0]==='me'?'You: ':''}${esc(l[1])}</p></div></a>`}).join('')||'<div class="empty"><b>No messages yet</b><p>Start a conversation with a caller you follow.</p></div>'}</div>`}
 
 /* ---------- edit profile ---------- */
-function editProfile(focus){const D={...PROF};
+function editProfile(focus){const D={...PROF,handle:S.me};let hOk=true,hT=0;
  const draw=m=>{$('#ep',m).innerHTML=`<div class="epban" style="${D.banner?`background:#0B1B27 url(${D.banner}) center/cover`:bannerBg('x'+S.me)}">
   <label class="epbtn" title="Upload banner">${ic('camera',20)}<input type="file" accept="image/*" data-up="banner" hidden></label>${D.banner?`<button class="epbtn" data-rm="banner" title="Remove banner">${ic('x',18)}</button>`:''}</div>
   <div class="epav"><span class="av lg" style="${D.avatar?`background:#0B1B27 url(${D.avatar}) center/cover`:`background:hsl(${(hue(S.me)%70)+185} 52% 42%)`}">${D.avatar?'':esc(S.me.slice(0,2).toUpperCase())}</span><label class="epbtn sm" title="Upload photo">${ic('camera',16)}<input type="file" accept="image/*" data-up="avatar" hidden></label></div>
-  <div class="field"><label for="epn">Display name</label><input id="epn" class="input" maxlength="40" value="${esc(D.name||'')}" placeholder="${esc(S.me)}"></div>
+  <div class="field"><label for="epn">Display name <span class="hint" style="float:right">Shown on your posts</span></label><input id="epn" class="input" maxlength="40" value="${esc(D.name||'')}" placeholder="e.g. 22meow"></div>
+  <div class="field"><label for="eph">Username <span class="hint" id="ephs" style="float:right"></span></label><div class="atin"><span>@</span><input id="eph" class="input" maxlength="20" value="${esc(D.handle||'')}" autocapitalize="off" autocomplete="off" spellcheck="false"></div><span class="hint">3–20 letters, numbers or _. Your profile link and @mentions use it.</span></div>
   <div class="field"><label for="epb">Bio <span class="hint" id="epbc" style="float:right">${(D.bio||'').length}/160</span></label><textarea id="epb" class="input" maxlength="160" placeholder="What do you call? Memes, AI, early launches...">${esc(D.bio||'')}</textarea></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="field"><label for="epw">Website</label><input id="epw" class="input" maxlength="80" value="${esc(D.web||'')}" placeholder="yoursite.xyz"></div>
   <div class="field"><label for="epx">X handle</label><input id="epx" class="input" maxlength="30" value="${esc(D.x||'')}" placeholder="@handle"></div></div>
   <div id="eperr" class="err"></div><button class="btn primary block" id="epsave">Save profile</button>`;
-  const keep=()=>{D.name=$('#epn',m).value.trim();D.bio=$('#epb',m).value.trim();D.web=$('#epw',m).value.trim();D.x=$('#epx',m).value.trim()};
+  const keep=()=>{D.name=$('#epn',m).value.trim();D.bio=$('#epb',m).value.trim();D.web=$('#epw',m).value.trim();D.x=$('#epx',m).value.trim();D.handle=$('#eph',m).value.trim().toLowerCase()};
+  const hs=$('#ephs',m),hi=$('#eph',m);
+  hi.oninput=()=>{const v=hi.value.toLowerCase().replace(/[^a-z0-9_]/g,'');if(v!==hi.value)hi.value=v;clearTimeout(hT);
+   if(v===S.me){hOk=true;hs.textContent='';hs.className='hint';return}
+   if(!/^[a-z0-9_]{3,20}$/.test(v)){hOk=false;hs.textContent='3–20 characters';hs.className='hint down';return}
+   hOk=false;hs.textContent='Checking…';hs.className='hint';
+   hT=setTimeout(()=>fetch('/api/profile?check='+encodeURIComponent(v)).then(r=>r.json()).then(j=>{if(hi.value!==v)return;hOk=!!j.available;hs.textContent=j.available?'✓ Available':(j.reason||'Taken');hs.className='hint '+(j.available?'up':'down')}).catch(()=>{hOk=true;hs.textContent=''}),350)};
   $('#epb',m).oninput=e=>$('#epbc',m).textContent=e.target.value.length+'/160';
-  m.querySelectorAll('[data-up]').forEach(i=>i.onchange=()=>{const f=i.files[0];if(!f)return;if(!/^image\//.test(f.type)){$('#eperr',m).textContent='Pick an image file.';return}keep();shrink(f,i.dataset.up==='banner'?1400:400,url=>{D[i.dataset.up]=url;draw(m)})});
+  m.querySelectorAll('[data-up]').forEach(i=>i.onchange=()=>{const f=i.files[0];i.value='';if(!f)return;if(!/^image\//.test(f.type)){$('#eperr',m).textContent='Pick an image file.';return}keep();const bn=i.dataset.up==='banner';
+   shrink(f,2000,url=>cropImage(url,bn?3:1,bn?1500:480,out=>{D[i.dataset.up]=out;draw(m)}))});
   m.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{keep();delete D[b.dataset.rm];draw(m)});
-  $('#epsave',m).onclick=()=>{keep();const old=PROF;PROF=D;if(!saveProf()){PROF=old;$('#eperr',m).textContent='That image is too large to save. Try a smaller one.';return}
-   if(realAuth()&&window.CallitAuth){const up=(u,kind)=>u&&/^data:/.test(u)?upMedia([u],kind).then(a=>a[0]):Promise.resolve(u||null);
-    Promise.all([up(D.avatar,'avatar'),up(D.banner,'banner')]).then(([av,bn])=>{if(av)PROF.avatar=av;if(bn)PROF.banner=bn;saveProf();
-     return window.CallitAuth.saveProfile({display_name:D.name||null,bio:D.bio||null,website:D.web||null,x_handle:D.x||null,avatar_url:av,banner_url:bn})}).then(p=>{if(!p)toast('Saved on this device. Couldn’t sync to your account yet')}).catch(()=>toast('Photo couldn’t upload. Saved on this device only'))}
-   closeModal();toast('Profile updated');render()};
-  if(focus==='banner')m.querySelector('[data-up="banner"]').click()};
+  $('#epsave',m).onclick=()=>{keep();const err=$('#eperr',m),btn=$('#epsave',m),nh=D.handle;
+   if(nh!==S.me&&!/^[a-z0-9_]{3,20}$/.test(nh))return err.textContent='Usernames are 3–20 characters: letters, numbers and _.';
+   if(nh!==S.me&&!hOk)return err.textContent=hs.textContent==='Checking…'?'Still checking that username…':'That username isn’t available.';
+   const commit=()=>{const {handle,...rest}=D;const old=PROF;PROF=rest;if(!saveProf()){PROF=old;err.textContent='That image is too large to save. Try a smaller one.';return false}return true};
+   if(!(realAuth()&&window.CallitAuth)){if(!commit())return;if(nh!==S.me)renameMe(S.me,nh);closeModal();toast('Profile updated');return render()}
+   btn.disabled=true;btn.textContent='Saving…';err.textContent='';
+   const up=(u,kind)=>u&&/^data:/.test(u)?upMedia([u],kind).then(a=>a[0]):Promise.resolve(u||null);
+   Promise.all([up(D.avatar,'avatar'),up(D.banner,'banner')]).then(([av,bn])=>{D.avatar=av||undefined;D.banner=bn||undefined;
+    return window.CallitAuth.saveProfile({display_name:D.name||null,bio:D.bio||null,website:D.web||null,x_handle:D.x||null,avatar_url:av,banner_url:bn,...(nh!==S.me?{handle:nh}:{})})})
+    .then(p=>{commit();if(p&&p.handle&&p.handle!==S.me)renameMe(S.me,p.handle);if(p)S.profile={...S.profile,...p};closeModal();toast(nh!==(p&&p.handle||S.me)?'Profile updated':'Profile updated');
+     if(currentRoute()==='profile')location.replace('#/profile/'+S.me);render()})
+    .catch(e=>{btn.disabled=false;btn.textContent='Save profile';err.textContent=e.message||'Couldn’t save. Try again.'})};
+  hi.dispatchEvent(new Event('input'));
+  if(focus==='banner')m.querySelector('[data-up="banner"]').click();if(focus==='avatar')m.querySelector('[data-up="avatar"]').click()};
  modal('Edit profile','',`<div id="ep"></div>`,draw)}
-function followsModal(h,tab){const draw=m=>{const list=tab==='following'?followingOf(h):followersOf(h);
+function followsModal(h,tab){const isReal=realAuth()&&(h===S.me||(C[h]&&C[h].real)||(PUB[h]&&!PUB[h].pending));
+ const draw=m=>{const key=tab+':'+h;
+  if(isReal&&!FL[key]){$('#fl',m).innerHTML=`<div class="sh-tabs" style="padding:0 0 12px;margin-bottom:6px">${[['followers','Followers'],['following','Following']].map(([k,l])=>`<button class="${tab===k?'on':''}" data-t="${k}">${l}</button>`).join('')}</div><div class="list">${'<div class="li sskel" aria-hidden="true"><span class="tokav"></span><div class="grow"><i></i><i></i></div></div>'.repeat(3)}</div>`;
+   m.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{tab=b.dataset.t;draw(m)});
+   loadFollows(h,tab,l=>{if(!l)FL[key]=tab==='following'&&h===S.me?[...S.following]:[];if(m.isConnected)draw(m)});return}
+  const list=isReal?(FL[key]||[]):tab==='following'?followingOf(h):followersOf(h);
   $('#fl',m).innerHTML=`<div class="sh-tabs" style="padding:0 0 12px;margin-bottom:6px">${[['followers','Followers'],['following','Following']].map(([k,l])=>`<button class="${tab===k?'on':''}" data-t="${k}">${l}</button>`).join('')}</div>
-  ${list.length?`<div class="list">${list.map(x=>{const c=C[x]||{},fx=S.following.has(x);return `<div class="li">${avatar(x)}<div class="grow"><a class="pname" href="#/profile/${x}">${esc(x===S.me&&PROF.name||x)}</a><div class="hint">${c.calls?`${c.win}% win rate · ${c.calls} calls`:'@'+esc(x)}</div></div>${x===S.me?'':`<button class="btn sm ${fx?'ghost':'primary'}" data-fl="${x}">${fx?'Following':'Follow'}</button>`}</div>`}).join('')}</div>`
+  ${list.length?`<div class="list">${list.map(x=>{const c=C[x]||{},fx=S.following.has(x);return `<div class="li">${avatar(x)}<div class="grow"><a class="pname" href="#/profile/${x}" data-act="close">${esc(nameOf(x))}</a><div class="hint">@${esc(x)}${c.calls&&!c.real?` · ${c.win}% win rate`:''}</div></div>${x===S.me?'':`<button class="btn sm ${fx?'ghost':'primary'}" data-fl="${x}">${fx?'Following':'Follow'}</button>`}</div>`}).join('')}</div>`
    :`<div class="empty" style="padding:28px 8px"><b>${tab==='following'?'Not following anyone yet':'No followers yet'}</b><p>${tab==='following'?'Follow callers you trust and their calls land in your Following feed.':'Make good calls and people will follow.'}</p>${tab==='following'?'<a class="btn primary" href="#/leaderboard">Find callers</a>':''}</div>`}`;
   m.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{tab=b.dataset.t;draw(m)});
-  m.querySelectorAll('[data-fl]').forEach(b=>b.onclick=()=>{if(!S.connected)return connectModal();const x=b.dataset.fl;S.following.has(x)?S.following.delete(x):S.following.add(x);draw(m);render()})};
- modal(esc((h===S.me&&PROF.name)||h),'@'+esc(h),`<div id="fl"></div>`,draw)}
+  m.querySelectorAll('[data-fl]').forEach(b=>b.onclick=()=>{if(!S.connected)return connectModal();const x=b.dataset.fl,on=!S.following.has(x);toggleRel('follow',x,on);if(PUB[x]&&!PUB[x].pending)PUB[x].followers=Math.max(0,(PUB[x].followers||0)+(on?1:-1));delete FL['following:'+S.me];S.dirty=1;draw(m)})};
+ modal(esc(nameOf(h)),'@'+esc(h),`<div id="fl"></div>`,draw)}
+
+
+/* ---------- caller ranks: the 2go star ladder ----------
+   Points come from what a caller does in public: posting, calling, buying in, getting likes,
+   reposts, replies and followers. Shown everywhere a rank shows; hover/tap for progress. */
+const TIERS=[['Novice',0],['Amateur',100],['Senior',300],['Enthusiast',700],['Professional',1500],['Expert',3000],['Leader',6000],['Veteran',12000],['Master',25000],['Ultimate',50000]];
+function xpOf(h){const mine=calls.filter(k=>k.c===h&&!k.sponsored),c=C[h]||{},pb=PUB[h]&&!PUB[h].pending?PUB[h]:null;
+ const followers=h===S.me?(S.followers||0):pb?pb.followers||0:(c.followers||0);
+ let xp=mine.reduce((a,k)=>a+5+(k.kind==='random'?0:10)+(k.buy?15:0)+(k.likes||0)+2*(k.reposts||0)+2*(k.replies||0),0)+5*Math.min(followers,1000)+Math.max(0,followers-1000);
+ if(!c.real&&c.calls)xp+=Math.round(c.calls*25+(c.win||0)*c.calls/100*40);// demo callers carry their history
+ return xp}
+function tierOf(h){const xp=xpOf(h);let i=0;TIERS.forEach((t,j)=>{if(xp>=t[1])i=j});const nx=TIERS[i+1];
+ return {i,name:TIERS[i][0],xp,next:nx?nx[0]:null,need:nx?nx[1]-xp:0,pct:nx?Math.round((xp-TIERS[i][1])/(nx[1]-TIERS[i][1])*100):100}}
+function rankChip(h){const t=tierOf(h),r=rankOf(h);
+ return `<button class="rkchip tier t${t.i}" data-act="ranks" data-h="${esc(h)}" aria-label="${t.name} rank. ${t.next?t.need+' points to '+t.next:'Top rank'}">${ic('star',14,true)}<span>${t.name}</span>
+ <span class="rkpop" role="tooltip"><b>${ic('star',13,true)} ${t.name}${r?` · Leaderboard #${r}`:''}</b><span class="rkbar"><i style="width:${Math.max(4,t.pct)}%"></i></span><small>${t.next?`${t.xp.toLocaleString()} pts · ${t.need.toLocaleString()} to <b>${t.next}</b>`:`${t.xp.toLocaleString()} pts · top of the ladder`}</small>${r?'':'<small>10 calls to join the leaderboard</small>'}</span></button>`}
+function ranksModal(h){const t=tierOf(h);
+ modal('Caller ranks',`${h===S.me?'You are':'@'+esc(h)+' is'} <b>${t.name}</b> with ${t.xp.toLocaleString()} points`,`<div class="ladder">${TIERS.map(([n,p],i)=>`<div class="lrow${i===t.i?' on':i<t.i?' done':''}"><span class="lstar t${i}">${ic('star',16,i<=t.i)}</span><b>${n}</b><span class="hint num">${p.toLocaleString()} pts</span>${i===t.i&&t.next?`<span class="rkbar sm"><i style="width:${Math.max(4,t.pct)}%"></i></span>`:''}</div>`).join('')}</div>
+ <p class="hint" style="margin:14px 0 0;line-height:1.5">Earn points by posting (5), making calls (+10), buying into your calls (+15), likes (1), reposts and replies (2) and followers (5). The leaderboard is separate: it ranks callers with 10+ calls by win rate.</p>`)}
+
+/* ---------- PnL year to date + wallet balance (own profile and wallet) ---------- */
+function ytdSeries(){const now=new Date(),y0=new Date(now.getFullYear(),0,1).getTime(),cash=new Set([SOL_MINT,USDC_MINT]),P={};let realY=0,cost=0;const pts=[[y0,0]];
+ [...(S.ledger||[])].reverse().forEach(t=>{const at=Date.parse(t.created_at)||Date.now(),u=+t.usd_value||0,ia=+t.in_amount||0,oa=+t.out_amount||0;let d=0;
+  if(t.kind==='buy'||t.kind==='sell'||t.kind==='swap'){const pi=t.in_mint&&!cash.has(t.in_mint)?P[t.in_mint]:null;
+   if(pi&&pi.amt>0&&ia>0){const q=Math.min(ia,pi.amt),avg=pi.cost/pi.amt;d=u*(q/ia)-avg*q;pi.cost-=avg*q;pi.amt-=q}
+   if(t.out_mint&&!cash.has(t.out_mint)&&oa>0){const po=P[t.out_mint]=P[t.out_mint]||{amt:0,cost:0};po.amt+=oa;po.cost+=u;if(at>=y0)cost+=u}}
+  else if(t.kind==='withdraw'&&t.in_mint&&P[t.in_mint]&&P[t.in_mint].amt>0){const pi=P[t.in_mint],q=Math.min(ia,pi.amt);pi.cost-=pi.cost/pi.amt*q;pi.amt-=q}
+  if(at>=y0&&d){realY+=d;pts.push([at,realY])}});
+ const B=pnlBook();let un=0;Object.keys(S.bal).forEach(k=>{const x=posPnl(k,B);if(x)un+=x.pnl});
+ const pnl=realY+un;pts.push([Date.now(),pnl]);return {pts,pnl,pct:cost>0?pnl/cost*100:null,y0}}
+function walletTotal(){return Object.entries(S.bal).reduce((a,[k,v])=>a+(v>0&&T[k]&&T[k].price?v*T[k].price:0),0)}
+function ytdCard(){if(!S.connected)return '';const Y=ytdSeries(),up=Y.pnl>=0,W=320,H=64,now=Date.now();
+ const vs=Y.pts.map(p=>p[1]),lo=Math.min(0,...vs),hi=Math.max(0,...vs),span=hi-lo||1,X=t=>((t-Y.y0)/Math.max(1,now-Y.y0))*W,Yv=v=>H-4-((v-lo)/span)*(H-8);
+ const d=Y.pts.map((p,i)=>`${i?'L':'M'}${X(p[0]).toFixed(1)},${Yv(p[1]).toFixed(1)}`).join(''),z=Yv(0).toFixed(1),ex=X(now).toFixed(1),ey=Yv(Y.pnl).toFixed(1);
+ const fmtD=t=>new Date(t).toLocaleDateString(undefined,{month:'short',day:'numeric'});
+ return `<div class="ytd ${up?'is-up':'is-down'}"><div class="ytdtop"><div><span class="hint">Wallet balance</span><b class="num">${fmtUsd(walletTotal())}</b></div>
+ <div class="ytdr"><span class="hint">PnL · YTD</span><b class="num ${up?'up':'down'}">${up?'+':'−'}${fmtUsd(Math.abs(Y.pnl))}${Y.pct!=null?` <small>(${up?'+':'−'}${Math.abs(Y.pct).toFixed(1)}%)</small>`:''}</b></div></div>
+ <svg class="ytdline" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-label="PnL year to date ${up?'up':'down'} ${fmtUsd(Math.abs(Y.pnl))}"><line x1="0" x2="${W}" y1="${z}" y2="${z}" class="zl"/><path d="${d}L${ex},${H}L0,${H}Z" class="ar"/><path d="${d}" class="ln" pathLength="1"/><circle cx="${ex}" cy="${ey}" r="3.5" class="dt"/></svg>
+ <div class="ytdfoot hint"><span>${fmtD(Y.y0)}</span><span>YTD ${new Date().getFullYear()}</span><span>${fmtD(now)}</span></div></div>`}
+
+/* ---------- full-size profile photo ---------- */
+function viewPhoto(h){const u=(h===S.me&&PROF.avatar)||AVURL[h];
+ $('#modal').innerHTML=`<div class="scrim lbox" data-act="close" role="dialog" aria-modal="true" aria-label="Profile photo of @${esc(h)}"><button class="ib lbx" data-act="close" aria-label="Close">${ic('x',20)}</button>
+ ${u?`<img src="${esc(u)}" alt="Profile photo of @${esc(h)}" class="lbimg">`:`<span class="av lbimg lbinit" style="background:hsl(${(hue(h)%70)+185} 52% 42%)">${esc(h.slice(0,2).toUpperCase())}</span>`}
+ <div class="lbcap"><b>${esc(nameOf(h))}</b><span>@${esc(h)}</span>${h===S.me?`<button class="btn sm" data-act="editprof" data-f="avatar">${ic('camera',15)} Change photo</button>`:''}</div></div>`}
+
+/* ---------- photo cropper: drag to position, pinch / slider / wheel to zoom, rotate ---------- */
+function cropImage(src,aspect,outW,cb){const ov=document.createElement('div');ov.className='cropov';
+ ov.innerHTML=`<div class="cropbox" role="dialog" aria-modal="true" aria-label="Adjust photo"><div class="mhead"><div><h2>Adjust photo</h2><p class="sub">Drag to position. Pinch or slide to zoom.</p></div><button class="ib" data-c="x" aria-label="Cancel">${ic('x',18)}</button></div>
+ <div class="cropstage${aspect===1?' round':''}" style="aspect-ratio:${aspect}"><img alt="" draggable="false"><i class="cropgrid" aria-hidden="true"></i></div>
+ <div class="cropctl"><span class="muted">${ic('image',15)}</span><input type="range" min="1" max="4" step="0.01" value="1" aria-label="Zoom" class="prange"><span class="muted">${ic('image',21)}</span><button type="button" class="ib" data-c="rot" aria-label="Rotate 90°" title="Rotate">${ic('rotate',18)}</button></div>
+ <div class="cropbtns"><button type="button" class="btn ghost" data-c="x">Cancel</button><button type="button" class="btn primary" data-c="ok">Apply</button></div></div>`;
+ document.body.appendChild(ov);requestAnimationFrame(()=>ov.classList.add('in'));
+ const img=ov.querySelector('img'),st=ov.querySelector('.cropstage'),rg=ov.querySelector('input');let z=1,rot=0,x=0,y=0,iw=1,ih=1;const im=new Image();
+ const dims=()=>{const W=st.clientWidth,H=st.clientHeight,rw=rot%180?ih:iw,rh=rot%180?iw:ih,base=Math.max(W/rw,H/rh);return {W,H,rw,rh,sc:base*z}};
+ const lay=()=>{const D=dims(),mx=Math.max(0,(D.rw*D.sc-D.W)/2),my=Math.max(0,(D.rh*D.sc-D.H)/2);x=Math.max(-mx,Math.min(mx,x));y=Math.max(-my,Math.min(my,y));
+  img.style.width=iw+'px';img.style.height=ih+'px';img.style.transform=`translate(-50%,-50%) translate(${x}px,${y}px) rotate(${rot}deg) scale(${D.sc})`;rg.value=z;rg.style.setProperty('--v',((z-1)/3*100)+'%')};
+ im.onload=()=>{iw=im.naturalWidth;ih=im.naturalHeight;img.src=src;lay()};im.src=src;
+ const ptr=new Map();let pinch=0,pz=1;
+ st.addEventListener('pointerdown',e=>{st.setPointerCapture(e.pointerId);ptr.set(e.pointerId,[e.clientX,e.clientY]);if(ptr.size===2){const [a,b]=[...ptr.values()];pinch=Math.hypot(a[0]-b[0],a[1]-b[1]);pz=z}});
+ st.addEventListener('pointermove',e=>{if(!ptr.has(e.pointerId))return;const p=ptr.get(e.pointerId);
+  if(ptr.size===2){ptr.set(e.pointerId,[e.clientX,e.clientY]);const [a,b]=[...ptr.values()];z=Math.max(1,Math.min(4,pz*Math.hypot(a[0]-b[0],a[1]-b[1])/(pinch||1)));lay();return}
+  x+=e.clientX-p[0];y+=e.clientY-p[1];ptr.set(e.pointerId,[e.clientX,e.clientY]);lay()});
+ const up=e=>{ptr.delete(e.pointerId);if(ptr.size<2)pinch=0};st.addEventListener('pointerup',up);st.addEventListener('pointercancel',up);
+ st.addEventListener('wheel',e=>{e.preventDefault();z=Math.max(1,Math.min(4,z*(e.deltaY<0?1.08:1/1.08)));lay()},{passive:false});
+ rg.oninput=()=>{z=+rg.value;lay()};
+ const done=out=>{ov.classList.remove('in');setTimeout(()=>ov.remove(),180);document.removeEventListener('keydown',kd,true);if(out)cb(out)};
+ const kd=e=>{if(e.key==='Escape'){e.stopPropagation();done(null)}};document.addEventListener('keydown',kd,true);
+ ov.addEventListener('click',e=>{const c=e.target.closest('[data-c]');if(!c)return;
+  if(c.dataset.c==='x')return done(null);
+  if(c.dataset.c==='rot'){rot=(rot+90)%360;x=0;y=0;return lay()}
+  const D=dims(),cw=outW,ch=Math.round(outW/aspect),k=cw/D.W,cv=document.createElement('canvas');cv.width=cw;cv.height=ch;const g=cv.getContext('2d');
+  g.fillStyle='#0B1B27';g.fillRect(0,0,cw,ch);g.translate(cw/2+x*k,ch/2+y*k);g.rotate(rot*Math.PI/180);g.scale(D.sc*k,D.sc*k);g.imageSmoothingQuality='high';g.drawImage(im,-iw/2,-ih/2);
+  done(cv.toDataURL('image/jpeg',.9))})}
+
+/* ---------- followers / following: real lists from the server ---------- */
+const FL={};
+function loadFollows(h,tab,cb){const key=tab+':'+h;if(!realAuth())return cb(null);
+ fetch(`/api/social?${tab}=${encodeURIComponent(h)}`,{cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>{if(!j)return cb(null);
+  (j.people||[]).forEach(p=>{if(p.avatar_url)AVURL[p.handle]=p.avatar_url;if(p.display_name)DN[p.handle]=p.display_name});FL[key]=(j.people||[]).map(p=>p.handle);cb(FL[key])}).catch(()=>cb(null))}
+
+/* ---------- rename yourself everywhere in the open app after a username change ---------- */
+function renameMe(o,n){if(!o||o===n)return;S.me=n;if(C[o]){C[n]={...C[o],h:n};delete C[o]}if(AVURL[o]){AVURL[n]=AVURL[o];delete AVURL[o]}
+ calls.forEach(k=>{if(k.c===o)k.c=n});Object.values(REPLIES).forEach(l=>l.forEach(x=>{if(x.h===o)x.h=n}));if(S.profile)S.profile.handle=n}
+
+/* ---------- drafts (this device) ---------- */
+const DRAFTS=(()=>{try{return JSON.parse(localStorage.getItem('callit.drafts')||'[]')||[]}catch(_){return []}})();
+const saveDrafts=()=>{try{localStorage.setItem('callit.drafts',JSON.stringify(DRAFTS.slice(0,30)))}catch(_){}};
+function addDraft(kind,text,tok){text=(text||'').trim();tok=(tok||'').trim();if(!text&&!tok)return false;
+ const dup=DRAFTS.findIndex(d=>d.text===text&&d.kind===kind&&(d.tok||'')===tok);if(dup>=0)DRAFTS.splice(dup,1);
+ DRAFTS.unshift({id:Date.now()+''+Math.floor(Math.random()*99),kind,text,tok,at:Date.now()});saveDrafts();return true}
+function draftsModal(){const ago=t=>{const m=(Date.now()-t)/6e4;return m<1?'just now':m<60?Math.round(m)+'m ago':m<1440?Math.round(m/60)+'h ago':Math.round(m/1440)+'d ago'};
+ modal('Drafts',DRAFTS.length?`${DRAFTS.length} saved on this device`:'',DRAFTS.length?`<div class="list drafts">${DRAFTS.map(d=>`<div class="li draft"><button type="button" class="grow dopen" data-dopen="${d.id}"><span class="tag${d.kind==='perps'?' pk':''}">${{meme:'Meme call',perps:'Perps',random:'Post'}[d.kind]||'Post'}</span>${d.tok?` <b>${esc(d.tok)}</b>`:''}<span class="dtext">${esc(d.text||'(no text yet)')}</span><span class="hint">${ago(d.at)}</span></button><button type="button" class="ib" data-ddel="${d.id}" aria-label="Delete draft">${ic('trash',17)}</button></div>`).join('')}</div>`
+  :`<div class="empty" style="padding:26px 8px"><span class="eic">${ic('draft',24)}</span><b>No drafts</b><p>Tap Save draft while writing, or just close the composer: whatever you wrote is kept here.</p></div>`,
+  m=>{m.addEventListener('click',e=>{const o=e.target.closest('[data-dopen]'),x=e.target.closest('[data-ddel]');
+   if(x){const i=DRAFTS.findIndex(d=>d.id===x.dataset.ddel);if(i>=0)DRAFTS.splice(i,1);saveDrafts();draftsModal();return}
+   if(o){const i=DRAFTS.findIndex(d=>d.id===o.dataset.dopen);if(i<0)return;const d=DRAFTS.splice(i,1)[0];saveDrafts();S.noDraft=1;closeModal();
+    composeModal(d.kind==='perps'?'meme':d.kind,{draft:d.text,pre:d.tok?d.tok.replace(/^\$/,''):undefined})}})})}
 
 /* ---------- socials + legal ---------- */
 const LINKS={x:'',discord:'',telegram:''}; // paste Callit's real URLs here
@@ -1486,12 +1666,18 @@ window.callitWalletChanged=()=>{if(REALW())loadBalances()};
 if(window.__callitPendingSession){const q=window.__callitPendingSession;delete window.__callitPendingSession;window.callitApplySession(q.p,q.opts)}
 
 /* ---------- events ---------- */
+/* Moves a toggle's thumb to the tapped option before the screen redraws, so it visibly slides. */
+function slideTo(b){const g=b.closest('.tgl');if(!g||matchMedia('(prefers-reduced-motion:reduce)').matches)return false;const i=[...g.children].indexOf(b);g.style.setProperty('--i',i);
+ g.classList.toggle('perps-on',b.dataset.f==='perps'||b.dataset.ck==='perps');g.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));return true}
+const act2={disconnect:()=>{if(realAuth()){try{sessionStorage.removeItem('callit.explore')}catch(_){}window.CallitAuth&&window.CallitAuth.logout();return}S.connected=false;try{localStorage.removeItem('callit.session');sessionStorage.removeItem('callit.explore')}catch(_){}toast('Signed out');render()}};
 const currentRoute=()=>(location.hash.split('/')[1]||'home');
 document.addEventListener('click',e=>{
  const nl=e.target.closest('.nav a');if(nl&&nl.getAttribute('href')===('#/'+currentRoute())&&!location.hash.split('/')[2]){e.preventDefault();scrollTo({top:0,behavior:'smooth'});return}
  const row=e.target.closest('[data-go]');if(row&&!e.target.closest('button,a,input,textarea,label,.media')){location.hash=row.dataset.go;return}
  const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act;
- if(a==='close'){if(e.target===b||b.tagName!=='DIV'){closeModal()}return}
+ if(b.tagName==='BUTTON'&&b.closest('a'))e.preventDefault();
+ if(a==='close'){if(e.target.closest('.wstar')){const w=e.target.closest('.wstar');e.preventDefault();const t=w.dataset.t,on=!S.watch.has(t);on?S.watch.add(t):S.watch.delete(t);bg('/api/social',{action:'watch',key:t,on});w.classList.toggle('on',on);w.innerHTML=ic('star',17,on);toast(on?`$${symOf(t)} added to your watchlist`:`$${symOf(t)} removed from your watchlist`);return}
+  if(e.target===b||b.tagName!=='DIV'){closeModal()}return}
  const act={
   newcall:()=>composeModal(b.dataset.t?'meme':(b.dataset.k||(currentRoute()==='home'?S.cat:'meme')),{pre:b.dataset.t}),
   install:()=>installApp(),instclose:()=>{try{localStorage.setItem('callit.installDismissed','1')}catch(_){}const x=$('#instbar');x&&x.remove()},
@@ -1515,14 +1701,21 @@ document.addEventListener('click',e=>{
   lsign:()=>signIn(b.dataset.f),lwallet:()=>realAuth()?realLogin('wallet',undefined,null):connectModal(null,'in'),
   lemail:()=>{const v=($('#lxemail')||{}).value||'';if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())){$('#lxerr').textContent='Enter a valid email address.';$('#lxemail').focus();return}signIn('Email',null,{email:v.trim()})},
   lexplore:()=>{try{sessionStorage.setItem('callit.explore','1')}catch(_){}location.hash='#/'+b.dataset.f;syncLanding()},
-  doc:()=>docModal(b.dataset.f),soclink:()=>{e.preventDefault();toast(`Callit on ${b.dataset.f} is coming soon`)},editprof:()=>editProfile(b.dataset.f),follows:()=>followsModal(b.dataset.h,b.dataset.f),mt:()=>{if(S.mt===b.dataset.f)return scrollTo({top:0,behavior:'smooth'});S.mt=b.dataset.f;render()},tpick:()=>pickToken(b.dataset.f),
+  doc:()=>docModal(b.dataset.f),soclink:()=>{e.preventDefault();toast(`Callit on ${b.dataset.f} is coming soon`)},editprof:()=>editProfile(b.dataset.f),follows:()=>followsModal(b.dataset.h,b.dataset.f),mt:()=>{if(S.mt===b.dataset.f)return scrollTo({top:0,behavior:'smooth'});if(slideTo(b)&&!b.dataset.slid){b.dataset.slid=1;return setTimeout(()=>b.isConnected?b.click():null,170)}S.mt=b.dataset.f;render()},tpick:()=>pickToken(b.dataset.f),
   signup:()=>connectModal(null,'up'),signin:()=>connectModal(null,'in'),explore:()=>{try{sessionStorage.setItem('callit.explore','1')}catch(_){}syncLanding()},qbuy:()=>quickBuy(b.dataset.t,b.dataset.id),qsell:()=>quickBuy(b.dataset.t,b.dataset.id,'sell'),
   back:()=>goBack(),totop:()=>scrollTo({top:0,behavior:'smooth'}),
   join:()=>{const f=b.dataset.f;S.joined.has(f)?S.joined.delete(f):S.joined.add(f);toast(S.joined.has(f)?'Joined':'Left the community');render()},
   msend:()=>{const i=$('#msgin'),v=i&&i.value.trim();if(!v)return;(MSG[b.dataset.f]=MSG[b.dataset.f]||[]).push([S.me,v,'now']);render();const m=$('#msgs');m&&m.lastElementChild&&m.lastElementChild.scrollIntoView({block:'end',behavior:'smooth'});setTimeout(()=>{const n=$('#msgin');n&&n.focus()},50)},
   ptab:()=>{S.ptab=b.dataset.f;render()},connect:()=>connectModal(),search:()=>searchModal(),notifs:()=>notifsModal(),settings:()=>settingsModal(),
-  disconnect:()=>{if(realAuth()){try{sessionStorage.removeItem('callit.explore')}catch(_){}window.CallitAuth&&window.CallitAuth.logout();return}S.connected=false;try{localStorage.removeItem('callit.session');sessionStorage.removeItem('callit.explore')}catch(_){}toast('Signed out');render()},
+  disconnect:()=>act2.disconnect(),
   me:()=>S.connected?location.hash='#/profile/'+S.me:connectModal(),
+  logout:()=>modal('Log out of Callit?','Your wallet and everything you saved stay on your account. Sign back in any time.',`<button class="btn block" style="background:var(--down);color:#fff;border-color:var(--down)" id="logo">Log out</button><button class="btn ghost block" data-act="close" style="margin-top:8px">Cancel</button>`,m=>$('#logo',m).onclick=()=>{closeModal();act2.disconnect()}),
+  bmark:()=>{if(!S.connected)return connectModal();const id=b.dataset.id,on=!S.bm.has(id);on?S.bm.add(id):S.bm.delete(id);saveBm();bg('/api/social',{action:'bookmark',ref:id,on});
+   document.querySelectorAll(`[data-act="bmark"][data-id="${CSS.escape(id)}"]`).forEach(x=>{x.classList.toggle('on',on);x.setAttribute('aria-pressed',on);x.innerHTML=ic('bookmark',x.closest('.fbar')?20:18,on)});
+   toast(on?'Saved to Bookmarks':'Removed from Bookmarks');if(currentRoute()==='bookmarks')render()},
+  bmclear:()=>modal('Clear all bookmarks?','This removes every saved post. It can’t be undone.',`<button class="btn block" style="background:var(--down);color:#fff;border-color:var(--down)" id="bmgo">Clear all</button><button class="btn ghost block" data-act="close" style="margin-top:8px">Cancel</button>`,m=>$('#bmgo',m).onclick=()=>{[...S.bm].forEach(ref=>bg('/api/social',{action:'bookmark',ref,on:false}));S.bm.clear();saveBm();closeModal();toast('Bookmarks cleared');render()}),
+  nosell:()=>toast(`You don’t hold any $${symOf(b.dataset.t)} yet`),
+  viewav:()=>viewPhoto(b.dataset.h),
   collapse:()=>{document.body.classList.toggle('collapsed');syncTray()},
   tt:()=>{if(S.tt===b.dataset.f)return scrollTo({top:0,behavior:'smooth'});S.tt=b.dataset.f;render();scrollTo({top:0})},
   fsopen:()=>openSheet('f'),dsopen:()=>openSheet('d'),shclose:()=>closeSheet(),
@@ -1554,7 +1747,7 @@ document.addEventListener('click',e=>{
   rrt:()=>{if(!S.connected)return connectModal();const x=REPLIES[b.dataset.p][+b.dataset.i];x.rted=!x.rted;x.rts+=x.rted?1:-1;b.classList.toggle('reposted',x.rted);b.querySelector('.num').textContent=x.rts||'';toast(x.rted?'Reposted':'Repost removed')},
   rrep:()=>{if(!S.connected)return connectModal();const i=$('#rin');if(!i)return;const tag='@'+b.dataset.h+' ';if(!i.value.startsWith(tag))i.value=tag+i.value;i.focus();i.setSelectionRange(i.value.length,i.value.length);i.dispatchEvent(new Event('input'));$('#rbox').scrollIntoView({block:'center',behavior:'smooth'})},
   share:()=>shareSheet(b.dataset.id),
-  cat:()=>{if(S.cat===b.dataset.f)return scrollTo({top:0,behavior:'smooth'});S.cat=b.dataset.f;try{localStorage.setItem('callit.cat',S.cat)}catch(_){}if(S.cat==='perps')loadPerps();render();scrollTo({top:0})},
+  cat:()=>{if(S.cat===b.dataset.f)return scrollTo({top:0,behavior:'smooth'});if(slideTo(b)&&!b.dataset.slid){b.dataset.slid=1;return setTimeout(()=>b.isConnected?b.click():null,170)}S.cat=b.dataset.f;try{localStorage.setItem('callit.cat',S.cat)}catch(_){}if(S.cat==='perps')loadPerps();render();scrollTo({top:0})},
   pmenu:()=>{const k=calls.find(x=>String(x.id)===String(b.dataset.id));if(k)moreSheet(k.c,k)},
   profmenu:()=>moreSheet(b.dataset.h),
   xsearch:()=>xSearchSheet(b.dataset.k),
@@ -1572,8 +1765,12 @@ document.addEventListener('click',e=>{
   delpost:()=>{const id=b.dataset.id;modal('Delete post?','It’s removed from your profile and every feed.',`<button class="btn block" style="background:var(--down);color:#fff;border-color:var(--down)" id="dlgo">Delete</button><button class="btn ghost block" data-act="close" style="margin-top:8px">Cancel</button>`,
     m=>$('#dlgo',m).onclick=()=>{API('/api/posts?id='+encodeURIComponent(id),{method:'DELETE'}).then(()=>{calls=calls.filter(x=>String(x.id)!==String(id));closeModal();toast('Post deleted');if(currentRoute()==='post')location.hash='#/home';else render()}).catch(e=>toast(e.message))})},
   copy:()=>{copy(b.dataset.v,b.dataset.m||'Address copied');if(b.closest('#modal')&&!b.dataset.busy){const o=b.innerHTML;b.dataset.busy=1;b.classList.add('done');b.innerHTML=`${ic('check',15)} Copied`;setTimeout(()=>{if(b.isConnected){b.innerHTML=o;b.classList.remove('done')}delete b.dataset.busy},1600)}},
-  follow:()=>{if(!S.connected)return connectModal();const h=b.dataset.h,on=!S.following.has(h);toggleRel('follow',h,on);if(PUB[h]&&!PUB[h].pending)PUB[h].followers=Math.max(0,PUB[h].followers+(on?1:-1));render()},
-  track:()=>{const t=b.dataset.t;S.watch.has(t)?S.watch.delete(t):S.watch.add(t);bg('/api/social',{action:'watch',key:t,on:S.watch.has(t)});toast(S.watch.has(t)?`$${symOf(t)} added to watchlist`:`$${symOf(t)} removed from watchlist`);render()},
+  follow:()=>{if(!S.connected)return connectModal();const h=b.dataset.h,on=!S.following.has(h);toggleRel('follow',h,on);if(PUB[h]&&!PUB[h].pending)PUB[h].followers=Math.max(0,(PUB[h].followers||0)+(on?1:-1));delete FL['followers:'+h];delete FL['following:'+S.me];render()},
+  ranks:()=>ranksModal(b.dataset.h),
+  track:()=>{if(!S.connected&&realAuth())return connectModal();const t=b.dataset.t,on=!S.watch.has(t);on?S.watch.add(t):S.watch.delete(t);bg('/api/social',{action:'watch',key:t,on});
+   toast(on?`$${symOf(t)} added to your watchlist`:`$${symOf(t)} removed from your watchlist`);
+   if(b.closest('#modal')||b.closest('.pbar')||b.closest('.trow')){document.querySelectorAll(`[data-act="track"][data-t="${CSS.escape(t)}"]`).forEach(x=>{if(x.classList.contains('wrm'))return;x.classList.toggle('on',on);x.setAttribute('aria-pressed',on);const sv=x.querySelector('svg');if(sv)sv.setAttribute('fill',on?'currentColor':'none')});return}
+   render()},
   withdraw:()=>withdrawModal(),send:()=>withdrawModal(),receive:()=>depositModal(),deposit:()=>depositModal(),
   ltf:()=>{S.ltf=b.dataset.f;render()},lmode:()=>{S.lmode=b.dataset.f;render()},lretry:()=>{(lfIds(S.tt,filOf(S.tt))||[]).forEach(id=>{LIVE.err[id]=0;loadFeed(id)});render()},ltokretry:()=>{LIVE.tokErr[b.dataset.t]=0;render()},
   tside:()=>{const w=S.swap,t=b.dataset.t;if(b.dataset.f==='sell'){w.from=t;w.to='SOL'}else{w.from='SOL';w.to=t}w.amt='';renderSwaps()},

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireMe, json } from '@/lib/db/me';
+import { notifySocial, postOwner } from '@/lib/notify/social';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,5 +17,9 @@ export async function POST(req: Request) {
     ? await ctx.db.from('post_reactions').upsert(row, { onConflict: 'post_ref,profile_id,kind', ignoreDuplicates: true })
     : await ctx.db.from('post_reactions').delete().match(row);
   if (r.error) return json({ error: 'db_write', detail: r.error.message }, 500);
+  if (b.on) {
+    const owner = await postOwner(ctx.db, ref);
+    if (owner) await notifySocial(ctx.db, ctx.me, b.kind === 'like' ? 'likes' : 'reposts', { profileId: owner.profileId }, { link: `#/post/${ref}`, snippet: owner.body });
+  }
   return json({ ok: true });
 }

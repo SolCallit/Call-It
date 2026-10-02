@@ -9,7 +9,7 @@ export async function GET(req: Request) {
   const ctx = await requireMe(req);
   if (ctx instanceof NextResponse) return ctx;
   const { db, me } = ctx;
-  const [fo, mu, bl, li, wa, re, tx, fr] = await Promise.all([
+  const [fo, mu, bl, li, wa, re, tx, fr, bm] = await Promise.all([
     db.from('follows').select('target_handle').eq('profile_id', me.id),
     db.from('mutes').select('target_handle').eq('profile_id', me.id),
     db.from('blocks').select('target_handle').eq('profile_id', me.id),
@@ -18,7 +18,8 @@ export async function GET(req: Request) {
     db.from('post_reactions').select('post_ref, kind').eq('profile_id', me.id).order('created_at', { ascending: false }).limit(1000),
     db.from('transactions').select('kind, signature, in_mint, in_amount, out_mint, out_amount, usd_value, to_address, label, verified, created_at')
       .eq('profile_id', me.id).order('created_at', { ascending: false }).limit(100),
-    db.from('follows').select('profile_id', { count: 'exact', head: true }).eq('target_handle', me.handle),
+    db.from('follows').select('profile_id', { count: 'exact' }).eq('target_handle', me.handle).limit(1),
+    db.from('bookmarks').select('post_ref').eq('profile_id', me.id).order('created_at', { ascending: false }).limit(500),
   ]);
   const h = (r: { data: { target_handle: string }[] | null }) => (r.data || []).map((x) => x.target_handle);
   return json({
@@ -28,5 +29,7 @@ export async function GET(req: Request) {
     reactions: re.data || [],
     transactions: tx.data || [],
     followers: fr.count || 0,
+    // Missing table (migration 0005 not run yet) just means no bookmarks synced.
+    bookmarks: bm.error ? null : (bm.data || []).map((x: { post_ref: string }) => x.post_ref),
   });
 }

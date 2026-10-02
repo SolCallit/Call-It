@@ -20,4 +20,5 @@ export type CallitNotification = {
   link: string | null;
   read_at: string | null;
   created_at: string;
+  actor_handle?: string | null;
 };

@@ -3,7 +3,12 @@
 import { CandlestickSeries, ColorType, HistogramSeries, createChart, type IChartApi, type UTCTimestamp } from 'lightweight-charts';
 
 export type ChartTf = '1m' | '5m' | '15m' | '1h' | '4h' | '1d';
-const POLL: Record<ChartTf, number> = { '1m': 15e3, '5m': 30e3, '15m': 60e3, '1h': 120e3, '4h': 300e3, '1d': 900e3 };
+/** How often candles are re-pulled. Between pulls, tick() moves the last candle with the live price. */
+const POLL: Record<ChartTf, number> = { '1m': 5e3, '5m': 10e3, '15m': 15e3, '1h': 30e3, '4h': 60e3, '1d': 120e3 };
+const BUCKET: Record<ChartTf, number> = { '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '4h': 14400, '1d': 86400 };
+
+/** Cleanup function, plus tick(price) to stream the live price into the newest candle. */
+export type LiveChart = (() => void) & { tick: (price: number) => void };
 
 export async function fetchFeed(feed: string, interval = '1h') {
   const r = await fetch(`/api/market/list?feed=${feed}&interval=${interval}`);
@@ -57,7 +62,7 @@ export function fmtSmall(v: number, money = true): string {
 export function mountChart(
   el: HTMLElement,
   opts: { pool: string; mint: string; tf: ChartTf; factor: number; onState?: (s: 'loading' | 'ok' | 'empty' | 'error') => void },
-): () => void {
+): LiveChart {
   let chart: IChartApi | null = null;
   let timer: ReturnType<typeof setInterval> | null = null;
   let dead = false;
@@ -81,6 +86,12 @@ export function mountChart(
   chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
 
   let first = true;
+  // Newest candle in raw price units (before the MC factor), so ticks and reloads agree.
+  let last: { time: number; open: number; high: number; low: number; close: number } | null = null;
+  const put = (c: NonNullable<typeof last>) => {
+    const f = opts.factor || 1;
+    candles.update({ time: c.time as UTCTimestamp, open: c.open * f, high: c.high * f, low: c.low * f, close: c.close * f });
+  };
   const load = async () => {
     if (first) opts.onState?.('loading');
     try {
@@ -92,6 +103,10 @@ export function mountChart(
       if (!list.length) { opts.onState?.('empty'); return; }
       const f = opts.factor || 1;
       candles.setData(list.map(([t, o, h, l, c]) => ({ time: t as UTCTimestamp, open: o * f, high: h * f, low: l * f, close: c * f })));
+      const z = list[list.length - 1];
+      // Keep a live-ticked candle that is newer than what the API returned.
+      if (last && last.time > z[0]) put(last);
+      else last = { time: z[0], open: z[1], high: z[2], low: z[3], close: z[4] };
       vol.setData(list.map(([t, o, , , c, v]) => ({ time: t as UTCTimestamp, value: v, color: c >= o ? up + '66' : down + '66' })));
       if (first) chart.timeScale().fitContent();
       first = false;
@@ -103,10 +118,18 @@ export function mountChart(
   load();
   timer = setInterval(() => { if (!document.hidden) load(); }, POLL[opts.tf]);
 
-  return () => {
+  const stop = () => {
     dead = true;
     if (timer) clearInterval(timer);
     chart?.remove();
     chart = null;
   };
+  const tick = (price: number) => {
+    if (dead || !chart || !last || !(price > 0)) return;
+    const size = BUCKET[opts.tf], now = Math.floor(Date.now() / 1000), bucket = now - (now % size);
+    if (bucket > last.time) last = { time: bucket, open: last.close, high: Math.max(last.close, price), low: Math.min(last.close, price), close: price };
+    else last = { ...last, high: Math.max(last.high, price), low: Math.min(last.low, price), close: price };
+    try { put(last); } catch { /* chart was torn down mid-tick */ }
+  };
+  return Object.assign(stop, { tick });
 }

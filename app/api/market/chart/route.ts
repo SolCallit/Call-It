@@ -13,5 +13,5 @@ export async function GET(req: Request) {
   const list = await candles(pool, mint, tf);
   if (!list) return NextResponse.json({ error: 'upstream_unavailable', candles: [] }, { status: 502, headers: { 'cache-control': 'no-store' } });
   const ttl = TIMEFRAMES[tf][2];
-  return NextResponse.json({ tf, candles: list }, { headers: { 'cache-control': `public, s-maxage=${ttl}, stale-while-revalidate=${ttl * 4}` } });
+  return NextResponse.json({ tf, candles: list }, { headers: { 'cache-control': `public, s-maxage=${ttl}, stale-while-revalidate=${ttl * 2}` } });
 }

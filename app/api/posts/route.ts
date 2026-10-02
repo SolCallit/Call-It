@@ -22,6 +22,8 @@ export async function GET(req: Request) {
   const kind = sp.get('kind');
   const handle = sp.get('handle');
   const before = sp.get('before');
+  // ids=<uuid,uuid,...>: specific posts (bookmarks that aren't in the latest page)
+  const ids = (sp.get('ids') || '').split(',').filter((x) => /^[0-9a-f-]{36}$/i.test(x)).slice(0, 60);
   const limit = Math.min(Math.max(+(sp.get('limit') || 40) || 40, 1), 60);
 
   let q = db
@@ -33,18 +35,19 @@ export async function GET(req: Request) {
   if (kind && KINDS.includes(kind)) q = q.eq('kind', kind);
   if (handle && isHandle(handle)) q = q.eq('profiles.handle', handle);
   if (before && !Number.isNaN(Date.parse(before))) q = q.lt('created_at', before);
+  if (ids.length) q = q.in('id', ids);
 
   const { data, error } = await q;
   if (error) return json({ error: 'db_read', detail: error.message }, 500);
   const rows = (data || []) as Row[];
-  const ids = rows.map((r) => r.id);
+  const rowIds = rows.map((r) => r.id);
 
   const counts: Record<string, { likes: number; reposts: number; replies: number }> = {};
-  ids.forEach((id) => (counts[id] = { likes: 0, reposts: 0, replies: 0 }));
-  if (ids.length) {
+  rowIds.forEach((id) => (counts[id] = { likes: 0, reposts: 0, replies: 0 }));
+  if (rowIds.length) {
     const [re, rp] = await Promise.all([
-      db.from('post_reactions').select('post_ref, kind').in('post_ref', ids),
-      db.from('post_replies').select('post_ref').in('post_ref', ids).is('deleted_at', null),
+      db.from('post_reactions').select('post_ref, kind').in('post_ref', rowIds),
+      db.from('post_replies').select('post_ref').in('post_ref', rowIds).is('deleted_at', null),
     ]);
     (re.data || []).forEach((x: { post_ref: string; kind: string }) => {
       const c = counts[x.post_ref];
@@ -55,8 +58,8 @@ export async function GET(req: Request) {
 
   const me = await maybeMe(req);
   const mine: Record<string, { liked?: boolean; reposted?: boolean }> = {};
-  if (me && ids.length) {
-    const { data: r } = await db.from('post_reactions').select('post_ref, kind').eq('profile_id', me.id).in('post_ref', ids);
+  if (me && rowIds.length) {
+    const { data: r } = await db.from('post_reactions').select('post_ref, kind').eq('profile_id', me.id).in('post_ref', rowIds);
     (r || []).forEach((x: { post_ref: string; kind: string }) => {
       mine[x.post_ref] = { ...(mine[x.post_ref] || {}), [x.kind === 'like' ? 'liked' : 'reposted']: true };
     });
@@ -122,7 +125,8 @@ export async function POST(req: Request) {
     return json({ error: 'db_write', detail: error.message }, 500);
   }
   const { profile_id: _p, ...post } = data as Record<string, unknown>;
-  return json({ post: { ...post, handle: me.handle, likes: 0, reposts: 0, replies: 0 } });
+  const { data: pr } = await db.from('profiles').select('display_name, avatar_url').eq('id', me.id).maybeSingle();
+  return json({ post: { ...post, handle: me.handle, display_name: pr?.display_name ?? null, avatar_url: pr?.avatar_url ?? null, likes: 0, reposts: 0, replies: 0 } });
 }
 
 /** DELETE /api/posts?id=<uuid> — soft-deletes the caller's own post. */

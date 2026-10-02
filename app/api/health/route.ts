@@ -55,6 +55,8 @@ export async function GET() {
   // Migration 0003 (posts, social, ledger, media). Posting and image upload fail if any of these are missing.
   const social: Record<string, string> = {};
   let media_bucket = 'no_database_config';
+  // Migration 0005: bookmarks, social notifications, usernames.
+  let edit4 = 'no_database_config';
   const db = supabaseAdmin();
   if (db) {
     const q = await db.from('profiles').select('id').limit(1);
@@ -71,16 +73,24 @@ export async function GET() {
       const c = await db.from('posts').select(cols).limit(1);
       if (c.error) social.posts = `error: ${c.error.message}`;
     }
+    const [bk, na, ph] = await Promise.all([
+      db.from('bookmarks').select('*').limit(1),
+      db.from('notifications').select('actor_handle').limit(1),
+      db.from('profiles').select('handle_changed_at').limit(1),
+    ]);
+    const e4 = [bk.error, na.error, ph.error].find(Boolean);
+    edit4 = e4 ? `error: ${e4.message}` : 'ok';
     const b = await db.storage.getBucket('media');
     media_bucket = b.error ? `error: ${b.error.message}` : b.data?.public ? 'ok' : 'error: bucket is not public';
   }
   const welcome_email = process.env.RESEND_API_KEY && process.env.EMAIL_FROM ? 'configured' : 'not_configured';
 
   const ok = Object.values(env).every(Boolean) && privy_jwks === 'ok' && profiles_table === 'ok' && notifications_table === 'ok'
-    && Object.values(social).every((v) => v === 'ok') && media_bucket === 'ok';
+    && Object.values(social).every((v) => v === 'ok') && media_bucket === 'ok' && edit4 === 'ok';
   const fix = ok ? null
     : Object.values(social).some((v) => v !== 'ok') ? 'Run supabase/migrations/0004_repair_posts_and_media.sql in Supabase → SQL Editor'
     : media_bucket !== 'ok' ? 'Media bucket missing: it is created automatically on the first image upload, or run supabase/migrations/0004_repair_posts_and_media.sql'
+    : edit4 !== 'ok' ? 'Run supabase/migrations/0005_bookmarks_social_notifs_usernames.sql in Supabase → SQL Editor (bookmarks, social notifications, usernames)'
     : null;
-  return NextResponse.json({ ok, service: 'callit-web', time: new Date().toISOString(), env, privy_jwks, privy_login, profiles_table, notifications_table, social_tables: social, media_bucket, fix, welcome_email });
+  return NextResponse.json({ ok, service: 'callit-web', time: new Date().toISOString(), env, privy_jwks, privy_login, profiles_table, notifications_table, social_tables: social, media_bucket, bookmarks_and_social_notifs: edit4, fix, welcome_email });
 }

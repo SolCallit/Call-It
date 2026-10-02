@@ -153,8 +153,8 @@ export async function jupMany(mints: string[]): Promise<LiveToken[]> {
   return out;
 }
 
-export async function jupSearch(q: string): Promise<LiveToken[]> {
-  const data = await getJSON<JupToken[]>(`${JUP}/tokens/v2/search?query=${encodeURIComponent(q)}`, 6, jupHeaders());
+export async function jupSearch(q: string, revalidate = 6): Promise<LiveToken[]> {
+  const data = await getJSON<JupToken[]>(`${JUP}/tokens/v2/search?query=${encodeURIComponent(q)}`, revalidate, jupHeaders());
   return Array.isArray(data) ? data.filter((j) => j && j.id).map(fromJup) : [];
 }
 
@@ -168,8 +168,8 @@ type DsPair = {
   info?: { imageUrl?: string; websites?: { url: string }[]; socials?: { type: string; url: string }[] };
 };
 
-export async function dsPairs(mint: string): Promise<DsPair[]> {
-  const data = await getJSON<DsPair[]>(`${DEXS}/tokens/v1/solana/${mint}`, 8);
+export async function dsPairs(mint: string, revalidate = 8): Promise<DsPair[]> {
+  const data = await getJSON<DsPair[]>(`${DEXS}/tokens/v1/solana/${mint}`, revalidate);
   return Array.isArray(data) ? data.filter((p) => p.baseToken?.address === mint) : [];
 }
 
@@ -202,20 +202,23 @@ export function withPair(t: LiveToken | null, pairs: DsPair[]): LiveToken | null
   };
 }
 
+/** One token for its live page. Short cache: the page polls every ~2s and should feel live. */
 export async function liveToken(mint: string): Promise<LiveToken | null> {
-  const [j, pairs] = await Promise.all([jupSearch(mint), dsPairs(mint)]);
+  const [j, pairs] = await Promise.all([jupSearch(mint, 2), dsPairs(mint, 3)]);
   return withPair(j.find((x) => x.mint === mint) || null, pairs);
 }
 
 /* ---------- GeckoTerminal candles ---------- */
 
+/* [unit, aggregate, cache seconds]. Candles are re-pulled on this cadence; between pulls the
+   client moves the last candle with the live price every ~2s, so the chart never looks frozen. */
 export const TIMEFRAMES = {
-  '1m': ['minute', 1, 15],
-  '5m': ['minute', 5, 30],
-  '15m': ['minute', 15, 60],
-  '1h': ['hour', 1, 120],
-  '4h': ['hour', 4, 300],
-  '1d': ['day', 1, 900],
+  '1m': ['minute', 1, 5],
+  '5m': ['minute', 5, 10],
+  '15m': ['minute', 15, 15],
+  '1h': ['hour', 1, 30],
+  '4h': ['hour', 4, 60],
+  '1d': ['day', 1, 120],
 } as const;
 export type Tf = keyof typeof TIMEFRAMES;
 

@@ -109,9 +109,12 @@ export default function AuthBridge() {
         const token = await getAccessToken();
         if (!token) return null;
         const r = await fetch('/api/profile', { method: 'PATCH', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify(patch) });
-        if (!r.ok) return null;
-        const j = (await r.json()) as { profile: CallitProfile };
-        return j.profile;
+        const j = (await r.json().catch(() => ({}))) as { profile?: CallitProfile; error?: string };
+        if (!r.ok) throw new Error(j.error && !/^[a-z_]+$/.test(j.error) ? j.error : 'Couldn’t save your profile. Try again.');
+        return j.profile || null;
+      },
+      refreshNotifs: () => {
+        getAccessToken().then((t) => { if (t) loadNotifs(t); }).catch(() => {});
       },
     };
     window.callitAuthChanged?.();
@@ -174,6 +177,15 @@ export default function AuthBridge() {
       }
     })();
   }, [ready, authenticated, user, walletKey, wallets, getAccessToken, resync]);
+
+  // Keep notifications fresh: every 30s while the tab is visible, and right away when it comes back.
+  useEffect(() => {
+    if (!ready || !authenticated) return;
+    const pull = () => { if (!document.hidden) getAccessToken().then((t) => { if (t) loadNotifs(t); }).catch(() => {}); };
+    const iv = setInterval(pull, 30_000);
+    document.addEventListener('visibilitychange', pull);
+    return () => { clearInterval(iv); document.removeEventListener('visibilitychange', pull); };
+  }, [ready, authenticated, getAccessToken]);
 
   return <WalletSignIn ref={walletFlow} />;
 }

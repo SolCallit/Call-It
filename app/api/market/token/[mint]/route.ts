@@ -9,5 +9,5 @@ export async function GET(_req: Request, ctx: { params: Promise<{ mint: string }
   if (!isMint(mint)) return NextResponse.json({ error: 'invalid_mint' }, { status: 400 });
   const token = await liveToken(mint);
   if (!token) return NextResponse.json({ error: 'not_found' }, { status: 404, headers: { 'cache-control': 'public, s-maxage=30' } });
-  return NextResponse.json({ token, at: Date.now() }, { headers: { 'cache-control': 'public, s-maxage=5, stale-while-revalidate=30' } });
+  return NextResponse.json({ token, at: Date.now() }, { headers: { 'cache-control': 'public, s-maxage=2, stale-while-revalidate=10' } });
 }

@@ -21,7 +21,7 @@ export async function GET(req: Request) {
   if ('error' in r) return r.error;
   const { data, error } = await r.db
     .from('notifications')
-    .select('id, kind, title, body, link, read_at, created_at')
+    .select('*')
     .eq('profile_id', r.profileId)
     .order('created_at', { ascending: false })
     .limit(50);
@@ -29,7 +29,12 @@ export async function GET(req: Request) {
     console.error('[notifications] read failed:', error.message);
     return NextResponse.json({ notifications: [] });
   }
-  return NextResponse.json({ notifications: data });
+  // select('*') so this keeps working before migration 0005 adds actor_handle.
+  const list = (data || []).map((n: Record<string, unknown>) => ({
+    id: n.id, kind: n.kind, title: n.title, body: n.body, link: n.link, read_at: n.read_at, created_at: n.created_at,
+    actor_handle: (n.actor_handle as string | null) ?? null,
+  }));
+  return NextResponse.json({ notifications: list }, { headers: { 'cache-control': 'no-store' } });
 }
 
 /** Mark notifications read. Body: { ids: string[] } or { all: true }. */
