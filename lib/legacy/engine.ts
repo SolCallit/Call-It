@@ -140,12 +140,19 @@ const TF_OK=['5m','1h','6h','24h'],TFK={'5m':'m5','1h':'h1','6h':'h6','24h':'h24
 const chgOf=(t,tf)=>{if(!t)return null;const c=t.L&&t.L.chg,v=c?c[TFK[tf]||'h24']:null;return v!=null?v:(!t.live||tf==='24h'?t.chg:null)};
 const byChg=tf=>(a,b)=>{const x=chgOf(a,tf),y=chgOf(b,tf);return (y==null?-1e9:y)-(x==null?-1e9:x)};
 const lfIds=(k,f)=>{const tf=TF_OK.includes(f&&f.tf)?f.tf:'1h';
- return ({movers:['movers:'+tf],new:['new'],crowded:['traded:24h'],almost:['new','movers:5m'],grad:['movers:'+tf,'new'],og:['traded:24h','organic:24h']})[k]||null};
-const LF={movers:['movers:1h'],new:['new'],crowded:['traded:24h'],almost:['new','movers:5m'],grad:['movers:1h','new'],og:['traded:24h','organic:24h']};
+ return ({movers:['movers:'+tf],new:['new'],crowded:['traded:24h'],almost:['new','movers:5m'],grad:['movers:'+tf,'new'],og:['ogset']})[k]||null};
+const LF={movers:['movers:1h'],new:['new'],crowded:['traded:24h'],almost:['new','movers:5m'],grad:['movers:1h','new'],og:['ogset']};
+/* OG memes: the established Solana memecoins, by mint. Anything that isn't a meme stays out. */
+const OG_MEMES=['DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263','EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm','7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr',
+ '9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump','2qEHjDLDLbuBgRYvsxhc5D6uDWAivNFZGan56P1tpump','ukHH6c7mMyiWCf1b9pnWe25TSpkDDt3H5pQZgZ74J82',
+ 'MEW1gQWJ3nEXg2qgERiKu7FAFj79PHvQVREQUzScPP5','ED5nyyWEzpPPiWimP8vYm7sD7TD3LAt3Q3gRTWHzPJBY','CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump',
+ '2zMMhcVQEXDtdE6vsFS7S7D5oUodfJHE8vd1gnBouauv','6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN','63LfDmNb3MQ8mw9MtZ2To9bEA2M71kZUUGq5tiJxcqj9',
+ '7BgBvyjrZX1YKz4oh9mjb8ZScatkkwb8DzFx7LoiVkM3','HhJpBhRRn4g56VsyLuT8DL5Bv31HkXqsrahTTUCZeZg4','Df6yfrKC8kZE3KNkrHERKzAetSxbrWeniQfyJY4Jpump'];
+const OGSET=new Set(OG_MEMES);
 /* Majors, stables and staked SOL aren't memecoins: keep them out of OG memes. */
 const NOT_MEME=new Set(['SOL','WSOL','USDC','USDT','USDS','PYUSD','USD1','EURC','JUP','JTO','PYTH','RAY','ORCA','JLP','JITOSOL','MSOL','BSOL','INF','JUPSOL','BNSOL','WBTC','CBBTC','ZBTC','WETH','ETH','BTC','HNT','RENDER','RNDR','W','KMNO','DRIFT','MEW_NOT']);
 function loadFeed(id){if(LIVE.busy[id])return;LIVE.busy[id]=1;const [feed,iv]=id.split(':');
- fetchFeed(feed,iv||'1h').then(list=>{LIVE.feeds[id]=list.map(regLive).filter(Boolean).map(t=>t.key);LIVE.err[id]=0})
+ (feed==='ogset'?fetchTokens(OG_MEMES):fetchFeed(feed,iv||'1h')).then(list=>{LIVE.feeds[id]=list.map(regLive).filter(Boolean).map(t=>t.key);LIVE.err[id]=0})
   .catch(()=>{LIVE.err[id]=1}).finally(()=>{LIVE.busy[id]=0;LIVE.at[id]=Date.now();if(SH&&SH.kind==='f')drawSheet();else if(currentRoute()==='market'&&!document.querySelector('.sheet.open'))render()})}
 function loadLiveToken(mint,quiet){if(LIVE.tokBusy[mint])return;LIVE.tokBusy[mint]=1;
  fetchToken(mint).then(x=>{if(x){regLive(x);LIVE.tokErr[mint]=0}else LIVE.tokErr[mint]='gone'})
@@ -222,12 +229,34 @@ function loadMe(){if(!SYNC())return;API('/api/me').then(j=>{
   if(j.watchlist&&j.watchlist.length)S.watch=new Set(j.watchlist);
   const R={};(j.reactions||[]).forEach(x=>{(R[x.post_ref]=R[x.post_ref]||{})[x.kind]=1});
   calls.forEach(k=>{const r=R[String(k.id)];if(!r)return;if(r.like&&!k.liked){k.liked=true;if(!k.srv)k.likes++}if(r.repost&&!k.reposted){k.reposted=true;if(!k.srv)k.reposts++}});
-  S.activity=(j.transactions||[]).map(txRow);render()}).catch(e=>console.warn('[callit] /api/me',e.message))}
+  S.ledger=j.transactions||[];S.activity=S.ledger.map(txRow);render()}).catch(e=>console.warn('[callit] /api/me',e.message))}
 function txRow(t){const K={buy:'Bought',sell:'Sold',swap:'Swapped',withdraw:'Withdrew',deposit:'Received'};
  const d=Date.parse(t.created_at),m=(Date.now()-d)/6e4;
  return {k:K[t.kind]||t.kind,d:t.label||'',t:m<1?'Just now':m<60?Math.round(m)+'m ago':m<1440?Math.round(m/60)+'h ago':new Date(d).toLocaleDateString(),sig:t.signature}}
 /* Records a real on-chain transaction to the user's account (and stamps a call's buy-in). */
-function logTx(rec){S.activity.unshift({k:rec.k,d:rec.label,t:'Just now',sig:rec.signature});bg('/api/transactions',rec)}
+function logTx(rec){S.activity.unshift({k:rec.k,d:rec.label,t:'Just now',sig:rec.signature});(S.ledger=S.ledger||[]).unshift({...rec,created_at:new Date().toISOString()});bg('/api/transactions',rec)}
+/* ---------- PnL (average cost) from the user's own trade ledger. SOL and USDC count as cash. ---------- */
+function pnlBook(){const P={},cash=new Set([SOL_MINT,USDC_MINT]);let real=0,vol=0;
+ [...(S.ledger||[])].reverse().forEach(t=>{const u=+t.usd_value||0,ia=+t.in_amount||0,oa=+t.out_amount||0;
+  if(t.kind==='buy'||t.kind==='sell'||t.kind==='swap'){vol+=u;
+   const pi=t.in_mint&&!cash.has(t.in_mint)?P[t.in_mint]:null;
+   if(pi&&pi.amt>0&&ia>0){const q=Math.min(ia,pi.amt),avg=pi.cost/pi.amt;real+=u*(q/ia)-avg*q;pi.cost-=avg*q;pi.amt-=q}
+   if(t.out_mint&&!cash.has(t.out_mint)&&oa>0){const po=P[t.out_mint]=P[t.out_mint]||{amt:0,cost:0};po.amt+=oa;po.cost+=u}}
+  else if(t.kind==='withdraw'&&t.in_mint&&P[t.in_mint]&&P[t.in_mint].amt>0){const pi=P[t.in_mint],q=Math.min(ia,pi.amt);pi.cost-=pi.cost/pi.amt*q;pi.amt-=q}});
+ return {P,real,vol}}
+function posPnl(key,book){book=book||pnlBook();const p=book.P[mintOf(key)],bal=S.bal[key]||0,t=T[key];
+ if(!p||p.amt<=0||!bal||!t||!t.price)return null;const q=Math.min(bal,p.amt),cost=p.cost/p.amt*q,val=q*t.price;
+ return {pnl:val-cost,pct:cost>0?(val-cost)/cost*100:null,cost,val}}
+function callStats(h){const b=calls.filter(k=>k.c===h&&k.buy&&!k.sponsored&&nums(k));
+ return {n:b.length,pnl:b.reduce((a,k)=>a+(nums(k).pnl||0),0),vol:b.reduce((a,k)=>a+(+k.buy||0),0)}}
+function statsOf(h){if(h===S.me&&(S.ledger||[]).length){const B=pnlBook();let un=0;Object.keys(S.bal).forEach(k=>{const x=posPnl(k,B);if(x)un+=x.pnl});
+  return {n:S.ledger.length,pnl:B.real+un,vol:B.vol}}return callStats(h)}
+function joinedOf(h){const d=h===S.me?S.profile&&S.profile.created_at:PUB[h]&&!PUB[h].pending?PUB[h].created_at:null;
+ if(d&&!isNaN(Date.parse(d)))return new Date(d).toLocaleDateString(undefined,{month:'short',year:'numeric'});
+ if(C[h]&&!C[h].real&&h!==S.me){const x=hue(h+'j');return new Date(2025,x%14,1).toLocaleDateString(undefined,{month:'short',year:'numeric'})}return null}
+/* Every caller gets their own card: pattern, accent and glow position come from their handle. */
+function themeOf(h){let x=2166136261;for(const ch of String(h))x=Math.imul(x^ch.charCodeAt(0),16777619)>>>0;x=Math.imul(x^(x>>>15),2246822507)>>>0;
+ return {pat:['lines','dots','grid','rings','waves','burst'][x%6],h:[152,200,265,330,28,45,175,290][(x>>>4)%8],o:(x>>>9)%4}}
 function loadPub(h){if(PUB[h]||!SYNC()&&!realAuth())return;PUB[h]={pending:1};
  fetch('/api/profile?handle='+encodeURIComponent(h)).then(r=>r.ok?r.json():null).then(j=>{if(!j||!j.profile){delete PUB[h];return}PUB[h]=j.profile;if(j.profile.avatar_url)AVURL[h]=j.profile.avatar_url;
   if(currentRoute()==='profile'&&location.hash.split('/')[2]===h)render()}).catch(()=>{delete PUB[h]})}
@@ -378,20 +407,19 @@ function cardOf(k){const n=k.perp?perpNums(k):nums(k),tag=`CALL #${String(k.id).
   sub:`${L?'Long':'Short'} ${+p.lev}x · ${fmtPrice(p.entry)} → ${n?fmtPrice(n.px):'—'}`,chips:[p.target?'Target '+fmtPrice(p.target):'',k.horizon?esc(k.horizon):''].filter(Boolean),tok:perpAv(p.m),tokLab:p.m+'-PERP'}}
  const t=T[k.t];return {...base,head:`@${k.c} called $${esc(symOf(k.t))}`,label:'Since call',n:n?n.p:null,big:n?fmtPct(n.p):'Soon',up:n?n.up:null,
   sub:n?`${fmtUsd(k.entry)} → ${fmtUsd(n.mc)} MC`:'',chips:[k.buy?'✓ Bought in':'No buy-in',k.target?'Target '+fmtUsd(k.target):''].filter(Boolean),tok:t?tokav(t.key):'',tokLab:'$'+symOf(k.t)}}
-function cardOfProfile(h){const c=C[h]||{},r=rankOf(h),pub=PUB[h]&&!PUB[h].pending?PUB[h]:null,mine=calls.filter(k=>k.c===h&&nums(k));
- const best=mine.reduce((a,k)=>Math.max(a,nums(k).p),c.best||0);
- return {h,name:nameOf(h),tag:r?`CALLER #${r}`:'CALLER',head:`@${h} on Callit`,label:c.calls?'Win rate':'Calls tracked',big:c.calls?c.win+'%':String(mine.length||pub&&pub.posts||0),up:c.calls?c.win>=50:null,
-  sub:c.calls?`${c.calls} calls · avg ${fmtPct(c.avg)}`:'Every call stamped on-chain',chips:[best?'Best '+fmtPct(best):'',pub?fmtK(pub.followers)+' followers':c.followers?fmtK(c.followers)+' followers':''].filter(Boolean)}}
+function cardOfProfile(h){const c=C[h]||{},r=rankOf(h),st=statsOf(h),jn=joinedOf(h),mine=calls.filter(k=>k.c===h).length;
+ return {h,name:nameOf(h),tag:r?`CALLER #${r}`:'CALLER',head:`@${h} on Callit`,label:'All-time PnL',big:st.n?money(st.pnl):'$0.00',up:st.n?st.pnl>=0:null,
+  sub:jn?`Joined ${jn}`:'',stats:[['Volume',st.vol?fmtUsd(st.vol):'$0'],['Win rate',c.calls?c.win+'%':'—'],['Calls',String(c.calls||mine||0)],['Rank',r?'#'+r:'—']],theme:themeOf(h)}}
 function xcardHTML(d){return `<div class="xstage"><div class="xhead">${d.head}</div>
- <div class="xcard ${d.up===false?'dn':d.up==null?'nt':''}" tabindex="-1"><i class="xgrain"></i><i class="xsheen"></i><span class="xwm mark" aria-hidden="true"></span>
+ <div class="xcard ${d.up===false?'dn':d.up==null?'nt':''}${d.theme?` xp xp-${d.theme.pat} xo${d.theme.o}`:''}"${d.theme?` style="--xh:${d.theme.h}"`:''} tabindex="-1">${d.theme?'<i class="xorb"></i>':''}<i class="xgrain"></i><i class="xsheen"></i><span class="xwm mark" aria-hidden="true"></span>
   <div class="xtop"><span class="xbrand"><span class="mark"></span><b>Callit</b></span><span class="xtag">${d.tag}</span></div>
   <div class="xmid">${d.label?`<span class="xlab">${d.label}</span>`:''}${d.quote!=null?`<p class="xquote">“${esc(d.quote.length>160?d.quote.slice(0,157)+'…':d.quote)}”</p>`:`<b class="xbig num"${d.n!=null?` data-count="${d.n.toFixed(1)}"`:''}>${d.n!=null?fmtPct(0):d.big}</b>`}${d.sub?`<span class="xsub num">${d.sub}</span>`:''}
-   ${d.chips&&d.chips.length?`<div class="xchips">${d.chips.map(c=>`<span>${c}</span>`).join('')}</div>`:''}</div>
+   ${d.stats?`<div class="xstats">${d.stats.map(([l,v])=>`<div><span>${l}</span><b class="num">${v}</b></div>`).join('')}</div>`:''}${d.chips&&d.chips.length?`<div class="xchips">${d.chips.map(c=>`<span>${c}</span>`).join('')}</div>`:''}</div>
   <div class="xbot"><span class="xwho">${avatar(d.h,'md')}<span><b>${esc(d.name)}</b><small>@${esc(d.h)}</small></span></span>${d.tok?`<span class="xtok">${d.tok}<b>${d.tokLab||''}</b></span>`:''}</div></div>
  <div class="xfoot"><span><span class="mark"></span>Call it. Get Paid.</span><span>${esc(location.host)}</span></div></div>`}
 function shareModal(d,url,fname,text){modal('Share','',`${xcardHTML(d)}
- <div class="shacts"><button class="btn primary" data-act="copy" data-v="${esc(url)}">${ic('link',16)} Copy link</button>
- <a class="btn ghost" target="_blank" rel="noopener" href="https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}">${ic('xlogo',15)} Post on X</a>
+ <div class="shlink"><span class="num">${esc(url.replace(/^https?:\/\//,''))}</span><button class="btn sm primary" data-act="copy" data-v="${esc(url)}" data-m="Link copied">${ic('copy',14)} Copy</button></div>
+ <div class="shacts"><a class="btn primary" target="_blank" rel="noopener" href="https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}">${ic('xlogo',15)} Post on X</a>
  <button class="btn ghost" id="xsave">${ic('image',16)} Save image</button>${navigator.share?`<button class="btn ghost" id="xnative">${ic('share',16)} More…</button>`:''}</div>`,
  m=>{const el=m.querySelector('[data-count]');if(el){const to=+el.dataset.count,t0=performance.now()+250,dur=1100;
    const step=t=>{const q=Math.max(0,Math.min(1,(t-t0)/dur)),e=1-Math.pow(1-q,3);el.textContent=fmtPct(to*e);if(q<1&&el.isConnected)requestAnimationFrame(step)};
@@ -405,7 +433,7 @@ function shareSheet(id){const k=calls.find(x=>String(x.id)===String(id));if(!k)r
 function shareProfile(h){const d=cardOfProfile(h);shareModal(d,profileURL(h),'callit-'+h,h===S.me?'My calls, tracked live on Callit':`Follow @${h}'s calls on Callit`);if(!PUB[h])loadPub(h)}
 /* 1200x630 image of the same card, for X / Telegram / saving. */
 function xcardImage(d,fname,mode,url,text){const W=1200,H=630,c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d'),F='system-ui,-apple-system,Segoe UI,sans-serif';
- const col=d.up===false?'#FF6B8A':d.up==null?'#4DA8FF':'#3DDC97';
+ const col=d.up===false?'#FF6B8A':d.up==null?'#4DA8FF':'#3DDC97',PR=!!d.stats,TH=d.theme;
  const rr=(x,y,w,h,r)=>{g.beginPath();g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+h,r);g.arcTo(x+w,y+h,x,y+h,r);g.arcTo(x,y+h,x,y,r);g.arcTo(x,y,x+w,y,r);g.closePath()};
  const logoSrc=(getComputedStyle(document.querySelector('.mark')).backgroundImage.match(/url\("?(.*?)"?\)/)||[])[1]||'';
  const avSrc=d.h===S.me&&PROF.avatar||AVURL[d.h]||'';
@@ -418,21 +446,33 @@ function xcardImage(d,fname,mode,url,text){const W=1200,H=630,c=document.createE
   const cx=210,cy=104,cw=780,ch=440;g.save();g.shadowColor='rgba(0,0,0,.55)';g.shadowBlur=60;g.shadowOffsetY=24;rr(cx,cy,cw,ch,36);
   const cg=g.createLinearGradient(cx,cy,cx+cw,cy+ch);cg.addColorStop(0,'#1B2833');cg.addColorStop(.55,'#101A23');cg.addColorStop(1,'#0A1219');g.fillStyle=cg;g.fill();g.restore();
   g.save();rr(cx,cy,cw,ch,36);g.clip();
-  g.globalAlpha=.06;g.strokeStyle='#fff';g.lineWidth=1;for(let i=-ch;i<cw;i+=6){g.beginPath();g.moveTo(cx+i,cy);g.lineTo(cx+i+ch,cy+ch);g.stroke()}g.globalAlpha=1;
+  if(TH){const ox=[cx+cw*.85,cx+cw*.1,cx+cw*.12,cx+cw*.9][TH.o],oy=[cy+ch*.05,cy+ch*1.05,cy+ch*.02,cy+ch*1.02][TH.o],org=g.createRadialGradient(ox,oy,10,ox,oy,cw*.6);
+   org.addColorStop(0,`hsla(${TH.h},85%,55%,.42)`);org.addColorStop(1,`hsla(${TH.h},85%,55%,0)`);g.fillStyle=org;g.fillRect(cx,cy,cw,ch);
+   g.strokeStyle='#fff';g.fillStyle='#fff';g.lineWidth=1;g.globalAlpha=.07;
+   if(TH.pat==='dots'){g.globalAlpha=.16;for(let y=cy+10;y<cy+ch;y+=20)for(let x=cx+10;x<cx+cw;x+=20){g.beginPath();g.arc(x,y,1.6,0,7);g.fill()}}
+   else if(TH.pat==='grid'){for(let x=cx;x<cx+cw;x+=32){g.beginPath();g.moveTo(x,cy);g.lineTo(x,cy+ch);g.stroke()}for(let y=cy;y<cy+ch;y+=32){g.beginPath();g.moveTo(cx,y);g.lineTo(cx+cw,y);g.stroke()}}
+   else if(TH.pat==='rings'){for(let r=20;r<cw;r+=22){g.beginPath();g.arc(cx+cw*.85,cy+ch*.2,r,0,7);g.stroke()}}
+   else if(TH.pat==='waves'){for(let r=16;r<cw*1.3;r+=16){g.beginPath();g.ellipse(cx+cw/2,cy+ch*1.4,r*1.6,r,0,0,7);g.stroke()}}
+   else if(TH.pat==='burst'){const bx=cx+cw*.8,by=cy+ch*1.1;g.globalAlpha=.06;for(let a=0;a<360;a+=12){const r1=a*Math.PI/180,r2=(a+4)*Math.PI/180;g.beginPath();g.moveTo(bx,by);g.lineTo(bx+Math.cos(r1)*1400,by+Math.sin(r1)*1400);g.lineTo(bx+Math.cos(r2)*1400,by+Math.sin(r2)*1400);g.closePath();g.fill()}}
+   else for(let i=-ch;i<cw;i+=6){g.beginPath();g.moveTo(cx+i,cy);g.lineTo(cx+i+ch,cy+ch);g.stroke()}
+   g.globalAlpha=1}
+  else{g.globalAlpha=.06;g.strokeStyle='#fff';g.lineWidth=1;for(let i=-ch;i<cw;i+=6){g.beginPath();g.moveTo(cx+i,cy);g.lineTo(cx+i+ch,cy+ch);g.stroke()}g.globalAlpha=1}
   const sh=g.createLinearGradient(cx,cy,cx+cw,cy+ch);sh.addColorStop(.25,'rgba(255,255,255,0)');sh.addColorStop(.42,'rgba(255,255,255,.09)');sh.addColorStop(.5,'rgba(255,255,255,0)');g.fillStyle=sh;g.fillRect(cx,cy,cw,ch);
   if(logo){g.globalAlpha=.07;g.drawImage(logo,cx+cw-330,cy+ch-330,380,380);g.globalAlpha=1}
   const ac=g.createLinearGradient(cx,0,cx+cw,0);ac.addColorStop(0,col+'00');ac.addColorStop(.5,col);ac.addColorStop(1,col+'00');g.fillStyle=ac;g.fillRect(cx,cy,cw,3);
   g.restore();g.strokeStyle='rgba(255,255,255,.14)';g.lineWidth=2;rr(cx+1,cy+1,cw-2,ch-2,35);g.stroke();
   g.textAlign='left';if(logo)g.drawImage(logo,cx+46,cy+38,52,52);g.fillStyle='#fff';g.font=`800 34px ${F}`;g.fillText('Callit',cx+112,cy+76);
-  g.textAlign='right';g.fillStyle='#AEBBC7';g.font=`700 20px ${F}`;g.letterSpacing='3px';g.fillText(d.tag,cx+cw-46,cy+72);g.letterSpacing='0px';
+  g.textAlign='right';g.fillStyle=TH?`hsl(${TH.h},90%,78%)`:'#AEBBC7';g.font=`700 20px ${F}`;g.letterSpacing='3px';g.fillText(d.tag,cx+cw-46,cy+72);g.letterSpacing='0px';
   g.textAlign='center';const mx=cx+cw/2;
   if(d.quote!=null){g.fillStyle='#EAF1F7';g.font=`600 38px ${F}`;const words=('“'+d.quote+'”').split(/\s+/),lines=[];let ln='';
    words.forEach(w=>{const t=ln?ln+' '+w:w;if(g.measureText(t).width>cw-140&&ln){lines.push(ln);ln=w}else ln=t});if(ln)lines.push(ln);
    const L=lines.slice(0,4);if(lines.length>4)L[3]=L[3].replace(/\s*\S*$/,'…');L.forEach((l,i)=>g.fillText(l,mx,cy+200+i*50-(L.length-1)*12))}
-  else{if(d.label){g.fillStyle='#8FA6BA';g.font=`600 26px ${F}`;g.fillText(d.label,mx,cy+170)}
-   g.save();g.shadowColor=col;g.shadowBlur=40;g.fillStyle=d.up==null?'#fff':col;g.font=`900 116px ${F}`;g.fillText(d.big,mx,cy+282);g.restore();
-   if(d.sub){g.fillStyle='#9FB2C3';g.font=`600 26px ${F}`;g.fillText(d.sub.replace(/&amp;/g,'&'),mx,cy+328)}}
-  const ay=cy+ch-78;g.save();g.beginPath();g.arc(cx+82,ay,34,0,7);g.closePath();g.clip();
+  else{if(d.label){g.fillStyle='#8FA6BA';g.font=`600 26px ${F}`;g.fillText(d.label,mx,cy+(PR?128:170))}
+   g.save();g.shadowColor=col;g.shadowBlur=40;g.fillStyle=d.up==null?'#fff':col;g.font=`900 ${PR?96:116}px ${F}`;g.fillText(d.big,mx,cy+(PR?216:282));g.restore();
+   if(d.sub){g.fillStyle='#9FB2C3';g.font=`600 26px ${F}`;g.fillText(d.sub.replace(/&amp;/g,'&'),mx,cy+(PR?256:328))}
+   if(PR){const n=d.stats.length,cw2=(cw-120)/n;d.stats.forEach(([l,v],i)=>{const x=cx+60+cw2*i+cw2/2;g.fillStyle='#8FA6BA';g.font=`600 18px ${F}`;g.fillText(l.toUpperCase(),x,cy+298);g.fillStyle='#fff';g.font=`800 30px ${F}`;g.fillText(v,x,cy+334);
+    if(i){g.fillStyle='rgba(255,255,255,.12)';g.fillRect(cx+60+cw2*i,cy+282,1,58)}})}}
+  const ay=cy+ch-(PR?50:78);g.save();g.beginPath();g.arc(cx+82,ay,34,0,7);g.closePath();g.clip();
   if(av)g.drawImage(av,cx+48,ay-34,68,68);else{g.fillStyle=`hsl(${(hue(d.h)%70)+185} 52% 42%)`;g.fillRect(cx+48,ay-34,68,68);g.fillStyle='#fff';g.font=`800 24px ${F}`;g.textAlign='center';g.fillText(d.h.slice(0,2).toUpperCase(),cx+82,ay+9)}
   g.restore();g.strokeStyle='rgba(255,255,255,.25)';g.lineWidth=2;g.beginPath();g.arc(cx+82,ay,35,0,7);g.stroke();
   g.textAlign='left';g.fillStyle='#fff';g.font=`800 30px ${F}`;g.fillText(d.name.slice(0,24),cx+132,ay-4);g.fillStyle='#8FA6BA';g.font=`500 22px ${F}`;g.fillText('@'+d.h,cx+132,ay+26);
@@ -601,7 +641,7 @@ function trenchStats(t){if(t.live){const L=t.L||{},a=L.audit||{},bs=(L.buys24||0
 const LPS=[['Pump','#4ADE80'],['Bonk','#F59E0B'],['Believe','#22C55E'],['Moonshot','#C084FC'],['Launchlab','#38BDF8'],['Bags','#10B981'],['Jup Studio','#FB923C']];
 const CHAINS=[['Solana','#9d7bff',1],['Base','#3B82F6',0],['BSC','#F0B90B',0],['Ethereum','#8EA2FF',0],['Arbitrum','#60A5FA',0]];
 const FEEDS={movers:['Movers','Biggest price momentum right now','Recommended'],new:['New','Fresh launches, newest first'],called:['Called','Tokens our callers are on, most calls first','Only on Callit'],
- crowded:['Crowded','Most holders first'],almost:['Almost there','60 to 99% through the bonding curve'],grad:['Graduated','Just finished the bonding curve, newest first'],og:['OG memes','Older memecoins still trading, most volume first']};
+ crowded:['Crowded','Most holders first'],almost:['Almost there','60 to 99% through the bonding curve'],grad:['Graduated','Just finished the bonding curve, newest first'],og:['OG memes','The established Solana memecoins, biggest first']};
 const RISK={degen:['Degen','Show me everything',{top:100,dev:100,snip:100,ins:100}],balanced:['Balanced','Filter the obvious traps',{top:30,dev:15,snip:10,ins:30}],careful:['Careful','Only clean holder books',{top:15,dev:5,snip:3,ins:15}]};
 const isLaunch=t=>!t.live||!!t.lp;
 /* Bonding progress. Live tokens: approximated from market cap (pump-style curves finish near $69K). */
@@ -639,7 +679,7 @@ function feedRows(k,f){
   if(k==='crowded')return r.sort((a,b)=>b.holders-a.holders);
   if(k==='almost')return r.filter(t=>isLaunch(t)&&bond(t)>=60&&bond(t)<100).sort((a,b)=>bond(b)-bond(a));
   if(k==='grad')return r.filter(t=>t.lp&&bond(t)>=100).sort((a,b)=>a.ageH-b.ageH);
-  if(k==='og')return r.filter(t=>t.L&&t.L.createdAt&&t.ageH>=24*30&&!NOT_MEME.has(String(t.sym).toUpperCase())).sort((a,b)=>b.vol-a.vol);
+  if(k==='og')return r.filter(t=>OGSET.has(t.key)||OGSET.has(t.ca)).sort((a,b)=>(mcap(b)||0)-(mcap(a)||0));
   return r.sort(byChg(f.tf||'1h'))}
  let r=Object.values(T).filter(t=>t.chain&&!t.base&&!t.prelaunch&&(t.holders||t.live)&&match(t,f));
  if(k==='watch')return r.filter(t=>S.watch.has(t.key)).sort((a,b)=>b.vol-a.vol);
@@ -751,10 +791,11 @@ function sfScore(t){const a=(t.L&&t.L.audit)||{},L=t.L||{};
  const ck=[a.mintOff,a.freezeOff,a.top10==null?null:a.top10<30,a.dev==null?null:a.dev<5,L.organic==null?null:L.organic>=50].filter(v=>v!=null);
  const ok=ck.filter(Boolean).length;return {ok,n:ck.length,bad:!!a.sus||ok<ck.length}}
 let SFOPEN=null;try{const v=localStorage.getItem('callit.sfOpen');SFOPEN=v==null?null:v==='1'}catch(_){}
+document.addEventListener('toggle',e=>{const d=e.target;if(d&&d.matches&&d.matches('[data-hold]'))S.holdOpen=d.open},true);
 /* Remember open/closed so live re-renders don't snap the panel back. */
 document.addEventListener('toggle',e=>{const d=e.target;if(d&&d.matches&&d.matches('[data-sf]')){SFOPEN=d.open;try{localStorage.setItem('callit.sfOpen',d.open?'1':'0')}catch(_){}}},true);
 function liveLinks(t){const so=(t.L&&t.L.socials)||{},a=(u,l,i)=>u&&/^https?:\/\//.test(u)?`<a class="lk" href="${esc(u)}" target="_blank" rel="noopener noreferrer">${ic(i,15)}${l}</a>`:'';
- return a(so.x,'X','xlogo')+a(so.web,'Website','globe')+a(so.tg,'Telegram','people')+a(`https://dexscreener.com/solana/${t.pool||t.key}`,'DexScreener','market')+a(`https://solscan.io/token/${t.key}`,'Solscan','search')}
+ return a(so.x,'X','xlogo')+a(so.web,'Website','globe')+a(so.tg,'Telegram','people')+a(`https://dexscreener.com/solana/${t.pool||t.key}`,'DexScreener','market')+a(`https://solscan.io/token/${t.key}`,'Solscan','search')+`<button class="lk" data-act="xsearch" data-k="${esc(t.key)}">${ic('xlogo',13)}Search on X</button>`}
 function vLiveToken(t){const key=t.key,tr=S.watch.has(key),on=calls.filter(k=>k.t===key),L=t.L||{},ch=(L.chg||{}).h24;
  S.ltf=S.ltf||'15m';S.lmode=S.lmode||'mc';
  return `<div class="pad" style="padding-bottom:0"><div style="display:flex;align-items:center;gap:12px">${tokav(key)}<div style="flex:1;min-width:0"><b class="h2">${esc(t.name)}</b>${L.verified?`<span class="vbadge" title="Verified on Jupiter">${ic('check',11)}</span>`:''} <span class="muted">$${esc(t.sym)}</span>
@@ -795,11 +836,11 @@ function vLeaders(){return `<div class="pad" style="display:flex;justify-content
 
 function vWallet(){if(!S.connected)return `<div class="empty"><b class="h2">No wallet connected</b><p>Sign in with email, Google or X and we create a wallet for you. Or connect Phantom, Solflare or Backpack. You always hold your own keys.</p><button class="btn primary" data-act="connect">Connect wallet</button></div>`;
  const rows=Object.entries(S.bal).filter(([k,a])=>a>0&&T[k]).sort((x,y)=>(usd(y[0],y[1])||0)-(usd(x[0],x[1])||0)),tot=rows.reduce((s,[k,a])=>s+(usd(k,a)||0),0);
- return `<div class="pad"><div class="muted">Total balance</div><div class="bal num">${fmtUsd(tot)}</div>
+ return `<div class="pad"><div class="muted">Total balance</div><div class="bal num">${fmtUsd(tot)}</div>${(()=>{const st=statsOf(S.me);return st.n?`<div class="wpnl num"><span class="${st.pnl>=0?'up':'down'}">${money(st.pnl)}</span> all-time PnL${st.vol?` · ${fmtUsd(st.vol)} volume`:''}</div>`:''})()}
  <button class="copyca" style="margin-top:10px" data-act="copy" data-v="${S.addr}">${short(S.addr)} ${ic('copy',13)}</button>
  <div class="acts2"><button class="btn primary" data-act="deposit">${ic('down',16)} Deposit</button><button class="btn" data-act="withdraw">${ic('up',16)} Withdraw</button></div>
- <div class="list">${rows.map(([k,a])=>`<a class="li" href="#/token/${k}">${tokav(k)}<div class="grow"><b>${T[k].name}</b><div class="hint num">${fmtAmt(a)} ${esc(symOf(k))}</div></div><div class="r num"><b>${fmtUsd(usd(k,a)||0)}</b><div class="hint ${T[k].chg>=0?'up':'down'}">${fmtPct(T[k].chg)}</div></div></a>`).join('')}</div>
- <b class="h2" style="display:block;margin:22px 0 4px">Activity</b><div class="list">${S.activity.map(a=>`<div class="li"><div class="grow"><b>${esc(a.k)}</b><div class="hint">${esc(a.t)}${a.sig?` · <a class="lnk" href="https://solscan.io/tx/${a.sig}" target="_blank" rel="noopener noreferrer">View</a>`:''}</div></div><div class="r num">${esc(a.d)}</div></div>`).join('')||'<div class="empty" style="padding:18px 8px"><b>No activity yet</b><p>Deposits, trades and withdrawals show up here.</p></div>'}</div></div>`}
+ <div class="list">${(()=>{const B=pnlBook();return rows.map(([k,a])=>{const x=posPnl(k,B);return holdRow(k,a,usd(k,a)||0,x?x.pnl:null,x?x.pct:null,1)}).join('')})()}</div>
+ <b class="h2" style="display:block;margin:22px 0 4px">History</b><div class="list">${S.activity.map(a=>`<div class="li"><div class="grow"><b>${esc(a.k)}</b><div class="hint">${esc(a.t)}${a.sig?` · <a class="lnk" href="https://solscan.io/tx/${a.sig}" target="_blank" rel="noopener noreferrer">View</a>`:''}</div></div><div class="r num">${esc(a.d)}</div></div>`).join('')||'<div class="empty" style="padding:18px 8px"><b>No history yet</b><p>Deposits, trades and withdrawals show up here.</p></div>'}</div></div>`}
 
 function vProfile(h){if(!h&&S.connected)h=S.me;if(h&&!C[h]&&/^[A-Za-z0-9_]{1,30}$/.test(h)){C[h]={h,win:0,avg:0,calls:0,best:0,followers:0,real:1}}if(h&&h!==S.me&&!PUB[h])loadPub(h);const c=C[h];
  if(!c)return `<div class="empty"><b class="h2">Your profile</b><p>Connect a wallet to create your caller profile and start building a track record.</p><button class="btn primary" data-act="connect">Connect wallet</button></div>`;
@@ -808,13 +849,13 @@ function vProfile(h){if(!h&&S.connected)h=S.me;if(h&&!C[h]&&/^[A-Za-z0-9_]{1,30}
  const mine=calls.filter(k=>k.c===h),me=h===S.me,r=rankOf(h),f=S.following.has(h);
  const pb=PUB[h]&&!PUB[h].pending?PUB[h]:null,P=me?PROF:pubP(h),nm=P.name||h,fg=me?S.following.size:pb?pb.following:followingOf(h).length,fr=me?(S.followers!=null?S.followers:followersOf(h).length):pb?pb.followers:c.followers+(f?1:0);
  return `<div class="banner" style="${bannerBg(h)}">${me?`<button class="bnadd" data-act="editprof" data-f="banner" aria-label="${PROF.banner?'Change':'Add a'} banner">${ic('camera',20)}<span>${PROF.banner?'Change banner':'Add a banner'}</span></button>`:''}</div>
- <div class="phero"><div class="top"><span class="avwrap">${avatar(h,'lg')}${r&&r<=3?`<span class="rkbadge">#${r}</span>`:''}</span>${me?'<span style="display:flex;gap:8px"><button class="ib" data-act="shprof" data-h="'+esc(h)+'" aria-label="Share your profile">'+ic('link',18)+'</button><button class="btn sm editp" data-act="editprof">'+ic('pen',15)+' Edit profile</button></span>':`<span style="display:flex;gap:8px"><button class="ib" data-act="profmenu" data-h="${h}" aria-label="More options for ${esc(h)}">${ic('more',18)}</button><button class="ib" data-act="dm" data-h="${h}" aria-label="Message ${esc(h)}">${ic('messages',18)}</button><button class="btn sm ${f?'ghost':'primary'}" data-act="follow" data-h="${h}">${f?'Following':'Follow'}</button></span>`}</div>
+ <div class="phero"><div class="top"><span class="avwrap">${avatar(h,'lg')}${r&&r<=3?`<span class="rkbadge">#${r}</span>`:''}</span>${me?'<span style="display:flex;gap:8px"><button class="ib" data-act="shprof" data-h="'+esc(h)+'" aria-label="Share your profile">'+ic('share',18)+'</button><button class="btn sm editp" data-act="editprof">'+ic('pen',15)+' Edit profile</button></span>':`<span style="display:flex;gap:8px"><button class="ib" data-act="shprof" data-h="${esc(h)}" aria-label="Share ${esc(h)}'s profile">${ic('share',18)}</button><button class="ib" data-act="profmenu" data-h="${h}" aria-label="More options for ${esc(h)}">${ic('more',18)}</button><button class="ib" data-act="dm" data-h="${h}" aria-label="Message ${esc(h)}">${ic('messages',18)}</button><button class="btn sm ${f?'ghost':'primary'}" data-act="follow" data-h="${h}">${f?'Following':'Follow'}</button></span>`}</div>
  <div class="pname2"><b class="h2">${esc(nm)}</b>${vbadge(h)}${r?`<span class="rk">${ic('leaderboard',13)} Rank #${r}</span>`:''}</div><div class="muted">@${esc(h)}</div>
  ${P.bio?`<p class="pbio">${esc(P.bio)}</p>`:me?`<p class="pbio muted">Add a bio so people know what you call. <button class="lnk" data-act="editprof" style="padding:0">Add bio</button></p>`:''}
  <div class="pmeta">${P.web?`<a href="${esc(/^https?:/.test(P.web)?P.web:'https://'+P.web)}" target="_blank" rel="noopener">${ic('globe',15)} ${esc(P.web.replace(/^https?:\/\//,''))}</a>`:''}${P.x?`<a href="https://x.com/${esc(P.x.replace('@',''))}" target="_blank" rel="noopener">${ic('xlogo',14)} @${esc(P.x.replace('@',''))}</a>`:''}<span>${ic('wallet',15)} ${me&&S.addr?short(S.addr):'Solana caller'}</span></div>
- <div class="pfollow"><button data-act="follows" data-h="${h}" data-f="following"><b>${fmtK(fg)}</b> Following</button><button data-act="follows" data-h="${h}" data-f="followers"><b>${fmtK(fr)}</b> Followers</button></div>
+ <div class="pfollow"><button data-act="follows" data-h="${h}" data-f="following"><b>${fmtK(fg)}</b> Following</button><button data-act="follows" data-h="${h}" data-f="followers"><b>${fmtK(fr)}</b> Followers</button><a class="rkchip${r?' on':''}" href="#/leaderboard">${ic('leaderboard',14)}${r?`Rank <b>#${r}</b>`:'Unranked'}</a></div>
  ${r?'':`<p class="hint" style="margin:6px 0 0">Not ranked yet. 10 calls to qualify for the leaderboard.</p>`}
- <div class="pstats num"><div><span>Win rate</span><b>${c.calls?c.win+'%':'—'}</b></div><div><span>Avg return</span><b>${c.calls?fmtPct(c.avg):'—'}</b></div><div><span>Calls</span><b>${c.calls}</b></div><div><span>Best call</span><b>${c.best?fmtPct(c.best):'—'}</b></div></div></div>
+ <div class="pstats p6 num">${(()=>{const st=statsOf(h);return `<div><span>All-time PnL</span><b class="${st.n?(st.pnl>=0?'up':'down'):''}">${st.n?money(st.pnl):'—'}</b></div><div><span>Volume</span><b>${st.vol?fmtUsd(st.vol):'—'}</b></div>`})()}<div><span>Win rate</span><b>${c.calls?c.win+'%':'—'}</b></div><div><span>Avg return</span><b>${c.calls?fmtPct(c.avg):'—'}</b></div><div><span>Calls</span><b>${c.calls}</b></div><div><span>Best call</span><b>${c.best?fmtPct(c.best):'—'}</b></div></div></div>
  <div class="tabs" style="position:static">${[['calls','Calls'],['holdings','Holdings'],['activity','Activity']].map(([k,l])=>`<button class="${(S.ptab||'calls')===k?'on':''}" data-act="ptab" data-f="${k}">${l}</button>`).join('')}</div>
  <div id="feed">${ptabBody(h,me)||mine.map(post).join('')||`<div class="empty"><b>No calls yet</b>${me?'<p>Your calls and their performance show up here.</p><button class="btn primary" data-act="newcall">Make a call</button>':''}</div>`}</div>`}
 
@@ -1105,14 +1146,33 @@ function vRoom(id){const c=COMMS.find(x=>x.id===id);if(!c)return vHome();const h
   :`<div class="grow"><b>Holders only</b><div class="hint">Hold any amount of $${c.sym} to chat here.</div></div>${S.connected?`<button class="btn primary" data-act="qbuy" data-t="${c.sym}">Buy $${c.sym}</button>`:`<button class="btn primary" data-act="connect">Connect</button>`}`}</div>`}
 
 /* ---------- profile tabs ---------- */
-function holdingsOf(h){if(h===S.me)return Object.entries(S.bal).filter(([k,v])=>v>0&&T[k]).map(([k,v])=>({t:T[k],val:v*T[k].price,amt:v}));
+function holdingsOf(h){if(h===S.me){const B=pnlBook();return Object.entries(S.bal).filter(([k,v])=>v>0&&T[k]).map(([k,v])=>{const x=posPnl(k,B);return {t:T[k],val:v*T[k].price,amt:v,pnl:x?x.pnl:null,pct:x?x.pct:null,mine:1}})}
  return calls.filter(k=>k.c===h&&k.buy).map(k=>{const n=nums(k);return {t:T[k.t],val:n.pos,pnl:n.pnl}})}
+function holdRow(key,amt,val,pnl,pct,mine){const t=T[key];
+ return `<div class="li hrow"><a class="hlink" href="#/token/${esc(key)}">${tokav(key)}<div class="grow"><b>${esc(t.name)}</b><div class="hint num">${amt!=null?fmtAmt(amt)+' '+esc(symOf(key)):'$'+esc(t.sym)}</div></div>
+  <div class="r num"><b>${fmtUsd(val)}</b><div class="hint ${pnl!=null?(pnl>=0?'up':'down'):(t.chg>=0?'up':'down')}">${pnl!=null?money(pnl)+(pct!=null?` (${fmtPct(pct)})`:''):fmtPct(t.chg)}</div></div></a>
+  ${mine?`<button class="ib sm hmore" data-act="hmenu" data-k="${esc(key)}" aria-label="Options for ${esc(t.name)}">${ic('more',18)}</button>`:''}</div>`}
+function holdCard(key){const t=T[key],amt=S.bal[key]||0,val=usd(key,amt)||0,x=posPnl(key),sy=symOf(key);
+ return x?{h:S.me,name:nameOf(S.me),tag:'POSITION',head:`@${S.me}'s $${esc(sy)}`,label:'Unrealized PnL',big:money(x.pnl),up:x.pnl>=0,sub:`${fmtUsd(x.cost)} → ${fmtUsd(x.val)}`,chips:[x.pct!=null?fmtPct(x.pct):'',fmtAmt(amt)+' '+esc(sy)].filter(Boolean),tok:tokav(key),tokLab:'$'+sy}
+  :{h:S.me,name:nameOf(S.me),tag:'POSITION',head:`@${S.me}'s $${esc(sy)}`,label:'Position value',big:fmtUsd(val),up:null,sub:`${fmtAmt(amt)} ${esc(sy)}`,chips:[t&&t.chg!=null?'24h '+fmtPct(t.chg):''].filter(Boolean),tok:tokav(key),tokLab:'$'+sy}}
+function aSheet(label,head,groups){$('#modal').innerHTML=`<div class="scrim" data-act="close"><div class="asheet" role="dialog" aria-modal="true" aria-label="${esc(label)}"><div class="asgrab" aria-hidden="true"></div>${head}${groups}<button class="btn ghost block ascancel" data-act="close">Cancel</button></div></div>`;
+ requestAnimationFrame(()=>{const x=$('#modal .asheet');x&&x.classList.add('in')})}
+const arow=(attrs,icn,label,sub,cls='')=>`<button class="asrow ${cls}" ${attrs}><span class="asic">${ic(icn,19)}</span><span class="grow"><b>${label}</b>${sub?`<small>${sub}</small>`:''}</span></button>`;
+function holdSheet(key){const t=T[key];if(!t)return;const amt=S.bal[key]||0,x=posPnl(key),sy=esc(symOf(key)),cash=key==='SOL'||key==='USDC';
+ aSheet(`Options for ${t.name}`,`<div class="ashead">${tokav(key)}<span class="grow"><b>${esc(t.name)}</b><small class="num">${fmtAmt(amt)} ${sy} · ${fmtUsd(usd(key,amt)||0)}${x?` · <span class="${x.pnl>=0?'up':'down'}">${money(x.pnl)}</span>`:''}</small></span></div>`,
+  `<div class="asgroup">${arow(`data-act="hshare" data-k="${esc(key)}"`,'image','Share PnL card','Download or post your position card')}</div>
+  <div class="asgroup">${cash?'':arow(`data-act="hgo" data-k="${esc(key)}" data-f="buy"`,'up','Buy more',`Add to your $${sy}`)+arow(`data-act="hgo" data-k="${esc(key)}" data-f="sell"`,'down','Sell',`Swap $${sy} back to SOL`)}${arow('data-act="withdraw"','share','Withdraw','Send to another wallet')}${arow(`data-act="hgo" data-k="${esc(key)}" data-f="view"`,'market','View token','Chart, safety check and calls')}</div>`)}
+function xSearchSheet(key){const t=T[key];if(!t)return;const ca=t.ca||key,sy=String(t.sym||'').replace(/^\$/,'');
+ aSheet('Search on X',`<div class="ashead">${tokav(key)}<span class="grow"><b>Search $${esc(sy)} on X</b><small>See what people are posting right now</small></span></div>`,
+  `<div class="asgroup">${isMintStr(ca)?arow(`data-act="xgo" data-v="${esc(ca)}"`,'copy','Contract address (CA)',`<span class="num">${esc(short(ca))}</span> · only this exact token`):''}${arow(`data-act="xgo" data-v="$${esc(sy)}"`,'search','$'+esc(sy),'Every post with the cashtag')}</div>`)}
 function activityOf(h){if(h===S.me)return S.activity.map(a=>[a.k,a.d,a.t]);
  return calls.filter(k=>k.c===h&&!k.sponsored&&k.entry).flatMap(k=>{const out=[['Called',`$${symOf(k.t)} at ${fmtUsd(k.entry)} MC`,k.ago||'']];if(k.buy)out.unshift(['Bought',`${fmtUsd(k.buy)} of $${symOf(k.t)}`,k.ago||'']);return out})}
 function ptabBody(h,me){const tab=S.ptab||'calls';
  if(tab==='holdings'){const hs=holdingsOf(h).sort((a,b)=>b.val-a.val),tot=hs.reduce((a,x)=>a+x.val,0);
   if(!hs.length)return `<div class="empty"><b>No holdings yet</b><p>${me?'Buy into a call and it shows up here.':'This caller has no bought-in positions.'}</p></div>`;
-  return `<div class="pad" style="padding-bottom:0"><div class="hint">${me?'Wallet value':'Open positions'}</div><b class="h2 num">${fmtUsd(tot)}</b></div><div class="list pad">${hs.map(x=>`<a class="li" href="#/token/${x.t.key}">${tokav(x.t.key)}<div class="grow"><b>${esc(x.t.name)}</b><div class="hint num">${x.amt!=null?fmtAmt(x.amt)+' '+x.t.sym:'$'+x.t.sym}</div></div><div class="r num"><b>${fmtUsd(x.val)}</b><div class="hint ${x.pnl!=null?(x.pnl>=0?'up':'down'):(x.t.chg>=0?'up':'down')}">${x.pnl!=null?money(x.pnl):fmtPct(x.t.chg)}</div></div></a>`).join('')}</div>`}
+  const pt=hs.reduce((a,x)=>a+(x.pnl||0),0),anyP=hs.some(x=>x.pnl!=null);
+  return `<details class="hold" ${S.holdOpen===false?'':'open'} data-hold><summary><div><div class="hint">${me?'Wallet value':'Open positions'}</div><b class="h2 num">${fmtUsd(tot)}</b>${anyP?` <span class="num ${pt>=0?'up':'down'}" style="font-weight:800">${money(pt)}</span>`:''}</div><span class="holdchev">${ic('chev',18)}</span></summary>
+  <div class="list pad">${hs.map(x=>holdRow(x.t.key,x.amt,x.val,x.pnl,x.pct,x.mine)).join('')}</div></details>`}
  if(tab==='activity'){const a=activityOf(h);if(!a.length)return `<div class="empty"><b>No activity yet</b></div>`;
   return `<div class="list pad">${a.map(([k,d,t])=>`<div class="li"><span class="tokav act-${k.toLowerCase()}" style="background:var(--bg2);color:var(--text)">${ic(k==='Bought'||k==='Sold'?'swap':k==='Called'?'promote':k==='Sent'?'share':'wallet',18)}</span><div class="grow"><b>${esc(k)}</b><div class="hint">${esc(d)}</div></div><span class="hint">${esc(t)}</span></div>`).join('')}</div>`}
  return null}
@@ -1456,6 +1516,11 @@ document.addEventListener('click',e=>{
   cat:()=>{if(S.cat===b.dataset.f)return scrollTo({top:0,behavior:'smooth'});S.cat=b.dataset.f;try{localStorage.setItem('callit.cat',S.cat)}catch(_){}if(S.cat==='perps')loadPerps();render();scrollTo({top:0})},
   pmenu:()=>{const k=calls.find(x=>String(x.id)===String(b.dataset.id));if(k)moreSheet(k.c,k)},
   profmenu:()=>moreSheet(b.dataset.h),
+  xsearch:()=>xSearchSheet(b.dataset.k),
+  xgo:()=>{window.open('https://x.com/search?q='+encodeURIComponent(b.dataset.v)+'&f=live','_blank','noopener');closeModal()},
+  hmenu:()=>holdSheet(b.dataset.k),
+  hshare:()=>{const k=b.dataset.k;closeModal();shareModal(holdCard(k),location.href.split('#')[0]+'#/token/'+encodeURIComponent(k),'callit-pnl-'+symOf(k),`My $${symOf(k)} position on Callit`)},
+  hgo:()=>{const k=b.dataset.k,f=b.dataset.f;closeModal();if(f!=='view'){const w=S.swap;if(f==='sell'){w.from=k;w.to='SOL'}else{w.from='SOL';w.to=k}w.amt=''}location.hash='#/token/'+k},
   shprof:()=>{closeModal();shareProfile(b.dataset.h)},
   cplink:()=>{closeModal();copy(postURL(b.dataset.id),'Link copied')},
   addlist:()=>listsModal(b.dataset.h),
@@ -1465,7 +1530,7 @@ document.addEventListener('click',e=>{
     m=>$('#blgo',m).onclick=()=>{toggleRel('block',h,true);closeModal();toast(`Blocked @${h}`);render()})},
   delpost:()=>{const id=b.dataset.id;modal('Delete post?','It’s removed from your profile and every feed.',`<button class="btn block" style="background:var(--down);color:#fff;border-color:var(--down)" id="dlgo">Delete</button><button class="btn ghost block" data-act="close" style="margin-top:8px">Cancel</button>`,
     m=>$('#dlgo',m).onclick=()=>{API('/api/posts?id='+encodeURIComponent(id),{method:'DELETE'}).then(()=>{calls=calls.filter(x=>String(x.id)!==String(id));closeModal();toast('Post deleted');if(currentRoute()==='post')location.hash='#/home';else render()}).catch(e=>toast(e.message))})},
-  copy:()=>copy(b.dataset.v,'Address copied'),
+  copy:()=>{copy(b.dataset.v,b.dataset.m||'Address copied');if(b.closest('#modal')&&!b.dataset.busy){const o=b.innerHTML;b.dataset.busy=1;b.classList.add('done');b.innerHTML=`${ic('check',15)} Copied`;setTimeout(()=>{if(b.isConnected){b.innerHTML=o;b.classList.remove('done')}delete b.dataset.busy},1600)}},
   follow:()=>{if(!S.connected)return connectModal();const h=b.dataset.h,on=!S.following.has(h);toggleRel('follow',h,on);if(PUB[h]&&!PUB[h].pending)PUB[h].followers=Math.max(0,PUB[h].followers+(on?1:-1));render()},
   track:()=>{const t=b.dataset.t;S.watch.has(t)?S.watch.delete(t):S.watch.add(t);bg('/api/social',{action:'watch',key:t,on:S.watch.has(t)});toast(S.watch.has(t)?`$${symOf(t)} added to watchlist`:`$${symOf(t)} removed from watchlist`);render()},
   withdraw:()=>withdrawModal(),send:()=>withdrawModal(),receive:()=>depositModal(),deposit:()=>depositModal(),

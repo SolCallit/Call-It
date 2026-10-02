@@ -1257,3 +1257,53 @@ html,body{overflow-x:clip;max-width:100%}
 .mockrow .grow{min-width:0}.mockrow .grow b{white-space:nowrap}.mockrow .grow .hint{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mocknum b{white-space:nowrap}
 @media (max-width:420px){.mockbtns span{padding:6px 9px;font-size:12px}}
+/* Topic pills (Memes / Perps / Random): same raised look as every other pill button */
+.cats{padding:12px 12px 6px}
+.cats button{border-radius:14px;padding:9px 14px;font-size:15px;box-shadow:var(--raise-sm);transition:background .15s,color .15s,transform .08s,box-shadow .08s}
+.cats button.on{background:var(--text);color:var(--bg);border-color:var(--text)}
+.cats button:active{transform:translateY(2px);box-shadow:none}
+@media (max-width:420px){.cats button{padding:8px 10px;font-size:14px}}
+
+/* ---------- profile: PnL stats, rank chip ---------- */
+.pstats.p6{grid-template-columns:repeat(3,1fr)}
+.pstats .up{color:var(--up)}.pstats .down{color:var(--down)}
+.rkchip{display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--line);background:var(--bg2);border-radius:12px;padding:8px 12px;font-size:14px;color:var(--muted);box-shadow:var(--raise-sm);text-decoration:none}
+.rkchip b{color:var(--text)}.rkchip.on{border-color:color-mix(in srgb,#E8B730 55%,var(--line));color:#E8B730}.rkchip.on svg{color:#E8B730}
+.rkchip:active{transform:translateY(2px)}
+.pfollow{flex-wrap:wrap}
+
+/* ---------- holdings: collapsible + row menu ---------- */
+.hold>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 16px 4px;cursor:pointer}
+.hold>summary::-webkit-details-marker{display:none}
+.holdchev{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;border:1.5px solid var(--line);background:var(--bg2);transition:transform .2s;transform:rotate(-90deg)}
+.hold[open] .holdchev{transform:rotate(90deg)}
+.hrow{display:flex;align-items:center;gap:6px;padding-right:0}
+.hrow .hlink{display:flex;align-items:center;gap:12px;flex:1;min-width:0;color:inherit;text-decoration:none}
+.hrow .hlink .grow{min-width:0}
+.hmore{flex:none;width:34px;height:34px}
+.wpnl{margin-top:4px;font-size:14px;color:var(--muted);font-weight:600}.wpnl .up{color:var(--up)}.wpnl .down{color:var(--down)}
+
+/* ---------- share: inline link ---------- */
+.shlink{display:flex;align-items:center;gap:8px;margin-top:14px;padding:6px 6px 6px 14px;border:1.5px solid var(--line);border-radius:14px;background:var(--bg2)}
+.shlink span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;color:var(--muted)}
+.shlink .btn{display:inline-flex;align-items:center;gap:6px;flex:none}
+#modal .btn.done{background:var(--up);border-color:var(--up);color:#06231A}
+div.ashead{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:18px;background:var(--bg2);border:1.5px solid var(--line);margin-bottom:10px}
+div.ashead b{display:block}div.ashead small{display:block;color:var(--muted);font-size:13px}
+
+/* ---------- profile share card: a different look for every caller ---------- */
+.xcard.xp{--acc:hsl(var(--xh) 85% 62%)}
+.xcard.xp::before{content:'';position:absolute;inset:0;z-index:0;pointer-events:none}
+.xp:not(.xp-lines) .xgrain{display:none}
+.xp-dots::before{background:radial-gradient(circle,rgba(255,255,255,.16) 1.1px,transparent 1.6px) 0 0/13px 13px}
+.xp-grid::before{background:linear-gradient(rgba(255,255,255,.06) 1px,transparent 1px) 0 0/20px 20px,linear-gradient(90deg,rgba(255,255,255,.06) 1px,transparent 1px) 0 0/20px 20px}
+.xp-rings::before{background:repeating-radial-gradient(circle at 85% 18%,transparent 0 12px,rgba(255,255,255,.07) 12px 13px)}
+.xp-waves::before{background:repeating-radial-gradient(ellipse 160% 100% at 50% 140%,transparent 0 9px,rgba(255,255,255,.065) 9px 10px)}
+.xp-burst::before{background:repeating-conic-gradient(from 0deg at 80% 115%,rgba(255,255,255,.06) 0 4deg,transparent 4deg 12deg)}
+.xorb{position:absolute;z-index:0;width:75%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,hsl(var(--xh) 85% 55% / .45),transparent 65%);pointer-events:none}
+.xo0 .xorb{top:-45%;right:-25%}.xo1 .xorb{bottom:-50%;left:-25%}.xo2 .xorb{top:-45%;left:-20%}.xo3 .xorb{bottom:-50%;right:-20%}
+.xp .xtag{color:hsl(var(--xh) 90% 78%)}
+.xstats{display:grid;grid-template-columns:repeat(4,1fr);margin-top:10px;width:100%;max-width:420px}
+.xstats div{text-align:center;padding:0 4px}.xstats div+div{border-left:1px solid rgba(255,255,255,.12)}
+.xstats span{display:block;font-size:9.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#8FA6BA}
+.xstats b{display:block;font-size:14px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

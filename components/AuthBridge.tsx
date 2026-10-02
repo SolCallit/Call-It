@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { usePrivy, useLogin, useLoginWithOAuth } from '@privy-io/react-auth';
-import { useSignTransaction, useWallets } from '@privy-io/react-auth/solana';
+import { useCreateWallet, useSignTransaction, useWallets } from '@privy-io/react-auth/solana';
 import type { User } from '@privy-io/react-auth';
 import type { CallitProfile, CallitNotification } from '@/lib/auth/types';
 import { toHandle } from '@/lib/auth/handle';
@@ -41,7 +41,9 @@ function localProfile(user: User, wallet: string | null): CallitProfile {
  */
 export default function AuthBridge() {
   const { ready, authenticated, user, logout, getAccessToken } = usePrivy();
-  const { wallets } = useWallets();
+  const { wallets, ready: walletsReady } = useWallets();
+  const { createWallet } = useCreateWallet();
+  const creating = useRef(false);
   const { login } = useLogin();
   const { initOAuth } = useLoginWithOAuth();
   const synced = useRef<string>('');
@@ -124,6 +126,22 @@ export default function AuthBridge() {
     keys.forEach((k) => u.searchParams.delete(k));
     window.history.replaceState(null, '', u.pathname + (u.search || '') + u.hash);
   }, [ready, authenticated]);
+
+  // Accounts created before Solana wallets were switched on (or where creation was
+  // interrupted) have no wallet, which leaves Deposit stuck on "still being set up".
+  // Create the embedded Solana wallet for them once; the sync below then picks it up.
+  useEffect(() => {
+    if (!ready || !authenticated || !user || !walletsReady || wallets.length || creating.current) return;
+    const hasSol = (user.linkedAccounts || []).some(
+      (a) => a.type === 'wallet' && (a as { chainType?: string }).chainType === 'solana',
+    );
+    if (hasSol) return;
+    creating.current = true;
+    createWallet().catch((e) => {
+      console.error('[callit] could not create Solana wallet:', e);
+      creating.current = false;
+    });
+  }, [ready, authenticated, user, walletsReady, wallets.length, createWallet]);
 
   // After sign-in (and again once the embedded wallet exists), load the profile.
   const walletKey = wallets.map((w) => w.address).join(',');
