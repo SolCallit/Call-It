@@ -57,12 +57,13 @@ export async function GET() {
   let media_bucket = 'no_database_config';
   const db = supabaseAdmin();
   if (db) {
-    const q = await db.from('profiles').select('id', { count: 'exact', head: true });
+    const q = await db.from('profiles').select('id').limit(1);
     profiles_table = q.error ? `error: ${q.error.message}` : 'ok';
-    const n = await db.from('notifications').select('id', { count: 'exact', head: true });
+    const n = await db.from('notifications').select('id').limit(1);
     notifications_table = n.error ? `error: ${n.error.message}` : 'ok';
     const tables = ['posts', 'post_reactions', 'post_replies', 'follows', 'watchlist', 'transactions'];
-    const res = await Promise.all(tables.map((t) => db.from(t).select('*', { count: 'exact', head: true })));
+    // Real reads, not HEAD: HEAD requests can't carry an error body, so a missing table looked "ok".
+    const res = await Promise.all(tables.map((t) => db.from(t).select('*').limit(1)));
     tables.forEach((t, i) => (social[t] = res[i].error ? `error: ${res[i].error!.message}` : 'ok'));
     // The table can exist with missing columns (created by an older migration). Probe the exact columns the API writes.
     if (social.posts === 'ok') {
