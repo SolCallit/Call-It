@@ -1,5 +1,5 @@
 // Callit service worker: network first for pages, cached shell when offline.
-const CACHE = 'callit-v2';
+const CACHE = 'callit-v3';
 const SHELL = ['/', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener('activate', (e) => {

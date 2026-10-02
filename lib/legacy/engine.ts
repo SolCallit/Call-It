@@ -35,8 +35,9 @@ const bannerBg=h=>h===S.me&&PROF.banner?`background:#0B1B27 url(${PROF.banner}) 
 const followingOf=h=>h===S.me?[...S.following]:ranked().map(c=>c.h).filter(x=>x!==h).slice(0,(hue(h)%3)+2);
 const followersOf=h=>h===S.me?[]:ranked().map(c=>c.h).filter(x=>x!==h&&(S.following.has(x)||hue(x+h)%2===0)).concat(S.following.has(h)&&S.me?[S.me]:[]);
 function shrink(file,max,cb){const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,max/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);cb(c.toDataURL('image/jpeg',.82))};im.src=r.result};r.readAsDataURL(file)}
-const tokav=s=>{const t=T[s],lab=t&&t.sym?t.sym:String(s);
- return t&&t.icon?`<span class="tokav img" style="background:hsl(${hue(lab)} 58% 45%)"><i>${esc(lab.slice(0,3))}</i><img src="${esc(t.icon)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()"></span>`
+const tokav=s=>{const t=T[s],lab=t&&t.sym?t.sym:String(s),ca=t&&(t.ca||t.key),mint=isMintStr(ca)?ca:(isMintStr(s)?s:''),src=(t&&t.icon)||(mint?'/api/market/icon/'+mint:'');
+ /* Real logo first; if it fails (hotlink block, dead IPFS gateway) retry once through our own /api/market/icon proxy, then fall back to initials. */
+ return src?`<span class="tokav img" style="background:hsl(${hue(lab)} 58% 45%)"><i>${esc(lab.slice(0,3))}</i><img src="${esc(src)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer"${mint&&t&&t.icon?` data-m="${mint}"`:''} onerror="if(this.dataset.m&&!this.dataset.f){this.dataset.f=1;this.src='/api/market/icon/'+this.dataset.m}else this.remove()"></span>`
   :`<span class="tokav" style="background:hsl(${hue(lab)} 58% 45%)">${esc(lab.slice(0,3))}</span>`};
 const symOf=k=>T[k]&&T[k].sym||k;
 
@@ -56,6 +57,7 @@ const P={
  profile:'<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>',
  messages:'<path d="M4 5h16v11H9l-5 4V5z"/>',
  news:'<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9h8M8 13h8M8 17h5"/>',
+assistant:'<path d="M11 3.5l1.8 4.7 4.7 1.8-4.7 1.8L11 16.5l-1.8-4.7L4.5 10l4.7-1.8z"/><path d="M18.5 14.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z"/>',
  promote:'<path d="M3 10v4l3 .5V9.5L3 10zM6 9.5l11-5v15l-11-5M9 15l1.5 5h3l-1-4.2"/>',
  about:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>',
  leaderboard:'<path d="M8 4h8v5a4 4 0 01-8 0V4zM8 6H5a3 3 0 003 4M16 6h3a3 3 0 01-3 4M12 13v4M8 20h8"/>',
@@ -201,7 +203,17 @@ Object.assign(S,{cat:(()=>{try{const v=localStorage.getItem('callit.cat');return
 const PUB={},AVURL={},RLOADED={};let SYNCWARN=0;
 async function API(path,o={}){const w=window.CallitWallet,tok=w&&w.token?await w.token().catch(()=>null):null,has=o.body!==undefined;
  const r=await fetch(path,{method:o.method||(has?'POST':'GET'),headers:{...(has?{'content-type':'application/json'}:{}),...(tok?{authorization:'Bearer '+tok}:{})},body:has?JSON.stringify(o.body):undefined,cache:'no-store'});
- const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||`Request failed (${r.status})`);return j}
+ const j=await r.json().catch(()=>({}));if(!r.ok){if(j.detail)console.error('[callit]',path,j.error,j.detail);throw new Error(apiErr(j,r.status))}return j}
+/* Turn server error codes into something a person can act on (was showing raw "db_write" / "upload_failed"). */
+function apiErr(j,st){const e=String(j.error||''),d=String(j.detail||'');
+ if(/relation .* does not exist|could not find the table|schema cache/i.test(d))return 'Posting isn’t set up on the server yet (database tables missing).';
+ if(/bucket not found/i.test(d))return 'Image uploads aren’t set up on the server yet (media bucket missing).';
+ if(/row-level security|permission denied/i.test(d))return 'The server isn’t allowed to save this (database permissions).';
+ if(e==='unauthorized')return 'Your session expired. Sign in again.';
+ if(e==='no_profile')return 'Finish setting up your profile, then try again.';
+ if(e==='database_not_configured')return 'The database isn’t connected on the server.';
+ if(e==='db_write'||e==='db_read'||e==='upload_failed')return d?`Couldn’t save: ${d}`:'Couldn’t save. Try again.';
+ return e||`Request failed (${st})`}
 function SYNC(){return realAuth()&&S.connected&&!!window.CallitWallet}
 function bg(path,body,method){if(!SYNC())return Promise.resolve(null);
  return API(path,{body,method}).catch(e=>{console.warn('[callit] sync',path,e.message);if(!SYNCWARN++)toast('Couldn’t save that to your account. It’ll show until you reload');return null})}
@@ -882,8 +894,32 @@ function railRest(){const lv=(LIVE.feeds['movers:1h']||[]).map(k=>T[k]).filter(t
  <div class="card"><h3>Top callers</h3><div class="list">${ranked().slice(0,4).map(c=>`<div class="li">${avatar(c.h)}<div class="grow"><a class="pname" href="#/profile/${c.h}">${c.h}</a><div class="hint">${c.win}% win rate</div></div><button class="btn sm ${S.following.has(c.h)?'ghost':'primary'}" data-act="follow" data-h="${c.h}">${S.following.has(c.h)?'Following':'Follow'}</button></div>`).join('')}</div>
  <a class="btn ghost block" style="margin-top:10px" href="#/leaderboard">See leaderboard</a></div>`}
 
+/* ---------- AI assistant ---------- */
+const AST={msgs:[],busy:false,err:''};
+const AST_START=['Check a token before I call it','What makes a call worth following?','Help me write a thesis for my call','How do caller fees work on Callit?'];
+const astText=t=>esc(t).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/\n/g,'<br>');
+function astLog(){if(!AST.msgs.length)return `<div class="astempty"><span class="mark astmark" aria-hidden="true"></span><b class="h2">Check it before you call it.</b>
+ <p>Paste a contract address for live data and red flags, or ask how calls and caller fees work.</p>
+ <div class="astarts">${AST_START.map((q,i)=>`<button class="astart" data-act="aststart" data-i="${i}">${esc(q)}</button>`).join('')}</div></div>`;
+ return AST.msgs.map(m=>m.role==='user'?`<div class="astu">${astText(m.content)}</div>`
+  :`<div class="asta"><span class="mark astav" aria-hidden="true"></span><div class="grow">${(m.tokens||[]).map(t=>T[t]?`<a class="ccard asttok" href="#/token/${t}">${tokav(t)}<div class="cn"><b>${esc(T[t].name||T[t].sym)}</b><span class="hint">$${esc(T[t].sym)}</span></div><b class="num">${T[t].price&&T[t].supply?fmtUsd(mcap(T[t])):''}</b></a>`:'').join('')}<div class="astmsg">${astText(m.content)}</div></div></div>`).join('')
+  +(AST.busy?`<div class="asta astbusy" role="status"><span class="mark astav" aria-hidden="true"></span><span class="hint">Checking<i>.</i><i>.</i><i>.</i></span></div>`:'')}
+function vAssistant(){return `<div class="ast"><div class="astlog" id="astlog" aria-live="polite">${astLog()}</div>
+ <div class="astbar">${AST.err?`<p class="asterr">${esc(AST.err)}</p>`:''}<div class="astbox"><textarea class="input" id="astin" rows="1" maxlength="2000" placeholder="Paste a CA or ask anything" aria-label="Message the assistant"></textarea>
+ <button class="btn primary astgo" data-act="astsend" aria-label="Send">${ic('up',18)}</button></div>
+ <p class="hint astnote">Not financial advice. Always check the contract address.${AST.msgs.length?` <button class="linkbtn" data-act="astnew">New chat</button>`:''}</p></div></div>`}
+function drawAst(){const l=$('#astlog');if(!l)return;l.innerHTML=astLog();const bar=$('.astbar');if(bar){const e=bar.querySelector('.asterr');if(e)e.remove();if(AST.err)bar.insertAdjacentHTML('afterbegin',`<p class="asterr">${esc(AST.err)}</p>`)}
+ requestAnimationFrame(()=>{const v=l.lastElementChild;v&&v.scrollIntoView({block:'end',behavior:'smooth'})})}
+async function astSend(text){const q=String(text||'').trim();if(!q||AST.busy)return;if(!S.connected)return connectModal();
+ AST.err='';AST.msgs.push({role:'user',content:q});AST.busy=true;const i=$('#astin');if(i){i.value='';i.style.height=''}drawAst();
+ try{const j=await API('/api/assistant',{body:{messages:AST.msgs.map(({role,content})=>({role,content}))}});
+  const toks=(j.tokens||[]).map(x=>{const o=regLive(x);return o&&o.key}).filter(Boolean);
+  AST.msgs.push({role:'assistant',content:j.reply,tokens:toks})}
+ catch(e){AST.msgs.pop();AST.err=e.message==='assistant_not_configured'?'The assistant isn’t switched on yet.':e.message==='assistant_unavailable'?'The assistant is busy. Try again in a moment.':e.message;if(i&&!i.value)i.value=q}
+ finally{AST.busy=false;drawAst();const k=$('#astin');k&&k.focus()}}
+
 /* ---------- chrome ---------- */
-const NAV_A=[['home','Home'],['market','Market'],['notifications','Notifications'],['swap','Swap'],['stake','Stake'],['wallet','Wallet'],['profile','Profile']];
+const NAV_A=[['home','Home'],['market','Market'],['notifications','Notifications'],['swap','Swap'],['stake','Stake'],['wallet','Wallet'],['profile','Profile'],['assistant','Assistant']];
 const NAV_B=[['leaderboard','Leaderboard'],['messages','Messages'],['lists','Lists'],['news','News'],['promote','Promote'],['about','About']];
 const TITLES=Object.fromEntries([...NAV_A,...NAV_B,['token','Token'],['community','Community'],['post','Post'],['premium','Premium'],['messages','Messages']]);
 P.lists=P.list;
@@ -922,7 +958,7 @@ function render(){if(isPhone())document.body.classList.add('collapsed');const [,
    <div class="popt" style="margin-top:16px"><div class="pstake" style="margin:0 0 14px"><div><span>Your $CALLIT</span><b class="num">0</b></div><div><span>Staked</span><b class="num">0</b></div><div><span>Rewards</span><b class="num">0</b></div></div>
    <button class="btn primary block" data-act="stakewait">${S.stakeWait?'You\'re on the list':'Notify me at launch'}</button><a class="btn ghost block" href="#/premium" style="margin-top:8px">See Premium</a></div></div>`,'stake','$CALLIT staking is coming','Stake $CALLIT to keep Premium, earn protocol rewards and get cheaper promotions. Opens when $CALLIT launches on mainnet.',['Non-custodial: your tokens stay yours','Premium for as long as you stay staked']),
   messages:()=>vMessages(p),lists:()=>vLists(p),
-  news:vNews,premium:vPremium,notifications:vNotifs}[r]||vHome)();
+  news:vNews,premium:vPremium,notifications:vNotifs,assistant:vAssistant}[r]||vHome)();
  if(LCHART){LCHART();LCHART=null}
  $('#view').innerHTML=html;$('#rail').innerHTML=rail();chrome(r);renderSwaps();skin($('#view'));syncLanding();mountLiveChart();
  if(r==='post'){wireAttach($('#rbox'),RDRAFT,()=>drawRMedia());if(S.focusReply){S.focusReply=false;setTimeout(()=>{const i=$('#rin');i&&i.focus()},60)}}}
@@ -1464,6 +1500,9 @@ document.addEventListener('click',e=>{
   nall:()=>{if(NOTIFS.some(n=>n.real&&n.unread)&&window.CallitAuth&&window.CallitAuth.markRead)window.CallitAuth.markRead('all');NOTIFS.forEach(n=>n.unread=0);toast('All caught up');render()},nt:()=>{S.nt=b.dataset.f;render()},
   gopremium:()=>{location.hash='#/premium'},plan:()=>{S.plan=b.dataset.f;render()},payvia:()=>{S.payvia=b.dataset.f;render()},
   notify:()=>{const f=b.dataset.f;if(!S.connected)return connectModal();S.notifyOn=S.notifyOn||{};S.notifyOn[f]=1;if(f==='stake')S.stakeWait=true;try{localStorage.setItem('callit.notify',JSON.stringify(S.notifyOn))}catch(_){}toast(`We'll let you know when ${SOONF[f]||'it'} opens`);render()},
+  astsend:()=>astSend(($('#astin')||{}).value),
+  astnew:()=>{AST.msgs=[];AST.err='';render()},
+  aststart:()=>{const q=AST_START[+b.dataset.i];if(+b.dataset.i===0){const i=$('#astin');if(i){i.value='CA: ';i.focus()}}else astSend(q)},
   stakewait:()=>{if(!S.connected)return connectModal();S.stakeWait=true;toast('We\'ll let you know when $CALLIT staking opens');render()},
   buyprem:()=>{if(!S.connected)return connectModal(()=>{location.hash='#/premium'});if(REALW())return toast('Premium payments open soon. Nothing was charged');const P=PLANS[S.plan||'yearly'],via=S.payvia||'SOL',amt=via==='SOL'?P.usd/T.SOL.price:P.usd;
    if((S.bal[via]||0)<amt)return toast(`Not enough ${via}. You need ${via==='SOL'?amt.toFixed(3):amt} ${via}`);
@@ -1633,9 +1672,11 @@ setTimeout(()=>{if(S.live==='wait'){S.live='demo';queueDemoCalls();render()}},60
 liveBoot();
 render();
 
+document.addEventListener('keydown',e=>{if(e.target.id==='astin'&&e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();astSend(e.target.value)}});
+document.addEventListener('input',e=>{if(e.target.id!=='astin')return;const t=e.target;t.style.height='auto';t.style.height=Math.min(t.scrollHeight,160)+'px'});
 /* ---------- motion helpers ---------- */
 (()=>{const RIP='.btn,.lxb,.buyb,.upg,.fab,.chip,.tpick,.mtabs button';
- const HOV='.btn,.lxb,.buyb,.upg,.fab,.chip,.tpick,.mtabs button,.pfollow button,.soc a,.bnadd,.ib,.tabs button,.tscroll>button,.scard,.rcard,.act,.notif,.comm';
+ const HOV='.btn,.lxb,.buyb,.upg,.fab,.chip,.tpick,.mtabs button,.pfollow button,.soc a,.bnadd,.ib,.tabs button,.tscroll>button,.scard,.rcard,.act,.notif,.comm,.cats button,.ccard,.astart';
  let hovEl=null;const setHov=el=>{if(hovEl===el)return;hovEl&&hovEl.classList.remove('hov');hovEl=el;el&&el.classList.add('hov')};
  document.addEventListener('pointerover',e=>{if(e.pointerType==='mouse')return;setHov(e.target.closest(HOV))},{passive:true});
  document.addEventListener('pointerout',e=>{if(e.pointerType==='mouse')return;if(hovEl&&!hovEl.contains(e.relatedTarget))setHov(null)},{passive:true});
