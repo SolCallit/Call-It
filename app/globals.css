@@ -1226,3 +1226,34 @@ html,body{overflow-x:clip;max-width:100%}
 @media (prefers-reduced-motion:reduce){.xsheen{animation:none}.xcard{transition:none}}
 .ashead>svg:last-child,.asrow>svg:last-child,.list .li>svg:last-child{transform:scaleX(-1);color:var(--muted);flex:none}
 .xcard{aspect-ratio:auto}.xmid{min-height:150px}
+
+/* ---------- coming soon: locked preview ---------- */
+.lockwrap{position:relative;min-height:calc(100dvh - 170px);overflow:hidden}
+.lockprev{max-height:340px;overflow:hidden;pointer-events:none;user-select:none;filter:saturate(.8);-webkit-mask-image:linear-gradient(#000 30%,transparent 92%);mask-image:linear-gradient(#000 30%,transparent 92%)}
+.lockcov{position:absolute;inset:0;display:flex;justify-content:center;align-items:flex-start;padding:230px 20px 40px;background:linear-gradient(to bottom,transparent 0,transparent 140px,var(--bg) 320px)}
+.lockcard{text-align:center;max-width:420px;width:100%}
+.lockic{display:inline-grid;place-items:center;width:64px;height:64px;border-radius:20px;background:var(--bg2);border:1.5px solid var(--line);color:var(--hi);margin:0 auto 14px;box-shadow:0 18px 44px -14px color-mix(in srgb,var(--hi) 60%,transparent);position:relative}
+.lockic::after{content:"";position:absolute;inset:-6px;border-radius:24px;border:1.5px solid color-mix(in srgb,var(--hi) 25%,transparent);animation:lockpulse 2.4s ease-in-out infinite}
+@keyframes lockpulse{50%{transform:scale(1.08);opacity:0}}
+@media (prefers-reduced-motion:reduce){.lockic::after{animation:none}}
+.lockcard .lkick{display:table;margin:0 auto 10px}
+.lockcard .h2{display:block}
+.lockcard p{color:var(--muted);line-height:1.55;margin:8px auto 0}
+.lockcard ul{list-style:none;padding:0;margin:16px auto 20px;display:inline-flex;flex-direction:column;gap:8px;text-align:left}
+.lockcard li{display:flex;align-items:center;gap:8px;font-weight:600}.lockcard li svg{color:var(--up);flex:none}
+.lockcard .btn{display:inline-flex;align-items:center;gap:8px}
+.mockrow{display:flex;align-items:center;gap:12px;padding:14px 4px;border-bottom:1px solid var(--line)}
+.mockrow .tokav{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:12px}
+.mockrow .grow b{display:block}
+.mocknum{text-align:right}.mocknum b{display:block}.mocknum span{font-size:13px;font-weight:700}
+.mockbtns{display:flex;gap:6px}.mockbtns span{padding:7px 12px;border-radius:999px;font-weight:800;font-size:13px}
+.mlong{background:color-mix(in srgb,var(--up) 18%,transparent);color:var(--up)}.mshort{background:color-mix(in srgb,var(--down) 18%,transparent);color:var(--down)}
+.mockq{padding:16px;border:1.5px solid var(--line);border-radius:16px;background:var(--bg2);margin:0 0 12px}
+.mockq b{display:block;line-height:1.4}
+.mockbar{height:8px;border-radius:99px;background:color-mix(in srgb,var(--down) 35%,transparent);margin:12px 0 8px;overflow:hidden}.mockbar i{display:block;height:100%;background:var(--up);border-radius:99px}
+.mockyn{display:flex;justify-content:space-between;font-weight:800;font-size:13px}
+.dn{color:var(--down)}
+.kseg .klock{opacity:.6}.kseg .klock small{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#E8B730;margin-left:2px}
+.mockrow .grow{min-width:0}.mockrow .grow b{white-space:nowrap}.mockrow .grow .hint{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mocknum b{white-space:nowrap}
+@media (max-width:420px){.mockbtns span{padding:6px 9px;font-size:12px}}

@@ -183,6 +183,7 @@ const AD_EVERY=3;
 const S={connected:false,addr:'',me:'',tab:'foryou',tf:'1D',lb:'30d',following:new Set(),watch:new Set(['GLORP','ORBIT']),
  bal:{SOL:4.2,USDC:310,GLORP:120000},activity:[{k:'Received',d:'2 SOL',t:'Yesterday'}],
  swap:{from:'SOL',to:'GLORP',amt:''},pkg:'boost',queued:[],unread:true,adRot:0,board:0,tt:'movers'};
+try{S.notifyOn=JSON.parse(localStorage.getItem('callit.notify')||'{}')||{}}catch(_){S.notifyOn={}}
 
 /* ---------- persistence (Supabase via /api) ----------
  * Real sessions save everything to the user's account: posts, likes, reposts, replies,
@@ -286,9 +287,9 @@ function perpTick(){calls.forEach(k=>{if(!k.perp)return;const n=perpNums(k);if(!
  Object.keys(PERPM).forEach(m=>{const px=perpPx(m);if(px)document.querySelectorAll(`[data-ppx="${m}"]`).forEach(el=>el.textContent=fmtPrice(px))})}
 
 /* ---------- compose: one sheet, three kinds ---------- */
-function kindSeg(cur){return `<div class="kseg" role="tablist" aria-label="What are you posting?">${CATS.map(([k,l,i])=>`<button type="button" role="tab" aria-selected="${cur===k}" class="${cur===k?'on':''}" data-ck="${k}">${ic(i,16)}<span>${{meme:'Meme',perps:'Perps',random:'Random'}[k]}</span></button>`).join('')}</div>`}
-function wireKind(m,cur){m.querySelectorAll('[data-ck]').forEach(b=>b.onclick=()=>{if(b.dataset.ck===cur)return;const d=($('#cx',m)||{}).value||'';composeModal(b.dataset.ck,{draft:d})})}
-function composeModal(kind,o={}){if(!S.connected)return connectModal(()=>composeModal(kind,o));if(kind==='perps')return perpModal(o);if(kind==='random')return randomModal(o);return callModal(o.pre,o.draft)}
+function kindSeg(cur){return `<div class="kseg" role="tablist" aria-label="What are you posting?">${CATS.map(([k,l,i])=>`<button type="button" role="tab" aria-selected="${cur===k}" class="${cur===k?'on':''}${k==='perps'?' klock':''}" data-ck="${k}"${k==='perps'?' aria-disabled="true"':''}>${ic(k==='perps'?'lock':i,16)}<span>${{meme:'Meme',perps:'Perps',random:'Random'}[k]}</span>${k==='perps'?'<small>Soon</small>':''}</button>`).join('')}</div>`}
+function wireKind(m,cur){m.querySelectorAll('[data-ck]').forEach(b=>b.onclick=()=>{if(b.dataset.ck==='perps')return toast('Perps calls are coming soon');if(b.dataset.ck===cur)return;const d=($('#cx',m)||{}).value||'';composeModal(b.dataset.ck,{draft:d})})}
+function composeModal(kind,o={}){if(kind==='perps'){toast('Perps calls are coming soon');kind='meme'}if(!S.connected)return connectModal(()=>composeModal(kind,o));if(kind==='random')return randomModal(o);return callModal(o.pre,o.draft)}
 function afterPost(k,msg){calls.forEach(x=>x.fresh=false);calls.unshift(k);S.cat=catOf(k);try{localStorage.setItem('callit.cat',S.cat)}catch(_){}S.tab='foryou';closeModal();
  if(location.hash!=='#/home')location.hash='#/home';else render();if(msg)toast(msg);scrollTo({top:0})}
 function perpModal(o={}){let mk='SOL',side='long',lev=10,hz='7 days';const CD={media:[]};
@@ -570,6 +571,7 @@ const renderSwaps=()=>document.querySelectorAll('[data-swapbox]').forEach(el=>el
 /* ---------- views ---------- */
 function homeTabs(){return catBar()+`<div class="tabs" role="tablist">${[['foryou','For you'],['following','Following'],['community','Community'],['watchlist','Watchlist']].map(([k,l])=>`<button role="tab" aria-selected="${S.tab===k}" class="${S.tab===k?'on':''}" data-act="tab" data-f="${k}">${l}</button>`).join('')}</div>`}
 function vHome(){let list=calls.filter(k=>visible(k)&&catOf(k)===S.cat),empty=catEmpty();
+ if(S.cat==='perps'&&S.tab!=='community')return homeTabs()+perpsLocked();
  if(S.tab==='community')return homeTabs()+vCommunity();
  if(S.live==='wait')return homeTabs()+`<div id="feed" aria-busy="true">${Array.from({length:4},()=>`<div class="post pskel" aria-hidden="true"><span class="av md"></span><div><i></i><i></i><i></i><b></b></div></div>`).join('')}<p class="sr-only" role="status">Loading live calls</p></div>`;
  if(S.tab==='following'){list=list.filter(k=>S.following.has(k.c));
@@ -874,10 +876,10 @@ function render(){if(isPhone())document.body.classList.add('collapsed');const [,
  else if(r==='post')html=vPost(p);
  else if(r==='token'){const t=T[p];if(t&&tradable(t)&&p!==S.swap.from){S.swap.from=S.swap.from===p?S.swap.from:(S.swap.from===S.swap.to||!T[S.swap.from]?'SOL':S.swap.from);S.swap.to=p}html=vToken(p)}
  else html=({market:vMarket,trenches:vMarket,swap:vSwap,wallet:vWallet,profile:()=>vProfile(p),leaderboard:vLeaders,promote:vPromote,about:vAbout,
-  stake:()=>`<div class="prem"><div class="phero2"><span class="pbig">${ic('stake',40)}</span><h2>Stake $CALLIT</h2><p>Opens when $CALLIT launches on mainnet.</p></div>
+  stake:()=>locked(`<div class="prem"><div class="phero2"><span class="pbig">${ic('stake',40)}</span><h2>Stake $CALLIT</h2><p>Opens when $CALLIT launches on mainnet.</p></div>
    <div class="pben">${[['verified','Unlock Premium','Keep Premium for as long as you stay staked.'],['wallet','Earn rewards','Get a share of protocol rewards while staked.'],['promote','Cheaper promotions','Discounts on ad slots and sponsored calls.'],['leaderboard','Your tokens stay yours','Non-custodial. Unstake after the lock ends.']].map(([i,t,d])=>`<div class="bcard"><span class="bic">${ic(i,20)}</span><div><b>${t}</b><span>${d}</span></div></div>`).join('')}</div>
    <div class="popt" style="margin-top:16px"><div class="pstake" style="margin:0 0 14px"><div><span>Your $CALLIT</span><b class="num">0</b></div><div><span>Staked</span><b class="num">0</b></div><div><span>Rewards</span><b class="num">0</b></div></div>
-   <button class="btn primary block" data-act="stakewait">${S.stakeWait?'You\'re on the list':'Notify me at launch'}</button><a class="btn ghost block" href="#/premium" style="margin-top:8px">See Premium</a></div></div>`,
+   <button class="btn primary block" data-act="stakewait">${S.stakeWait?'You\'re on the list':'Notify me at launch'}</button><a class="btn ghost block" href="#/premium" style="margin-top:8px">See Premium</a></div></div>`,'stake','$CALLIT staking is coming','Stake $CALLIT to keep Premium, earn protocol rewards and get cheaper promotions. Opens when $CALLIT launches on mainnet.',['Non-custodial: your tokens stay yours','Premium for as long as you stay staked']),
   messages:()=>vMessages(p),lists:()=>vLists(p),
   news:vNews,premium:vPremium,notifications:vNotifs}[r]||vHome)();
  if(LCHART){LCHART();LCHART=null}
@@ -1118,9 +1120,23 @@ function ptabBody(h,me){const tab=S.ptab||'calls';
 /* ---------- market ---------- */
 function vMarket(){const t=S.mt||'trenches',M=[['trenches','Trenches','flame'],['perps','Perps'],['predict','Predictions']];
  const bar=`<div class="mtabs" role="tablist">${M.map(([k,l])=>`<button role="tab" aria-selected="${t===k}" class="${t===k?'on':''}" data-act="mt" data-f="${k}">${l}${k==='trenches'?'<span class="live"></span>':'<small>Soon</small>'}</button>`).join('')}</div>`;
- if(t==='perps')return bar+soonCard('Perps are coming','Long or short the tokens you call, with leverage and your caller track record on the line. Built on Solana perp venues.',['Long and short from any call','Position shows on your call card','Same fee share for bought-in callers']);
- if(t==='predict')return bar+soonCard('Predictions are coming','Back your read on outcomes: will it hit the target, will it graduate, who tops the leaderboard this week.',['Markets on live calls','Settle on-chain','Callers can seed their own markets']);
+ if(t==='perps')return bar+locked(mockPerps(),'perps','Perps are coming','Long or short the tokens you call, with leverage and your caller track record on the line.',['Long and short from any call','Position shows on your call card','Same fee share for bought-in callers']);
+ if(0)return bar+soonCard('Perps are coming','Long or short the tokens you call, with leverage and your caller track record on the line. Built on Solana perp venues.',['Long and short from any call','Position shows on your call card','Same fee share for bought-in callers']);
+ if(t==='predict')return bar+locked(mockPredict(),'predict','Predictions are coming','Back your read on outcomes: will it hit the target, will it graduate, who tops the leaderboard this week.',['Markets on live calls','Settle on-chain','Callers can seed their own markets']);
+ if(0)return bar+soonCard('Predictions are coming','Back your read on outcomes: will it hit the target, will it graduate, who tops the leaderboard this week.',['Markets on live calls','Settle on-chain','Callers can seed their own markets']);
  return bar+topTrades()+`<div class="inmkt">${vTrenches()}</div>`}
+/* Coming soon: a real preview of the feature fades out under a lock. Nothing in the preview is clickable. */
+const SOONF={perps:'Perps',predict:'Predictions',stake:'$CALLIT staking'};
+function notifyBtn(f){const on=S.notifyOn&&S.notifyOn[f];return `<button class="btn ${on?'ghost':'primary'}" data-act="notify" data-f="${f}">${ic(on?'check':'bell',16)} ${on?'You\'re on the list':'Notify me at launch'}</button>`}
+function locked(preview,f,title,text,items){return `<div class="lockwrap"><div class="lockprev" aria-hidden="true" inert>${preview}</div>
+ <div class="lockcov"><div class="lockcard"><span class="lockic">${ic('lock',26)}</span><span class="lkick">Coming soon</span><b class="h2">${title}</b><p>${text}</p>
+ ${items&&items.length?`<ul>${items.map(x=>`<li>${ic('check',15)} ${x}</li>`).join('')}</ul>`:''}${notifyBtn(f)}</div></div></div>`}
+function mockPerps(){const R=[['SOL','Solana','#9d7bff','$142.30','+3.8%','12.4x'],['BTC','Bitcoin','#F7931A','$64,210','+1.2%','8.1x'],['ETH','Ethereum','#8EA2FF','$3,120','-0.6%','10.7x']];
+ return `<div class="pad">${R.map(([k,n,c,px,ch,oi])=>`<div class="mockrow"><span class="tokav" style="background:${c}">${k}</span><div class="grow"><b>${k}-PERP</b><span class="hint">${n} · up to 50x</span></div><div class="mocknum"><b class="num">${px}</b><span class="${ch[0]==='-'?'dn':'up'}">${ch}</span></div><div class="mockbtns"><span class="mlong">Long</span><span class="mshort">Short</span></div></div>`).join('')}</div>`}
+function mockPredict(){const R=[['Will $BONK hit a $3B market cap by Friday?',64],['Will @fadedpixel top the leaderboard this week?',41],['Will this week’s #1 call graduate before Sunday?',72]];
+ return `<div class="pad">${R.map(([q,y])=>`<div class="mockq"><b>${q}</b><div class="mockbar"><i style="width:${y}%"></i></div><div class="mockyn"><span class="up">Yes ${y}%</span><span class="dn">No ${100-y}%</span></div></div>`).join('')}</div>`}
+function perpsLocked(){const demo=calls.filter(k=>k.kind==='perps').slice(0,2).map(post).join('');
+ return locked(demo||mockPerps(),'perps','Perps calls are coming','Call longs and shorts on SOL, BTC and ETH with leverage. Your ROE and liquidation price are tracked live on your profile.',['Long or short with up to 50x','Live ROE on every call','Counts toward your caller rank'])}
 function soonCard(h,p,items){return `<div class="soonx"><div class="sxmark"><span class="mark"></span></div><span class="lkick" style="margin:0 0 12px">Coming soon</span><b class="h2">${h}</b><p>${p}</p><ul>${items.map(x=>`<li>${ic('check',16)} ${x}</li>`).join('')}</ul><button class="btn primary" data-act="mt" data-f="trenches">Open Trenches</button></div>`}
 
 /* ---------- attachments ---------- */
@@ -1387,6 +1403,7 @@ document.addEventListener('click',e=>{
   nread:()=>{const n=NOTIFS.find(x=>x.id==b.dataset.f);if(n){if(n.real&&n.unread&&window.CallitAuth&&window.CallitAuth.markRead)window.CallitAuth.markRead([n.id]);n.unread=0}closeModal();chrome(currentRoute())},
   nall:()=>{if(NOTIFS.some(n=>n.real&&n.unread)&&window.CallitAuth&&window.CallitAuth.markRead)window.CallitAuth.markRead('all');NOTIFS.forEach(n=>n.unread=0);toast('All caught up');render()},nt:()=>{S.nt=b.dataset.f;render()},
   gopremium:()=>{location.hash='#/premium'},plan:()=>{S.plan=b.dataset.f;render()},payvia:()=>{S.payvia=b.dataset.f;render()},
+  notify:()=>{const f=b.dataset.f;if(!S.connected)return connectModal();S.notifyOn=S.notifyOn||{};S.notifyOn[f]=1;if(f==='stake')S.stakeWait=true;try{localStorage.setItem('callit.notify',JSON.stringify(S.notifyOn))}catch(_){}toast(`We'll let you know when ${SOONF[f]||'it'} opens`);render()},
   stakewait:()=>{if(!S.connected)return connectModal();S.stakeWait=true;toast('We\'ll let you know when $CALLIT staking opens');render()},
   buyprem:()=>{if(!S.connected)return connectModal(()=>{location.hash='#/premium'});if(REALW())return toast('Premium payments open soon. Nothing was charged');const P=PLANS[S.plan||'yearly'],via=S.payvia||'SOL',amt=via==='SOL'?P.usd/T.SOL.price:P.usd;
    if((S.bal[via]||0)<amt)return toast(`Not enough ${via}. You need ${via==='SOL'?amt.toFixed(3):amt} ${via}`);
