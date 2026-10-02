@@ -206,7 +206,9 @@ async function API(path,o={}){const w=window.CallitWallet,tok=w&&w.token?await w
  const j=await r.json().catch(()=>({}));if(!r.ok){if(j.detail)console.error('[callit]',path,j.error,j.detail);throw new Error(apiErr(j,r.status))}return j}
 /* Turn server error codes into something a person can act on (was showing raw "db_write" / "upload_failed"). */
 function apiErr(j,st){const e=String(j.error||''),d=String(j.detail||'');
- if(/relation .* does not exist|could not find the table|schema cache/i.test(d))return 'Posting isn’t set up on the server yet (database tables missing).';
+ {const col=/column "?([a-z_]+)"? .*does not exist|could not find the '([a-z_]+)' column/i.exec(d);if(col)return `Database is missing the “${col[1]||col[2]}” column. Run migration 0004 in Supabase.`}
+ if(/relation .* does not exist|could not find the table/i.test(d))return 'Posting isn’t set up on the server yet (database tables missing).';
+ if(/schema cache/i.test(d))return 'Database was just updated. Run migration 0004 in Supabase, then try again.';
  if(/bucket not found/i.test(d))return 'Image uploads aren’t set up on the server yet (media bucket missing).';
  if(/row-level security|permission denied/i.test(d))return 'The server isn’t allowed to save this (database permissions).';
  if(e==='unauthorized')return 'Your session expired. Sign in again.';

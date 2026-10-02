@@ -64,6 +64,12 @@ export async function GET() {
     const tables = ['posts', 'post_reactions', 'post_replies', 'follows', 'watchlist', 'transactions'];
     const res = await Promise.all(tables.map((t) => db.from(t).select('*', { count: 'exact', head: true })));
     tables.forEach((t, i) => (social[t] = res[i].error ? `error: ${res[i].error!.message}` : 'ok'));
+    // The table can exist with missing columns (created by an older migration). Probe the exact columns the API writes.
+    if (social.posts === 'ok') {
+      const cols = 'id,profile_id,kind,body,media,mint,token_sym,token_name,chain,entry_mc,target_mc,horizon,buy_usd,buy_sig,perp_market,perp_side,perp_leverage,perp_entry,perp_target,perp_stop,created_at,deleted_at';
+      const c = await db.from('posts').select(cols).limit(1);
+      if (c.error) social.posts = `error: ${c.error.message}`;
+    }
     const b = await db.storage.getBucket('media');
     media_bucket = b.error ? `error: ${b.error.message}` : b.data?.public ? 'ok' : 'error: bucket is not public';
   }
@@ -72,8 +78,8 @@ export async function GET() {
   const ok = Object.values(env).every(Boolean) && privy_jwks === 'ok' && profiles_table === 'ok' && notifications_table === 'ok'
     && Object.values(social).every((v) => v === 'ok') && media_bucket === 'ok';
   const fix = ok ? null
-    : Object.values(social).some((v) => v !== 'ok') ? 'Run supabase/migrations/0003_social_and_ledger.sql in Supabase → SQL Editor'
-    : media_bucket !== 'ok' ? 'Media bucket missing: it is created automatically on the first image upload, or run the storage section at the end of 0003_social_and_ledger.sql'
+    : Object.values(social).some((v) => v !== 'ok') ? 'Run supabase/migrations/0004_repair_posts_and_media.sql in Supabase → SQL Editor'
+    : media_bucket !== 'ok' ? 'Media bucket missing: it is created automatically on the first image upload, or run supabase/migrations/0004_repair_posts_and_media.sql'
     : null;
   return NextResponse.json({ ok, service: 'callit-web', time: new Date().toISOString(), env, privy_jwks, privy_login, profiles_table, notifications_table, social_tables: social, media_bucket, fix, welcome_email });
 }
