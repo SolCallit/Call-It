@@ -28,7 +28,7 @@ const short=a=>a.slice(0,4)+'…'+a.slice(-4);
 const hue=s=>{let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))%360;return h};
 let PROF={};try{PROF=JSON.parse(localStorage.getItem('callit.profile')||'{}')||{}}catch(_){}
 const saveProf=()=>{try{localStorage.setItem('callit.profile',JSON.stringify(PROF));return true}catch(_){return false}};
-const avatar=(h,cls='')=>h===S.me&&PROF.avatar?`<span class="av ${cls}" style="background:#0B1B27 url(${PROF.avatar}) center/cover" role="img" aria-label="${esc(h)}"></span>`:`<span class="av ${cls}" style="background:hsl(${(hue(h)%70)+185} 52% 42%)">${esc(h.slice(0,2).toUpperCase())}</span>`;
+const avatar=(h,cls='')=>(h===S.me&&PROF.avatar||AVURL[h])?`<span class="av ${cls}" style="background:#0B1B27 url(${h===S.me&&PROF.avatar||AVURL[h]}) center/cover" role="img" aria-label="${esc(h)}"></span>`:`<span class="av ${cls}" style="background:hsl(${(hue(h)%70)+185} 52% 42%)">${esc(h.slice(0,2).toUpperCase())}</span>`;
 const isPrem=h=>h===S.me&&S.premium&&S.premium.until>Date.now();
 const vbadge=h=>isPrem(h)?`<span class="vb" title="Callit Premium">${ic('verified',17)}</span>`:'';
 const bannerBg=h=>h===S.me&&PROF.banner?`background:#0B1B27 url(${PROF.banner}) center/cover`:`background:linear-gradient(120deg,hsl(${(hue(h)%70)+185} 55% 26%),#0B1B27 70%),#0B1B27`;
@@ -42,6 +42,12 @@ const symOf=k=>T[k]&&T[k].sym||k;
 
 const P={
  home:'<path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/>',
+ more:'<circle cx="5" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="19" cy="12" r="1.4" fill="currentColor"/>',
+ link:'<path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1"/>',
+ list:'<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1" fill="currentColor"/><circle cx="4.5" cy="12" r="1" fill="currentColor"/><circle cx="4.5" cy="18" r="1" fill="currentColor"/>',
+ mute:'<path d="M11 5L6 9H3v6h3l5 4z"/><path d="M22 9l-6 6M16 9l6 6"/>',
+ block:'<circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/>',
+ trash:'<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
  market:'<path d="M5 20V11M12 20V5M19 20v-8"/>',
  trenches:'<path d="M12 3c1 4 5 5.5 5 10a5 5 0 01-10 0c0-2.7 1.6-4 2-6 1 1.2 2 2 3 2 0-2.5-.8-4 0-6z"/>',
  swap:'<path d="M7 4v14M7 18l-3-3M7 18l3-3M17 20V6M17 6l-3 3M17 6l3 3"/>',
@@ -160,7 +166,13 @@ let calls=[
  {id:2,c:'lagosape',t:'KFSH',entry:9.8e6,buy:300,thesis:'Survived two dumps and still printing higher lows. Volume is real, not wash.',target:50e6,horizon:'30 days',ago:'5h',likes:131,reposts:22,replies:22,views:11800},
  {id:3,c:'minnie_sol',t:'MOTH',entry:520e3,buy:110,sold:{pct:40,ago:'2h'},thesis:'Fresh deployer wallet, top 10 holders under 20%. Small bet, fast exit if it loses $300K.',target:3e6,horizon:'3 days',ago:'8h',likes:47,reposts:5,replies:9,views:3900},
  {id:5,c:'dr_liquidity',t:'ORBIT',entry:31e6,thesis:'Base lending market with sticky TVL. Token unlock is behind us. Slow grind, not a flip.',target:80e6,horizon:'30 days',ago:'1d',likes:76,reposts:11,replies:14,views:7300},
- {id:6,c:'quietmoney',t:'GLORP',entry:1.1e6,buy:90,thesis:'Late, but the chart says there is room. Following the smart wallets in.',target:4e6,horizon:'3 days',ago:'1d',likes:19,reposts:2,replies:4,views:1600}
+ {id:6,c:'quietmoney',t:'GLORP',entry:1.1e6,buy:90,thesis:'Late, but the chart says there is room. Following the smart wallets in.',target:4e6,horizon:'3 days',ago:'1d',likes:19,reposts:2,replies:4,views:1600},
+ {id:21,c:'dr_liquidity',kind:'perps',perp:{m:'SOL',side:'long',lev:5,rel:.972,target:null,stop:null,trel:1.12},thesis:'Funding flipped negative while spot bids keep stepping up. Shorts are paying me to wait.',horizon:'7 days',ago:'3h',likes:64,reposts:9,replies:11,views:6100},
+ {id:22,c:'zerobeta',kind:'perps',perp:{m:'BTC',side:'short',lev:10,rel:1.008,target:null,stop:null,trel:.95,srel:1.03},thesis:'Third rejection at the same level on lower volume. Tight stop above the wick.',horizon:'3 days',ago:'6h',likes:38,reposts:4,replies:7,views:3300},
+ {id:23,c:'lagosape',kind:'perps',perp:{m:'ETH',side:'long',lev:3,rel:.985,target:null,stop:null,trel:1.2},thesis:'ETH/BTC bottoming on the weekly. Slow swing long, low leverage, no stress.',horizon:'30 days',ago:'1d',likes:51,reposts:6,replies:9,views:4800},
+ {id:31,c:'minnie_sol',kind:'random',thesis:'Reminder that the best trade this week was the one you didn’t take. Touch grass, then come back to the charts.',ago:'1h',likes:122,reposts:18,replies:24,views:9800},
+ {id:32,c:'fadedpixel',kind:'random',thesis:'Hosting a Space tonight on how I size memecoin calls. Bring your worst entries, we’re reviewing them live 😂',ago:'5h',likes:87,reposts:21,replies:31,views:7400},
+ {id:33,c:'quietmoney',kind:'random',thesis:'Week 3 of journaling every trade. Biggest lesson so far: I exit winners too early and hold losers too long. Fixing it one call at a time.',ago:'2d',likes:43,reposts:3,replies:8,views:2900}
 ];
 const ADS=[
  {id:'vault',brand:'Vaultline',h:'vaultline',ic:'wallet',text:'Keep your bags cold. The pocket hardware wallet that signs Solana transactions in one tap.',title:'Vaultline Wallet',sub:'★★★★★ 2,140 reviews',cta:'Shop',g:['#1F7AE0','#0B1B27']},
@@ -171,6 +183,264 @@ const AD_EVERY=3;
 const S={connected:false,addr:'',me:'',tab:'foryou',tf:'1D',lb:'30d',following:new Set(),watch:new Set(['GLORP','ORBIT']),
  bal:{SOL:4.2,USDC:310,GLORP:120000},activity:[{k:'Received',d:'2 SOL',t:'Yesterday'}],
  swap:{from:'SOL',to:'GLORP',amt:''},pkg:'boost',queued:[],unread:true,adRot:0,board:0,tt:'movers'};
+
+/* ---------- persistence (Supabase via /api) ----------
+ * Real sessions save everything to the user's account: posts, likes, reposts, replies,
+ * follows, mutes, blocks, lists, watchlist, transactions and media. The UI updates
+ * instantly; the server write happens in the background. */
+Object.assign(S,{cat:(()=>{try{const v=localStorage.getItem('callit.cat');return ['meme','perps','random'].includes(v)?v:'meme'}catch(_){return 'meme'}})(),
+ muted:new Set(),blocked:new Set(),lists:[],followers:null});
+const PUB={},AVURL={},RLOADED={};let SYNCWARN=0;
+async function API(path,o={}){const w=window.CallitWallet,tok=w&&w.token?await w.token().catch(()=>null):null,has=o.body!==undefined;
+ const r=await fetch(path,{method:o.method||(has?'POST':'GET'),headers:{...(has?{'content-type':'application/json'}:{}),...(tok?{authorization:'Bearer '+tok}:{})},body:has?JSON.stringify(o.body):undefined,cache:'no-store'});
+ const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||`Request failed (${r.status})`);return j}
+function SYNC(){return realAuth()&&S.connected&&!!window.CallitWallet}
+function bg(path,body,method){if(!SYNC())return Promise.resolve(null);
+ return API(path,{body,method}).catch(e=>{console.warn('[callit] sync',path,e.message);if(!SYNCWARN++)toast('Couldn’t save that to your account. It’ll show until you reload');return null})}
+async function upMedia(list,kind='post'){const out=[];for(const u of list||[]){if(/^https?:/.test(u)){out.push(u);continue}const r=await API('/api/media',{body:{data:u,kind}});out.push(r.url)}return out}
+function liveAgo(o,at){if(!at)return o;o.at=at;Object.defineProperty(o,'ago',{configurable:true,enumerable:true,get(){const m=(Date.now()-o.at)/6e4;return m<1?'now':m<60?Math.round(m)+'m':m<1440?Math.round(m/60)+'h':Math.round(m/1440)+'d'}});return o}
+function nameOf(h){return h===S.me?(PROF.name||h):(PUB[h]&&PUB[h].display_name)||h}
+
+/* server rows -> feed items */
+function fromRow(r){if(!r||!r.handle)return null;if(r.avatar_url)AVURL[r.handle]=r.avatar_url;
+ if(!C[r.handle])C[r.handle]={h:r.handle,win:0,avg:0,calls:0,best:0,followers:0,real:1};
+ const k={id:r.id,srv:1,c:r.handle,kind:r.kind,thesis:r.body||'',media:r.media||[],likes:r.likes||0,reposts:r.reposts||0,replies:r.replies||0,views:Math.max(1,(r.likes||0)*9+(r.replies||0)*14),liked:!!r.liked,reposted:!!r.reposted,horizon:r.horizon||null};
+ if(r.kind==='meme'){Object.assign(k,{t:r.mint,entry:+r.entry_mc,target:r.target_mc?+r.target_mc:null,buy:+r.buy_usd||0,snap:{sym:r.token_sym,name:r.token_name}})}
+ if(r.kind==='perps')k.perp={m:r.perp_market,side:r.perp_side,lev:+r.perp_leverage,entry:+r.perp_entry,target:r.perp_target?+r.perp_target:null,stop:r.perp_stop?+r.perp_stop:null};
+ return liveAgo(k,Date.parse(r.created_at))}
+function mergePosts(rows){const ids=new Set(calls.map(k=>String(k.id))),add=[],miss=new Set();
+ rows.map(fromRow).filter(Boolean).forEach(k=>{const i=calls.findIndex(x=>String(x.id)===String(k.id));if(i>=0){const o=calls[i];['likes','reposts','replies','liked','reposted','buy'].forEach(f=>o[f]=k[f]);return}
+  if(!ids.has(String(k.id))){add.push(k);if(k.t&&!T[k.t])miss.add(k.t)}});
+ if(add.length){const at=k=>k.at||0;calls=[...calls,...add].sort((a,b)=>(b.at?1:0)-(a.at?1:0)||at(b)-at(a))}
+ if(miss.size)fetchTokens([...miss].slice(0,50)).then(l=>{l.forEach(regLive);render()}).catch(()=>{});
+ return add.length}
+let PBUSY=0;
+function loadPosts(){if(PBUSY)return;PBUSY=1;API('/api/posts?limit=60').then(j=>{if(mergePosts(j.posts||[])&&['home','profile','lists'].includes(currentRoute()))render()}).catch(()=>{}).finally(()=>{PBUSY=0})}
+function loadMe(){if(!SYNC())return;API('/api/me').then(j=>{
+  S.following=new Set(j.following||[]);S.muted=new Set(j.muted||[]);S.blocked=new Set(j.blocked||[]);S.lists=j.lists||[];S.followers=j.followers||0;
+  if(j.watchlist&&j.watchlist.length)S.watch=new Set(j.watchlist);
+  const R={};(j.reactions||[]).forEach(x=>{(R[x.post_ref]=R[x.post_ref]||{})[x.kind]=1});
+  calls.forEach(k=>{const r=R[String(k.id)];if(!r)return;if(r.like&&!k.liked){k.liked=true;if(!k.srv)k.likes++}if(r.repost&&!k.reposted){k.reposted=true;if(!k.srv)k.reposts++}});
+  S.activity=(j.transactions||[]).map(txRow);render()}).catch(e=>console.warn('[callit] /api/me',e.message))}
+function txRow(t){const K={buy:'Bought',sell:'Sold',swap:'Swapped',withdraw:'Withdrew',deposit:'Received'};
+ const d=Date.parse(t.created_at),m=(Date.now()-d)/6e4;
+ return {k:K[t.kind]||t.kind,d:t.label||'',t:m<1?'Just now':m<60?Math.round(m)+'m ago':m<1440?Math.round(m/60)+'h ago':new Date(d).toLocaleDateString(),sig:t.signature}}
+/* Records a real on-chain transaction to the user's account (and stamps a call's buy-in). */
+function logTx(rec){S.activity.unshift({k:rec.k,d:rec.label,t:'Just now',sig:rec.signature});bg('/api/transactions',rec)}
+function loadPub(h){if(PUB[h]||!SYNC()&&!realAuth())return;PUB[h]={pending:1};
+ fetch('/api/profile?handle='+encodeURIComponent(h)).then(r=>r.ok?r.json():null).then(j=>{if(!j||!j.profile){delete PUB[h];return}PUB[h]=j.profile;if(j.profile.avatar_url)AVURL[h]=j.profile.avatar_url;
+  if(currentRoute()==='profile'&&location.hash.split('/')[2]===h)render()}).catch(()=>{delete PUB[h]})}
+function pubP(h){const p=PUB[h];return p&&!p.pending?{name:p.display_name||'',bio:p.bio||'',web:p.website||'',x:p.x_handle||''}:{}}
+
+/* ---------- Meme / Perps / Random ---------- */
+const CATS=[['meme','Memes','trenches'],['perps','Perps','market'],['random','Random','smile']];
+function catOf(k){return k.kind||'meme'}
+function visible(k){return !S.muted.has(k.c)&&!S.blocked.has(k.c)}
+function catBar(){return `<div class="cats" role="tablist" aria-label="Feed type">${CATS.map(([k,l,i])=>`<button role="tab" aria-selected="${S.cat===k}" class="${S.cat===k?'on':''}" data-act="cat" data-f="${k}">${ic(i,15)}<span>${l}</span></button>`).join('')}</div>`}
+function catEmpty(){const E={meme:['No calls yet','Call a token you believe in. Your entry is stamped at the live market cap.','Make a call'],
+ perps:['No perps calls yet','Call a long or short on SOL, BTC or ETH. Callit tracks the ROE live.','Call a perp'],
+ random:['Nothing here yet','Not every post needs a chart. Share what you’re seeing, thinking or building.','Write a post']}[S.cat];
+ return `<div class="empty"><span class="eic">${ic(CATS.find(c=>c[0]===S.cat)[2],26)}</span><b class="h2">${E[0]}</b><p>${E[1]}</p><button class="btn primary" data-act="newcall" data-k="${S.cat}">${E[2]}</button></div>`}
+
+const PERPM={SOL:{mint:'So11111111111111111111111111111111111111112',name:'Solana',c:'#9d7bff'},BTC:{mint:'3NZ9JMVBmGAqocybic2c7LQCJScmgsAZ6vQqTDzcqmJh',name:'Bitcoin',c:'#F7931A'},ETH:{mint:'7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs',name:'Ethereum',c:'#8EA2FF'}};
+function perpPx(m){const t=PERPM[m]&&T[PERPM[m].mint];return t&&t.price?t.price:(m==='SOL'&&T.SOL&&T.SOL.price?T.SOL.price:null)}
+let PERPBUSY=0;
+function loadPerps(){if(PERPBUSY)return;PERPBUSY=1;fetchTokens(Object.values(PERPM).map(x=>x.mint)).then(l=>l.forEach(x=>{const t=regLive(x);if(t)t.base=1})).catch(()=>{}).finally(()=>{PERPBUSY=0;let fresh=0;
+ calls.forEach(k=>{const p=k.perp;if(!p||p.entry||!p.rel)return;const px=perpPx(p.m);if(!px)return;p.entry=px*p.rel;if(p.trel)p.target=p.entry*p.trel;if(p.srel)p.stop=p.entry*p.srel;fresh=1});
+ if(fresh&&currentRoute()==='home'&&S.cat==='perps')render();else perpTick()})}
+function liqOf(p){return p.side==='long'?p.entry*(1-1/p.lev):p.entry*(1+1/p.lev)}
+function perpNums(k){const p=k.perp,px=perpPx(p.m);if(!px||!p.entry)return null;const L=p.side==='long',move=(px/p.entry-1)*100*(L?1:-1),liq=liqOf(p);
+ const liqd=k._liqd=k._liqd||(p.lev>1&&(L?px<=liq:px>=liq)),hit=!!p.target&&(L?px>=p.target:px<=p.target),stopped=!!p.stop&&(L?px<=p.stop:px>=p.stop),roe=liqd?-100:move*p.lev;
+ return {px,move,roe,up:roe>=0,liq,liqd,hit,stopped}}
+function perpAv(m,big){return `<span class="tokav pmk${big?' big':''}" style="--pc:${PERPM[m].c}" aria-hidden="true">${m}</span>`}
+function perpNote(k,n){const p=k.perp,b=[];if(p.target)b.push('Target '+fmtPrice(p.target));if(p.stop)b.push('Stop '+fmtPrice(p.stop));if(p.lev>1)b.push('Liq ≈ '+fmtPrice(liqOf(p)));if(k.horizon)b.push('within '+esc(k.horizon));
+ const st=n&&n.liqd?'<span class="sold">Liquidated</span>':n&&n.hit?`<span class="bk">${ic('check',13)} Target hit</span>`:n&&n.stopped?'<span class="sold">Stopped out</span>':'<span class="bk no">Tracked call · no trade placed</span>';
+ return b.join(' · ')+(b.length?' · ':'')+st}
+function followChip(h){return h!==S.me?`<button class="fchip${S.following.has(h)?' on':''}" data-act="follow" data-h="${h}" aria-label="${S.following.has(h)?'Following':'Follow'} ${esc(h)}">${S.following.has(h)?ic('check',12)+'<span>Following</span>':'+<span>Follow</span>'}</button>`:''}
+function moreBtn(k){return `<button class="ib pmore" data-act="pmenu" data-id="${k.id}" aria-label="More options">${ic('more',18)}</button>`}
+function phead(k){const r=rankOf(k.c);return `<div class="phead"><span class="pname">${esc(k.c)}</span>${vbadge(k.c)}${r&&catOf(k)==='meme'?`<span class="rk">#${r}</span>`:''}${catOf(k)==='perps'?'<span class="tag pk">Perps</span>':''}${followChip(k.c)}<time>${k.ago==='now'?'now':k.ago+' ago'}</time>${moreBtn(k)}</div>`}
+function pbar(k,right=''){return `<div class="pbar"><div class="icons">
+ <button class="act" data-act="reply" aria-label="Reply">${ic('reply',18)}<span class="num">${k.replies||''}</span></button>
+ <button class="act${k.reposted?' reposted':''}" data-act="repost" data-id="${k.id}" aria-label="Repost">${ic('repost',18)}<span class="num">${k.reposts||''}</span></button>
+ <button class="act${k.liked?' liked':''}" data-act="like" data-id="${k.id}" aria-label="Like">${ic('heart',18,k.liked)}<span class="num">${k.likes||''}</span></button>
+ <span class="act views" aria-label="Views">${ic('views',18)}<span class="num">${fmtK(k.views||0)}</span></span>
+ <button class="act" data-act="share" data-id="${k.id}" aria-label="Share">${ic('share',18)}</button></div>${right}</div>`}
+function perpCard(k){const p=k.perp,n=perpNums(k),L=p.side==='long';
+ return `<div class="ccard pcard">${perpAv(p.m)}<div class="cn"><b>${p.m}-PERP</b><span><span class="pside ${L?'long':'short'}">${L?'Long':'Short'} ${+p.lev}x</span></span></div>
+ <div class="cr2 num"><div><span>Entry</span><b>${fmtPrice(p.entry)}</b></div><div><span>${n&&n.liqd?'Liquidated':'ROE'}</span><b class="${n?(n.up?'up':'down'):'muted'}" data-roe="${k.id}">${n?fmtPct(n.roe):'—'}</b></div></div></div>`}
+function postPerp(k){const p=k.perp;if(!p.entry)return '';const n=perpNums(k);
+ return `<article class="post${k.fresh?' fresh':''}" data-go="#/post/${k.id}" tabindex="0" aria-label="Perps call by ${esc(k.c)} on ${p.m}">
+ <a href="#/profile/${k.c}" aria-label="Open @${esc(k.c)}'s profile" class="pav">${avatar(k.c,'md')}</a><div style="min-width:0">${phead(k)}
+ <p class="ptext">${esc(k.thesis)}</p>${mediaGrid(k.media)}${perpCard(k)}<div class="pnote">${perpNote(k,n)}</div>
+ ${pbar(k,`<span class="pright"><span class="mc num" data-ppx="${p.m}" title="${p.m} mark price">${n?fmtPrice(n.px):'—'}</span></span>`)}</div></article>`}
+function postRandom(k){return `<article class="post${k.fresh?' fresh':''}" data-go="#/post/${k.id}" tabindex="0" aria-label="Post by ${esc(k.c)}">
+ <a href="#/profile/${k.c}" aria-label="Open @${esc(k.c)}'s profile" class="pav">${avatar(k.c,'md')}</a><div style="min-width:0">${phead(k)}
+ ${k.thesis?`<p class="ptext">${esc(k.thesis)}</p>`:''}${mediaGrid(k.media)}${pbar(k)}</div></article>`}
+function perpPanel(k){if(!k.perp.entry)return '<p class="hint">Loading the live price…</p>';const p=k.perp,n=perpNums(k),L=p.side==='long',cls=n?(n.up?'up':'down'):'';
+ const prog=p.target&&n?Math.min(100,Math.max(0,(n.px-p.entry)/(p.target-p.entry)*100)):null;
+ return `<div class="tpanel">${perpCard(k)}<div class="tgrid num"><div><span>Entry</span><b>${fmtPrice(p.entry)}</b></div><div><span>Mark price</span><b class="${cls}" data-ppx="${p.m}">${n?fmtPrice(n.px):'—'}</b></div><div><span>Price move</span><b class="${cls}">${n?fmtPct(n.move):'—'}</b></div>
+ <div><span>Side</span><b class="${L?'up':'down'}">${L?'Long':'Short'} ${+p.lev}x</b></div><div><span>Target</span><b>${p.target?fmtPrice(p.target):'None set'}</b></div><div><span>${p.lev>1?'Liq. price':'Stop'}</span><b>${p.lev>1?fmtPrice(liqOf(p)):p.stop?fmtPrice(p.stop):'—'}</b></div></div>
+ ${prog!=null?`<div class="tprog"><i style="width:${Math.max(2,prog)}%"></i></div>`:''}<p class="hint" style="margin:10px 0 0">${perpNote(k,n)}. Perps trading in Callit is coming; calls are tracked against the live ${p.m} price.</p></div>`}
+function perpTick(){calls.forEach(k=>{if(!k.perp)return;const n=perpNums(k);if(!n)return;const dir=k._px?Math.sign(n.px-k._px):0;k._px=n.px;
+ document.querySelectorAll(`[data-roe="${k.id}"]`).forEach(el=>{flashSet(el,fmtPct(n.roe),dir);el.classList.toggle('up',n.up);el.classList.toggle('down',!n.up)})});
+ Object.keys(PERPM).forEach(m=>{const px=perpPx(m);if(px)document.querySelectorAll(`[data-ppx="${m}"]`).forEach(el=>el.textContent=fmtPrice(px))})}
+
+/* ---------- compose: one sheet, three kinds ---------- */
+function kindSeg(cur){return `<div class="kseg" role="tablist" aria-label="What are you posting?">${CATS.map(([k,l,i])=>`<button type="button" role="tab" aria-selected="${cur===k}" class="${cur===k?'on':''}" data-ck="${k}">${ic(i,16)}<span>${{meme:'Meme',perps:'Perps',random:'Random'}[k]}</span></button>`).join('')}</div>`}
+function wireKind(m,cur){m.querySelectorAll('[data-ck]').forEach(b=>b.onclick=()=>{if(b.dataset.ck===cur)return;const d=($('#cx',m)||{}).value||'';composeModal(b.dataset.ck,{draft:d})})}
+function composeModal(kind,o={}){if(!S.connected)return connectModal(()=>composeModal(kind,o));if(kind==='perps')return perpModal(o);if(kind==='random')return randomModal(o);return callModal(o.pre,o.draft)}
+function afterPost(k,msg){calls.forEach(x=>x.fresh=false);calls.unshift(k);S.cat=catOf(k);try{localStorage.setItem('callit.cat',S.cat)}catch(_){}S.tab='foryou';closeModal();
+ if(location.hash!=='#/home')location.hash='#/home';else render();if(msg)toast(msg);scrollTo({top:0})}
+function perpModal(o={}){let mk='SOL',side='long',lev=10,hz='7 days';const CD={media:[]};
+ modal('Make a call','Call a long or short. Entry is stamped at the live price when you post.',`${kindSeg('perps')}
+ <div class="field"><label>Market</label><div class="pmkts" id="pmk">${Object.keys(PERPM).map(m=>`<button type="button" data-pm="${m}" class="${m===mk?'on':''}">${perpAv(m)}<span><b>${m}-PERP</b><small class="num" data-ppx="${m}">${perpPx(m)?fmtPrice(perpPx(m)):'…'}</small></span></button>`).join('')}</div></div>
+ <div class="field"><label>Direction</label><div class="pdir" id="pds"><button type="button" data-sd="long" class="on long">${ic('up',16)} Long</button><button type="button" data-sd="short" class="short">${ic('down',16)} Short</button></div></div>
+ <div class="field"><label for="plev">Leverage <b class="num" id="plevv" style="float:right">${lev}x</b></label><input type="range" id="plev" min="1" max="100" step="1" value="${lev}" class="prange"><div class="presets" id="plevp">${[2,5,10,25,50].map(v=>`<button type="button" data-lv="${v}" class="${v===lev?'on':''}">${v}x</button>`).join('')}</div></div>
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="field"><label for="ptg">Target price</label><input id="ptg" class="input num" inputmode="decimal" placeholder="Optional"></div><div class="field"><label for="pst">Stop price</label><input id="pst" class="input num" inputmode="decimal" placeholder="Optional"></div></div>
+ <div class="field"><label>Time window</label><div class="seg wide tw" id="ph">${[['24 hours','24h'],['3 days','3d'],['7 days','7d'],['30 days','30d']].map(([v,l])=>`<button type="button" class="${v===hz?'on':''}" data-hz="${v}">${l}</button>`).join('')}</div></div>
+ <div class="pinfo" id="pinfo"></div>
+ <div class="field"><label for="cx">Why this trade?</label><div class="composer2" id="cbox"><textarea id="cx" class="input" maxlength="280" placeholder="Your thesis. What’s the setup?">${esc(o.draft||'')}</textarea><div id="cmedia"></div>${attachBar()}</div><span class="hint" id="cn">0 / 280</span></div>
+ <div class="err" id="cerr"></div><button class="btn primary block" id="cpost" disabled>Post perps call</button>`,
+ m=>{wireKind(m,'perps');loadPerps();wireAttach($('#cbox',m),CD,()=>{$('#cmedia',m).innerHTML=mediaGrid(CD.media,1);$('#cbox [data-attn]',m).textContent=CD.media.length?CD.media.length+'/4':''});
+  const tx=$('#cx',m),go=$('#cpost',m),num=id=>{const v=parseFloat(String($(id,m).value).replace(/[$,\s]/g,''));return v>0?v:null};
+  const info=()=>{const px=perpPx(mk),L=side==='long',el=$('#pinfo',m);if(!px){el.innerHTML='<span class="hint">Loading the live price…</span>';return}
+   const liq=lev>1?liqOf({side,lev,entry:px}):null;el.innerHTML=`<div><span>Entry now</span><b class="num">${fmtPrice(px)}</b></div><div><span>${L?'+1% move':'−1% move'}</span><b class="num up">+${lev}% ROE</b></div><div><span>Liq. price</span><b class="num down">${liq?fmtPrice(liq):'None'}</b></div>`};
+  const check=()=>{$('#cn',m).textContent=tx.value.length+' / 280';go.disabled=!(perpPx(mk)&&tx.value.trim().length>=10);info()};
+  m.querySelectorAll('[data-pm]').forEach(b=>b.onclick=()=>{mk=b.dataset.pm;m.querySelectorAll('[data-pm]').forEach(x=>x.classList.toggle('on',x===b));check()});
+  m.querySelectorAll('[data-sd]').forEach(b=>b.onclick=()=>{side=b.dataset.sd;m.querySelectorAll('[data-sd]').forEach(x=>x.classList.toggle('on',x===b));check()});
+  const setLev=v=>{lev=Math.max(1,Math.min(100,Math.round(v)));$('#plev',m).value=lev;$('#plev',m).style.setProperty('--v',(lev-1)/99*100+'%');$('#plevv',m).textContent=lev+'x';m.querySelectorAll('[data-lv]').forEach(x=>x.classList.toggle('on',+x.dataset.lv===lev));check()};
+  $('#plev',m).oninput=e=>setLev(+e.target.value);m.querySelectorAll('[data-lv]').forEach(b=>b.onclick=()=>setLev(+b.dataset.lv));setLev(lev);
+  m.querySelectorAll('[data-hz]').forEach(b=>b.onclick=()=>{hz=b.dataset.hz;m.querySelectorAll('[data-hz]').forEach(x=>x.classList.toggle('on',x===b))});
+  tx.addEventListener('input',check);const iv=setInterval(()=>{if(!go.isConnected)return clearInterval(iv);m.querySelectorAll('[data-ppx]').forEach(el=>{const p=perpPx(el.dataset.ppx);if(p)el.textContent=fmtPrice(p)});if(go.disabled)check();else info()},2000);check();
+  go.onclick=()=>{const px=perpPx(mk),L=side==='long',tg=num('#ptg'),st=num('#pst'),err=$('#cerr',m);
+   if(tg&&(L?tg<=px:tg>=px))return err.textContent=`Target must be ${L?'above':'below'} the current price of ${fmtPrice(px)}.`;
+   if(st&&(L?st>=px:st<=px))return err.textContent=`Stop must be ${L?'below':'above'} the current price of ${fmtPrice(px)}.`;
+   const thesis=tx.value.trim(),local={c:S.me,kind:'perps',thesis,media:CD.media.slice(),perp:{m:mk,side,lev,entry:px,target:tg,stop:st},horizon:hz,likes:0,reposts:0,replies:0,views:1,fresh:true};
+   if(!SYNC())return afterPost({...local,id:Date.now(),ago:'now'},'Perps call posted');
+   go.disabled=true;go.textContent='Posting…';
+   upMedia(CD.media).then(media=>API('/api/posts',{body:{kind:'perps',market:mk,side,leverage:lev,target:tg,stop:st,horizon:hz,body:thesis,media}}))
+    .then(r=>afterPost(Object.assign(fromRow({...r.post,handle:S.me}),{fresh:true}),'Perps call posted'))
+    .catch(e=>{go.disabled=false;go.textContent='Post perps call';err.textContent=e.message})}})}
+function randomModal(o={}){const CD={media:[]};
+ modal('New post','Not every post needs a chart. Share what’s on your mind.',`${kindSeg('random')}
+ <div class="field"><div class="composer2" id="cbox"><textarea id="cx" class="input" maxlength="280" style="min-height:130px" placeholder="What’s happening?">${esc(o.draft||'')}</textarea><div id="cmedia"></div>${attachBar()}</div><span class="hint" id="cn">0 / 280</span></div>
+ <div class="err" id="cerr"></div><button class="btn primary block" id="cpost" disabled>Post</button>`,
+ m=>{wireKind(m,'random');const tx=$('#cx',m),go=$('#cpost',m),check=()=>{$('#cn',m).textContent=tx.value.length+' / 280';go.disabled=!(tx.value.trim()||CD.media.length)};
+  wireAttach($('#cbox',m),CD,()=>{$('#cmedia',m).innerHTML=mediaGrid(CD.media,1);$('#cbox [data-attn]',m).textContent=CD.media.length?CD.media.length+'/4':'';check()});
+  tx.addEventListener('input',check);check();setTimeout(()=>tx.focus(),60);
+  go.onclick=()=>{const body=tx.value.trim(),local={c:S.me,kind:'random',thesis:body,media:CD.media.slice(),likes:0,reposts:0,replies:0,views:1,fresh:true};
+   if(!SYNC())return afterPost({...local,id:Date.now(),ago:'now'},'Posted');
+   go.disabled=true;go.textContent='Posting…';
+   upMedia(CD.media).then(media=>API('/api/posts',{body:{kind:'random',body,media}}))
+    .then(r=>afterPost(Object.assign(fromRow({...r.post,handle:S.me}),{fresh:true}),'Posted'))
+    .catch(e=>{go.disabled=false;go.textContent='Post';$('#cerr',m).textContent=e.message})}})}
+
+/* ---------- ⋯ menu: share profile, add to list, mute, block ---------- */
+function moreSheet(h,k){const me=h===S.me,mu=S.muted.has(h),bl=S.blocked.has(h),inL=S.lists.filter(l=>l.members.includes(h)).length,c=C[h]||{},pub=PUB[h]&&!PUB[h].pending?PUB[h]:null;
+ const row=(act,icn,label,sub,cls='')=>`<button class="asrow ${cls}" data-act="${act}" data-h="${esc(h)}"${k?` data-id="${k.id}"`:''}><span class="asic">${ic(icn,19)}</span><span class="grow"><b>${label}</b>${sub?`<small>${sub}</small>`:''}</span>${cls.includes('chev')?ic('chev',16):''}</button>`;
+ const stats=me?`${fmtK(S.followers||0)} followers`:pub?`${fmtK(pub.followers)} followers · ${pub.posts} posts`:c.calls?`${c.win}% win rate · ${c.calls} calls`:'Caller on Callit';
+ $('#modal').innerHTML=`<div class="scrim" data-act="close"><div class="asheet" role="dialog" aria-modal="true" aria-label="Options for @${esc(h)}">
+  <div class="asgrab" aria-hidden="true"></div>
+  <a class="ashead" href="#/profile/${esc(h)}" data-act="close">${avatar(h,'md')}<span class="grow"><b>${esc(nameOf(h))}</b>${vbadge(h)}<small>@${esc(h)} · ${stats}</small></span>${ic('chev',16)}</a>
+  <div class="asgroup">${row('shprof','link',me?'Share your profile':`Share @${esc(h)}’s profile`,'Copy the link or post a card')}${k?row('cplink','copy','Copy link to post',''):''}${k?row('share','share','Share this post','Card, image or link'):''}</div>
+  ${me?'':`<div class="asgroup">${row('addlist','list',inL?`In ${inL} list${inL>1?'s':''}`:'Add to list','Group callers you want to keep an eye on','chev')}${row('mute','mute',mu?`Unmute @${esc(h)}`:`Mute @${esc(h)}`,mu?'Show their posts in your feeds again':'Hide their posts. They won’t know')}${row('block','block',bl?`Unblock @${esc(h)}`:`Block @${esc(h)}`,bl?'Let them show up again':'Hide them everywhere and unfollow','danger')}</div>`}
+  ${k&&me&&k.srv?`<div class="asgroup">${row('delpost','trash','Delete post','This can’t be undone','danger')}</div>`:''}
+  <button class="btn ghost block ascancel" data-act="close">Cancel</button></div></div>`;
+ requestAnimationFrame(()=>{const s=$('#modal .asheet');s&&s.classList.add('in')})}
+function toggleRel(kind,h,on){const set=kind==='mute'?S.muted:kind==='block'?S.blocked:S.following;on?set.add(h):set.delete(h);if(kind==='block'&&on)S.following.delete(h);bg('/api/social',{action:kind,handle:h,on})}
+function blockedView(h){return `<div class="banner" style="${bannerBg(h)}"></div><div class="phero"><div class="top"><span class="avwrap">${avatar(h,'lg')}</span></div><div class="pname2"><b class="h2">@${esc(h)}</b></div>
+ <div class="empty" style="padding:22px 0"><b class="h2">You blocked @${esc(h)}</b><p>Their posts are hidden everywhere on Callit.</p><button class="btn primary" data-act="block" data-h="${esc(h)}">Unblock</button></div></div>`}
+function listsModal(h){if(!S.connected)return connectModal(()=>listsModal(h));
+ const draw=m=>{$('#lsbody',m).innerHTML=`<div class="lslist">${S.lists.length?S.lists.map(l=>{const on=l.members.includes(h);return `<label class="lsrow${on?' on':''}"><input type="checkbox" data-lid="${l.id}" ${on?'checked':''}><span class="lsic">${ic('list',18)}</span><span class="grow"><b>${esc(l.name)}</b><small>${l.members.length} caller${l.members.length===1?'':'s'}</small></span><a href="#/lists/${l.id}" class="lnk" data-act="close">View</a></label>`}).join(''):'<p class="hint" style="margin:0 0 10px">No lists yet. Make your first one below.</p>'}</div>
+  <div class="lsnew"><input id="lsname" class="input" maxlength="40" placeholder="New list, e.g. Smart money"><button class="btn primary" id="lsadd">Create</button></div><div class="err" id="lserr"></div>`;
+  m.querySelectorAll('[data-lid]').forEach(i=>i.onchange=()=>{const l=S.lists.find(x=>x.id===i.dataset.lid);if(!l)return;
+   if(i.checked){if(!l.members.includes(h))l.members.push(h)}else l.members=l.members.filter(x=>x!==h);bg('/api/social',{action:'list_member',list:l.id,handle:h,on:i.checked});toast(i.checked?`Added to ${l.name}`:`Removed from ${l.name}`);draw(m)});
+  const add=$('#lsadd',m),inp=$('#lsname',m);inp.onkeydown=e=>{if(e.key==='Enter')add.click()};
+  add.onclick=()=>{const name=inp.value.trim();if(!name)return $('#lserr',m).textContent='Name your list.';if(S.lists.some(l=>l.name.toLowerCase()===name.toLowerCase()))return $('#lserr',m).textContent='You already have a list with that name.';
+   const done=l=>{l.members=[h];S.lists.push(l);bg('/api/social',{action:'list_member',list:l.id,handle:h,on:true});toast(`Added to ${l.name}`);draw(m)};
+   if(!SYNC())return done({id:'l'+Date.now(),name});add.disabled=true;API('/api/social',{body:{action:'list_create',name}}).then(r=>done(r.list)).catch(e=>$('#lserr',m).textContent=e.message).finally(()=>{add.disabled=false})}};
+ modal(`Add @${h} to a list`,'Lists are private. Only you can see them.','<div id="lsbody"></div>',draw)}
+function vLists(id){if(!S.connected)return `<div class="empty"><b class="h2">Your lists</b><p>Sign in to group callers into lists.</p><button class="btn primary" data-act="connect">Sign in</button></div>`;
+ if(id){const l=S.lists.find(x=>x.id===id);if(!l)return `<div class="empty"><b class="h2">List not found</b><a class="btn primary" href="#/lists">All lists</a></div>`;
+  const list=calls.filter(k=>l.members.includes(k.c)&&visible(k));
+  return `<div class="pad lshero"><span class="lsic big">${ic('list',22)}</span><div class="grow"><b class="h2">${esc(l.name)}</b><div class="hint">${l.members.length} caller${l.members.length===1?'':'s'} · private</div></div></div>
+  <div class="lsmembers pad">${l.members.map(h=>`<a href="#/profile/${esc(h)}" class="chip">${avatar(h)}<span>@${esc(h)}</span></a>`).join('')}</div>
+  <div id="feed">${list.map(post).join('')||'<div class="empty"><b>No posts yet</b><p>Posts from callers in this list show up here.</p></div>'}</div>`}
+ return `<div class="pad"><b class="h2">Your lists</b><p class="hint" style="margin:4px 0 14px">Private groups of callers. Add someone from the ⋯ menu on any post or profile.</p>
+ ${S.lists.length?`<div class="list">${S.lists.map(l=>`<a class="li" href="#/lists/${l.id}"><span class="lsic">${ic('list',18)}</span><div class="grow"><b>${esc(l.name)}</b><div class="hint">${l.members.length} caller${l.members.length===1?'':'s'}</div></div>${ic('chev',16)}</a>`).join('')}</div>`:'<div class="empty"><b>No lists yet</b></div>'}</div>`}
+
+/* ---------- share cards ---------- */
+function profileURL(h){return location.href.split('#')[0]+'#/profile/'+encodeURIComponent(h)}
+function cardOf(k){const n=k.perp?perpNums(k):nums(k),tag=`CALL #${String(k.id).replace(/-/g,'').slice(0,6).toUpperCase()}`,base={h:k.c,name:nameOf(k.c),tag};
+ if(catOf(k)==='random')return {...base,head:`@${k.c} on Callit`,label:'',quote:k.thesis||'📷',up:null,chips:[]};
+ if(k.perp){const p=k.perp,L=p.side==='long';return {...base,head:`@${k.c} called ${L?'a long':'a short'} on ${p.m}`,label:n&&n.liqd?'Liquidated':'Return on equity',n:n?n.roe:null,big:n?fmtPct(n.roe):'—',up:n?n.up:null,
+  sub:`${L?'Long':'Short'} ${+p.lev}x · ${fmtPrice(p.entry)} → ${n?fmtPrice(n.px):'—'}`,chips:[p.target?'Target '+fmtPrice(p.target):'',k.horizon?esc(k.horizon):''].filter(Boolean),tok:perpAv(p.m),tokLab:p.m+'-PERP'}}
+ const t=T[k.t];return {...base,head:`@${k.c} called $${esc(symOf(k.t))}`,label:'Since call',n:n?n.p:null,big:n?fmtPct(n.p):'Soon',up:n?n.up:null,
+  sub:n?`${fmtUsd(k.entry)} → ${fmtUsd(n.mc)} MC`:'',chips:[k.buy?'✓ Bought in':'No buy-in',k.target?'Target '+fmtUsd(k.target):''].filter(Boolean),tok:t?tokav(t.key):'',tokLab:'$'+symOf(k.t)}}
+function cardOfProfile(h){const c=C[h]||{},r=rankOf(h),pub=PUB[h]&&!PUB[h].pending?PUB[h]:null,mine=calls.filter(k=>k.c===h&&nums(k));
+ const best=mine.reduce((a,k)=>Math.max(a,nums(k).p),c.best||0);
+ return {h,name:nameOf(h),tag:r?`CALLER #${r}`:'CALLER',head:`@${h} on Callit`,label:c.calls?'Win rate':'Calls tracked',big:c.calls?c.win+'%':String(mine.length||pub&&pub.posts||0),up:c.calls?c.win>=50:null,
+  sub:c.calls?`${c.calls} calls · avg ${fmtPct(c.avg)}`:'Every call stamped on-chain',chips:[best?'Best '+fmtPct(best):'',pub?fmtK(pub.followers)+' followers':c.followers?fmtK(c.followers)+' followers':''].filter(Boolean)}}
+function xcardHTML(d){return `<div class="xstage"><div class="xhead">${d.head}</div>
+ <div class="xcard ${d.up===false?'dn':d.up==null?'nt':''}" tabindex="-1"><i class="xgrain"></i><i class="xsheen"></i><span class="xwm mark" aria-hidden="true"></span>
+  <div class="xtop"><span class="xbrand"><span class="mark"></span><b>Callit</b></span><span class="xtag">${d.tag}</span></div>
+  <div class="xmid">${d.label?`<span class="xlab">${d.label}</span>`:''}${d.quote!=null?`<p class="xquote">“${esc(d.quote.length>160?d.quote.slice(0,157)+'…':d.quote)}”</p>`:`<b class="xbig num"${d.n!=null?` data-count="${d.n.toFixed(1)}"`:''}>${d.n!=null?fmtPct(0):d.big}</b>`}${d.sub?`<span class="xsub num">${d.sub}</span>`:''}
+   ${d.chips&&d.chips.length?`<div class="xchips">${d.chips.map(c=>`<span>${c}</span>`).join('')}</div>`:''}</div>
+  <div class="xbot"><span class="xwho">${avatar(d.h,'md')}<span><b>${esc(d.name)}</b><small>@${esc(d.h)}</small></span></span>${d.tok?`<span class="xtok">${d.tok}<b>${d.tokLab||''}</b></span>`:''}</div></div>
+ <div class="xfoot"><span><span class="mark"></span>Call it. Get Paid.</span><span>${esc(location.host)}</span></div></div>`}
+function shareModal(d,url,fname,text){modal('Share','',`${xcardHTML(d)}
+ <div class="shacts"><button class="btn primary" data-act="copy" data-v="${esc(url)}">${ic('link',16)} Copy link</button>
+ <a class="btn ghost" target="_blank" rel="noopener" href="https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}">${ic('xlogo',15)} Post on X</a>
+ <button class="btn ghost" id="xsave">${ic('image',16)} Save image</button>${navigator.share?`<button class="btn ghost" id="xnative">${ic('share',16)} More…</button>`:''}</div>`,
+ m=>{const el=m.querySelector('[data-count]');if(el){const to=+el.dataset.count,t0=performance.now()+250,dur=1100;
+   const step=t=>{const q=Math.max(0,Math.min(1,(t-t0)/dur)),e=1-Math.pow(1-q,3);el.textContent=fmtPct(to*e);if(q<1&&el.isConnected)requestAnimationFrame(step)};
+   matchMedia('(prefers-reduced-motion:reduce)').matches?el.textContent=fmtPct(to):requestAnimationFrame(step)}
+  const card=m.querySelector('.xcard');card.addEventListener('pointermove',e=>{const r=card.getBoundingClientRect(),x=(e.clientX-r.left)/r.width-.5,y=(e.clientY-r.top)/r.height-.5;card.style.setProperty('--rx',(-y*7)+'deg');card.style.setProperty('--ry',(x*9)+'deg');card.style.setProperty('--mx',(x*100+50)+'%')});
+  card.addEventListener('pointerleave',()=>{card.style.setProperty('--rx','0deg');card.style.setProperty('--ry','0deg')});
+  $('#xsave',m).onclick=()=>xcardImage(d,fname,'dl',url,text);const nv=$('#xnative',m);if(nv)nv.onclick=()=>xcardImage(d,fname,'native',url,text)})}
+function shareSheet(id){const k=calls.find(x=>String(x.id)===String(id));if(!k)return;const d=cardOf(k),url=postURL(id);
+ const text=k.perp?`${k.c} called ${k.perp.side} ${k.perp.m} ${+k.perp.lev}x. ${d.big} ROE so far. Tracked on Callit`:catOf(k)==='random'?`${k.c} on Callit`:d.n!=null?`${k.c} called $${symOf(k.t)} at ${fmtUsd(k.entry)} MC. It's ${fmtPct(d.n)} since. Tracked on Callit`:`${k.c} is calling $${symOf(k.t)} on Callit`;
+ shareModal(d,url,`callit-${k.perp?k.perp.m:k.t||'post'}`,text)}
+function shareProfile(h){const d=cardOfProfile(h);shareModal(d,profileURL(h),'callit-'+h,h===S.me?'My calls, tracked live on Callit':`Follow @${h}'s calls on Callit`);if(!PUB[h])loadPub(h)}
+/* 1200x630 image of the same card, for X / Telegram / saving. */
+function xcardImage(d,fname,mode,url,text){const W=1200,H=630,c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d'),F='system-ui,-apple-system,Segoe UI,sans-serif';
+ const col=d.up===false?'#FF6B8A':d.up==null?'#4DA8FF':'#3DDC97';
+ const rr=(x,y,w,h,r)=>{g.beginPath();g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+h,r);g.arcTo(x+w,y+h,x,y+h,r);g.arcTo(x,y+h,x,y,r);g.arcTo(x,y,x+w,y,r);g.closePath()};
+ const logoSrc=(getComputedStyle(document.querySelector('.mark')).backgroundImage.match(/url\("?(.*?)"?\)/)||[])[1]||'';
+ const avSrc=d.h===S.me&&PROF.avatar||AVURL[d.h]||'';
+ const load=s=>new Promise(res=>{if(!s)return res(null);const im=new Image();im.crossOrigin='anonymous';im.onload=()=>res(im);im.onerror=()=>res(null);im.src=s});
+ Promise.all([load(logoSrc),load(avSrc)]).then(([logo,av])=>{
+  g.fillStyle='#070F16';g.fillRect(0,0,W,H);
+  const glow=g.createRadialGradient(600,330,40,600,330,620);glow.addColorStop(0,col+'33');glow.addColorStop(1,'#070F1600');g.fillStyle=glow;g.fillRect(0,0,W,H);
+  if(logo){g.globalAlpha=.045;for(let y=-20;y<H;y+=110)for(let x=(y/110%2)*55-20;x<W;x+=110)g.drawImage(logo,x,y,46,46);g.globalAlpha=1}
+  g.textAlign='center';g.fillStyle='#C9D6E2';g.font=`600 32px ${F}`;g.fillText(d.head.replace(/<[^>]+>/g,'').replace(/&amp;/g,'&'),600,72);
+  const cx=210,cy=104,cw=780,ch=440;g.save();g.shadowColor='rgba(0,0,0,.55)';g.shadowBlur=60;g.shadowOffsetY=24;rr(cx,cy,cw,ch,36);
+  const cg=g.createLinearGradient(cx,cy,cx+cw,cy+ch);cg.addColorStop(0,'#1B2833');cg.addColorStop(.55,'#101A23');cg.addColorStop(1,'#0A1219');g.fillStyle=cg;g.fill();g.restore();
+  g.save();rr(cx,cy,cw,ch,36);g.clip();
+  g.globalAlpha=.06;g.strokeStyle='#fff';g.lineWidth=1;for(let i=-ch;i<cw;i+=6){g.beginPath();g.moveTo(cx+i,cy);g.lineTo(cx+i+ch,cy+ch);g.stroke()}g.globalAlpha=1;
+  const sh=g.createLinearGradient(cx,cy,cx+cw,cy+ch);sh.addColorStop(.25,'rgba(255,255,255,0)');sh.addColorStop(.42,'rgba(255,255,255,.09)');sh.addColorStop(.5,'rgba(255,255,255,0)');g.fillStyle=sh;g.fillRect(cx,cy,cw,ch);
+  if(logo){g.globalAlpha=.07;g.drawImage(logo,cx+cw-330,cy+ch-330,380,380);g.globalAlpha=1}
+  const ac=g.createLinearGradient(cx,0,cx+cw,0);ac.addColorStop(0,col+'00');ac.addColorStop(.5,col);ac.addColorStop(1,col+'00');g.fillStyle=ac;g.fillRect(cx,cy,cw,3);
+  g.restore();g.strokeStyle='rgba(255,255,255,.14)';g.lineWidth=2;rr(cx+1,cy+1,cw-2,ch-2,35);g.stroke();
+  g.textAlign='left';if(logo)g.drawImage(logo,cx+46,cy+38,52,52);g.fillStyle='#fff';g.font=`800 34px ${F}`;g.fillText('Callit',cx+112,cy+76);
+  g.textAlign='right';g.fillStyle='#AEBBC7';g.font=`700 20px ${F}`;g.letterSpacing='3px';g.fillText(d.tag,cx+cw-46,cy+72);g.letterSpacing='0px';
+  g.textAlign='center';const mx=cx+cw/2;
+  if(d.quote!=null){g.fillStyle='#EAF1F7';g.font=`600 38px ${F}`;const words=('“'+d.quote+'”').split(/\s+/),lines=[];let ln='';
+   words.forEach(w=>{const t=ln?ln+' '+w:w;if(g.measureText(t).width>cw-140&&ln){lines.push(ln);ln=w}else ln=t});if(ln)lines.push(ln);
+   const L=lines.slice(0,4);if(lines.length>4)L[3]=L[3].replace(/\s*\S*$/,'…');L.forEach((l,i)=>g.fillText(l,mx,cy+200+i*50-(L.length-1)*12))}
+  else{if(d.label){g.fillStyle='#8FA6BA';g.font=`600 26px ${F}`;g.fillText(d.label,mx,cy+170)}
+   g.save();g.shadowColor=col;g.shadowBlur=40;g.fillStyle=d.up==null?'#fff':col;g.font=`900 116px ${F}`;g.fillText(d.big,mx,cy+282);g.restore();
+   if(d.sub){g.fillStyle='#9FB2C3';g.font=`600 26px ${F}`;g.fillText(d.sub.replace(/&amp;/g,'&'),mx,cy+328)}}
+  const ay=cy+ch-78;g.save();g.beginPath();g.arc(cx+82,ay,34,0,7);g.closePath();g.clip();
+  if(av)g.drawImage(av,cx+48,ay-34,68,68);else{g.fillStyle=`hsl(${(hue(d.h)%70)+185} 52% 42%)`;g.fillRect(cx+48,ay-34,68,68);g.fillStyle='#fff';g.font=`800 24px ${F}`;g.textAlign='center';g.fillText(d.h.slice(0,2).toUpperCase(),cx+82,ay+9)}
+  g.restore();g.strokeStyle='rgba(255,255,255,.25)';g.lineWidth=2;g.beginPath();g.arc(cx+82,ay,35,0,7);g.stroke();
+  g.textAlign='left';g.fillStyle='#fff';g.font=`800 30px ${F}`;g.fillText(d.name.slice(0,24),cx+132,ay-4);g.fillStyle='#8FA6BA';g.font=`500 22px ${F}`;g.fillText('@'+d.h,cx+132,ay+26);
+  if(d.tokLab){g.font=`800 24px ${F}`;const tw=g.measureText(d.tokLab).width+40;rr(cx+cw-46-tw,ay-24,tw,48,24);g.fillStyle='rgba(255,255,255,.08)';g.fill();g.strokeStyle='rgba(255,255,255,.16)';g.stroke();g.fillStyle='#fff';g.textAlign='center';g.fillText(d.tokLab,cx+cw-46-tw/2,ay+9)}
+  g.textAlign='left';g.fillStyle='#8FA6BA';g.font=`600 22px ${F}`;g.fillText('Callit  ⇄  Call it. Get Paid.',44,H-34);g.textAlign='right';g.fillText(location.host,W-44,H-34);
+  c.toBlob(bl=>{if(!bl)return toast('Couldn’t make the image');const f=new File([bl],fname+'.png',{type:'image/png'});
+   if(mode==='native'&&navigator.canShare&&navigator.canShare({files:[f]}))navigator.share({files:[f],url,text}).catch(()=>{});
+   else if(mode==='native'&&navigator.share)navigator.share({url,text,title:'Callit'}).catch(()=>{});
+   else{const a=document.createElement('a');a.href=URL.createObjectURL(bl);a.download=f.name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);toast('Image saved')}})})}
 
 /* ---------- helpers ---------- */
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2200)}
@@ -209,11 +479,12 @@ function realTx(desc,run,done){const el=$('#txt');let sig='';
  clearTimeout(el._h);draw('wait','Preparing…');
  run(m=>draw('wait',m)).then(s=>{sig=s||'';draw('ok',sig?`Confirmed · ${sig.slice(0,4)}…${sig.slice(-4)}`:'Done');el._h=setTimeout(()=>el.classList.remove('show'),9000);done&&done(true);loadBalances();setTimeout(loadBalances,5000)})
   .catch(e=>{const m=String(e&&e.message||e);draw('bad',/reject|denied|cancel|declin|closed/i.test(m)?'You cancelled it. Nothing was sent.':m.slice(0,160));done&&done(false)})}
-function realSwap(from,to,amt,desc,done){let base;try{base=baseOf(from,amt)}catch(e){toast(e.message);done&&done(false);return}
+function realSwap(from,to,amt,desc,done,opt={}){let base;try{base=baseOf(from,amt)}catch(e){toast(e.message);done&&done(false);return}
  realTx(desc,step=>jupSwap({inputMint:mintOf(from),outputMint:mintOf(to),amount:base,taker:S.addr,slippageBps:S.slip?Math.round(S.slip*100):undefined},step).then(r=>{
   const od=decOf(to),got=r.outAmount&&od!=null?Number(r.outAmount)/10**od:null;
-  S.activity.unshift({k:from==='SOL'?'Bought':to==='SOL'?'Sold':'Swapped',d:`${fmtAmt(amt)} ${symOf(from)} → ${got!=null?fmtAmt(got)+' ':''}${symOf(to)}`,t:'Just now',sig:r.signature});return r.signature}),done)}
-const perf=k=>{const t=T[k.t];return t.prelaunch?null:(mcap(t)/k.entry-1)*100};
+  const kind=from==='SOL'?'buy':to==='SOL'?'sell':'swap',pf=T[from]&&T[from].price;
+  logTx({k:{buy:'Bought',sell:'Sold',swap:'Swapped'}[kind],kind,label:`${fmtAmt(amt)} ${symOf(from)} → ${got!=null?fmtAmt(got)+' ':''}${symOf(to)}`,signature:r.signature,in_mint:mintOf(from),in_amount:amt,out_mint:mintOf(to),out_amount:got,usd_value:pf?amt*pf:null,call_ref:opt.callRef!=null?String(opt.callRef):null});return r.signature}),done)}
+const perf=k=>{const t=T[k.t];return !t||t.prelaunch||!k.entry?null:(mcap(t)/k.entry-1)*100};
 function chart(seed,up,w=600,h=190){const r=rng(seed);let y=up?.25:.75,p=[];for(let i=0;i<72;i++){y+=(r()-.5)*.11+(up?.008:-.008);y=Math.min(.95,Math.max(.05,y));p.push(y)}
  const d=p.map((v,i)=>`${i?'L':'M'}${(i/71*w).toFixed(1)},${(h-v*h).toFixed(1)}`).join('');
  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" class="chart" role="img" aria-label="Price chart"><path d="${d}L${w},${h}L0,${h}Z" class="area ${up?'up':'down'}"/><path d="${d}" class="line ${up?'up':'down'}"/></svg>`}
@@ -228,16 +499,16 @@ const tradable=t=>t.chain==='Solana'&&!t.prelaunch&&(!REALW()||!!t.base||!!t.liv
 
 /* ---------- post (X layout + pump call card) ---------- */
 const money=n=>(n>=0?'+':'−')+fmtUsd(Math.abs(n));
-function nums(k){const t=T[k.t];if(t.prelaunch)return null;const mc=mcap(t),x=mc/k.entry,o={mc,p:(x-1)*100,up:x>=1};if(k.buy){const keep=1-((k.sold&&k.sold.pct)||0)/100;o.pos=k.buy*x*keep;o.pnl=k.buy*x-k.buy}return o}
+function nums(k){const t=T[k.t];if(!t||t.prelaunch||!k.entry)return null;const mc=mcap(t),x=mc/k.entry,o={mc,p:(x-1)*100,up:x>=1};if(k.buy){const keep=1-((k.sold&&k.sold.pct)||0)/100;o.pos=k.buy*x*keep;o.pnl=k.buy*x-k.buy}return o}
 function mkt(k){const n=nums(k);
  return k.buy?`<div class="cr2 num"><div><span>Position</span><b data-pos="${k.id}">${fmtUsd(n.pos)}</b></div><div><span>Profit</span><b class="${n.pnl>=0?'up':'down'}" data-pnl="${k.id}">${money(n.pnl)}</b></div></div>`
   :`<div class="cr2 num"><div><span>Called at</span><b>${fmtUsd(k.entry)}</b></div><div><span>Since call</span><b class="${n.up?'up':'down'}" data-perf="${k.id}">${fmtPct(n.p)}</b></div></div>`}
-function post(k){const t=T[k.t],p=perf(k),r=rankOf(k.c);
+function post(k){if(k.kind==='random')return postRandom(k);if(k.kind==='perps')return postPerp(k);const t=T[k.t];if(!t)return '';const p=perf(k),r=rankOf(k.c);
  const right=p===null?`<div class="cr"><b>Soon</b><span>Launches ${esc(t.prelaunch)}</span></div>`:mkt(k);
  return `<article class="post${k.fresh?' fresh':''}" data-go="#/post/${k.id}" tabindex="0" aria-label="Call by ${esc(k.c)} on $${t.sym}">
  <a href="#/profile/${k.c}" aria-label="Open @${esc(k.c)}'s profile" class="pav">${avatar(k.c,'md')}</a>
  <div style="min-width:0">
-  <div class="phead"><span class="pname">${esc(k.c)}</span>${vbadge(k.c)}${r&&!k.sponsored?`<span class="rk">#${r}</span>`:''}${k.sponsored?'<span class="tag">Sponsored</span>':''}${k.c!==S.me?`<button class="fchip${S.following.has(k.c)?' on':''}" data-act="follow" data-h="${k.c}" aria-label="${S.following.has(k.c)?'Following':'Follow'} ${esc(k.c)}">${S.following.has(k.c)?ic('check',12)+'<span>Following</span>':'+<span>Follow</span>'}</button>`:''}<time>${k.ago==='now'?'now':k.ago+' ago'}</time></div>
+  <div class="phead"><span class="pname">${esc(k.c)}</span>${vbadge(k.c)}${r&&!k.sponsored?`<span class="rk">#${r}</span>`:''}${k.sponsored?'<span class="tag">Sponsored</span>':''}${k.c!==S.me?`<button class="fchip${S.following.has(k.c)?' on':''}" data-act="follow" data-h="${k.c}" aria-label="${S.following.has(k.c)?'Following':'Follow'} ${esc(k.c)}">${S.following.has(k.c)?ic('check',12)+'<span>Following</span>':'+<span>Follow</span>'}</button>`:''}<time>${k.ago==='now'?'now':k.ago+' ago'}</time>${k.sponsored?'':moreBtn(k)}</div>
   <p class="ptext">${esc(k.thesis)}</p>${mediaGrid(k.media)}
   <a class="ccard" href="#/token/${t.key}">${tokav(t.key)}<div class="cn"><b>${esc(t.name)}</b><span>$${t.sym} <span class="chain">${t.chain}</span></span></div>${right}</a>
   ${k.sponsored?`<div class="pnote">Paid promotion by ${esc(k.sponsor)}. Not counted in rankings.</div>`:`<div class="pnote">${k.target?`Target ${fmtUsd(k.target)} within ${esc(k.horizon)} · `:''}${k.buy?`<span class="bk">${ic('check',13)} Bought in</span>`:`<span class="bk no">No buy · earns no fees</span>`}${k.sold?` · <span class="sold">${ic('repost',13)} Caller sold ${k.sold.pct}% · ${k.sold.ago} ago</span>`:''}</div>`}
@@ -297,18 +568,18 @@ function pickToken(k){const w=S.swap,cur=w[k],all=Object.values(T).filter(tradab
 const renderSwaps=()=>document.querySelectorAll('[data-swapbox]').forEach(el=>el.innerHTML=swapHTML(el.dataset.tok||null));
 
 /* ---------- views ---------- */
-function homeTabs(){return `<div class="tabs" role="tablist">${[['foryou','For you'],['following','Following'],['community','Community'],['watchlist','Watchlist']].map(([k,l])=>`<button role="tab" aria-selected="${S.tab===k}" class="${S.tab===k?'on':''}" data-act="tab" data-f="${k}">${l}</button>`).join('')}</div>`}
-function vHome(){let list=calls,empty='';
+function homeTabs(){return catBar()+`<div class="tabs" role="tablist">${[['foryou','For you'],['following','Following'],['community','Community'],['watchlist','Watchlist']].map(([k,l])=>`<button role="tab" aria-selected="${S.tab===k}" class="${S.tab===k?'on':''}" data-act="tab" data-f="${k}">${l}</button>`).join('')}</div>`}
+function vHome(){let list=calls.filter(k=>visible(k)&&catOf(k)===S.cat),empty=catEmpty();
  if(S.tab==='community')return homeTabs()+vCommunity();
  if(S.live==='wait')return homeTabs()+`<div id="feed" aria-busy="true">${Array.from({length:4},()=>`<div class="post pskel" aria-hidden="true"><span class="av md"></span><div><i></i><i></i><i></i><b></b></div></div>`).join('')}<p class="sr-only" role="status">Loading live calls</p></div>`;
- if(S.tab==='following'){list=calls.filter(k=>S.following.has(k.c));
+ if(S.tab==='following'){list=list.filter(k=>S.following.has(k.c));
   empty=`<div class="pad"><div class="empty" style="padding:28px 12px 8px"><b class="h2">Follow callers you trust</b><p>Their calls land here the moment they post.</p></div>
   ${ranked().slice(0,4).map(c=>`<div class="sugg">${avatar(c.h,'md')}<div class="grow"><a class="pname" href="#/profile/${c.h}">${c.h}</a><div class="hint">${c.win}% win rate over ${c.calls} calls</div></div><button class="btn sm primary" data-act="follow" data-h="${c.h}">Follow</button></div>`).join('')}</div>`}
- if(S.tab==='watchlist'){list=calls.filter(k=>S.watch.has(k.t));
+ if(S.tab==='watchlist'){list=list.filter(k=>S.watch.has(k.t));
   empty=`<div class="empty"><b class="h2">Your watchlist is empty</b><p>Tap the star on any token to add it. Every new call on it shows up here.</p><a class="btn primary" href="#/market">Browse the market</a></div>`}
  return `${homeTabs()}
  <div class="newpill" id="newpill">${S.queued.length&&S.tab==='foryou'?newPill():''}</div>
- ${S.tab==='foryou'?topCalls():''}
+ ${S.tab==='foryou'&&S.cat==='meme'?topCalls():''}
  <div id="feed">${(S.tab==='foryou'?withAds(list):list.map(post).join(''))||empty}</div>`}
 const newPill=()=>`<button data-act="shownew">${S.queued.slice(0,2).map(k=>avatar(k.c)).join('')}<span style="margin-left:${S.queued.length>1?-8:0}px"></span>New calls</button>`;
 
@@ -528,13 +799,14 @@ function vWallet(){if(!S.connected)return `<div class="empty"><b class="h2">No w
  <div class="list">${rows.map(([k,a])=>`<a class="li" href="#/token/${k}">${tokav(k)}<div class="grow"><b>${T[k].name}</b><div class="hint num">${fmtAmt(a)} ${esc(symOf(k))}</div></div><div class="r num"><b>${fmtUsd(usd(k,a)||0)}</b><div class="hint ${T[k].chg>=0?'up':'down'}">${fmtPct(T[k].chg)}</div></div></a>`).join('')}</div>
  <b class="h2" style="display:block;margin:22px 0 4px">Activity</b><div class="list">${S.activity.map(a=>`<div class="li"><div class="grow"><b>${esc(a.k)}</b><div class="hint">${esc(a.t)}${a.sig?` · <a class="lnk" href="https://solscan.io/tx/${a.sig}" target="_blank" rel="noopener noreferrer">View</a>`:''}</div></div><div class="r num">${esc(a.d)}</div></div>`).join('')||'<div class="empty" style="padding:18px 8px"><b>No activity yet</b><p>Deposits, trades and withdrawals show up here.</p></div>'}</div></div>`}
 
-function vProfile(h){if(!h&&S.connected)h=S.me;const c=C[h];
+function vProfile(h){if(!h&&S.connected)h=S.me;if(h&&!C[h]&&/^[A-Za-z0-9_]{1,30}$/.test(h)){C[h]={h,win:0,avg:0,calls:0,best:0,followers:0,real:1}}if(h&&h!==S.me&&!PUB[h])loadPub(h);const c=C[h];
  if(!c)return `<div class="empty"><b class="h2">Your profile</b><p>Connect a wallet to create your caller profile and start building a track record.</p><button class="btn primary" data-act="connect">Connect wallet</button></div>`;
  if(S.ptabFor!==h){S.ptab='calls';S.ptabFor=h}
+ if(S.blocked.has(h))return blockedView(h);
  const mine=calls.filter(k=>k.c===h),me=h===S.me,r=rankOf(h),f=S.following.has(h);
- const P=me?PROF:{},nm=P.name||h,fg=followingOf(h).length,fr=me?followersOf(h).length:c.followers+(f?1:0);
+ const pb=PUB[h]&&!PUB[h].pending?PUB[h]:null,P=me?PROF:pubP(h),nm=P.name||h,fg=me?S.following.size:pb?pb.following:followingOf(h).length,fr=me?(S.followers!=null?S.followers:followersOf(h).length):pb?pb.followers:c.followers+(f?1:0);
  return `<div class="banner" style="${bannerBg(h)}">${me?`<button class="bnadd" data-act="editprof" data-f="banner" aria-label="${PROF.banner?'Change':'Add a'} banner">${ic('camera',20)}<span>${PROF.banner?'Change banner':'Add a banner'}</span></button>`:''}</div>
- <div class="phero"><div class="top"><span class="avwrap">${avatar(h,'lg')}${r&&r<=3?`<span class="rkbadge">#${r}</span>`:''}</span>${me?'<button class="btn sm editp" data-act="editprof">'+ic('pen',15)+' Edit profile</button>':`<span style="display:flex;gap:8px"><button class="ib" data-act="dm" data-h="${h}" aria-label="Message ${esc(h)}">${ic('messages',18)}</button><button class="btn sm ${f?'ghost':'primary'}" data-act="follow" data-h="${h}">${f?'Following':'Follow'}</button></span>`}</div>
+ <div class="phero"><div class="top"><span class="avwrap">${avatar(h,'lg')}${r&&r<=3?`<span class="rkbadge">#${r}</span>`:''}</span>${me?'<span style="display:flex;gap:8px"><button class="ib" data-act="shprof" data-h="'+esc(h)+'" aria-label="Share your profile">'+ic('link',18)+'</button><button class="btn sm editp" data-act="editprof">'+ic('pen',15)+' Edit profile</button></span>':`<span style="display:flex;gap:8px"><button class="ib" data-act="profmenu" data-h="${h}" aria-label="More options for ${esc(h)}">${ic('more',18)}</button><button class="ib" data-act="dm" data-h="${h}" aria-label="Message ${esc(h)}">${ic('messages',18)}</button><button class="btn sm ${f?'ghost':'primary'}" data-act="follow" data-h="${h}">${f?'Following':'Follow'}</button></span>`}</div>
  <div class="pname2"><b class="h2">${esc(nm)}</b>${vbadge(h)}${r?`<span class="rk">${ic('leaderboard',13)} Rank #${r}</span>`:''}</div><div class="muted">@${esc(h)}</div>
  ${P.bio?`<p class="pbio">${esc(P.bio)}</p>`:me?`<p class="pbio muted">Add a bio so people know what you call. <button class="lnk" data-act="editprof" style="padding:0">Add bio</button></p>`:''}
  <div class="pmeta">${P.web?`<a href="${esc(/^https?:/.test(P.web)?P.web:'https://'+P.web)}" target="_blank" rel="noopener">${ic('globe',15)} ${esc(P.web.replace(/^https?:\/\//,''))}</a>`:''}${P.x?`<a href="https://x.com/${esc(P.x.replace('@',''))}" target="_blank" rel="noopener">${ic('xlogo',14)} @${esc(P.x.replace('@',''))}</a>`:''}<span>${ic('wallet',15)} ${me&&S.addr?short(S.addr):'Solana caller'}</span></div>
@@ -569,8 +841,9 @@ function railRest(){const lv=(LIVE.feeds['movers:1h']||[]).map(k=>T[k]).filter(t
 
 /* ---------- chrome ---------- */
 const NAV_A=[['home','Home'],['market','Market'],['notifications','Notifications'],['swap','Swap'],['stake','Stake'],['wallet','Wallet'],['profile','Profile']];
-const NAV_B=[['leaderboard','Leaderboard'],['messages','Messages'],['news','News'],['promote','Promote'],['about','About']];
+const NAV_B=[['leaderboard','Leaderboard'],['messages','Messages'],['lists','Lists'],['news','News'],['promote','Promote'],['about','About']];
 const TITLES=Object.fromEntries([...NAV_A,...NAV_B,['token','Token'],['community','Community'],['post','Post'],['premium','Premium'],['messages','Messages']]);
+P.lists=P.list;
 const NAVH={stack:[],cur:location.hash||'#/home',back:false};
 function goBack(){const prev=NAVH.stack.pop();NAVH.back=true;location.hash=prev&&prev!==location.hash?prev:'#/home'}
 function chrome(route){const link=([k,l])=>`<a href="#/${k}" class="${route===k?'on':''}" title="${l}">${k==='notifications'?`<span class="nbadge">${ic('bell')}${unreadN()?`<i>${unreadN()}</i>`:''}</span>`:ic(k)}<span class="lbl">${l}</span></a>`;
@@ -605,7 +878,7 @@ function render(){if(isPhone())document.body.classList.add('collapsed');const [,
    <div class="pben">${[['verified','Unlock Premium','Keep Premium for as long as you stay staked.'],['wallet','Earn rewards','Get a share of protocol rewards while staked.'],['promote','Cheaper promotions','Discounts on ad slots and sponsored calls.'],['leaderboard','Your tokens stay yours','Non-custodial. Unstake after the lock ends.']].map(([i,t,d])=>`<div class="bcard"><span class="bic">${ic(i,20)}</span><div><b>${t}</b><span>${d}</span></div></div>`).join('')}</div>
    <div class="popt" style="margin-top:16px"><div class="pstake" style="margin:0 0 14px"><div><span>Your $CALLIT</span><b class="num">0</b></div><div><span>Staked</span><b class="num">0</b></div><div><span>Rewards</span><b class="num">0</b></div></div>
    <button class="btn primary block" data-act="stakewait">${S.stakeWait?'You\'re on the list':'Notify me at launch'}</button><a class="btn ghost block" href="#/premium" style="margin-top:8px">See Premium</a></div></div>`,
-  messages:()=>vMessages(p),
+  messages:()=>vMessages(p),lists:()=>vLists(p),
   news:vNews,premium:vPremium,notifications:vNotifs}[r]||vHome)();
  if(LCHART){LCHART();LCHART=null}
  $('#view').innerHTML=html;$('#rail').innerHTML=rail();chrome(r);renderSwaps();skin($('#view'));syncLanding();mountLiveChart();
@@ -636,14 +909,14 @@ function signIn(via,next,opts){if(realAuth())return realLogin(via,opts,next);S.c
   toast(['Phantom','Solflare','Backpack'].includes(via)?`${via} connected`:'Signed in. Your wallet is ready');render();next?next():maybeOnboard()}
 
 const CAQ={};
-function callModal(pre){if(!S.connected)return connectModal(()=>callModal(pre));
+function callModal(pre,draft){if(!S.connected)return connectModal(()=>callModal(pre,draft));
  modal('Make a call','Buy in and call it. Your entry is stamped at the live market cap when you post.',
- `<div class="field"><label for="ct">Token</label><input id="ct" class="input" placeholder="Paste a contract address or ticker" value="${pre?'$'+pre:''}"></div><div id="cprev"></div><div id="cbuy"></div>
+ `${kindSeg('meme')}<div class="field"><label for="ct">Token</label><input id="ct" class="input" placeholder="Paste a contract address or ticker" value="${pre?'$'+pre:''}"></div><div id="cprev"></div><div id="cbuy"></div>
  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="field"><label for="cg">Target market cap</label><input id="cg" class="input num" inputmode="decimal" placeholder="e.g. 5M"></div>
  <div class="field"><label>Time window</label><div class="seg wide tw" id="ch" data-v="7 days">${[['24 hours','24h'],['3 days','3d'],['7 days','7d'],['30 days','30d']].map(([v,l])=>`<button type="button" class="${v==='7 days'?'on':''}" data-hz="${v}">${l}</button>`).join('')}</div></div></div>
- <div class="field"><label for="cx">Why this token?</label><div class="composer2" id="cbox"><textarea id="cx" class="input" maxlength="280" placeholder="Your thesis. What do you see that others don't?"></textarea><div id="cmedia"></div>${attachBar()}</div><span class="hint" id="cn">0 / 280</span></div>
+ <div class="field"><label for="cx">Why this token?</label><div class="composer2" id="cbox"><textarea id="cx" class="input" maxlength="280" placeholder="Your thesis. What do you see that others don't?">${esc(draft||'')}</textarea><div id="cmedia"></div>${attachBar()}</div><span class="hint" id="cn">0 / 280</span></div>
  <div class="err" id="cerr"></div><button class="btn primary block" id="cpost" disabled>Post call</button>`,
- m=>{let tok=null,sol='0.25',skip=false;const CD={media:[]};wireAttach($('#cbox',m),CD,()=>{$('#cmedia',m).innerHTML=mediaGrid(CD.media,1);$('#cbox [data-attn]',m).textContent=CD.media.length?CD.media.length+'/4':''});m.querySelectorAll('[data-hz]').forEach(b=>b.onclick=()=>{m.querySelectorAll('[data-hz]').forEach(x=>x.classList.toggle('on',x===b));$('#ch',m).dataset.v=b.dataset.hz});const inp=$('#ct',m),tx=$('#cx',m),post=$('#cpost',m);
+ m=>{wireKind(m,'meme');let tok=null,sol='0.25',skip=false;const CD={media:[]};wireAttach($('#cbox',m),CD,()=>{$('#cmedia',m).innerHTML=mediaGrid(CD.media,1);$('#cbox [data-attn]',m).textContent=CD.media.length?CD.media.length+'/4':''});m.querySelectorAll('[data-hz]').forEach(b=>b.onclick=()=>{m.querySelectorAll('[data-hz]').forEach(x=>x.classList.toggle('on',x===b));$('#ch',m).dataset.v=b.dataset.hz});const inp=$('#ct',m),tx=$('#cx',m),post=$('#cpost',m);
   const canBuy=()=>tok&&tradable(tok);
   const buyOn=()=>canBuy()&&!skip;
   const drawBuy=()=>{const el=$('#cbuy',m);if(tok&&tok.prelaunch){el.innerHTML=`<div class="buybox"><b>Buying opens at launch</b><p class="hint" style="margin:4px 0 0">$${tok.sym} launches ${esc(tok.prelaunch)}. You can buy and call it then.</p></div>`;return}
@@ -667,8 +940,14 @@ function callModal(pre){if(!S.connected)return connectModal(()=>callModal(pre));
    if(g&&!(n>mcap(tok))){$('#cerr',m).textContent='Target must be above the current market cap of '+fmtUsd(mcap(tok))+'.';return}
    let buy=0;if(buyOn()){const a=parseFloat(sol);if(a>S.bal.SOL){$('#cerr',m).textContent=`You only have ${fmtAmt(S.bal.SOL)} SOL. Lower the amount or deposit more.`;return}
     buy=a*T.SOL.price;if(!REALW()){const got=buy*.995/tok.price;S.bal.SOL-=a;S.bal[tok.key]=(S.bal[tok.key]||0)+got;S.activity.unshift({k:'Bought',d:`${fmtAmt(got)} ${tok.sym} for ${a} SOL`,t:'Just now'})}}
-   const cid=Date.now(),solIn=parseFloat(sol);calls.forEach(k=>k.fresh=false);calls.unshift({id:cid,c:S.me,t:tok.key,entry:mcap(tok),buy,thesis:tx.value.trim(),media:CD.media.slice(),target:n||null,horizon:$('#ch',m).dataset.v,ago:'now',likes:0,reposts:0,replies:0,views:1,fresh:true});
-   C[S.me].calls++;closeModal();S.tab='foryou';if(location.hash!=='#/home')location.hash='#/home';else render();buy?(REALW()?realSwap('SOL',tok.key,solIn,`Buy-in for your $${tok.sym} call`,ok=>{if(ok)return;const c=calls.find(x=>x.id===cid);if(c){c.buy=0;render()}toast('Buy-in didn\'t go through. Your call is posted without it')}):txRun(`Buy-in for your $${tok.sym} call`,null,{instantApprove:1})):toast('Call posted');scrollTo({top:0})})})}
+   const solIn=parseFloat(sol),thesis=tx.value.trim(),hz=$('#ch',m).dataset.v,media=CD.media.slice();
+   const publish=k=>{C[S.me].calls++;afterPost(k,buy?'':'Call posted');const id=k.id;
+    if(buy)REALW()?realSwap('SOL',tok.key,solIn,`Buy-in for your $${tok.sym} call`,ok=>{if(ok)return;const c=calls.find(x=>x.id===id);if(c){c.buy=0;render()}toast('Buy-in didn\'t go through. Your call is posted without it')},{callRef:id}):txRun(`Buy-in for your $${tok.sym} call`,null,{instantApprove:1})};
+   if(!SYNC()||!isMintStr(tok.key))return publish({id:Date.now(),c:S.me,kind:'meme',t:tok.key,entry:mcap(tok),buy,thesis,media,target:n||null,horizon:hz,ago:'now',likes:0,reposts:0,replies:0,views:1,fresh:true});
+   post.disabled=true;post.textContent='Posting…';
+   upMedia(media).then(urls=>API('/api/posts',{body:{kind:'meme',mint:tok.key,body:thesis,media:urls,target_mc:n||null,horizon:hz}}))
+    .then(r=>publish(Object.assign(fromRow({...r.post,handle:S.me}),{buy,fresh:true})))
+    .catch(e=>{post.disabled=false;check();$('#cerr',m).textContent=e.message})})})}
 
 let SRT=0,STR=0;
 function searchModal(){S.stf=TF_OK.includes(S.stf)?S.stf:'1h';
@@ -752,7 +1031,7 @@ function withdrawModal(){if(!S.connected)return connectModal(()=>withdrawModal()
    if(!real)return txRun(desc,()=>{S.bal[k]-=a;S.activity.unshift({k:'Withdrew',d:`${fmtAmt(a)} ${sy} to ${short(to)}`,t:'Just now'});render()});
    let base;try{base=baseOf(k,a)}catch(err){return toast(err.message)}
    realTx(desc,step=>doWithdraw({from:S.addr,to,mint:k==='SOL'?'SOL':mintOf(k),amount:base},step).then(r=>{
-    S.activity.unshift({k:'Withdrew',d:`${fmtAmt(a)} ${sy} to ${short(to)}`,t:'Just now',sig:r.signature});if(r.pending)toast('Sent. Confirmation is taking longer than usual');return r.signature}))}})}
+    logTx({k:'Withdrew',kind:'withdraw',label:`${fmtAmt(a)} ${sy} to ${short(to)}`,signature:r.signature,in_mint:k==='SOL'?SOL_MINT:mintOf(k),in_amount:a,to_address:to,usd_value:T[k]&&T[k].price?a*T[k].price:null});if(r.pending)toast('Sent. Confirmation is taking longer than usual');return r.signature}))}})}
 function depositModal(){if(!S.connected)return connectModal(()=>depositModal());const ok=isMintStr(S.addr);
  modal('Deposit','Send SOL, USDC or any Solana token to your Callit wallet. Only use the Solana network.',ok?`<div style="text-align:center">${qrSvg(S.addr)}<p class="num" style="overflow-wrap:anywhere;font-size:13px;margin:12px 0">${esc(S.addr)}</p><button class="btn primary block" data-act="copy" data-v="${esc(S.addr)}">Copy address</button><p class="hint" style="margin:12px 0 0">Funds show up here automatically within a few seconds of landing.</p></div>`
   :`<div class="empty" style="padding:18px 8px"><b>Your wallet is still being set up</b><p>Give it a few seconds, then try again.</p></div>`)}
@@ -788,7 +1067,7 @@ function quickBuy(sym,cid,startSide){if(!S.connected)return connectModal();const
   const go=$('#qgo',m);if(!go)return;
   go.onclick=()=>{if(side==='buy'){const a=parseFloat(sol)||0,got=a*T.SOL.price*.995/t.price;
     if(a>(S.bal.SOL||0)){$('#qerr',m).textContent=`You only have ${fmtAmt(S.bal.SOL||0)} SOL.`;return}
-    if(REALW()){closeModal();return realSwap('SOL',sym,a,`Buy $${SY} with ${fmtAmt(a)} SOL`)}
+    if(REALW()){closeModal();return realSwap('SOL',sym,a,`Buy $${SY} with ${fmtAmt(a)} SOL`,null,{callRef:k&&k.c!==S.me?k.id:null})}
     closeModal();txRun(`Buy ${fmtAmt(got)} $${esc(SY)}`,()=>{S.bal.SOL-=a;S.bal[sym]=(S.bal[sym]||0)+got;S.activity.unshift({k:'Bought',d:`${fmtAmt(got)} ${SY} for ${a} SOL${k?` from ${k.c}'s call`:''}`,t:'Just now'});render()})}
    else{const a=pct==='100'?h:Math.min(parseFloat(amt)||0,h),got=a*t.price*.995/T.SOL.price;
     if(!a)return;closeModal();if(REALW())return realSwap(sym,'SOL',a,`Sell ${fmtAmt(a)} $${SY}`);txRun(`Sell ${fmtAmt(a)} $${esc(SY)}`,()=>{S.bal[sym]=Math.max(0,(S.bal[sym]||0)-a);if(S.bal[sym]<1e-9)delete S.bal[sym];S.bal.SOL+=got;S.activity.unshift({k:'Sold',d:`${fmtAmt(a)} ${SY} for ${fmtAmt(got)} SOL`,t:'Just now'});render()})}}};
@@ -913,21 +1192,24 @@ function vPremium(){const pl=S.plan||'yearly',P=PLANS[pl],via=S.payvia||'SOL',on
 /* ---------- full post ---------- */
 const REPLIES={};const RDRAFT={media:[]};
 const RLINES=['Aped a small bag. Chart looks clean.','What is the dev wallet holding right now?','Target feels conservative ngl','In since 1M, not selling here','Liquidity is thin, careful with size','Good call. Following for the next one','Bundled supply worries me a bit','This is the one 🚀'];
-function repliesOf(k){if(!REPLIES[k.id]){const r=rng(k.id*7+3),who=ranked().map(c=>c.h).filter(h=>h!==k.c),n=Math.min(k.replies||0,3+Math.floor(r()*3));
+function repliesOf(k){if(!RLOADED[k.id]&&realAuth()){RLOADED[k.id]=1;fetch('/api/posts/replies?ref='+encodeURIComponent(k.id)).then(r=>r.ok?r.json():null).then(j=>{if(!j||!j.replies.length)return;j.replies.forEach(x=>{if(x.avatar_url)AVURL[x.handle]=x.avatar_url});const real=j.replies.map(x=>liveAgo({h:x.handle,t:x.body,likes:0,rts:0,reps:0,media:x.media,id:x.id},Date.parse(x.created_at)));REPLIES[k.id]=[...real,...(REPLIES[k.id]||[]).filter(x=>!x.mine)];k.replies=Math.max(k.replies||0,REPLIES[k.id].length);if(currentRoute()==='post')render()}).catch(()=>{})}
+ if(k.srv&&!REPLIES[k.id])REPLIES[k.id]=[];
+ if(!REPLIES[k.id]){const r=rng(k.id*7+3),who=ranked().map(c=>c.h).filter(h=>h!==k.c),n=Math.min(k.replies||0,3+Math.floor(r()*3));
  const lines=[...RLINES].sort(()=>r()-.5);REPLIES[k.id]=Array.from({length:Math.min(n,lines.length)},(_,i)=>({h:who[Math.floor(r()*who.length)],t:lines[i],ago:(i+1)*(7+Math.floor(r()*20))+'m',likes:Math.floor(r()*40),rts:Math.floor(r()*9),reps:Math.floor(r()*5)})).sort((a,b)=>parseInt(b.ago)-parseInt(a.ago))}return REPLIES[k.id]}
 function drawRMedia(){const el=$('#rmedia');if(el)el.innerHTML=mediaGrid(RDRAFT.media,1);const n=$('#rbox [data-attn]');if(n)n.textContent=RDRAFT.media.length?RDRAFT.media.length+'/4':'';const g=$('#rgo'),i=$('#rin');if(g&&i)g.disabled=!(i.value.trim()||RDRAFT.media.length)}
 function sendReply(id){if(!S.connected)return connectModal();const k=calls.find(x=>x.id==id),i=$('#rin'),v=i.value.trim();if(!v&&!RDRAFT.media.length)return;
- repliesOf(k).unshift({h:S.me,t:v,ago:'now',likes:0,rts:0,reps:0,media:RDRAFT.media.slice()});k.replies=(k.replies||0)+1;RDRAFT.media=[];render();toast('Reply posted')}
+ const md=RDRAFT.media.slice();repliesOf(k).unshift({h:S.me,t:v,ago:'now',likes:0,rts:0,reps:0,media:md,mine:1});if(SYNC())upMedia(md).then(media=>bg('/api/posts/replies',{ref:String(k.id),body:v,media})).catch(()=>toast('Your reply couldn’t be saved'));k.replies=(k.replies||0)+1;RDRAFT.media=[];render();toast('Reply posted')}
 function vPost(id){const k=calls.find(x=>String(x.id)===String(id));if(!k)return `<div class="empty"><b class="h2">This post is gone</b><p>It may have been removed.</p><a class="btn primary" href="#/home">Back to Home</a></div>`;
+ if(k.t&&!T[k.t]){loadLiveToken(k.t,1);return `<div class="empty"><b>Loading this call…</b></div>`}
  const t=T[k.t],n=nums(k),r=rankOf(k.c),reps=repliesOf(k);
- const trade=n?`<div class="tpanel"><a class="ccard" href="#/token/${t.key}">${tokav(t.key)}<div class="cn"><b>${esc(t.name)}</b><span>$${t.sym} <span class="chain">${t.chain}</span></span></div>${mkt(k)}</a>
+ const trade=k.kind==='random'?'':k.perp?perpPanel(k):n?`<div class="tpanel"><a class="ccard" href="#/token/${t.key}">${tokav(t.key)}<div class="cn"><b>${esc(t.name)}</b><span>$${t.sym} <span class="chain">${t.chain}</span></span></div>${mkt(k)}</a>
   <div class="tgrid num"><div><span>Called at</span><b>${fmtUsd(k.entry)}</b></div><div><span>Market cap now</span><b class="${n.up?'up':'down'}">${fmtUsd(n.mc)}</b></div><div><span>Since call</span><b class="${n.up?'up':'down'}">${fmtPct(n.p)}</b></div>
   <div><span>Target</span><b>${k.target?fmtUsd(k.target):'None set'}</b></div><div><span>Window</span><b>${esc(k.horizon||'Open')}</b></div><div><span>To target</span><b>${k.target?Math.min(100,Math.max(0,Math.round((n.mc-k.entry)/(k.target-k.entry)*100)))+'%':'—'}</b></div></div>
   ${k.target?`<div class="tprog"><i style="width:${Math.min(100,Math.max(2,(n.mc-k.entry)/(k.target-k.entry)*100))}%"></i></div>`:''}
   <div class="tact"><span class="${k.buy?'bk':'bk no'}">${k.buy?ic('check',14)+' Caller bought in · earns fees':'Caller didn\'t buy · earns no fees'}</span>${tradable(t)?`<button class="btn primary" data-act="qbuy" data-t="${t.key}" data-id="${k.id}">Buy $${t.sym}</button>`:''}<a class="btn ghost" href="#/token/${t.key}">Chart</a></div></div>`
-  :`<a class="ccard" href="#/token/${t.key}">${tokav(t.key)}<div class="cn"><b>${esc(t.name)}</b><span>$${t.sym} <span class="chain">${t.chain}</span></span></div><div class="cr"><b>Soon</b><span>Launches ${esc(t.prelaunch)}</span></div></a>`;
+  :t?`<a class="ccard" href="#/token/${t.key}">${tokav(t.key)}<div class="cn"><b>${esc(t.name)}</b><span>$${t.sym} <span class="chain">${t.chain}</span></span></div><div class="cr"><b>Soon</b><span>Launches ${esc(t.prelaunch)}</span></div></a>`:'';
  return `<article class="fpost"><div class="fhead"><a href="#/profile/${k.c}" aria-label="Open @${esc(k.c)}'s profile">${avatar(k.c,'md')}</a><div class="grow"><div class="phead" style="margin:0"><span class="pname">${esc(k.c)}</span>${vbadge(k.c)}${r&&!k.sponsored?`<span class="rk">#${r}</span>`:''}${k.sponsored?'<span class="tag">Sponsored</span>':''}</div><div class="hint">@${esc(k.c)}</div></div>
-  ${k.c===S.me?'':`<button class="btn sm ${S.following.has(k.c)?'ghost':'primary'}" data-act="follow" data-h="${k.c}">${S.following.has(k.c)?'Following':'Follow'}</button>`}</div>
+  ${k.c===S.me?'':`<button class="btn sm ${S.following.has(k.c)?'ghost':'primary'}" data-act="follow" data-h="${k.c}">${S.following.has(k.c)?'Following':'Follow'}</button>`}${k.sponsored?'':moreBtn(k)}</div>
   <p class="ftext">${esc(k.thesis)}</p>${mediaGrid(k.media)}${trade}
   ${k.sponsored?`<div class="pnote">Paid promotion by ${esc(k.sponsor)}. Not counted in rankings.</div>`:''}
   <div class="fmeta hint">${k.ago==='now'?'Just now':k.ago+' ago'} · <b>${fmtK(k.views||0)}</b> views</div>
@@ -948,39 +1230,6 @@ function vPost(id){const k=calls.find(x=>String(x.id)===String(id));if(!k)return
 
 /* ---------- share ---------- */
 const postURL=id=>location.href.split('#')[0]+'#/post/'+id;
-function shareSheet(id){const k=calls.find(x=>String(x.id)===String(id));if(!k)return;const t=T[k.t],n=nums(k),url=postURL(id);
- const text=n?`${k.c} called $${symOf(k.t)} at ${fmtUsd(k.entry)} MC. It's ${fmtPct(n.p)} since. Tracked on Callit`:`${k.c} is calling $${symOf(k.t)} on Callit`;
- const pts=(()=>{const r=rng(k.id*31+7);let y=n&&n.up?.8:.3,a=[];for(let i=0;i<28;i++){y+=(r()-.5)*.16+(n&&n.up?-.022:.022);y=Math.min(.92,Math.max(.08,y));a.push(y)}return a})();
- const path=pts.map((v,i)=>(i?'L':'M')+(i/27*300).toFixed(1)+','+(v*70).toFixed(1)).join('');
- modal('Share this call','',`<div class="shwrap"><div class="shcard ${n&&!n.up?'dn':''}"><i class="shglow"></i><i class="shorb o1"></i><i class="shorb o2"></i>
-  <div class="sht"><span class="mark"></span><b>Callit</b><span class="hint">Call it. Get Paid.</span></div>
-  <div class="shb">${avatar(k.c,'md')}<div class="grow"><b>${esc(k.c)}</b><span class="hint">called $${symOf(k.t)}${k.buy?' · <span class="shok">✓ bought in</span>':''}</span></div><span class="shtok">${tokav(k.t)}</span></div>
-  ${n?`<svg class="shline" viewBox="0 0 300 70" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="shg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity=".35"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></linearGradient></defs><path class="shfill" d="${path}L300,70L0,70Z" fill="url(#shg)"/><path class="shpath" d="${path}" pathLength="1"/><circle class="shdot" r="4" cx="300" cy="${(pts[27]*70).toFixed(1)}"/></svg>
-  <div class="shn num"><div><span>Called at</span><b>${fmtUsd(k.entry)}</b></div><div><span>Now</span><b>${fmtUsd(n.mc)}</b></div><div class="big ${n.up?'up':'down'}" data-count="${n.p.toFixed(1)}">${fmtPct(0)}</div></div>`:''}
-  <i class="shsheen"></i></div></div>
-  <div class="shacts"><button class="btn primary" data-act="copy" data-v="${url}">${ic('share',16)} Copy link</button>
-  <a class="btn ghost" target="_blank" rel="noopener" href="https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}">${ic('xlogo',15)} Post on X</a>
-  <button class="btn ghost" data-act="shdl" data-id="${id}">${ic('image',16)} Save image</button>${navigator.share?`<button class="btn ghost" data-act="shnative" data-id="${id}">More…</button>`:''}</div>`,
- m=>{const el=m.querySelector('[data-count]');if(!el)return;const to=+el.dataset.count,t0=performance.now(),dur=1100;
-  const step=t=>{const q=Math.min(1,(t-t0)/dur),e=1-Math.pow(1-q,3);el.textContent=fmtPct(to*e);if(q<1&&el.isConnected)requestAnimationFrame(step)};
-  if(matchMedia('(prefers-reduced-motion:reduce)').matches)el.textContent=fmtPct(to);else setTimeout(()=>requestAnimationFrame(step),250);
-  const card=m.querySelector('.shcard');card.addEventListener('pointermove',e=>{const r=card.getBoundingClientRect(),x=(e.clientX-r.left)/r.width-.5,y=(e.clientY-r.top)/r.height-.5;card.style.setProperty('--rx',(-y*8)+'deg');card.style.setProperty('--ry',(x*10)+'deg');card.style.setProperty('--mx',(x*100+50)+'%')});
-  card.addEventListener('pointerleave',()=>{card.style.setProperty('--rx','0deg');card.style.setProperty('--ry','0deg')})})}
-function shareImage(id,mode){const k=calls.find(x=>String(x.id)===String(id)),t=T[k.t],n=nums(k),c=document.createElement('canvas');c.width=1200;c.height=630;const g=c.getContext('2d');
- const grd=g.createLinearGradient(0,0,1200,630);grd.addColorStop(0,'#0B1B27');grd.addColorStop(1,'#10304A');g.fillStyle=grd;g.fillRect(0,0,1200,630);
- g.fillStyle='rgba(77,168,255,.15)';g.beginPath();g.arc(1050,80,260,0,7);g.fill();
- const done=()=>{g.fillStyle='#fff';g.font='800 44px system-ui,sans-serif';g.fillText('Callit',150,108);g.fillStyle='#8FA6BA';g.font='600 26px system-ui,sans-serif';g.fillText('Call it. Get Paid.',150,145);
-  g.fillStyle='#fff';g.font='800 64px system-ui,sans-serif';g.fillText(`${k.c} called $${symOf(k.t)}`,70,280);
-  if(n){g.fillStyle=n.up?'#3DDC97':'#FF6B8A';g.font='900 150px system-ui,sans-serif';g.fillText(fmtPct(n.p),70,450);
-   g.fillStyle='#8FA6BA';g.font='600 32px system-ui,sans-serif';g.fillText(`Called at ${fmtUsd(k.entry)} MC  →  now ${fmtUsd(n.mc)} MC`,70,520)}
-  g.fillStyle='#4DA8FF';g.font='700 26px system-ui,sans-serif';g.fillText(k.buy?'✓ Caller bought in':'Tracked live on Callit',70,580);
-  c.toBlob(bl=>{const f=new File([bl],`callit-${k.t}.png`,{type:'image/png'});
-   if(mode==='native'&&navigator.canShare&&navigator.canShare({files:[f]}))navigator.share({files:[f],url:postURL(id),text:`${k.c} called $${symOf(k.t)} on Callit`}).catch(()=>{});
-   else if(mode==='native'&&navigator.share)navigator.share({url:postURL(id),title:'Callit'}).catch(()=>{});
-   else{const a=document.createElement('a');a.href=URL.createObjectURL(bl);a.download=f.name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);toast('Image saved')}})};
- const im=new Image();im.onload=()=>{g.save();g.beginPath();g.roundRect?g.roundRect(70,60,64,64,16):g.rect(70,60,64,64);g.clip();g.drawImage(im,70,60,64,64);g.restore();done()};im.onerror=done;
- im.src=(getComputedStyle(document.querySelector('.mark')).backgroundImage.match(/url\("?(.*?)"?\)/)||[])[1]||''}
-
 /* ---------- onboarding ---------- */
 const INTERESTS=['Memecoins','AI agents','New launches','DeFi','Gaming','Blue chips','Low caps','Narratives'];
 function onboard(step=1){const st=S.ob||(S.ob={i:new Set()});
@@ -1018,7 +1267,9 @@ function editProfile(focus){const D={...PROF};
   m.querySelectorAll('[data-up]').forEach(i=>i.onchange=()=>{const f=i.files[0];if(!f)return;if(!/^image\//.test(f.type)){$('#eperr',m).textContent='Pick an image file.';return}keep();shrink(f,i.dataset.up==='banner'?1400:400,url=>{D[i.dataset.up]=url;draw(m)})});
   m.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{keep();delete D[b.dataset.rm];draw(m)});
   $('#epsave',m).onclick=()=>{keep();const old=PROF;PROF=D;if(!saveProf()){PROF=old;$('#eperr',m).textContent='That image is too large to save. Try a smaller one.';return}
-   if(realAuth()&&window.CallitAuth)window.CallitAuth.saveProfile({display_name:D.name||null,bio:D.bio||null,website:D.web||null,x_handle:D.x||null}).then(p=>{if(!p)toast('Saved on this device. Couldn’t sync to your account yet')});
+   if(realAuth()&&window.CallitAuth){const up=(u,kind)=>u&&/^data:/.test(u)?upMedia([u],kind).then(a=>a[0]):Promise.resolve(u||null);
+    Promise.all([up(D.avatar,'avatar'),up(D.banner,'banner')]).then(([av,bn])=>{if(av)PROF.avatar=av;if(bn)PROF.banner=bn;saveProf();
+     return window.CallitAuth.saveProfile({display_name:D.name||null,bio:D.bio||null,website:D.web||null,x_handle:D.x||null,avatar_url:av,banner_url:bn})}).then(p=>{if(!p)toast('Saved on this device. Couldn’t sync to your account yet')}).catch(()=>toast('Photo couldn’t upload. Saved on this device only'))}
    closeModal();toast('Profile updated');render()};
   if(focus==='banner')m.querySelector('[data-up="banner"]').click()};
  modal('Edit profile','',`<div id="ep"></div>`,draw)}
@@ -1113,8 +1364,8 @@ window.callitApplySession=(p,o={})=>{
  const first=!S.connected,prevAddr=S.addr;S.connected=true;S.profile=p;S.me=p.handle;S.addr=p.wallet_address||'';
  if(realAuth()&&S.addr!==prevAddr){S.bal={SOL:0};S.activity=[];S.balAt=0;for(const k in RAW)delete RAW[k];S.swap.amt=''}
  C[S.me]=C[S.me]||{h:S.me,win:0,avg:0,calls:0,best:0,followers:0};
- PROF={...PROF,name:p.display_name??PROF.name??'',bio:p.bio??PROF.bio??'',web:p.website??PROF.web??'',x:p.x_handle??PROF.x??''};saveProf();
- closeModal();render();loadBalances();
+ PROF={...PROF,name:p.display_name??PROF.name??'',bio:p.bio??PROF.bio??'',web:p.website??PROF.web??'',x:p.x_handle??PROF.x??'',avatar:p.avatar_url||PROF.avatar,banner:p.banner_url||PROF.banner};saveProf();
+ closeModal();render();loadBalances();if(realAuth()){loadMe();loadPosts()}
  if(first){toast(o.isNew?'Welcome to Callit. Your wallet is ready':'Signed in');const n=pendingNext;pendingNext=null;if(n)n();else if(o.isNew)maybeOnboard()}};
 window.callitAuthChanged=()=>syncLanding();
 window.callitWalletChanged=()=>{if(REALW())loadBalances()};
@@ -1128,7 +1379,7 @@ document.addEventListener('click',e=>{
  const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act;
  if(a==='close'){if(e.target===b||b.tagName!=='DIV'){closeModal()}return}
  const act={
-  newcall:()=>callModal(b.dataset.t),
+  newcall:()=>composeModal(b.dataset.t?'meme':(b.dataset.k||(currentRoute()==='home'?S.cat:'meme')),{pre:b.dataset.t}),
   install:()=>installApp(),instclose:()=>{try{localStorage.setItem('callit.installDismissed','1')}catch(_){}const x=$('#instbar');x&&x.remove()},
   dmsend:()=>{const i=$('#msgin'),v=i&&i.value.trim();if(!v)return;DMS[b.dataset.f].push(['me',v,'now']);render();const m=$('#msgs');m&&m.lastElementChild&&m.lastElementChild.scrollIntoView({block:'end'});setTimeout(()=>{const n=$('#msgin');n&&n.focus()},50)},
   dmnew:()=>{if(!S.connected)return connectModal();modal('New message','Pick a caller',`<div class="list">${ranked().map(c=>`<a class="li" href="#/messages/${c.h}" data-act="close">${avatar(c.h)}<div class="grow"><b>${c.h}</b><div class="hint">${c.win}% win rate</div></div></a>`).join('')}</div>`)},
@@ -1177,17 +1428,29 @@ document.addEventListener('click',e=>{
   adgo:()=>{S.board=+b.dataset.f;const el=$('#adboard');if(el)el.outerHTML=adBoard()},
   tab:()=>{if(S.tab===b.dataset.f)return scrollTo({top:0,behavior:'smooth'});S.tab=b.dataset.f;render();scrollTo({top:0})},tf:()=>{S.tf=b.dataset.f;render()},lb:()=>{S.lb=b.dataset.f;render()},
   pkg:()=>{S.pkg=b.dataset.f;document.querySelectorAll('.pkg').forEach(p=>p.classList.toggle('on',p===b))},
-  like:()=>{const k=calls.find(x=>x.id==b.dataset.id);k.liked=!k.liked;k.likes+=k.liked?1:-1;b.classList.toggle('liked',k.liked);b.innerHTML=ic('heart',18,k.liked)+`<span class="num">${k.likes||''}</span>`},
-  repost:()=>{const k=calls.find(x=>x.id==b.dataset.id);k.reposted=!k.reposted;k.reposts+=k.reposted?1:-1;b.classList.toggle('reposted',k.reposted);b.querySelector('span').textContent=k.reposts||'';toast(k.reposted?'Reposted':'Repost removed')},
+  like:()=>{if(!S.connected)return connectModal();const k=calls.find(x=>x.id==b.dataset.id);k.liked=!k.liked;bg('/api/posts/react',{ref:String(k.id),kind:'like',on:k.liked});k.likes+=k.liked?1:-1;b.classList.toggle('liked',k.liked);b.innerHTML=ic('heart',18,k.liked)+`<span class="num">${k.likes||''}</span>`},
+  repost:()=>{if(!S.connected)return connectModal();const k=calls.find(x=>x.id==b.dataset.id);k.reposted=!k.reposted;bg('/api/posts/react',{ref:String(k.id),kind:'repost',on:k.reposted});k.reposts+=k.reposted?1:-1;b.classList.toggle('reposted',k.reposted);b.querySelector('span').textContent=k.reposts||'';toast(k.reposted?'Reposted':'Repost removed')},
   reply:()=>{const a=b.closest('[data-go]');if(a&&a.dataset.go.startsWith('#/post/')){S.focusReply=true;location.hash=a.dataset.go}else{const i=$('#rin');i&&i.focus()}},
   rsend:()=>sendReply(b.dataset.id),
   rlike:()=>{if(!S.connected)return connectModal();const x=REPLIES[b.dataset.p][+b.dataset.i];x.liked=!x.liked;x.likes+=x.liked?1:-1;b.classList.toggle('liked',x.liked);b.innerHTML=`${ic('heart',17,x.liked)}<span class="num">${x.likes||''}</span>`},
   rrt:()=>{if(!S.connected)return connectModal();const x=REPLIES[b.dataset.p][+b.dataset.i];x.rted=!x.rted;x.rts+=x.rted?1:-1;b.classList.toggle('reposted',x.rted);b.querySelector('.num').textContent=x.rts||'';toast(x.rted?'Reposted':'Repost removed')},
   rrep:()=>{if(!S.connected)return connectModal();const i=$('#rin');if(!i)return;const tag='@'+b.dataset.h+' ';if(!i.value.startsWith(tag))i.value=tag+i.value;i.focus();i.setSelectionRange(i.value.length,i.value.length);i.dispatchEvent(new Event('input'));$('#rbox').scrollIntoView({block:'center',behavior:'smooth'})},
-  share:()=>shareSheet(b.dataset.id),shdl:()=>shareImage(b.dataset.id,'dl'),shnative:()=>shareImage(b.dataset.id,'native'),
+  share:()=>shareSheet(b.dataset.id),
+  cat:()=>{if(S.cat===b.dataset.f)return scrollTo({top:0,behavior:'smooth'});S.cat=b.dataset.f;try{localStorage.setItem('callit.cat',S.cat)}catch(_){}if(S.cat==='perps')loadPerps();render();scrollTo({top:0})},
+  pmenu:()=>{const k=calls.find(x=>String(x.id)===String(b.dataset.id));if(k)moreSheet(k.c,k)},
+  profmenu:()=>moreSheet(b.dataset.h),
+  shprof:()=>{closeModal();shareProfile(b.dataset.h)},
+  cplink:()=>{closeModal();copy(postURL(b.dataset.id),'Link copied')},
+  addlist:()=>listsModal(b.dataset.h),
+  mute:()=>{if(!S.connected)return connectModal();const h=b.dataset.h,on=!S.muted.has(h);toggleRel('mute',h,on);closeModal();toast(on?`Muted @${h}. You won’t see their posts`:`Unmuted @${h}`);render()},
+  block:()=>{if(!S.connected)return connectModal();const h=b.dataset.h;if(S.blocked.has(h)){toggleRel('block',h,false);closeModal();toast(`Unblocked @${h}`);return render()}
+   modal(`Block @${h}?`,'They’ll be hidden from your feeds, search and replies, and you’ll unfollow them. They won’t be notified.',`<button class="btn block" style="background:var(--down);color:#fff;border-color:var(--down)" id="blgo">Block @${esc(h)}</button><button class="btn ghost block" data-act="close" style="margin-top:8px">Cancel</button>`,
+    m=>$('#blgo',m).onclick=()=>{toggleRel('block',h,true);closeModal();toast(`Blocked @${h}`);render()})},
+  delpost:()=>{const id=b.dataset.id;modal('Delete post?','It’s removed from your profile and every feed.',`<button class="btn block" style="background:var(--down);color:#fff;border-color:var(--down)" id="dlgo">Delete</button><button class="btn ghost block" data-act="close" style="margin-top:8px">Cancel</button>`,
+    m=>$('#dlgo',m).onclick=()=>{API('/api/posts?id='+encodeURIComponent(id),{method:'DELETE'}).then(()=>{calls=calls.filter(x=>String(x.id)!==String(id));closeModal();toast('Post deleted');if(currentRoute()==='post')location.hash='#/home';else render()}).catch(e=>toast(e.message))})},
   copy:()=>copy(b.dataset.v,'Address copied'),
-  follow:()=>{if(!S.connected)return connectModal();const h=b.dataset.h;S.following.has(h)?S.following.delete(h):S.following.add(h);render()},
-  track:()=>{const t=b.dataset.t;S.watch.has(t)?S.watch.delete(t):S.watch.add(t);toast(S.watch.has(t)?`$${symOf(t)} added to watchlist`:`$${symOf(t)} removed from watchlist`);render()},
+  follow:()=>{if(!S.connected)return connectModal();const h=b.dataset.h,on=!S.following.has(h);toggleRel('follow',h,on);if(PUB[h]&&!PUB[h].pending)PUB[h].followers=Math.max(0,PUB[h].followers+(on?1:-1));render()},
+  track:()=>{const t=b.dataset.t;S.watch.has(t)?S.watch.delete(t):S.watch.add(t);bg('/api/social',{action:'watch',key:t,on:S.watch.has(t)});toast(S.watch.has(t)?`$${symOf(t)} added to watchlist`:`$${symOf(t)} removed from watchlist`);render()},
   withdraw:()=>withdrawModal(),send:()=>withdrawModal(),receive:()=>depositModal(),deposit:()=>depositModal(),
   ltf:()=>{S.ltf=b.dataset.f;render()},lmode:()=>{S.lmode=b.dataset.f;render()},lretry:()=>{(lfIds(S.tt,filOf(S.tt))||[]).forEach(id=>{LIVE.err[id]=0;loadFeed(id)});render()},ltokretry:()=>{LIVE.tokErr[b.dataset.t]=0;render()},
   tside:()=>{const w=S.swap,t=b.dataset.t;if(b.dataset.f==='sell'){w.from=t;w.to='SOL'}else{w.from='SOL';w.to=t}w.amt='';renderSwaps()},
@@ -1227,6 +1490,9 @@ setInterval(()=>{const r=rng(Date.now()%1e6);Object.values(T).forEach(t=>{if(!t.
  document.querySelectorAll('[data-tmc]').forEach(el=>{const t=T[el.dataset.tmc];if(!t)return;const m=mcap(t);if(el.textContent!==fmtUsd(m)){el.textContent=fmtUsd(m);el.className=mcCls(m)}});
  document.querySelectorAll('[data-price]').forEach(el=>{const t=T[el.dataset.price];if(t)el.textContent=fmtPrice(t.price)})},3000);
 
+setInterval(()=>{if(document.hidden)return;perpTick()},3000);
+setInterval(()=>{if(document.hidden)return;if(calls.some(k=>k.perp)||S.cat==='perps')loadPerps();if(currentRoute()==='home')loadPosts()},20000);
+loadPerps();if(realAuth())loadPosts();
 /* simulated realtime: new calls arrive and wait behind the pill */
 let QUEUED=false;
 function queueDemoCalls(){if(QUEUED)return;QUEUED=true;setTimeout(()=>{const a=T[LIVEMAP.BSHK||'KFSH'],b=T[LIVEMAP.KOI||'DOTB'];if(!a||!b)return;
