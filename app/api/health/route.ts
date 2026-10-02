@@ -71,8 +71,9 @@ export async function GET() {
 
   const ok = Object.values(env).every(Boolean) && privy_jwks === 'ok' && profiles_table === 'ok' && notifications_table === 'ok'
     && Object.values(social).every((v) => v === 'ok') && media_bucket === 'ok';
-  const fix = ok ? null : Object.values(social).some((v) => v !== 'ok') || media_bucket !== 'ok'
-    ? 'Run supabase/migrations/0003_social_and_ledger.sql in Supabase → SQL Editor'
+  const fix = ok ? null
+    : Object.values(social).some((v) => v !== 'ok') ? 'Run supabase/migrations/0003_social_and_ledger.sql in Supabase → SQL Editor'
+    : media_bucket !== 'ok' ? 'Media bucket missing: it is created automatically on the first image upload, or run the storage section at the end of 0003_social_and_ledger.sql'
     : null;
   return NextResponse.json({ ok, service: 'callit-web', time: new Date().toISOString(), env, privy_jwks, privy_login, profiles_table, notifications_table, social_tables: social, media_bucket, fix, welcome_email });
 }
