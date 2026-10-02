@@ -1664,3 +1664,24 @@ body.collapsed .acctrow .logout{width:40px;height:40px}
 .tgl>button small{position:absolute;top:-7px;right:6px;margin:0!important;border:0!important;background:#E8B730!important;color:#0B1B27!important;font-weight:800;text-transform:uppercase;box-shadow:0 2px 6px rgba(0,0,0,.3);line-height:14px}
 .mtabs.tgl>button small{top:2px;right:8px}
 @media (max-width:600px){.pbar .pright{flex-direction:row!important}.pbar .pright .bsrow{display:flex;gap:6px}}
+
+/* ---------- edit 4.1: no dead space on phones and tablets ----------
+   Below 900px there is no right rail, so the feed fills the whole width instead of
+   stopping at 680px and leaving an empty strip down the right side. */
+@media (max-width:899px){
+ .cols{grid-template-columns:minmax(0,1fr)!important;gap:0!important;padding:0!important}
+ .center{border-right:0;width:100%;max-width:none}
+}
+/* Tablets in portrait (761–899px, side tray visible): keep posts at a comfortable reading width, centered. */
+@media (min-width:761px) and (max-width:899px){
+ .center>*{max-width:720px;margin-left:auto;margin-right:auto}
+}
+@media (max-width:760px){
+ /* single images: full width, never taller than about half the screen */
+ .media.n1 .mcell,.media.n1 .mcell img{max-height:min(420px,52vh)}
+ .media{border-radius:16px}
+ /* post body uses the full row: actions line up under the text, right edge matches the card */
+ .post{padding-right:12px}
+ .pbar{margin-right:0}
+ .fab{right:16px!important}
+}

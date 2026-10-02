@@ -979,7 +979,7 @@ function chrome(route){const link=([k,l])=>`<a href="#/${k}" class="${route===k?
   <button class="ib" data-act="theme" aria-label="Switch theme">${ic('sun')}</button>`;
  syncTray();
  {let bt=$('#btabs');if(!bt){bt=document.createElement('nav');bt.id='btabs';bt.className='btabs';bt.setAttribute('aria-label','Main');document.body.appendChild(bt)}
-  bt.innerHTML=[['home','Home','home'],['market','Market','market'],['swap','Swap','swap'],['notifications','Alerts','bell'],[S.connected?'profile/'+S.me:'profile','Profile','profile']].map(([h,l,i])=>{const on=route===h.split('/')[0];
+  bt.innerHTML=[['home','Home','home'],['market','Market','market'],['wallet','Wallet','wallet'],['notifications','Alerts','bell'],[S.connected?'profile/'+S.me:'profile','Profile','profile']].map(([h,l,i])=>{const on=route===h.split('/')[0];
    return `<a href="#/${h}" class="${on?'on':''}" aria-label="${l}">${i==='bell'?`<span class="nbadge">${ic('bell',23)}${unreadN()?`<i>${unreadN()}</i>`:''}</span>`:ic(i,23)}<span>${l}</span></a>`}).join('')}
  $('#title').textContent=TITLES[route]||'Home';{const u=$('#upg'),on=isPrem(S.me);u.hidden=true;u.classList.toggle('on',!!on);u.innerHTML=`${ic('verified',18)}<span>Premium</span>`}const bk=$('#back');bk.hidden=route==='home';bk.innerHTML=ic('back',20);
  // phones: the side tray is hidden, so the logo in the header opens it (like X's avatar menu)
