@@ -61,6 +61,7 @@ export async function PATCH(req: Request) {
 /**
  * GET /api/profile?handle=<h> — a public profile with follower and post counts.
  * GET /api/profile?check=<h> — is this username free? { available, reason? }
+ * GET /api/profile?q=<text> — caller search by username or display name.
  */
 export async function GET(req: Request) {
   const db = supabaseAdmin();
@@ -73,6 +74,22 @@ export async function GET(req: Request) {
     if (!db) return NextResponse.json({ available: true });
     const { data } = await db.from('profiles').select('id').eq('handle', h).maybeSingle();
     return NextResponse.json({ available: !data, reason: data ? 'Taken' : undefined }, { headers: { 'cache-control': 'no-store' } });
+  }
+  const q = sp.get('q');
+  if (q !== null) {
+    // Caller search: username or display name. Only letters, numbers, _ and spaces get through, so the filter can't be broken out of.
+    const term = q.trim().replace(/^@/, '').replace(/[^A-Za-z0-9_ ]/g, '').slice(0, 30);
+    if (term.length < 2 || !db) return NextResponse.json({ profiles: [] });
+    const like = `"%${term}%"`;
+    const { data, error } = await db.from('profiles')
+      .select('handle, display_name, avatar_url')
+      .or(`handle.ilike.${like},display_name.ilike.${like}`)
+      .order('handle', { ascending: true })
+      .limit(12);
+    if (error) return NextResponse.json({ profiles: [] }, { status: 500 });
+    const tl = term.toLowerCase();
+    const profiles = (data || []).sort((a, b) => Number(b.handle.startsWith(tl)) - Number(a.handle.startsWith(tl)));
+    return NextResponse.json({ profiles }, { headers: { 'cache-control': 'public, s-maxage=10, stale-while-revalidate=30' } });
   }
   const handle = sp.get('handle');
   if (!db) return NextResponse.json({ profile: null });

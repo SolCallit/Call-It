@@ -1685,3 +1685,19 @@ body.collapsed .acctrow .logout{width:40px;height:40px}
  .pbar{margin-right:0}
  .fab{right:16px!important}
 }
+
+/* ===== Oct update: header search + bell, DeFi/You toggles, OG tags ===== */
+.pill .srch{cursor:pointer}
+.pill .hbell{position:relative}
+.pill .hbell .nbadge i{top:-7px;right:-10px}
+.pill .hbell.on{color:var(--hi)}
+@media (max-width:520px){.pill .srch span{display:none}.pill .srch{padding:7px!important}.pill .srch svg{width:15px;height:15px}}
+.acts3{grid-template-columns:repeat(3,1fr)}
+@media (max-width:380px){.acts3 .btn{padding-left:6px;padding-right:6px;font-size:13px}}
+.btabs .av.btav{width:24px;height:24px;font-size:9px;box-shadow:0 0 0 2px transparent}
+.btabs a.on .av.btav{box-shadow:0 0 0 2px var(--hi)}
+.skind{margin:0 0 10px!important}
+.sage{margin-left:6px;padding:0 6px;border-radius:999px;border:1px solid var(--line);font-weight:800;font-size:11px;color:var(--muted);background:var(--bg2)}
+.ogtag{display:inline-flex;align-items:center;margin-left:6px;padding:1px 7px;border-radius:999px;font:900 10px/1.5 var(--body);letter-spacing:.08em;color:#1C1300;background:linear-gradient(180deg,#FDE68A,#F59E0B);box-shadow:0 1px 0 rgba(255,255,255,.55) inset,0 2px 0 #B45309;vertical-align:2px}
+.srow.isog{background:color-mix(in srgb,#F59E0B 7%,transparent)}
+.sognote{display:flex;align-items:center;gap:6px;margin:4px 4px 8px;color:#F59E0B}

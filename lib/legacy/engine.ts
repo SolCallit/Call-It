@@ -197,7 +197,7 @@ const ADS=[
 const AD_EVERY=3;
 const S={connected:false,addr:'',me:'',tab:'foryou',tf:'1D',lb:'30d',following:new Set(),watch:new Set(['GLORP','ORBIT']),
  bal:{SOL:4.2,USDC:310,GLORP:120000},activity:[{k:'Received',d:'2 SOL',t:'Yesterday'}],
- swap:{from:'SOL',to:'GLORP',amt:''},pkg:'boost',queued:[],unread:true,adRot:0,board:0,tt:'movers'};
+ swap:{from:'SOL',to:'GLORP',amt:''},pkg:'boost',queued:[],unread:true,adRot:0,board:0,tt:'new',dtab:'swap',ytab:(()=>{try{return localStorage.getItem('callit.ytab')==='profile'?'profile':'wallet'}catch(_){return 'wallet'}})()};
 try{S.notifyOn=JSON.parse(localStorage.getItem('callit.notify')||'{}')||{}}catch(_){S.notifyOn={}}
 
 /* ---------- persistence (Supabase via /api) ----------
@@ -541,7 +541,7 @@ const decOf=k=>DEC[k]!=null?DEC[k]:(T[k]&&T[k].L&&T[k].L.decimals!=null?T[k].L.d
 const baseOf=(k,a)=>{const d=decOf(k);if(d==null)throw new Error('Token details are still loading. Try again in a second.');return RAW[k]&&k!=='SOL'&&a>=(S.bal[k]||0)*(1-1e-9)?RAW[k]:toBaseUnits(a,d)};
 function balRender(){const ae=document.activeElement;if(ae&&ae.dataset&&ae.dataset.swap==='amt')return;
  if($('#modal').innerHTML||document.querySelector('.sheet.open')){S.dirty=1;renderSwaps();return}
- const r=currentRoute();if(r==='wallet'||r==='profile')render();else renderSwaps()}
+ const r=currentRoute();if(r==='you'||r==='profile')render();else renderSwaps()}
 let BALBUSY=0;
 function loadBalances(){if(!REALW()||BALBUSY)return;BALBUSY=1;const who=S.addr;
  walletBalances(who).then(r=>{if(S.addr!==who)return;const b={SOL:r.sol},raw={SOL:r.lamports},miss=[];
@@ -686,7 +686,7 @@ function vMarket(){const rows=Object.values(T).filter(t=>!t.base);
  <td class="num">${t.prelaunch?'—':fmtPrice(t.price)}</td><td class="num">${t.prelaunch?'Launches '+t.prelaunch:fmtUsd(mcap(t))}</td><td class="num ${t.chg>=0?'up':'down'}">${t.prelaunch?'':fmtPct(t.chg)}</td><td class="num">${calls.filter(k=>k.t===t.sym).length}</td>
  <td><button class="ib" data-act="track" data-t="${t.key}" aria-label="Add ${t.sym} to watchlist" style="color:${S.watch.has(t.key)?'var(--hi)':'var(--muted)'}">${ic('star',20,S.watch.has(t.key))}</button></td></tr>`).join('')}</tbody></table></div>`}
 
-const ageStr=h=>h<1/60?Math.max(1,Math.round(h*3600))+'s':h<1?Math.round(h*60)+'m':h<48?Math.round(h)+'h':Math.round(h/24)+'d';
+const ageStr=h=>h<1/60?Math.max(1,Math.round(h*3600))+'s':h<1?Math.round(h*60)+'m':h<48?Math.round(h)+'h':h<24*60?Math.round(h/24)+'d':h<24*365?Math.floor(h/24/30)+'mo':Math.floor(h/24/365)+'y';
 const mcCls=m=>m>=1e5?'mb':m>=2e4?'up':'my';
 function trenchStats(t){if(t.live){const L=t.L||{},a=L.audit||{},bs=(L.buys24||0)+(L.sells24||0);
   return {top:a.top10==null?null:Math.round(a.top10),dev:a.dev==null?null:Math.round(a.dev*10)/10,snip:null,ins:null,fees:null,tx:bs,buys:bs?L.buys24/bs:.5}}
@@ -695,8 +695,8 @@ function trenchStats(t){if(t.live){const L=t.L||{},a=L.audit||{},bs=(L.buys24||0
 /* ---------- trenches: feeds, filters, display ---------- */
 const LPS=[['Pump','#4ADE80'],['Bonk','#F59E0B'],['Believe','#22C55E'],['Moonshot','#C084FC'],['Launchlab','#38BDF8'],['Bags','#10B981'],['Jup Studio','#FB923C']];
 const CHAINS=[['Solana','#9d7bff',1],['Base','#3B82F6',0],['BSC','#F0B90B',0],['Ethereum','#8EA2FF',0],['Arbitrum','#60A5FA',0]];
-const FEEDS={movers:['Movers','Biggest price momentum right now','Recommended'],new:['New','Fresh launches, newest first'],called:['Called','Tokens our callers are on, most calls first','Only on Callit'],
- crowded:['Crowded','Most holders first'],almost:['Almost there','60 to 99% through the bonding curve'],grad:['Graduated','Just finished the bonding curve, newest first'],og:['OG memes','The established Solana memecoins, biggest first']};
+const FEEDS={movers:['Movers','Biggest price momentum right now'],new:['New','Fresh launches, newest first'],called:['Called','Tokens our callers are on, most calls first','Only on Callit'],
+ crowded:['Crowded','Most holders first'],almost:['Almost bonded','60 to 99% through the bonding curve'],grad:['Migrated','Bonded and migrated to a DEX, newest first'],og:['OG','The established Solana memecoins, biggest first']};
 const RISK={degen:['Degen','Show me everything',{top:100,dev:100,snip:100,ins:100}],balanced:['Balanced','Filter the obvious traps',{top:30,dev:15,snip:10,ins:30}],careful:['Careful','Only clean holder books',{top:15,dev:5,snip:3,ins:15}]};
 const isLaunch=t=>!t.live||!!t.lp;
 /* Bonding progress. Live tokens: approximated from market cap (pump-style curves finish near $69K). */
@@ -705,10 +705,10 @@ const lpOf=t=>t.live?t.lp:(t.lp||(t.lp=LPS[t.seed%LPS.length][0]));
 const callsOn=t=>calls.filter(k=>k.t===t.key&&!k.sponsored);
 const defFil=()=>({chains:['Solana'],lps:LPS.map(l=>l[0]),inc:'',exc:'',bmin:'',bmax:'',mcMin:'',mcMax:'',volMin:'',hMin:'',ageMax:0,top:100,dev:100,snip:100,ins:100,x:0,web:0,comm:0,called:0,topc:0,bought:0,tf:'1h',chgMin:''});
 const defDisp=()=>({pro:1,spark:0,heat:1,compact:0});
-const defFeeds=()=>[['movers',1],['new',1],['og',1],['called',1],['crowded',0],['almost',0],['grad',0]];
+const defFeeds=()=>[['new',1],['almost',1],['grad',1],['movers',1],['called',1],['og',1],['crowded',0]];
 const TS=(()=>{let v={};try{v=JSON.parse(localStorage.getItem('callit.trenches')||'{}')}catch(_){}
- let feeds=Array.isArray(v.feeds)?v.feeds.filter(f=>FEEDS[f[0]]):defFeeds();defFeeds().forEach(d=>{if(!feeds.some(f=>f[0]===d[0]))feeds.push(d)});
- return {disp:{...defDisp(),...(v.disp||{})},feeds,fil:v.fil||{}}})();
+ let feeds=Array.isArray(v.feeds)&&v.fv===2?v.feeds.filter(f=>FEEDS[f[0]]):defFeeds();defFeeds().forEach(d=>{if(!feeds.some(f=>f[0]===d[0]))feeds.push(d)});
+ return {fv:2,disp:{...defDisp(),...(v.disp||{})},feeds,fil:v.fil||{}}})();
 const saveTS=()=>{try{localStorage.setItem('callit.trenches',JSON.stringify(TS))}catch(_){}};
 const filOf=k=>({...defFil(),...(TS.fil[k]||{})});
 const parseAmt=v=>{v=String(v||'').trim().toUpperCase().replace(/[$,\s]/g,'');if(!v)return null;const n=parseFloat(v);if(isNaN(n))return null;return n*(v.endsWith('B')?1e9:v.endsWith('M')?1e6:v.endsWith('K')?1e3:1)};
@@ -802,7 +802,7 @@ function filterSheet(){const d=SH.d,T2=SH.tab,feed=S.tt==='watch'?'Watchlist':FE
   <div class="risk">${Object.entries(RISK).map(([k,[l,s]])=>`<button class="rcard${cur&&cur[0]===k?' on':''}" data-act="fsrisk" data-v="${k}"><b>${l}</b><span>${s}</span></button>`).join('')}</div></div>
   <div class="fgrp"><div class="fh"><b>Max share of supply</b></div>${sl('top','Top 10 holders','target')}${sl('dev','Dev holding','stake')}${sl('snip','Snipers','sniper')}${sl('ins','Insiders','crown')}</div>`}
  if(T2==='social'){const row=(k,l,s,badge)=>`<div class="trow2"><div><b>${l}${badge?` <span class="nb">${badge}</span>`:''}</b><span>${s}</span></div>${sw('fsflag',d[k],`data-v="${k}"`)}</div>`;
-  h=`<div class="fgrp"><div class="fh"><b>Callit signal</b></div>${row('called','Has calls','At least one caller is on it','Only on Callit')}${row('topc','Called by a top 3 caller','Leaderboard top 3 only')}${row('bought','Caller bought in','A caller has real money in it')}</div>
+  h=`<div class="fgrp"><div class="fh"><b>Callit signal</b></div>${row('called','Has calls','At least one caller is on it','Only on Callit')}${row('topc','Called by a top 3 caller','Callerboard top 3 only')}${row('bought','Caller bought in','A caller has real money in it')}</div>
   <div class="fgrp"><div class="fh"><b>Links</b></div>${row('x','Has an X account','')}${row('web','Has a website','')}${row('comm','Has a community','')}</div>`}
  const n=fsCount();
  return `<div class="sh-head"><div><h2>Filters</h2><span class="muted">${feed} feed</span></div><button class="ib" data-act="shclose" aria-label="Close">${ic('x',18)}</button></div>
@@ -820,7 +820,16 @@ function displaySheet(){const D=TS.disp;const on=TS.feeds.filter(f=>f[1]),off=TS
  <div class="fgrp"><div class="fh"><b>Rows</b></div>${opt('pro','Pro data','Holders, risk, volume, fees and TX on every row')}${opt('spark','Mini charts','A small price line on each row')}${opt('heat','Caller heat','See which callers are on a token','New')}${opt('compact','Compact','Fit more tokens on screen')}</div>
  <div class="fgrp"><div class="fh"><b>Your feeds</b><span>Order sets the tabs. Keep at least one on.</span></div>${on.map((f,i)=>feed(f,i,on)).join('')}${off.length?`<div class="fsub">More feeds</div>${off.map((f,i)=>feed(f,i,off)).join('')}`:''}</div></div>`}
 
-function vSwap(){return `<div class="pad"><div class="card" style="max-width:460px;margin:0 auto"><h3>Swap</h3><div data-swapbox></div></div></div>`}
+function vSwap(){return `<div class="pad"><div class="card" style="max-width:460px;margin:0 auto"><div data-swapbox></div></div></div>`}
+function vStake(){return locked(`<div class="prem"><div class="phero2"><span class="pbig">${ic('stake',40)}</span><h2>Stake $CALLIT</h2><p>Opens when $CALLIT launches on mainnet.</p></div>
+   <div class="pben">${[['verified','Unlock Premium','Keep Premium for as long as you stay staked.'],['wallet','Earn rewards','Get a share of protocol rewards while staked.'],['promote','Cheaper promotions','Discounts on ad slots and sponsored calls.'],['leaderboard','Your tokens stay yours','Non-custodial. Unstake after the lock ends.']].map(([i,t,d])=>`<div class="bcard"><span class="bic">${ic(i,20)}</span><div><b>${t}</b><span>${d}</span></div></div>`).join('')}</div>
+   <div class="popt" style="margin-top:16px"><div class="pstake" style="margin:0 0 14px"><div><span>Your $CALLIT</span><b class="num">0</b></div><div><span>Staked</span><b class="num">0</b></div><div><span>Rewards</span><b class="num">0</b></div></div>
+   <button class="btn primary block" data-act="stakewait">${S.stakeWait?'You\'re on the list':'Notify me at launch'}</button><a class="btn ghost block" href="#/premium" style="margin-top:8px">See Premium</a></div></div>`,'stake','$CALLIT staking is coming','Stake $CALLIT to keep Premium, earn protocol rewards and get cheaper promotions. Opens when $CALLIT launches on mainnet.',['Non-custodial: your tokens stay yours','Premium for as long as you stay staked'])}
+/* Sliding 3D toggle used at the top of DeFi and You. */
+function tglBar(act,items,cur,label){const i=Math.max(0,items.findIndex(x=>x[0]===cur));
+ return `<div class="mtabs tgl" style="--i:${i};--n:${items.length}" role="tablist" aria-label="${label}">${items.map(([k,l,icn,soon])=>`<button role="tab" aria-selected="${cur===k}" class="${cur===k?'on':''}" data-act="${act}" data-f="${k}">${ic(icn,16)}<span>${l}</span>${soon?'<small>Soon</small>':''}</button>`).join('')}</div>`}
+function vDefi(){const t=S.dtab==='stake'?'stake':'swap';return tglBar('dtab',[['swap','Swap','swap'],['stake','Stake','stake',1]],t,'DeFi')+(t==='stake'?vStake():vSwap())}
+function vYou(){const t=S.ytab==='profile'?'profile':'wallet';return tglBar('ytab',[['wallet','Wallet','wallet'],['profile','Profile','profile']],t,'You')+(t==='wallet'?vWallet():vProfile(S.me))}
 
 function soon(title,text){return `<div class="soon"><span class="mark"></span><b class="h2">${title}</b><p>${text}</p></div>`}
 
@@ -895,7 +904,7 @@ function vWallet(){if(!S.connected)return `<div class="empty"><b class="h2">No w
  return `<div class="pad"><div class="muted">Total balance</div><div class="bal num">${fmtUsd(tot)}</div>${(()=>{const st=statsOf(S.me);return st.n?`<div class="wpnl num"><span class="${st.pnl>=0?'up':'down'}">${money(st.pnl)}</span> all-time PnL${st.vol?` · ${fmtUsd(st.vol)} volume`:''}</div>`:''})()}
  <div style="margin-top:14px">${ytdCard()}</div>
  <button class="copyca" style="margin-top:10px" data-act="copy" data-v="${S.addr}">${short(S.addr)} ${ic('copy',13)}</button>
- <div class="acts2"><button class="btn primary" data-act="deposit">${ic('down',16)} Deposit</button><button class="btn" data-act="withdraw">${ic('up',16)} Withdraw</button></div>
+ <div class="acts2 acts3"><button class="btn primary" data-act="deposit">${ic('down',16)} Deposit</button><a class="btn" href="#/swap">${ic('swap',16)} Swap</a><button class="btn" data-act="withdraw">${ic('up',16)} Withdraw</button></div>
  <div class="list">${(()=>{const B=pnlBook();return rows.map(([k,a])=>{const x=posPnl(k,B);return holdRow(k,a,usd(k,a)||0,x?x.pnl:null,x?x.pct:null,1)}).join('')})()}</div>
  <b class="h2" style="display:block;margin:22px 0 4px">History</b><div class="list">${S.activity.map(a=>`<div class="li"><div class="grow"><b>${esc(a.k)}</b><div class="hint">${esc(a.t)}${a.sig?` · <a class="lnk" href="https://solscan.io/tx/${a.sig}" target="_blank" rel="noopener noreferrer">View</a>`:''}</div></div><div class="r num">${esc(a.d)}</div></div>`).join('')||'<div class="empty" style="padding:18px 8px"><b>No history yet</b><p>Deposits, trades and withdrawals show up here.</p></div>'}</div></div>`}
 
@@ -938,7 +947,7 @@ function railRest(){const lv=(LIVE.feeds['movers:1h']||[]).map(k=>T[k]).filter(t
  const trend=(lv.length?lv:Object.values(T).filter(t=>!t.base&&!t.prelaunch)).slice().sort((a,b)=>b.chg-a.chg).slice(0,4);
  return `<div class="card"><h3>Trending</h3><div class="list">${trend.map(t=>`<a class="li" href="#/token/${t.key}">${tokav(t.key)}<div class="grow"><b>$${t.sym}</b><div class="hint">${(n=>n+(n===1?' call':' calls'))(calls.filter(k=>k.t===t.key).length)}</div></div><div class="r num"><b>${fmtUsd(mcap(t))}</b><div class="hint ${t.chg>=0?'up':'down'}">${fmtPct(t.chg)}</div></div></a>`).join('')}</div></div>
  <div class="card"><h3>Top callers</h3><div class="list">${ranked().slice(0,4).map(c=>`<div class="li">${avatar(c.h)}<div class="grow"><a class="pname" href="#/profile/${c.h}">${c.h}</a><div class="hint">${c.win}% win rate</div></div><button class="btn sm ${S.following.has(c.h)?'ghost':'primary'}" data-act="follow" data-h="${c.h}">${S.following.has(c.h)?'Following':'Follow'}</button></div>`).join('')}</div>
- <a class="btn ghost block" style="margin-top:10px" href="#/leaderboard">See leaderboard</a></div>`}
+ <a class="btn ghost block" style="margin-top:10px" href="#/callerboard">See Callerboard</a></div>`}
 
 /* ---------- AI assistant ---------- */
 const AST={msgs:[],busy:false,err:''};
@@ -965,22 +974,22 @@ async function astSend(text){const q=String(text||'').trim();if(!q||AST.busy)ret
  finally{AST.busy=false;drawAst();const k=$('#astin');k&&k.focus()}}
 
 /* ---------- chrome ---------- */
-const NAV_A=[['home','Home'],['market','Market'],['notifications','Notifications'],['swap','Swap'],['stake','Stake'],['wallet','Wallet'],['profile','Profile'],['assistant','Assistant']];
-const NAV_B=[['leaderboard','Leaderboard'],['messages','Messages'],['bookmarks','Bookmarks'],['lists','Lists'],['news','News'],['promote','Promote'],['about','About']];
-const TITLES=Object.fromEntries([...NAV_A,...NAV_B,['bookmarks','Bookmarks'],['token','Token'],['community','Community'],['post','Post'],['premium','Premium'],['messages','Messages']]);
-P.lists=P.list;
+const NAV_A=[['home','Home'],['market','Market'],['defi','DeFi'],['callerboard','Callerboard'],['you','You'],['assistant','Assistant']];
+const NAV_B=[['messages','Messages'],['bookmarks','Bookmarks'],['lists','Lists'],['news','News'],['promote','Promote'],['about','About']];
+const TITLES=Object.fromEntries([...NAV_A,...NAV_B,['notifications','Notifications'],['bookmarks','Bookmarks'],['token','Token'],['community','Community'],['post','Post'],['premium','Premium'],['messages','Messages']]);
+P.lists=P.list;P.defi='<circle cx="12" cy="12" r="8.5"/><path d="M8 10h8l-2.5-2.5M16 14H8l2.5 2.5"/>';P.callerboard=P.leaderboard;P.you=P.profile;
 const NAVH={stack:[],cur:location.hash||'#/home',back:false};
 function goBack(){const prev=NAVH.stack.pop();NAVH.back=true;location.hash=prev&&prev!==location.hash?prev:'#/home'}
 function chrome(route){const link=([k,l])=>`<a href="#/${k}" class="${route===k?'on':''}" title="${l}">${k==='notifications'?`<span class="nbadge">${ic('bell')}${unreadN()?`<i>${unreadN()}</i>`:''}</span>`:ic(k)}<span class="lbl">${l}</span></a>`;
  $('#navA').innerHTML=NAV_A.map(link).join('');$('#navB').innerHTML=NAV_B.map(link).join('')+`<a href="#/premium" class="navprem${route==='premium'?' on':''}${isPrem(S.me)?' active':''}" title="Premium">${ic('verified',20)}<span class="lbl">Premium</span></a>`;
- $('#acct').innerHTML=S.connected?`<div class="acctrow"><a class="acct" href="#/profile/${esc(S.me)}" title="Your profile">${avatar(S.me)}<span class="lbl" style="min-width:0"><b style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(nameOf(S.me))}</b><span class="hint num">@${esc(S.me)}</span></span></a><button class="ib logout" data-act="logout" aria-label="Log out" title="Log out">${ic('logout',19)}</button></div>`
+ $('#acct').innerHTML=S.connected?`<div class="acctrow"><a class="acct" href="#/you" title="You">${avatar(S.me)}<span class="lbl" style="min-width:0"><b style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(nameOf(S.me))}</b><span class="hint num">@${esc(S.me)}</span></span></a><button class="ib logout" data-act="logout" aria-label="Log out" title="Log out">${ic('logout',19)}</button></div>`
   :`<button class="btn primary connect" data-act="connect" title="Connect wallet">${ic('wallet',20)}<span class="lbl">Connect wallet</span></button>`;
- $('#pill').innerHTML=`<a class="btn sm swp${route==='swap'?' on':''}" href="#/swap">${ic('swap',15)}<span>Swap</span></a><button class="btn primary sm dep" data-act="deposit">${ic('down',15)}<span>Deposit</span></button>
-  <button class="ib" data-act="theme" aria-label="Switch theme">${ic('sun')}</button>`;
+ $('#pill').innerHTML=`<button class="btn sm swp srch" data-act="search" aria-label="Search">${ic('search',15)}<span>Search</span></button><button class="btn primary sm dep" data-act="deposit">${ic('down',15)}<span>Deposit</span></button>
+  <button class="ib hbell${route==='notifications'?' on':''}" data-act="notifs" aria-label="Notifications${unreadN()?`, ${unreadN()} new`:''}"><span class="nbadge">${ic('bell')}${unreadN()?`<i>${unreadN()}</i>`:''}</span></button><button class="ib" data-act="theme" aria-label="Switch theme">${ic('sun')}</button>`;
  syncTray();
  {let bt=$('#btabs');if(!bt){bt=document.createElement('nav');bt.id='btabs';bt.className='btabs';bt.setAttribute('aria-label','Main');document.body.appendChild(bt)}
-  bt.innerHTML=[['home','Home','home'],['market','Market','market'],['wallet','Wallet','wallet'],['notifications','Alerts','bell'],[S.connected?'profile/'+S.me:'profile','Profile','profile']].map(([h,l,i])=>{const on=route===h.split('/')[0];
-   return `<a href="#/${h}" class="${on?'on':''}" aria-label="${l}">${i==='bell'?`<span class="nbadge">${ic('bell',23)}${unreadN()?`<i>${unreadN()}</i>`:''}</span>`:ic(i,23)}<span>${l}</span></a>`}).join('')}
+  bt.innerHTML=[['home','Home','home'],['market','Market','market'],['defi','DeFi','defi'],['callerboard','Callerboard','leaderboard'],['you','You','profile']].map(([h,l,i])=>{const on=route===h;
+   return `<a href="#/${h}" class="${on?'on':''}" aria-label="${l}">${h==='you'&&S.connected?avatar(S.me,'btav'):ic(i,23)}<span>${l}</span></a>`}).join('')}
  $('#title').textContent=TITLES[route]||'Home';{const u=$('#upg'),on=isPrem(S.me);u.hidden=true;u.classList.toggle('on',!!on);u.innerHTML=`${ic('verified',18)}<span>Premium</span>`}const bk=$('#back');bk.hidden=route==='home';bk.innerHTML=ic('back',20);
  // phones: the side tray is hidden, so the logo in the header opens it (like X's avatar menu)
  if(!$('#mmenu')){const mm=document.createElement('button');mm.id='mmenu';mm.className='mmenu';mm.dataset.act='collapse';mm.setAttribute('aria-label','Open menu');mm.innerHTML='<span class="mark" aria-hidden="true"></span>';$('.hdr').prepend(mm)}}
@@ -996,24 +1005,20 @@ function mountLiveChart(){const el=$('#lchart');if(!el)return;const t=T[el.datas
 let LTICK=0;setInterval(()=>{if(document.hidden)return;LTICK++;const [,r,p]=location.hash.split('/');
  if(r==='market'&&LTICK%2===0&&!document.querySelector('.sheet.open')){(lfIds(S.tt,filOf(S.tt))||[]).forEach(id=>loadFeed(id))}
  else if(r==='token'&&T[p]&&T[p].live&&!LIVE.tokBusy[p]&&false)loadLiveToken(p,true);
- if(LTICK%3===0&&(!r||r==='home'||r==='post'||r==='profile'))refreshCallTokens();
- if(LTICK%7===0&&['wallet','token','swap','profile'].includes(r||'home'))loadBalances()},3000);
+ const cr=canonRoute(r||'home',p);if(LTICK%3===0&&(cr==='home'||cr==='post'||cr==='profile'||cr==='you'))refreshCallTokens();
+ if(LTICK%7===0&&['you','token','defi','profile'].includes(cr))loadBalances()},3000);
 /* Live token page: price, stats and the newest candle refresh every 2 seconds. */
 setInterval(()=>{if(document.hidden)return;const [,r,p]=location.hash.split('/');if(r==='token'&&p&&T[p]&&T[p].live)loadLiveToken(p,true)},2000);
 /* Watchlist prices on Home: every 6 seconds, patched in place. */
 setInterval(()=>{if(document.hidden||S.tab!=='watchlist'||currentRoute()!=='home')return;const ks=[...S.watch].filter(isMintStr);if(!ks.length)return;
  fetchTokens(ks.slice(0,50)).then(l=>l.forEach(x=>{const t=regLive(x);if(!t)return;const a=document.querySelector(`[data-wpx="${t.key}"]`),b=document.querySelector(`[data-wmc="${t.key}"]`);
   const dir=t._wp?Math.sign(t.price-t._wp):0;t._wp=t.price;if(a)flashSet(a,fmtSmall(t.price),dir);if(b)flashSet(b,fmtSmall(mcap(t)),dir)})).catch(()=>{})},6000);
-function render(){if(isPhone())document.body.classList.add('collapsed');const [,r0='home',p]=location.hash.split('/');const r=r0||'home';let html;
+function render(){if(isPhone())document.body.classList.add('collapsed');const [,r0='home',p]=location.hash.split('/');routeTabs(r0||'home',p);const r=canonRoute(r0||'home',p);let html;
  if(r==='token'&&p&&!T[p]&&LIVEMAP[p]){location.replace('#/token/'+LIVEMAP[p]);return}
  if(r==='community')html=vRoom(p);
  else if(r==='post')html=vPost(p);
  else if(r==='token'){const t=T[p];if(t&&tradable(t)&&p!==S.swap.from){S.swap.from=S.swap.from===p?S.swap.from:(S.swap.from===S.swap.to||!T[S.swap.from]?'SOL':S.swap.from);S.swap.to=p}html=vToken(p)}
- else html=({market:vMarket,trenches:vMarket,swap:vSwap,wallet:vWallet,profile:()=>vProfile(p),leaderboard:vLeaders,promote:vPromote,about:vAbout,
-  stake:()=>locked(`<div class="prem"><div class="phero2"><span class="pbig">${ic('stake',40)}</span><h2>Stake $CALLIT</h2><p>Opens when $CALLIT launches on mainnet.</p></div>
-   <div class="pben">${[['verified','Unlock Premium','Keep Premium for as long as you stay staked.'],['wallet','Earn rewards','Get a share of protocol rewards while staked.'],['promote','Cheaper promotions','Discounts on ad slots and sponsored calls.'],['leaderboard','Your tokens stay yours','Non-custodial. Unstake after the lock ends.']].map(([i,t,d])=>`<div class="bcard"><span class="bic">${ic(i,20)}</span><div><b>${t}</b><span>${d}</span></div></div>`).join('')}</div>
-   <div class="popt" style="margin-top:16px"><div class="pstake" style="margin:0 0 14px"><div><span>Your $CALLIT</span><b class="num">0</b></div><div><span>Staked</span><b class="num">0</b></div><div><span>Rewards</span><b class="num">0</b></div></div>
-   <button class="btn primary block" data-act="stakewait">${S.stakeWait?'You\'re on the list':'Notify me at launch'}</button><a class="btn ghost block" href="#/premium" style="margin-top:8px">See Premium</a></div></div>`,'stake','$CALLIT staking is coming','Stake $CALLIT to keep Premium, earn protocol rewards and get cheaper promotions. Opens when $CALLIT launches on mainnet.',['Non-custodial: your tokens stay yours','Premium for as long as you stay staked']),
+ else html=({market:vMarket,trenches:vMarket,defi:vDefi,you:vYou,profile:()=>vProfile(p),callerboard:vLeaders,promote:vPromote,about:vAbout,
   messages:()=>vMessages(p),lists:()=>vLists(p),
   news:vNews,premium:vPremium,notifications:vNotifs,assistant:vAssistant,bookmarks:vBookmarks}[r]||vHome)();
  if(LCHART){LCHART();LCHART=null}
@@ -1087,34 +1092,61 @@ function callModal(pre,draft){if(!S.connected)return connectModal(()=>callModal(
     .then(r=>publish(Object.assign(fromRow({...r.post,handle:S.me}),{buy,fresh:true})))
     .catch(e=>{post.disabled=false;check();$('#cerr',m).textContent=e.message})})})}
 
-let SRT=0,STR=0;
-function searchModal(){S.stf=TF_OK.includes(S.stf)?S.stf:'1h';
- modal('Search','',`<div class="tsearch">${ic('search',18)}<input id="sq" placeholder="Search tokens, tickers, callers or paste a CA" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search"></div><div class="list" id="sres" style="margin-top:6px"></div>`,
+let SRT=0,STR=0,SUT=0;
+/* Copycat tickers ("vamps"): within each ticker, the first one ever launched is the OG.
+   If any copy is verified (or a known OG meme), the OG is the oldest of those, so an older scam can't steal the tag. */
+const tickOf=t=>String(t.sym||'').toUpperCase().replace(/^\$/,'').trim();
+const bornOf=t=>{const d=t&&t.L&&t.L.createdAt;const v=d?Date.parse(d):NaN;return isNaN(v)?null:v};
+const legit=t=>!!(t.L&&t.L.verified)||OGSET.has(t.key);
+function ogKeys(list){const g={},og=new Set();list.forEach(t=>{const k=tickOf(t);if(k)(g[k]=g[k]||[]).push(t)});
+ Object.values(g).forEach(a=>{a.forEach(t=>{if(OGSET.has(t.key))og.add(t.key)});if(a.length<2||a.some(t=>og.has(t.key)))return;
+  const dated=a.filter(t=>bornOf(t)!=null);if(!dated.length)return;const pool=dated.some(legit)?dated.filter(legit):dated;
+  og.add(pool.sort((x,y)=>bornOf(x)-bornOf(y))[0].key)});return og}
+const ageTag=t=>{const b=bornOf(t);return b==null?'':`<span class="sage" title="Launched ${new Date(b).toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'})}">${ageStr(Math.max(0,(Date.now()-b)/36e5))}</span>`};
+function searchModal(){S.stf=TF_OK.includes(S.stf)?S.stf:'1h';S.sk=S.sk==='callers'?'callers':'tokens';
+ const ph=()=>S.sk==='callers'?'Search callers by @handle or name':'Search a token, ticker or paste a CA';
+ const kbar=()=>`<div class="kseg tgl skind" style="--i:${S.sk==='callers'?1:0};--n:2;grid-template-columns:repeat(2,1fr)" role="tablist" aria-label="What are you searching for?">${[['tokens','Tokens','market'],['callers','Callers','profile']].map(([k,l,i])=>`<button type="button" role="tab" aria-selected="${S.sk===k}" class="${S.sk===k?'on':''}" data-sk="${k}">${ic(i,15)}<span>${l}</span></button>`).join('')}</div>`;
+ modal('Search','',`${kbar()}<div class="tsearch">${ic('search',18)}<input id="sq" placeholder="${ph()}" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search"></div><div class="list" id="sres" style="margin-top:6px"></div>`,
  m=>{const box=$('#sres',m),inp=$('#sq',m),qv=()=>inp.value.trim().replace(/^[$@]/,'');
-  const trow2=(t,tf)=>{const v=chgOf(t,tf);return `<a class="li srow" href="#/token/${t.key}" data-act="close">${tokav(t.key)}<div class="grow"><b>${esc(t.name)}</b>${t.L&&t.L.verified?`<span class="vbadge">${ic('check',10)}</span>`:''}<div class="hint num">$${esc(t.sym)} · ${fmtSmall(mcap(t))} MC${t.vol?` · V ${fmtSmall(t.vol)}`:''}</div></div><b class="num ${pcls(v)}">${pctS(v)}</b><button class="wstar${S.watch.has(t.key)?' on':''}" data-act="track" data-t="${esc(t.key)}" aria-pressed="${S.watch.has(t.key)}" aria-label="Watchlist" title="Watchlist">${ic('star',17,S.watch.has(t.key))}</button></a>`};
-  const prow=c=>`<a class="li" href="#/profile/${c.h}" data-act="close">${avatar(c.h)}<div class="grow"><b>${esc(c.h)}</b><div class="hint">${c.calls} calls, ${c.win}% win rate</div></div></a>`;
+  const trow2=(t,tf,og)=>{const v=chgOf(t,tf),isOg=og&&og.has(t.key);return `<a class="li srow${isOg?' isog':''}" href="#/token/${t.key}" data-act="close">${tokav(t.key)}<div class="grow"><b>${esc(t.name)}</b>${t.L&&t.L.verified?`<span class="vbadge" title="Verified on Jupiter">${ic('check',10)}</span>`:''}${isOg?'<span class="ogtag" title="The first token launched with this ticker">OG</span>':''}<div class="hint num">$${esc(t.sym)}${ageTag(t)} · ${fmtSmall(mcap(t))} MC${t.vol?` · V ${fmtSmall(t.vol)}`:''}</div></div><b class="num ${pcls(v)}">${pctS(v)}</b><button class="wstar${S.watch.has(t.key)?' on':''}" data-act="track" data-t="${esc(t.key)}" aria-pressed="${S.watch.has(t.key)}" aria-label="Watchlist" title="Watchlist">${ic('star',17,S.watch.has(t.key))}</button></a>`};
+  const prow=c=>`<a class="li" href="#/profile/${c.h}" data-act="close">${avatar(c.h)}<div class="grow"><b>${esc(nameOf(c.h))}</b><div class="hint">@${esc(c.h)}${c.calls?` · ${c.calls} calls, ${c.win}% win rate`:''}</div></div>${rankOf(c.h)?`<span class="rk">#${rankOf(c.h)}</span>`:''}</a>`;
+  /* Legit and OG first, then by volume. */
+  const rank=(list,og)=>list.sort((a,b)=>((og.has(b.key)?2:0)+(legit(b)?1:0))-((og.has(a.key)?2:0)+(legit(a)?1:0))||(b.vol||0)-(a.vol||0));
   const loadTrend=force=>{const id='movers:'+S.stf;if(LIVE.busy[id]||(!force&&LIVE.feeds[id]))return;LIVE.busy[id]=1;
-   fetchFeed('movers',S.stf).then(l=>{LIVE.feeds[id]=l.map(regLive).filter(Boolean).map(t=>t.key);LIVE.err[id]=0;LIVE.at[id]=Date.now()}).catch(()=>{LIVE.err[id]=1}).finally(()=>{LIVE.busy[id]=0;if(box.isConnected&&!qv())draw()})};
+   fetchFeed('movers',S.stf).then(l=>{LIVE.feeds[id]=l.map(regLive).filter(Boolean).map(t=>t.key);LIVE.err[id]=0;LIVE.at[id]=Date.now()}).catch(()=>{LIVE.err[id]=1}).finally(()=>{LIVE.busy[id]=0;if(box.isConnected&&!qv()&&S.sk==='tokens')draw()})};
   const trending=()=>{const id='movers:'+S.stf,ks=LIVE.feeds[id];
    const seg=`<div class="shead"><span class="tsec" style="margin:0">Trending now</span><div class="seg tfseg" role="tablist" aria-label="Timeframe">${TF_OK.map(x=>`<button type="button" role="tab" aria-selected="${S.stf===x}" class="${S.stf===x?'on':''}" data-stf="${x}">${x}</button>`).join('')}</div></div>`;
    if(!ks){loadTrend();return seg+(LIVE.err[id]?`<p class="hint" style="padding:8px 4px">Live tokens didn't load. <button class="lnk" data-sretry>Try again</button></p>`:Array.from({length:6},()=>`<div class="li sskel" aria-hidden="true"><span class="tokav"></span><div class="grow"><i></i><i></i></div></div>`).join(''))}
    const list=ks.map(k=>T[k]).filter(t=>t&&t.price&&!NOT_MEME.has(String(t.sym).toUpperCase())).sort(byChg(S.stf)).slice(0,10);
    return seg+(list.map(t=>trow2(t,S.stf)).join('')||'<p class="hint" style="padding:8px 4px">Nothing trending in this window yet.</p>')};
-  const draw=()=>{const q=qv(),ql=q.toLowerCase();clearTimeout(SRT);
-   if(!q){box.innerHTML=trending()+`<div class="tsec">Top callers</div>`+ranked().slice(0,4).map(prow).join('');return}
-   const local=Object.values(T).filter(t=>t.live&&t.price&&(String(t.sym).toLowerCase().startsWith(ql)||t.name.toLowerCase().includes(ql)||t.key===q)).sort((a,b)=>(b.vol||0)-(a.vol||0)).slice(0,5);
-   const ppl=Object.values(C).filter(c=>c.h.toLowerCase().includes(ql)).slice(0,4);
-   box.innerHTML=`<div id="slive">${local.length?`<div class="tsec">Tokens</div>${local.map(t=>trow2(t,'24h')).join('')}`:''}${q.length>=2?'<p class="hint" style="margin:8px 4px" id="sbusy">Searching live tokens…</p>':''}</div>`+(ppl.length?`<div class="tsec">Callers</div>${ppl.map(prow).join('')}`:'')+(q.length<2&&!local.length&&!ppl.length?'<p class="hint" style="padding:8px 4px">Keep typing: a ticker, a name or a contract address.</p>':'');
+  const drawCallers=q=>{const ql=q.toLowerCase();clearTimeout(SUT);
+   if(!q){box.innerHTML=`<div class="tsec">Top callers</div>`+ranked().slice(0,8).map(prow).join('');return}
+   const local=Object.values(C).filter(c=>!S.blocked.has(c.h)&&(c.h.toLowerCase().includes(ql)||nameOf(c.h).toLowerCase().includes(ql))).slice(0,8);
+   box.innerHTML=`<div id="sppl">${local.map(prow).join('')}</div>${q.length>=2?'<p class="hint" style="margin:8px 4px" id="sbusy">Searching callers…</p>':''}`+(q.length<2&&!local.length?'<p class="hint" style="padding:8px 4px">Keep typing a username or display name.</p>':'');
    if(q.length<2)return;
-   SRT=setTimeout(()=>searchTokens(q).then(res=>{const el=$('#slive',m);if(!el||qv()!==q)return;
-    const rows=res.map(regLive).filter(Boolean),seen=new Set(),all=[...rows,...local].filter(t=>!seen.has(t.key)&&seen.add(t.key)).sort((a,b)=>(b.vol||0)-(a.vol||0)).slice(0,10);
-    el.innerHTML=all.length?`<div class="tsec">Tokens</div>${all.map(t=>trow2(t,'24h')).join('')}`:(isMintStr(q)?`<a class="li" href="#/token/${q}" data-act="close"><div class="grow"><b>Open ${short(q)}</b><div class="hint">Look up this contract address</div></div></a>`:`<p class="hint" style="padding:8px 4px">No live token matches “${esc(q)}”.</p>`)})
+   SUT=setTimeout(()=>fetch('/api/profile?q='+encodeURIComponent(q)).then(r=>r.ok?r.json():{profiles:[]}).then(j=>{if(qv()!==q||S.sk!=='callers')return;const el=$('#sppl',m),bz=$('#sbusy',m);if(!el)return;
+    (j.profiles||[]).forEach(p=>{if(!C[p.handle])C[p.handle]={h:p.handle,win:0,avg:0,calls:0,best:0,followers:0,real:1};if(p.avatar_url)AVURL[p.handle]=p.avatar_url;if(p.display_name)DN[p.handle]=p.display_name});
+    const seen=new Set(),all=[...local.map(c=>c.h),...(j.profiles||[]).map(p=>p.handle)].filter(h=>!S.blocked.has(h)&&!seen.has(h)&&seen.add(h)).slice(0,12);
+    el.innerHTML=all.map(h=>prow(C[h])).join('');if(bz)bz.remove();if(!all.length)el.innerHTML=`<p class="hint" style="padding:8px 4px">No caller matches “${esc(q)}”.</p>`})
+    .catch(()=>{const bz=$('#sbusy',m);if(bz)bz.textContent='Caller search is unavailable right now.'}),250)};
+  const draw=()=>{const q=qv(),ql=q.toLowerCase();clearTimeout(SRT);
+   if(S.sk==='callers')return drawCallers(q);
+   if(!q){box.innerHTML=trending();return}
+   const local=Object.values(T).filter(t=>t.live&&t.price&&(String(t.sym).toLowerCase().startsWith(ql)||t.name.toLowerCase().includes(ql)||t.key===q)).sort((a,b)=>(b.vol||0)-(a.vol||0)).slice(0,5);
+   const og0=ogKeys(local);
+   box.innerHTML=`<div id="slive">${local.length?`<div class="tsec">Tokens</div>${rank(local,og0).map(t=>trow2(t,'24h',og0)).join('')}`:''}${q.length>=2?'<p class="hint" style="margin:8px 4px" id="sbusy">Searching live tokens…</p>':''}</div>`+(q.length<2&&!local.length?'<p class="hint" style="padding:8px 4px">Keep typing: a ticker, a name or a contract address.</p>':'');
+   if(q.length<2)return;
+   SRT=setTimeout(()=>searchTokens(q).then(res=>{const el=$('#slive',m);if(!el||qv()!==q||S.sk!=='tokens')return;
+    const rows=res.map(regLive).filter(Boolean),seen=new Set(),all=[...rows,...local].filter(t=>!seen.has(t.key)&&seen.add(t.key));
+    const og=ogKeys(all),top=rank(all,og).slice(0,12),copies=top.filter(t=>!og.has(t.key)&&[...og].some(k=>T[k]&&tickOf(T[k])===tickOf(t))).length;
+    el.innerHTML=top.length?`<div class="tsec">Tokens</div>${copies?`<p class="hint sognote">${ic('target',13)} ${copies} cop${copies>1?'ies':'y'} share a ticker with an OG. Check the contract before you buy.</p>`:''}${top.map(t=>trow2(t,'24h',og)).join('')}`:(isMintStr(q)?`<a class="li" href="#/token/${q}" data-act="close"><div class="grow"><b>Open ${short(q)}</b><div class="hint">Look up this contract address</div></div></a>`:`<p class="hint" style="padding:8px 4px">No live token matches “${esc(q)}”.</p>`)})
     .catch(()=>{const b=$('#sbusy',m);if(b)b.textContent='Live search is unavailable right now.'}),250)};
-  m.addEventListener('click',e=>{const t=e.target.closest('[data-stf]');if(t){e.preventDefault();S.stf=t.dataset.stf;draw();return}
+  m.addEventListener('click',e=>{const k=e.target.closest('[data-sk]');if(k){e.preventDefault();if(S.sk===k.dataset.sk)return;slideTo(k);S.sk=k.dataset.sk;inp.placeholder=ph();draw();inp.focus();return}
+   const t=e.target.closest('[data-stf]');if(t){e.preventDefault();S.stf=t.dataset.stf;draw();return}
    if(e.target.closest('[data-sretry]')){LIVE.err['movers:'+S.stf]=0;draw()}});
   inp.addEventListener('input',draw);
   inp.addEventListener('keydown',e=>{if(e.key==='Enter'){const f=box.querySelector('a.li');if(f){e.preventDefault();location.hash=f.getAttribute('href');closeModal()}}});
-  clearInterval(STR);STR=setInterval(()=>{if(!box.isConnected)return clearInterval(STR);if(!document.hidden&&!qv())loadTrend(true)},10000);
+  clearInterval(STR);STR=setInterval(()=>{if(!box.isConnected)return clearInterval(STR);if(!document.hidden&&!qv()&&S.sk==='tokens')loadTrend(true)},10000);
   draw();setTimeout(()=>inp.focus(),40)})}
 const NOTIFS=[
  {id:1,k:'calls',h:'fadedpixel',t:'posted a new call on $GLORP',go:'#/post/1',m:12,unread:1},
@@ -1281,8 +1313,8 @@ function vMarket(){const t=S.mt||'trenches',M=[['trenches','Trenches','flame'],[
  const bar=`<div class="mtabs tgl${t==='perps'?' perps-on':''}" style="--i:${M.findIndex(x=>x[0]===t)};--n:${M.length}" role="tablist">${M.map(([k,l])=>`<button role="tab" aria-selected="${t===k}" class="${t===k?'on':''}" data-act="mt" data-f="${k}">${l}${k==='trenches'?'<span class="live"></span>':'<small>Soon</small>'}</button>`).join('')}</div>`;
  if(t==='perps')return bar+locked(mockPerps(),'perps','Perps are coming','Long or short the tokens you call, with leverage and your caller track record on the line.',['Long and short from any call','Position shows on your call card','Same fee share for bought-in callers']);
  if(0)return bar+soonCard('Perps are coming','Long or short the tokens you call, with leverage and your caller track record on the line. Built on Solana perp venues.',['Long and short from any call','Position shows on your call card','Same fee share for bought-in callers']);
- if(t==='predict')return bar+locked(mockPredict(),'predict','Predictions are coming','Back your read on outcomes: will it hit the target, will it graduate, who tops the leaderboard this week.',['Markets on live calls','Settle on-chain','Callers can seed their own markets']);
- if(0)return bar+soonCard('Predictions are coming','Back your read on outcomes: will it hit the target, will it graduate, who tops the leaderboard this week.',['Markets on live calls','Settle on-chain','Callers can seed their own markets']);
+ if(t==='predict')return bar+locked(mockPredict(),'predict','Predictions are coming','Back your read on outcomes: will it hit the target, will it graduate, who tops the Callerboard this week.',['Markets on live calls','Settle on-chain','Callers can seed their own markets']);
+ if(0)return bar+soonCard('Predictions are coming','Back your read on outcomes: will it hit the target, will it graduate, who tops the Callerboard this week.',['Markets on live calls','Settle on-chain','Callers can seed their own markets']);
  return bar+topTrades()+`<div class="inmkt">${vTrenches()}</div>`}
 /* Coming soon: a real preview of the feature fades out under a lock. Nothing in the preview is clickable. */
 const SOONF={perps:'Perps',predict:'Predictions',stake:'$CALLIT staking'};
@@ -1292,7 +1324,7 @@ function locked(preview,f,title,text,items){return `<div class="lockwrap"><div c
  ${items&&items.length?`<ul>${items.map(x=>`<li>${ic('check',15)} ${x}</li>`).join('')}</ul>`:''}${notifyBtn(f)}</div></div></div>`}
 function mockPerps(){const R=[['SOL','Solana','#9d7bff','$142.30','+3.8%','12.4x'],['BTC','Bitcoin','#F7931A','$64,210','+1.2%','8.1x'],['ETH','Ethereum','#8EA2FF','$3,120','-0.6%','10.7x']];
  return `<div class="pad">${R.map(([k,n,c,px,ch,oi])=>`<div class="mockrow"><span class="tokav" style="background:${c}">${k}</span><div class="grow"><b>${k}-PERP</b><span class="hint">${n} · up to 50x</span></div><div class="mocknum"><b class="num">${px}</b><span class="${ch[0]==='-'?'dn':'up'}">${ch}</span></div><div class="mockbtns"><span class="mlong">Long</span><span class="mshort">Short</span></div></div>`).join('')}</div>`}
-function mockPredict(){const R=[['Will $BONK hit a $3B market cap by Friday?',64],['Will @fadedpixel top the leaderboard this week?',41],['Will this week’s #1 call graduate before Sunday?',72]];
+function mockPredict(){const R=[['Will $BONK hit a $3B market cap by Friday?',64],['Will @fadedpixel top the Callerboard this week?',41],['Will this week’s #1 call graduate before Sunday?',72]];
  return `<div class="pad">${R.map(([q,y])=>`<div class="mockq"><b>${q}</b><div class="mockbar"><i style="width:${y}%"></i></div><div class="mockyn"><span class="up">Yes ${y}%</span><span class="dn">No ${100-y}%</span></div></div>`).join('')}</div>`}
 function perpsLocked(){const demo=calls.filter(k=>k.kind==='perps').slice(0,2).map(post).join('');
  return locked(demo||mockPerps(),'perps','Perps calls are coming','Call longs and shorts on SOL, BTC and ETH with leverage. Your ROE and liquidation price are tracked live on your profile.',['Long or short with up to 50x','Live ROE on every call','Counts toward your caller rank'])}
@@ -1459,7 +1491,7 @@ function editProfile(focus){const D={...PROF,handle:S.me};let hOk=true,hT=0;
    Promise.all([up(D.avatar,'avatar'),up(D.banner,'banner')]).then(([av,bn])=>{D.avatar=av||undefined;D.banner=bn||undefined;
     return window.CallitAuth.saveProfile({display_name:D.name||null,bio:D.bio||null,website:D.web||null,x_handle:D.x||null,avatar_url:av,banner_url:bn,...(nh!==S.me?{handle:nh}:{})})})
     .then(p=>{commit();if(p&&p.handle&&p.handle!==S.me)renameMe(S.me,p.handle);if(p)S.profile={...S.profile,...p};closeModal();toast(nh!==(p&&p.handle||S.me)?'Profile updated':'Profile updated');
-     if(currentRoute()==='profile')location.replace('#/profile/'+S.me);render()})
+     render()})
     .catch(e=>{btn.disabled=false;btn.textContent='Save profile';err.textContent=e.message||'Couldn’t save. Try again.'})};
   hi.dispatchEvent(new Event('input'));
   if(focus==='banner')m.querySelector('[data-up="banner"]').click();if(focus==='avatar')m.querySelector('[data-up="avatar"]').click()};
@@ -1472,7 +1504,7 @@ function followsModal(h,tab){const isReal=realAuth()&&(h===S.me||(C[h]&&C[h].rea
   const list=isReal?(FL[key]||[]):tab==='following'?followingOf(h):followersOf(h);
   $('#fl',m).innerHTML=`<div class="sh-tabs" style="padding:0 0 12px;margin-bottom:6px">${[['followers','Followers'],['following','Following']].map(([k,l])=>`<button class="${tab===k?'on':''}" data-t="${k}">${l}</button>`).join('')}</div>
   ${list.length?`<div class="list">${list.map(x=>{const c=C[x]||{},fx=S.following.has(x);return `<div class="li">${avatar(x)}<div class="grow"><a class="pname" href="#/profile/${x}" data-act="close">${esc(nameOf(x))}</a><div class="hint">@${esc(x)}${c.calls&&!c.real?` · ${c.win}% win rate`:''}</div></div>${x===S.me?'':`<button class="btn sm ${fx?'ghost':'primary'}" data-fl="${x}">${fx?'Following':'Follow'}</button>`}</div>`}).join('')}</div>`
-   :`<div class="empty" style="padding:28px 8px"><b>${tab==='following'?'Not following anyone yet':'No followers yet'}</b><p>${tab==='following'?'Follow callers you trust and their calls land in your Following feed.':'Make good calls and people will follow.'}</p>${tab==='following'?'<a class="btn primary" href="#/leaderboard">Find callers</a>':''}</div>`}`;
+   :`<div class="empty" style="padding:28px 8px"><b>${tab==='following'?'Not following anyone yet':'No followers yet'}</b><p>${tab==='following'?'Follow callers you trust and their calls land in your Following feed.':'Make good calls and people will follow.'}</p>${tab==='following'?'<a class="btn primary" href="#/callerboard">Find callers</a>':''}</div>`}`;
   m.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{tab=b.dataset.t;draw(m)});
   m.querySelectorAll('[data-fl]').forEach(b=>b.onclick=()=>{if(!S.connected)return connectModal();const x=b.dataset.fl,on=!S.following.has(x);toggleRel('follow',x,on);if(PUB[x]&&!PUB[x].pending)PUB[x].followers=Math.max(0,(PUB[x].followers||0)+(on?1:-1));delete FL['following:'+S.me];S.dirty=1;draw(m)})};
  modal(esc(nameOf(h)),'@'+esc(h),`<div id="fl"></div>`,draw)}
@@ -1494,7 +1526,7 @@ function rankChip(h){const t=tierOf(h),r=rankOf(h);
  <span class="rkpop" role="tooltip"><b>${ic('star',13,true)} ${t.name}${r?` · Leaderboard #${r}`:''}</b><span class="rkbar"><i style="width:${Math.max(4,t.pct)}%"></i></span><small>${t.next?`${t.xp.toLocaleString()} pts · ${t.need.toLocaleString()} to <b>${t.next}</b>`:`${t.xp.toLocaleString()} pts · top of the ladder`}</small>${r?'':'<small>10 calls to join the leaderboard</small>'}</span></button>`}
 function ranksModal(h){const t=tierOf(h);
  modal('Caller ranks',`${h===S.me?'You are':'@'+esc(h)+' is'} <b>${t.name}</b> with ${t.xp.toLocaleString()} points`,`<div class="ladder">${TIERS.map(([n,p],i)=>`<div class="lrow${i===t.i?' on':i<t.i?' done':''}"><span class="lstar t${i}">${ic('star',16,i<=t.i)}</span><b>${n}</b><span class="hint num">${p.toLocaleString()} pts</span>${i===t.i&&t.next?`<span class="rkbar sm"><i style="width:${Math.max(4,t.pct)}%"></i></span>`:''}</div>`).join('')}</div>
- <p class="hint" style="margin:14px 0 0;line-height:1.5">Earn points by posting (5), making calls (+10), buying into your calls (+15), likes (1), reposts and replies (2) and followers (5). The leaderboard is separate: it ranks callers with 10+ calls by win rate.</p>`)}
+ <p class="hint" style="margin:14px 0 0;line-height:1.5">Earn points by posting (5), making calls (+10), buying into your calls (+15), likes (1), reposts and replies (2) and followers (5). The Callerboard is separate: it ranks callers with 10+ calls by win rate.</p>`)}
 
 /* ---------- PnL year to date + wallet balance (own profile and wallet) ---------- */
 function ytdSeries(){const now=new Date(),y0=new Date(now.getFullYear(),0,1).getTime(),cash=new Set([SOL_MINT,USDC_MINT]),P={};let realY=0,cost=0;const pts=[[y0,0]];
@@ -1615,7 +1647,7 @@ function landingHTML(){const yr=new Date().getFullYear();
   </div>
  </main>
  ${lxTicker(LX_TICK_B,' rev')}
- <footer class="lx-foot">${socials('sm')}<nav><button data-act="lexplore" data-f="about">About</button><span>·</span><button data-act="lexplore" data-f="leaderboard">Leaderboard</button><span>·</span><button data-act="doc" data-f="terms">Terms</button><span>·</span><button data-act="doc" data-f="privacy">Privacy</button><span>·</span><span>© ${yr} Callit</span></nav></footer>`}
+ <footer class="lx-foot">${socials('sm')}<nav><button data-act="lexplore" data-f="about">About</button><span>·</span><button data-act="lexplore" data-f="callerboard">Callerboard</button><span>·</span><button data-act="doc" data-f="terms">Terms</button><span>·</span><button data-act="doc" data-f="privacy">Privacy</button><span>·</span><span>© ${yr} Callit</span></nav></footer>`}
 /* Boot splash: covers the page until we know whether to show the landing or the app,
    so a reload or a return from Google/X never flashes the wrong screen. */
 const BOOT_AT=Date.now(),BOOT_MAX=7000;
@@ -1670,7 +1702,13 @@ if(window.__callitPendingSession){const q=window.__callitPendingSession;delete w
 function slideTo(b){const g=b.closest('.tgl');if(!g||matchMedia('(prefers-reduced-motion:reduce)').matches)return false;const i=[...g.children].indexOf(b);g.style.setProperty('--i',i);
  g.classList.toggle('perps-on',b.dataset.f==='perps'||b.dataset.ck==='perps');g.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));return true}
 const act2={disconnect:()=>{if(realAuth()){try{sessionStorage.removeItem('callit.explore')}catch(_){}window.CallitAuth&&window.CallitAuth.logout();return}S.connected=false;try{localStorage.removeItem('callit.session');sessionStorage.removeItem('callit.explore')}catch(_){}toast('Signed out');render()}};
-const currentRoute=()=>(location.hash.split('/')[1]||'home');
+/* Swap+Stake live in DeFi, Wallet+your own Profile live in You, Leaderboard is now Callerboard. Old links still land in the right place. */
+function canonRoute(r,p){if(r==='swap'||r==='stake')return 'defi';if(r==='wallet')return 'you';
+ if(r==='profile'&&(!p||p===S.me))return 'you';if(r==='leaderboard')return 'callerboard';return r}
+/* The first render of a new link picks the tab it points at; after that the toggles own it. */
+function routeTabs(r,p){const h=location.hash;if(S.tabHash===h)return;S.tabHash=h;
+ if(r==='swap'||r==='stake'||r==='defi')S.dtab=r==='stake'?'stake':'swap';else if(r==='wallet')S.ytab='wallet';else if(r==='profile'&&(!p||p===S.me))S.ytab='profile'}
+const currentRoute=()=>{const [,r='home',p]=location.hash.split('/');return canonRoute(r||'home',p)};
 document.addEventListener('click',e=>{
  const nl=e.target.closest('.nav a');if(nl&&nl.getAttribute('href')===('#/'+currentRoute())&&!location.hash.split('/')[2]){e.preventDefault();scrollTo({top:0,behavior:'smooth'});return}
  const row=e.target.closest('[data-go]');if(row&&!e.target.closest('button,a,input,textarea,label,.media')){location.hash=row.dataset.go;return}
@@ -1701,14 +1739,16 @@ document.addEventListener('click',e=>{
   lsign:()=>signIn(b.dataset.f),lwallet:()=>realAuth()?realLogin('wallet',undefined,null):connectModal(null,'in'),
   lemail:()=>{const v=($('#lxemail')||{}).value||'';if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())){$('#lxerr').textContent='Enter a valid email address.';$('#lxemail').focus();return}signIn('Email',null,{email:v.trim()})},
   lexplore:()=>{try{sessionStorage.setItem('callit.explore','1')}catch(_){}location.hash='#/'+b.dataset.f;syncLanding()},
-  doc:()=>docModal(b.dataset.f),soclink:()=>{e.preventDefault();toast(`Callit on ${b.dataset.f} is coming soon`)},editprof:()=>editProfile(b.dataset.f),follows:()=>followsModal(b.dataset.h,b.dataset.f),mt:()=>{if(S.mt===b.dataset.f)return scrollTo({top:0,behavior:'smooth'});if(slideTo(b)&&!b.dataset.slid){b.dataset.slid=1;return setTimeout(()=>b.isConnected?b.click():null,170)}S.mt=b.dataset.f;render()},tpick:()=>pickToken(b.dataset.f),
+  doc:()=>docModal(b.dataset.f),soclink:()=>{e.preventDefault();toast(`Callit on ${b.dataset.f} is coming soon`)},editprof:()=>editProfile(b.dataset.f),follows:()=>followsModal(b.dataset.h,b.dataset.f),dtab:()=>{if(S.dtab===b.dataset.f)return;if(slideTo(b)&&!b.dataset.slid){b.dataset.slid=1;return setTimeout(()=>b.isConnected?b.click():null,170)}S.dtab=b.dataset.f;render()},
+  ytab:()=>{if(S.ytab===b.dataset.f)return;if(slideTo(b)&&!b.dataset.slid){b.dataset.slid=1;return setTimeout(()=>b.isConnected?b.click():null,170)}S.ytab=b.dataset.f;try{localStorage.setItem('callit.ytab',S.ytab)}catch(_){}render()},
+  mt:()=>{if(S.mt===b.dataset.f)return scrollTo({top:0,behavior:'smooth'});if(slideTo(b)&&!b.dataset.slid){b.dataset.slid=1;return setTimeout(()=>b.isConnected?b.click():null,170)}S.mt=b.dataset.f;render()},tpick:()=>pickToken(b.dataset.f),
   signup:()=>connectModal(null,'up'),signin:()=>connectModal(null,'in'),explore:()=>{try{sessionStorage.setItem('callit.explore','1')}catch(_){}syncLanding()},qbuy:()=>quickBuy(b.dataset.t,b.dataset.id),qsell:()=>quickBuy(b.dataset.t,b.dataset.id,'sell'),
   back:()=>goBack(),totop:()=>scrollTo({top:0,behavior:'smooth'}),
   join:()=>{const f=b.dataset.f;S.joined.has(f)?S.joined.delete(f):S.joined.add(f);toast(S.joined.has(f)?'Joined':'Left the community');render()},
   msend:()=>{const i=$('#msgin'),v=i&&i.value.trim();if(!v)return;(MSG[b.dataset.f]=MSG[b.dataset.f]||[]).push([S.me,v,'now']);render();const m=$('#msgs');m&&m.lastElementChild&&m.lastElementChild.scrollIntoView({block:'end',behavior:'smooth'});setTimeout(()=>{const n=$('#msgin');n&&n.focus()},50)},
   ptab:()=>{S.ptab=b.dataset.f;render()},connect:()=>connectModal(),search:()=>searchModal(),notifs:()=>notifsModal(),settings:()=>settingsModal(),
   disconnect:()=>act2.disconnect(),
-  me:()=>S.connected?location.hash='#/profile/'+S.me:connectModal(),
+  me:()=>S.connected?location.hash='#/you':connectModal(),
   logout:()=>modal('Log out of Callit?','Your wallet and everything you saved stay on your account. Sign back in any time.',`<button class="btn block" style="background:var(--down);color:#fff;border-color:var(--down)" id="logo">Log out</button><button class="btn ghost block" data-act="close" style="margin-top:8px">Cancel</button>`,m=>$('#logo',m).onclick=()=>{closeModal();act2.disconnect()}),
   bmark:()=>{if(!S.connected)return connectModal();const id=b.dataset.id,on=!S.bm.has(id);on?S.bm.add(id):S.bm.delete(id);saveBm();bg('/api/social',{action:'bookmark',ref:id,on});
    document.querySelectorAll(`[data-act="bmark"][data-id="${CSS.escape(id)}"]`).forEach(x=>{x.classList.toggle('on',on);x.setAttribute('aria-pressed',on);x.innerHTML=ic('bookmark',x.closest('.fbar')?20:18,on)});
