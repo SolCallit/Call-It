@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { json } from '@/lib/db/me';
 import { requireAdmin } from '@/lib/db/admin';
-import { BUCKETS, FEE_BPS_STANDARD, liveFeeBps, split, type Bucket } from '@/lib/fees/model';
+import { BUCKETS, FEE_BPS_STANDARD, JUP_CUT, liveFeeBps, split, type Bucket, type Mode } from '@/lib/fees/model';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -38,7 +38,9 @@ export async function GET(req: Request) {
     const { data: ps } = await db.from('posts').select('id, profile_id, buy_sig, token_sym').in('id', refs.slice(i, i + 500));
     (ps || []).forEach((p) => calls.set(p.id as string, { owner: p.profile_id as string, bought: !!p.buy_sig, sym: (p.token_sym as string) || null }));
   }
-  const viaCall = (t: Tx) => { const c = t.call_ref ? calls.get(t.call_ref) : null; return !!c && c.bought && c.owner !== t.profile_id; };
+  // Callers only earn on BUYS from their call, never on sells or their own trades.
+  const viaCall = (t: Tx) => { if (t.kind !== 'buy') return false; const c = t.call_ref ? calls.get(t.call_ref) : null; return !!c && c.bought && c.owner !== t.profile_id; };
+  const modeOf = (t: Tx): Mode => (viaCall(t) ? 'call' : t.kind === 'sell' ? 'sell' : 'buy');
 
   const now = Date.now();
   const W = { d1: now - 864e5, d7: now - 7 * 864e5, d30: now - 30 * 864e5, d90: now - 90 * 864e5 };
@@ -53,19 +55,19 @@ export async function GET(req: Request) {
 
   for (const t of txs) {
     const at = Date.parse(t.created_at), usd = Number(t.usd_value) || 0, fee = Number(t.fee_usd) || 0, vc = viaCall(t);
-    const pot = (usd * FEE_BPS_STANDARD) / 10_000;
+    const pot = (usd * FEE_BPS_STANDARD) / 10_000 * (1 - JUP_CUT), net = fee * (1 - JUP_CUT), m = modeOf(t);
     for (const k of Object.keys(W) as (keyof typeof W)[]) {
       if (at < W[k]) continue;
-      const w = wins[k]; w.vol += usd; w.trades++; w.traders.add(t.profile_id); w.fee += fee; w.potential += pot; if (vc) w.viaCallVol += usd;
+      const w = wins[k]; w.vol += usd; w.trades++; w.traders.add(t.profile_id); w.fee += net; w.potential += pot; if (vc) w.viaCallVol += usd;
     }
     if (at >= W.d30) {
       const day = t.created_at.slice(0, 10), d = days.get(day) || { vol: 0, fee: 0, trades: 0 };
-      d.vol += usd; d.fee += fee; d.trades++; days.set(day, d);
-      const s = split(fee, vc), p = split(pot, vc);
+      d.vol += usd; d.fee += net; d.trades++; days.set(day, d);
+      const s = split(net, m), p = split(pot, m);
       for (const b of BUCKETS) { buckets[b.key] += s[b.key]; projected[b.key] += p[b.key]; }
       const mint = [t.out_mint, t.in_mint].find((m) => m && m !== SOL && m !== USDC) || t.out_mint || t.in_mint;
       if (mint) { const x = toks.get(mint) || { vol: 0, trades: 0 }; x.vol += usd; x.trades++; toks.set(mint, x); }
-      const u = users.get(t.profile_id) || { vol: 0, trades: 0, fee: 0 }; u.vol += usd; u.trades++; u.fee += fee; users.set(t.profile_id, u);
+      const u = users.get(t.profile_id) || { vol: 0, trades: 0, fee: 0 }; u.vol += usd; u.trades++; u.fee += net; users.set(t.profile_id, u);
     }
   }
 
