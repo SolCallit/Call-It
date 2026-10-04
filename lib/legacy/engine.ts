@@ -190,7 +190,7 @@ function ppPaint(){if(PPR)return;PPR=setTimeout(()=>{PPR=0;if(currentRoute()==='
 setInterval(()=>{if(ppWant())ppConnect();else if(PP)ppClose()},2500);
 function loadFeed(id){if(LIVE.busy[id])return;LIVE.busy[id]=1;const [feed,iv]=id.split(':');
  (feed==='ogset'?fetchTokens(OG_MEMES):fetchFeed(feed,iv||'1h')).then(list=>{let ks=list.map(regLive).filter(Boolean).map(t=>t.key);if(id==='new'){const j=new Set(ks);ks=[...PPKEYS.filter(k=>!j.has(k)&&T[k]&&Date.now()-T[k]._pp<9e5),...ks]}LIVE.feeds[id]=ks;LIVE.err[id]=0})
-  .catch(()=>{LIVE.err[id]=1}).finally(()=>{LIVE.busy[id]=0;LIVE.at[id]=Date.now();if(SH&&SH.kind==='f')drawSheet();else if(currentRoute()==='market'&&!document.querySelector('.sheet.open'))render()})}
+  .catch(()=>{LIVE.err[id]=1}).finally(()=>{LIVE.busy[id]=0;LIVE.at[id]=Date.now();if(SH&&SH.kind==='f')drawSheet();else if(currentRoute()==='market'&&!document.querySelector('.sheet.open'))render();else if(id==='movers:1h'){const rl=$('#rail');if(rl)rl.innerHTML=rail();const el=$('#landing');if(el&&!el.hidden){const tk=el.querySelectorAll('.lxtick');if(tk[0])tk[0].outerHTML=lxTicker(lxLive(0),'');if(tk[1])tk[1].outerHTML=lxTicker(lxLive(1),' rev')}}})}
 function loadLiveToken(mint,quiet){if(LIVE.tokBusy[mint])return;LIVE.tokBusy[mint]=1;
  fetchToken(mint).then(x=>{if(x){regLive(x);LIVE.tokErr[mint]=0;loadRisk(mint)}else LIVE.tokErr[mint]='gone'})
   .catch(()=>{LIVE.tokErr[mint]=LIVE.tokErr[mint]||'err'})
@@ -854,8 +854,37 @@ function vTrenches(){const on=TS.feeds.filter(f=>f[1]).map(f=>f[0]);if(S.tt!=='w
 
 
 /* ---------- admin: users, trades and calls, live (only for handles in ADMIN_HANDLES) ---------- */
-const ADM={tab:'overview',data:null,err:null,busy:0};
-function loadAdmin(){if(ADM.busy)return;ADM.busy=1;API('/api/admin/overview').then(j=>{ADM.data=j;ADM.err=null}).catch(e=>{ADM.err=e.message||'Not allowed'}).finally(()=>{ADM.busy=0;if(currentRoute()==='admin'&&!document.querySelector('#modal .modal'))render()})}
+const ADM={tab:'radar',rwin:'d7',data:null,radar:null,rerr:null,err:null,busy:0};
+function loadAdmin(){if(ADM.busy)return;ADM.busy=1;Promise.all([
+  API('/api/admin/overview').then(j=>{ADM.data=j;ADM.err=null}).catch(e=>{ADM.err=e.message||'Not allowed'}),
+  API('/api/admin/radar').then(j=>{ADM.radar=j;ADM.rerr=null}).catch(e=>{ADM.rerr=e.message||'Radar unavailable'})
+ ]).finally(()=>{ADM.busy=0;if(currentRoute()==='admin'&&!document.querySelector('#modal .modal'))render()})}
+/* Radar: volume, fees and where the fees go. Admins only. */
+function vRadar(){const R=ADM.radar;if(ADM.rerr)return `<div class="empty"><b>Radar couldn't load</b><p>${esc(ADM.rerr)}</p></div>`;
+ if(!R)return `<div class="empty"><p>Loading radar…</p></div>`;
+ const c=R.config,w=R.windows[ADM.rwin]||R.windows.d7,live=c.liveBps>0,pct=b=>(b/100).toFixed(2)+'%';
+ const WL={d1:'24h',d7:'7d',d30:'30d',d90:'90d'};
+ const status=live?`<span class="rdpill on"><i></i>Fee live · ${pct(c.liveBps)}</span>`:`<span class="rdpill off"><i></i>Fee off</span>`;
+ const big=(l,v,sub,cls='')=>`<div class="rdstat ${cls}"><span>${l}</span><b class="num">${v}</b>${sub?`<small>${sub}</small>`:''}</div>`;
+ const share=w.vol?Math.round(w.viaCallVol/w.vol*100):0;
+ const S30=R.series,mx=Math.max(1,...S30.map(d=>d.vol)),BW=100/S30.length;
+ const bars=S30.map((d,i)=>{const h=Math.max(d.vol?2:0,d.vol/mx*100);return `<rect x="${(i*BW+BW*.18).toFixed(2)}" y="${(100-h).toFixed(2)}" width="${(BW*.64).toFixed(2)}" height="${h.toFixed(2)}" rx=".6" class="${i===S30.length-1?'today':''}"><title>${d.day}: ${fmtUsd(d.vol)} volume, ${d.trades} trades, ${fmtUsd(d.fee)} fees</title></rect>`}).join('');
+ const tot=R.buckets.reduce((a,b)=>a+(live?b.earned:b.projected),0)||1;
+ const seg=R.buckets.map((b,i)=>`<i class="rdb${i}" style="flex:${Math.max(.001,(live?b.earned:b.projected)/tot)}"></i>`).join('');
+ const brow=R.buckets.map((b,i)=>`<div class="rdbrow"><span class="rdsw rdb${i}"></span><div class="grow"><b>${esc(b.label)}</b><span class="hint">${esc(b.note)}</span></div><div class="r num"><b>${fmtUsd(live?b.earned:b.projected)}</b><span class="hint">${b.viaCall}% · ${b.direct}%</span></div></div>`).join('');
+ const toks=R.tokens.map(t=>{const T0=T[t.mint];return `<tr data-go="#/token/${esc(t.mint)}"><td><div class="person">${T0?tokav(t.mint):''}<b>${T0?'$'+esc(T0.sym):esc(short(t.mint))}</b></div></td><td class="num">${fmtUsd(t.vol)}</td><td class="num">${t.trades}</td></tr>`}).join('');
+ const trs=R.traders.map(u=>`<tr><td><div class="person">${u.avatar_url?`<img class="av" src="${esc(u.avatar_url)}" alt="">`:''}${u.handle?`<a href="#/profile/${esc(u.handle)}">@${esc(u.handle)}</a>`:'—'}</div></td><td class="num">${fmtUsd(u.vol)}</td><td class="num">${u.trades}</td><td class="num">${fmtUsd(u.fee)}</td></tr>`).join('');
+ return `<div class="rdhead">${status}<div class="seg rdwin" role="tablist" aria-label="Time window">${Object.entries(WL).map(([k,l])=>`<button class="${ADM.rwin===k?'on':''}" data-act="rdwin" data-f="${k}">${l}</button>`).join('')}</div></div>
+ ${live?'':`<div class="rdnote"><b>You're not earning on swaps yet.</b> Set <code>JUPITER_REFERRAL_ACCOUNT</code> and <code>JUPITER_REFERRAL_FEE_BPS</code> in Vercel, then redeploy. Below, fees show what you'd have made at ${pct(c.standardBps)}.</div>`}
+ ${c.feeCols?'':`<div class="rdnote"><b>Run migration 0006</b> in Supabase so each trade stores the fee it paid.</div>`}
+ <div class="rdgrid">${big('Volume',fmtUsd(w.vol),`${WL[ADM.rwin]} through Callit`,'lead')}${big(live?'Fees earned':'Fees at '+pct(c.standardBps),fmtUsd(live?w.fee:w.potential),live?'Before Jupiter’s share':'Projected','fee')}
+ ${big('Trades',fmtK(w.trades),w.trades?`${fmtUsd(w.avg)} average`:'')}${big('Traders',fmtK(w.traders),'Unique wallets')}${big('From calls',share+'%',`${fmtUsd(w.viaCallVol)} via bought-in calls`)}</div>
+ <div class="rdcard"><div class="rdct"><b>Daily volume</b><span class="hint">Last 30 days · hover a bar</span></div><svg class="rdchart" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Daily volume, last 30 days">${bars}</svg>
+  <div class="rdaxis hint"><span>${S30[0].day.slice(5)}</span><span>Today ${fmtUsd(S30[S30.length-1].vol)}</span></div></div>
+ <div class="rdcard"><div class="rdct"><b>Where fees go</b><span class="hint">30 days · ${live?'earned':'projected'} · split via call · direct</span></div><div class="rdsplit">${seg}</div>${brow}</div>
+ <div class="rd2"><div class="rdcard"><div class="rdct"><b>Top tokens</b><span class="hint">30d</span></div><div class="tablewrap"><table><thead><tr><th>Token</th><th>Volume</th><th>Trades</th></tr></thead><tbody>${toks||'<tr><td colspan="3" class="muted">No trades yet</td></tr>'}</tbody></table></div></div>
+ <div class="rdcard"><div class="rdct"><b>Top traders</b><span class="hint">30d</span></div><div class="tablewrap"><table><thead><tr><th>Trader</th><th>Volume</th><th>Trades</th><th>Fees</th></tr></thead><tbody>${trs||'<tr><td colspan="4" class="muted">No trades yet</td></tr>'}</tbody></table></div></div></div>
+ <p class="hint" style="margin-top:12px">Counts trades made inside Callit only. Check the referral account on Solscan for what actually landed on-chain${c.referral?`: <a class="lnk" href="https://solscan.io/account/${esc(c.referral)}" target="_blank" rel="noopener">${esc(short(c.referral))}</a>`:''}.</p>`}
 setInterval(()=>{if(!document.hidden&&currentRoute()==='admin')loadAdmin()},15e3);
 function adminPing(){if(S.admin!=null||!realAuth()||!S.connected)return;S.admin=false;API('/api/admin/overview?ping=1').then(()=>{S.admin=true;if(currentRoute()==='you')render()}).catch(()=>{})}
 const agoT=iso=>{const m=(Date.now()-Date.parse(iso))/6e4;return m<1?'now':m<60?Math.round(m)+'m':m<1440?Math.round(m/60)+'h':Math.round(m/1440)+'d'};
@@ -871,8 +900,8 @@ function vAdmin(){if(!ADM.data&&!ADM.err)loadAdmin();
  const posts=`<table><thead><tr><th>When</th><th>User</th><th>Post</th><th>Entry</th><th>Buy</th></tr></thead><tbody>${(d.posts||[]).map(p=>`<tr data-go="#/post/${esc(p.id)}"><td>${agoT(p.created_at)}</td><td>${who(p.handle)}</td><td>${p.kind==='meme'?`<b>$${esc(p.token_sym||'?')}</b> `:''}<span class="muted">${esc((p.body||'').slice(0,80))}</span></td><td class="num">${p.entry_mc?fmtUsd(+p.entry_mc):'—'}</td><td class="num">${+p.buy_usd?fmtUsd(+p.buy_usd):'—'}</td></tr>`).join('')}</tbody></table>`;
  return `<div class="pad adm"><div class="ahead"><h1 class="h2">Admin</h1><span class="stlive"><i></i>Live · every 15s</span></div>
  <div class="agrid">${stat('Users',fmtK(s.users||0),`+${s.users24h||0} today · +${s.users7d||0} this week`)}${stat('Calls & posts',fmtK(s.posts||0),`+${s.posts24h||0} today`)}${stat('Trades today',fmtK(s.txs24h||0),'')}${stat('Volume today',fmtUsd(s.vol24h||0),'')}</div>
- <div class="seg wide" role="tablist" style="margin:14px 0">${tab('overview','New users')}${tab('trades','Trades')}${tab('calls','Calls & posts')}</div>
- <div class="tablewrap">${ADM.tab==='trades'?txs:ADM.tab==='calls'?posts:users}</div></div>`}
+ <div class="seg wide" role="tablist" style="margin:14px 0">${tab('radar','Radar')}${tab('overview','New users')}${tab('trades','Trades')}${tab('calls','Calls & posts')}</div>
+ ${ADM.tab==='radar'?vRadar():`<div class="tablewrap">${ADM.tab==='trades'?txs:ADM.tab==='calls'?posts:users}</div>`}</div>`}
 /* ---------- bottom sheet ---------- */
 let SH=null;
 function openSheet(kind){SH={kind,tab:'source',d:kind==='f'?JSON.parse(JSON.stringify(filOf(S.tt))):null};
@@ -1039,12 +1068,26 @@ function vLeadersOld(){return topCalls()+`<div class="pad" style="display:flex;j
  <td><button class="btn sm ${S.following.has(c.h)?'ghost':'primary'}" data-act="follow" data-h="${c.h}">${S.following.has(c.h)?'Following':'Follow'}</button></td></tr>`).join('')}</tbody></table></div>
  <p class="hint pad">A call wins if it hits its target, or is up at least 50% when its time window closes. Only calls backed by a buy earn caller fees.</p>`}
 
+/* Live portfolio board: total that flashes on every tick, today's move, allocation bar, YTD line. */
+let WPREV=null;
+function pboard(rows,tot){const d24=rows.reduce((a,[k,amt])=>{const t=T[k],v=usd(k,amt)||0,c=t&&t.chg!=null&&isFinite(t.chg)?t.chg:0;return a+(v-v/(1+c/100))},0),
+ base=tot-d24,p24=base>0?d24/base*100:0,up=d24>=0,fl=WPREV==null||Math.abs(tot-WPREV)<.005?'':tot>WPREV?' fl-up':' fl-dn';WPREV=tot;
+ const segs=rows.map(([k,a])=>({k,v:usd(k,a)||0})).filter(x=>x.v>0),top=segs.slice(0,4),rest=segs.slice(4).reduce((a,x)=>a+x.v,0);
+ const col=k=>k==='SOL'?'#9B7BFF':k==='USDC'?'#4DA8FF':`hsl(${hue(symOf(k))} 62% 52%)`;
+ const st=statsOf(S.me);
+ return `<div class="pboard ${up?'is-up':'is-down'}"><i class="pbglow" aria-hidden="true"></i>
+ <div class="pbtop"><span class="pblab">Portfolio</span><span class="stlive"><i></i>Live</span></div>
+ <div class="pbval num${fl}" aria-live="polite">${tot<1e6?'$'+tot.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):fmtUsd(tot)}</div>
+ <div class="pbchg num"><span class="${up?'up':'down'}">${ic(up?'up':'down',13)} ${money(d24)} (${fmtPct(p24)})</span><span class="muted">today</span>${st.n?`<span class="pbdot"></span><span class="${st.pnl>=0?'up':'down'}">${money(st.pnl)}</span><span class="muted">all-time</span>`:''}</div>
+ ${segs.length?`<div class="pbbar" role="img" aria-label="Allocation">${top.map(x=>`<i style="flex:${x.v};background:${col(x.k)}"></i>`).join('')}${rest?`<i style="flex:${rest};background:var(--muted)"></i>`:''}</div>
+ <div class="pbleg">${top.map(x=>`<span><i style="background:${col(x.k)}"></i>${esc(symOf(x.k))} <b class="num">${Math.round(x.v/tot*100)}%</b></span>`).join('')}${rest?`<span><i style="background:var(--muted)"></i>Other <b class="num">${Math.round(rest/tot*100)}%</b></span>`:''}</div>`
+ :`<p class="pbempty muted">Deposit SOL or USDC to start. Your holdings show up here live.</p>`}
+ <div class="pbytd">${ytdCard()}</div>
+ <button class="copyca pbaddr" data-act="copy" data-v="${S.addr}">${ic('wallet',13)} ${short(S.addr)} ${ic('copy',13)}</button></div>`}
 function vWallet(){if(!S.connected)return `<div class="empty"><b class="h2">No wallet connected</b><p>Sign in with email, Google or X and we create a wallet for you. Or connect Phantom, Solflare or Backpack. You always hold your own keys.</p><button class="btn primary" data-act="connect">Connect wallet</button></div>`;
  const rows=Object.entries(S.bal).filter(([k,a])=>a>0&&T[k]).sort((x,y)=>(usd(y[0],y[1])||0)-(usd(x[0],x[1])||0)),tot=rows.reduce((s,[k,a])=>s+(usd(k,a)||0),0);
- return `<div class="pad"><div class="muted">Total balance</div><div class="bal num">${fmtUsd(tot)}</div>${(()=>{const st=statsOf(S.me);return st.n?`<div class="wpnl num"><span class="${st.pnl>=0?'up':'down'}">${money(st.pnl)}</span> all-time PnL${st.vol?` · ${fmtUsd(st.vol)} volume`:''}</div>`:''})()}
- <div style="margin-top:14px">${ytdCard()}</div>
- <button class="copyca" style="margin-top:10px" data-act="copy" data-v="${S.addr}">${short(S.addr)} ${ic('copy',13)}</button>
- <div class="acts2 acts3"><button class="btn primary" data-act="deposit">${ic('down',16)} Deposit</button><a class="btn" href="#/swap">${ic('swap',16)} Swap</a><button class="btn" data-act="withdraw">${ic('up',16)} Withdraw</button></div>
+ return `<div class="pad">${pboard(rows,tot)}
+ <div class="acts2 acts3"><button class="btn primary" data-act="deposit">${ic('down',16)} Deposit</button><button class="btn" data-act="withdraw">${ic('up',16)} Withdraw</button><a class="btn" href="#/swap">${ic('swap',16)} Swap</a></div>
  <div class="list">${(()=>{const B=pnlBook();return rows.map(([k,a])=>{const x=posPnl(k,B);return holdRow(k,a,usd(k,a)||0,x?x.pnl:null,x?x.pct:null,1)}).join('')})()}</div>
  <b class="h2" style="display:block;margin:22px 0 4px">History</b><div class="list">${S.activity.map(a=>`<div class="li"><div class="grow"><b>${esc(a.k)}</b><div class="hint">${esc(a.t)}${a.sig?` · <a class="lnk" href="https://solscan.io/tx/${a.sig}" target="_blank" rel="noopener noreferrer">View</a>`:''}</div></div><div class="r num">${esc(a.d)}</div></div>`).join('')||'<div class="empty" style="padding:18px 8px"><b>No history yet</b><p>Deposits, trades and withdrawals show up here.</p></div>'}</div></div>`}
 
@@ -1082,10 +1125,10 @@ function vAbout(){return `<div class="prose"><div style="margin-bottom:18px">${s
  <p>Wallets are non-custodial. Sign in with email, Google or X, or bring Phantom, Solflare or Backpack.</p></div>`}
 
 /* ---------- rail ---------- */
-function rail(){return adBoard()+newsCard()+railRest()+`<div class="railfoot">${socials('sm')}<div class="legal" style="justify-content:flex-start"><button data-act="doc" data-f="terms">Terms</button><button data-act="doc" data-f="privacy">Privacy</button><span>© ${new Date().getFullYear()} Callit</span></div></div>`}
+function rail(){return adBoard()+railRest()+`<div class="railfoot">${socials('sm')}<div class="legal" style="justify-content:flex-start"><button data-act="doc" data-f="terms">Terms</button><button data-act="doc" data-f="privacy">Privacy</button><span>© ${new Date().getFullYear()} Callit</span></div></div>`}
 function railRest(){const lv=(LIVE.feeds['movers:1h']||[]).map(k=>T[k]).filter(t=>t&&t.price&&!NOT_MEME.has(String(t.sym).toUpperCase()));
- const trend=(lv.length?lv:Object.values(T).filter(t=>!t.base&&!t.prelaunch)).slice().sort((a,b)=>b.chg-a.chg).slice(0,4);
- return `<div class="card"><h3>Trending</h3><div class="list">${trend.map(t=>`<a class="li" href="#/token/${t.key}">${tokav(t.key)}<div class="grow"><b>$${t.sym}</b><div class="hint">${(n=>n+(n===1?' call':' calls'))(calls.filter(k=>k.t===t.key).length)}</div></div><div class="r num"><b>${fmtUsd(mcap(t))}</b><div class="hint ${t.chg>=0?'up':'down'}">${fmtPct(t.chg)}</div></div></a>`).join('')}</div></div>
+ const trend=lv.filter(t=>t.live).sort((a,b)=>b.chg-a.chg).slice(0,5);if(!lv.length&&!LIVE.err['movers:1h'])loadFeed('movers:1h');
+ return `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">Trending</h3><a class="lnk" href="#/market">Market</a></div><div class="list">${trend.length?'':Array.from({length:4},()=>'<div class="nrow c nskel" aria-hidden="true"><span class="tokav"></span><span class="grow"><i></i><i></i></span></div>').join('')}${trend.map(t=>`<a class="li" href="#/token/${t.key}">${tokav(t.key)}<div class="grow"><b>$${t.sym}</b><div class="hint">${(n=>n+(n===1?' call':' calls'))(calls.filter(k=>k.t===t.key).length)}</div></div><div class="r num"><b>${fmtUsd(mcap(t))}</b><div class="hint ${t.chg>=0?'up':'down'}">${fmtPct(t.chg)}</div></div></a>`).join('')}</div></div>
  <div class="card"><h3>Top callers</h3><div class="list">${ranked().slice(0,4).map(c=>`<div class="li">${avatar(c.h)}<div class="grow"><a class="pname" href="#/profile/${c.h}">${c.h}</a><div class="hint">${c.win}% win rate</div></div><button class="btn sm ${S.following.has(c.h)?'ghost':'primary'}" data-act="follow" data-h="${c.h}">${S.following.has(c.h)?'Following':'Follow'}</button></div>`).join('')}</div>
  <a class="btn ghost block" style="margin-top:10px" href="#/callerboard">See Callerboard</a></div>`}
 
@@ -1529,7 +1572,7 @@ document.addEventListener('pointerdown',e=>{const t=e.target.closest('.strack.lo
 /* ---------- news ---------- */
 const WIRE=[['Solana memecoin launches hit a new weekly high as launchpad competition heats up','Callit Wire',38],['Creator fee splits become the new battleground for token launchpads','Callit Wire',95],['Stablecoin balances on Solana keep climbing as traders park profits','Callit Wire',160],['Perp DEX volume climbs as traders chase leverage on majors','Callit Wire',240],['Why bundled supply is the first thing smart money checks now','Callit Wire',410]];
 function newsItems(){const out=[],lv=(LIVE.feeds['movers:1h']||[]).map(k=>T[k]),
- tk=(lv.length?lv:Object.values(T)).filter(t=>t&&t.chain==='Solana'&&!t.base&&!t.prelaunch&&t.holders&&!NOT_MEME.has(String(t.sym).toUpperCase()));
+ tk=lv.filter(t=>t&&t.live&&t.chain==='Solana'&&!t.base&&!t.prelaunch&&t.holders&&!NOT_MEME.has(String(t.sym).toUpperCase()));
  tk.slice(0,8).forEach((t,i)=>out.push({kind:'chain',sym:t.key,min:3+i*7,src:t.live?'Live market':'On-chain',
   title:i%2===0?`$${t.sym} ${t.chg>=0?'up':'down'} ${Math.abs(t.chg).toFixed(1)}% in 24h as volume hits ${fmtUsd(t.vol)}`:`$${t.sym} passes ${fmtK(t.holders)} holders with ${fmtUsd(t.liq||0)} in liquidity`}));
  calls.filter(k=>k.buy&&nums(k)&&nums(k).p>50).slice(0,3).forEach((k,i)=>out.push({kind:'chain',sym:k.t,min:20+i*55,title:`${k.c}'s $${symOf(k.t)} call is up ${fmtPct(nums(k).p)}`,src:'Callit calls',post:k.id}));
@@ -1538,7 +1581,8 @@ function newsItems(){const out=[],lv=(LIVE.feeds['movers:1h']||[]).map(k=>T[k]),
 const ago2=m=>m<60?m+'m':Math.round(m/60)+'h';
 function newsRow(n,compact){const go=n.post?`#/post/${n.post}`:n.sym?`#/token/${n.sym}`:'';
  return `<${go?`a href="${go}"`:'button data-act="newsx"'} class="nrow${compact?' c':''}">${n.sym?tokav(n.sym):`<span class="tokav nwire">${ic('news',18)}</span>`}<span class="grow"><span class="ntag ${n.kind}">${n.kind==='chain'?'On-chain':'Crypto'}</span><b>${esc(n.title)}</b><span class="hint">${esc(n.src)} · ${ago2(n.min)}</span></span></${go?'a':'button'}>`}
-function newsCard(){return `<div class="card newscard"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><h3 style="margin:0">Trending news</h3><a class="lnk" href="#/news">See all</a></div>${newsItems().slice(0,5).map(n=>newsRow(n,1)).join('')}</div>`}
+function newsCard(){const live=newsItems().filter(n=>n.kind==='chain').slice(0,5);if(!LIVE.feeds['movers:1h']&&!LIVE.err['movers:1h'])loadFeed('movers:1h');
+ return `<div class="card newscard"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><h3 style="margin:0">Trending now</h3><a class="lnk" href="#/news">See all</a></div>${live.length?live.map(n=>newsRow(n,1)).join(''):Array.from({length:4},()=>'<div class="nrow c nskel" aria-hidden="true"><span class="tokav"></span><span class="grow"><i></i><i></i></span></div>').join('')+'<p class="sr-only" role="status">Loading market moves</p>'}</div>`}
 function vNews(){const f=S.nf||'all',list=newsItems().filter(n=>f==='all'||n.kind===f);
  return `<div class="tabs" role="tablist">${[['all','All'],['chain','On-chain'],['crypto','Crypto']].map(([k,l])=>`<button class="${f===k?'on':''}" data-act="nf" data-f="${k}">${l}</button>`).join('')}</div>
  <div>${list.map(n=>newsRow(n)).join('')}</div><p class="hint pad">On-chain items come from token and call activity. Crypto headlines are samples until the news feed is connected.</p>`}
@@ -1791,12 +1835,20 @@ function lxChip(x){const [k,a,b,v]=x;
  if(k==='g')return `<span class="tk">${tokav(a)}<b>$${esc(symOf(a))}</b><em class="up">${ic('up',12)}${esc(b)}</em></span>`;
  if(k==='m')return `<span class="tk">${tokav(a)}<b>$${esc(symOf(a))}</b><i>${esc(b)}</i></span>`;
  if(k==='c')return `<span class="tk">${avatar(a)}<b>@${esc(a)}</b><i>called $${esc(symOf(b))}</i><em class="${String(v).startsWith('−')?'down':'up'}">${esc(v)}</em></span>`;
- if(k==='n')return `<span class="tk"><span class="tklive"></span>${avatar(a)}<b>@${esc(a)}</b><i>called $${esc(symOf(b))} · ${esc(v)} ago</i></span>`;
+ if(k==='n')return `<span class="tk"><span class="tklive"></span>${avatar(a)}<b>@${esc(a)}</b><i>called $${esc(symOf(b))} · ${v==='now'?'just now':esc(v)+' ago'}</i></span>`;
  return `<span class="tk tkfee"><em class="up">${esc(a)}</em><i>${esc(b)}</i></span>`}
+/* Landing ticker: live movers and real calls only. Until data arrives it shows what Callit does, never made-up trades. */
+function lxLive(row){const mv=(LIVE.feeds['movers:1h']||[]).map(k=>T[k]).filter(t=>t&&t.live&&t.price&&!NOT_MEME.has(String(t.sym).toUpperCase())),out=[];
+ const rc=calls.filter(k=>k.kind==='meme'&&T[k.t]&&nums(k)).slice(0,6);
+ mv.slice(row*6,row*6+6).forEach((t,i)=>{out.push(i%2?['m',t.key,fmtUsd(mcap(t))+' MC']:['g',t.key,fmtPct(t.chg)])});
+ rc.slice(row*3,row*3+3).forEach((k,i)=>out.splice(i*2+1,0,['n',k.c,k.t,k.ago==='now'?'now':k.ago]));
+ if(out.length<4)return row?[['f','Bought in','callers earn fees'],['f','Every call','tracked in public'],['f','Win rate','on the Callerboard'],['f','Non-custodial','your keys, your coins']]
+  :[['f','Call it.','Get Paid.'],['f','Entry stamped','at live market cap'],['f','Swap in-app','routed by Jupiter'],['f','Follow callers','you trust']];
+ return out}
 function lxTicker(items,cls){const row=items.map(lxChip).join('');
  return `<div class="lxtick${cls}" aria-hidden="true"><div class="lxtrack">${row}${row}</div></div>`}
 function landingHTML(){const yr=new Date().getFullYear();
- return `<div class="lx-top">${lxTicker(LX_TICK_A,'')}<button class="ib ltheme" data-act="theme" aria-label="Switch light or dark">${ic('sun',18)}</button></div>
+ return `<div class="lx-top">${lxTicker(lxLive(0),'')}<button class="ib ltheme" data-act="theme" aria-label="Switch light or dark">${ic('sun',18)}</button></div>
  <div class="lfx" aria-hidden="true">${[['+347%','p a'],['$1.84M MC','m b'],['+118%','p c'],['$21.4M MC','m d'],['+64%','p e'],['$412K MC','m f'],['+213%','p g']].map(([t,c])=>`<span class="fx ${c}">${c[0]==='p'?ic('up',14):''}${t}</span>`).join('')}</div>
  <main class="lx"><div class="lxlogo"><span class="fx lxs l">${ic('up',13)}+347%</span><span class="fx lxs l2 fee">+0.42 SOL</span><span class="mark lxmark" role="img" aria-label="Callit"></span><span class="fx m lxs r">$1.84M MC</span><span class="fx lxs r2">${ic('up',13)}+118%</span></div>
   <h1>Call it.<br>Get Paid.</h1>
@@ -1813,7 +1865,7 @@ function landingHTML(){const yr=new Date().getFullYear();
    <button class="lx-look" data-act="explore">Just looking? Explore Callit first</button>
   </div>
  </main>
- ${lxTicker(LX_TICK_B,' rev')}
+ ${lxTicker(lxLive(1),' rev')}
  <footer class="lx-foot">${socials('sm')}<nav><button data-act="lexplore" data-f="about">About</button><span>·</span><button data-act="lexplore" data-f="callerboard">Callerboard</button><span>·</span><button data-act="doc" data-f="terms">Terms</button><span>·</span><button data-act="doc" data-f="privacy">Privacy</button><span>·</span><span>© ${yr} Callit</span></nav></footer>`}
 /* Boot splash: covers the page until we know whether to show the landing or the app,
    so a reload or a return from Google/X never flashes the wrong screen. */
@@ -1987,7 +2039,7 @@ document.addEventListener('click',e=>{
    if(imp>15)return modal('High price impact',`This swap moves the price about ${imp.toFixed(1)}%. You may get much less than shown.`,`<button class="btn block" style="background:var(--down);color:#fff;border-color:var(--down)" id="impgo">Swap anyway</button><button class="btn ghost block" data-act="close" style="margin-top:8px">Cancel</button>`,m=>$('#impgo',m).onclick=()=>{closeModal();go()});
    go()},
   swmax:()=>{const w=S.swap,f=+b.dataset.f;w.amt=f===1?maxOf(w.from):String(+(+maxOf(w.from)*f).toFixed(6));renderSwaps();if(f===1&&w.from==='SOL')toast(`Kept ${FEE_RESERVE} SOL for network fees`)},
-  slip:()=>{S.slip=+b.dataset.f;SWS.slip=S.slip;saveSWS();renderSwaps()},swapset:()=>swapSettings(),heatf:()=>{HEATF.k=HEATF.k===b.dataset.f?'':b.dataset.f;saveHeat();render()},heatdz:()=>{HEATF.hide=!HEATF.hide;saveHeat();render()},admtab:()=>{ADM.tab=b.dataset.f;render()},none:()=>{},
+  slip:()=>{S.slip=+b.dataset.f;SWS.slip=S.slip;saveSWS();renderSwaps()},swapset:()=>swapSettings(),heatf:()=>{HEATF.k=HEATF.k===b.dataset.f?'':b.dataset.f;saveHeat();render()},heatdz:()=>{HEATF.hide=!HEATF.hide;saveHeat();render()},admtab:()=>{ADM.tab=b.dataset.f;render()},rdwin:()=>{ADM.rwin=b.dataset.f;render()},none:()=>{},
   swunit:()=>{const w=S.swap,p=(T[w.from]||{}).price;S.swUsd=!S.swUsd;w.usdTxt=w.amt&&p?String(+(+w.amt*p).toFixed(2)):'';w._ua=w.amt;renderSwaps();const i=document.querySelector('[data-swap="amt"]');if(i&&!isPhone())i.focus()},
   shownew:()=>{calls.forEach(k=>k.fresh=false);S.queued.forEach(k=>k.fresh=true);calls=[...S.queued,...calls];S.queued=[];render();scrollTo({top:0})},
   submitpromo:()=>{const n=$('#pn').value.trim(),l=$('#pl').value.trim(),p=$('#pp').value.trim();

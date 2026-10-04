@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { requireMe, json } from '@/lib/db/me';
+import { json } from '@/lib/db/me';
+import { requireAdmin } from '@/lib/db/admin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -10,14 +11,9 @@ export const dynamic = 'force-dynamic';
  * ?ping=1 only checks access.
  */
 export async function GET(req: Request) {
-  const a = await requireMe(req);
+  const a = await requireAdmin(req);
   if (a instanceof NextResponse) return a;
-  const { db, me } = a;
-  const handles = (process.env.ADMIN_HANDLES || '').toLowerCase().split(',').map((s) => s.trim().replace(/^@/, '')).filter(Boolean);
-  const wallets = (process.env.ADMIN_WALLETS || '').split(',').map((s) => s.trim()).filter(Boolean);
-  if (!handles.length && !wallets.length) return json({ error: 'Admin access isn’t set up yet' }, 403);
-  const ok = handles.includes(me.handle.toLowerCase()) || (!!me.wallet_address && wallets.includes(me.wallet_address));
-  if (!ok) return json({ error: 'This account isn’t an admin' }, 403);
+  const { db } = a;
   if (new URL(req.url).searchParams.get('ping')) return json({ ok: true });
 
   const d1 = new Date(Date.now() - 864e5).toISOString();

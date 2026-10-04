@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireMe, json, isMint, num, str } from '@/lib/db/me';
 import { rpc } from '@/lib/solana/rpc';
+import { liveFeeBps } from '@/lib/fees/model';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -63,7 +64,13 @@ export async function POST(req: Request) {
     call_ref: typeof b.call_ref === 'string' || typeof b.call_ref === 'number' ? String(b.call_ref).slice(0, 64) : null,
     label: str(b.label, 160) || null, verified: verified === true,
   };
-  const { error } = await db.from('transactions').upsert(row, { onConflict: 'signature', ignoreDuplicates: true });
+  // Fee Callit earned on this trade, stamped server-side from the live referral setting.
+  const trade = row.kind === 'buy' || row.kind === 'sell' || row.kind === 'swap';
+  const fee_bps = trade ? liveFeeBps() : 0;
+  const fee_usd = fee_bps && row.usd_value ? (row.usd_value * fee_bps) / 10_000 : 0;
+  let { error } = await db.from('transactions').upsert({ ...row, fee_bps, fee_usd }, { onConflict: 'signature', ignoreDuplicates: true });
+  // Migration 0006 not run yet: still record the trade, just without fee columns.
+  if (error && /fee_(bps|usd)/.test(error.message)) ({ error } = await db.from('transactions').upsert(row, { onConflict: 'signature', ignoreDuplicates: true }));
   if (error) return json({ error: 'db_write', detail: error.message }, 500);
 
   if (row.kind === 'buy' && verified && row.call_ref && /^[0-9a-f-]{36}$/i.test(row.call_ref)) {
