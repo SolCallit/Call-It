@@ -32,7 +32,12 @@ export type LiveToken = {
   socials: { x: string | null; web: string | null; tg: string | null };
   launchpad: string | null;
   decimals: number | null;
+  /** Buy/sell volume (USD) and counts over 5m and 1h, for Heat. */
+  flow?: { m5: Flow | null; h1: Flow | null } | null;
 };
+export type Flow = { bv: number; sv: number; b: number; s: number };
+const flowOf = (x?: { buyVolume?: number; sellVolume?: number; numBuys?: number; numSells?: number } | null): Flow | null =>
+  x && (x.buyVolume != null || x.sellVolume != null) ? { bv: Number(x.buyVolume) || 0, sv: Number(x.sellVolume) || 0, b: Number(x.numBuys) || 0, s: Number(x.numSells) || 0 } : null;
 
 const JUP = 'https://api.jup.ag';
 const DEXS = 'https://api.dexscreener.com';
@@ -93,6 +98,7 @@ function fromJup(j: JupToken): LiveToken {
     dex: null,
     verified: !!j.isVerified,
     organic: num(j.organicScore),
+    flow: { m5: flowOf(j.stats5m), h1: flowOf(j.stats1h) },
     audit: {
       mintOff: j.audit?.mintAuthorityDisabled ?? null,
       freezeOff: j.audit?.freezeAuthorityDisabled ?? null,

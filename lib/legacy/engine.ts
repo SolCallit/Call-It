@@ -147,6 +147,7 @@ function regLive(x){if(!x||!x.mint)return null;const o=T[x.mint]||{},price=x.pri
   ageH:ageH==null?9999:ageH,age:ageH==null?'—':ageLong(ageH),chg:x.chg.h24!=null?x.chg.h24:(x.chg.h1||0),ca:x.mint,seed:o.seed||hashStr(x.mint),live:1,icon:x.icon||o.icon,
   pool:x.pool||o.pool||null,lp:LPNAME(x.launchpad)||(/pump$/.test(x.mint)?'Pump':/bonk$/.test(x.mint)?'Bonk':null),
   soc:(x.socials.x?'x':'')+(x.socials.web?'w':'')+(x.socials.tg?'c':''),L:{...(o.L||{}),...x,pool:x.pool||(o.L&&o.L.pool)||null}});
+ if(x.holders){const n=Date.now(),hh=(o._hh||[]).filter(p=>n-p[0]<3e5);if(!hh.length||n-hh[hh.length-1][0]>5e3)hh.push([n,x.holders]);o._hh=hh}
  if(price){const n=Date.now(),h=(o._ph||[]).filter(p=>n-p[0]<9e4);if(!h.length||n-h[h.length-1][0]>1500)h.push([n,price]);o._ph=h}
  if(o.icon&&!o._pre){o._pre=1;try{const im=new Image();im.decoding='async';im.src=cdnIcon(o.icon)}catch(_){}}
  delete o._x;T[x.mint]=o;return o}
@@ -169,35 +170,33 @@ const OG_MEMES=['DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263','EKpQGSJtjMFqKZ9K
 const OGSET=new Set(OG_MEMES);
 /* Majors, stables and staked SOL aren't memecoins: keep them out of OG memes. */
 const NOT_MEME=new Set(['SOL','WSOL','USDC','USDT','USDS','PYUSD','USD1','EURC','JUP','JTO','PYTH','RAY','ORCA','JLP','JITOSOL','MSOL','BSOL','INF','JUPSOL','BNSOL','WBTC','CBBTC','ZBTC','WETH','ETH','BTC','HNT','RENDER','RNDR','W','KMNO','DRIFT','MEW_NOT']);
+
+/* ---------- PumpPortal: pump.fun + Bonk launches and migrations, live, over ONE shared websocket ---------- */
+let PP=null,PPN=0,PPR=0;const PPKEYS=[];
+const ppWant=()=>currentRoute()==='market'&&!document.hidden;
+function ppConnect(){if(PP||!ppWant()||typeof WebSocket==='undefined')return;let w;try{w=new WebSocket('wss://pumpportal.fun/api/data')}catch(_){return}PP=w;
+ w.onopen=()=>{PPN=0;w.send(JSON.stringify({method:'subscribeNewToken'}));w.send(JSON.stringify({method:'subscribeMigration'}))};
+ w.onmessage=e=>{let d;try{d=JSON.parse(e.data)}catch(_){return}if(!d||!isMintStr(d.mint))return;if(d.txType==='create')ppNew(d);else if(d.txType==='migrate'||d.txType==='migration')ppMig(d)};
+ w.onclose=()=>{if(PP===w)PP=null;if(ppWant())setTimeout(ppConnect,Math.min(3e4,1e3*2**PPN++))};w.onerror=()=>{try{w.close()}catch(_){}}}
+function ppClose(){const w=PP;PP=null;if(w){w.onclose=null;try{w.close()}catch(_){}}}
+function ppNew(d){const sp=(T.SOL||{}).price||0;if(!sp)return;const mc=(+d.marketCapSol||0)*sp,price=mc/1e9;if(!price)return;
+ const t=regLive({mint:d.mint,sym:String(d.symbol||'?').slice(0,20),name:String(d.name||d.symbol||'New token').slice(0,60),icon:null,price,mc,fdv:mc,liq:(+d.vSolInBondingCurve||0)*sp,holders:1,vol24:(+d.solAmount||0)*sp,
+  chg:{m5:null,h1:null,h6:null,h24:null},buys24:d.initialBuy?1:0,sells24:0,traders24:1,createdAt:new Date().toISOString(),pool:null,dex:null,verified:false,organic:null,
+  audit:{mintOff:null,freezeOff:null,top10:null,dev:null,sus:false},socials:{x:null,web:null,tg:null},launchpad:d.pool==='bonk'?'bonk':'pump.fun',decimals:6,flow:null});
+ if(!t)return;t._pp=Date.now();t._fx={c:'fx-new',u:Date.now()+3500};PPKEYS.unshift(d.mint);PPKEYS.length=Math.min(PPKEYS.length,80);
+ LIVE.feeds['new']=[d.mint,...(LIVE.feeds['new']||[]).filter(k=>k!==d.mint)].slice(0,150);ppPaint()}
+function ppMig(d){const t=T[d.mint];if(!t)return;t._mig=Date.now();t._fx={c:'fx-grad',lab:'🎓 Migrated',u:Date.now()+5200};ppPaint()}
+function ppPaint(){if(PPR)return;PPR=setTimeout(()=>{PPR=0;if(currentRoute()==='market'&&!document.querySelector('.sheet.open')&&!document.querySelector('#modal .modal')&&!(document.activeElement&&document.activeElement.matches('input,textarea')))render()},900)}
+setInterval(()=>{if(ppWant())ppConnect();else if(PP)ppClose()},2500);
 function loadFeed(id){if(LIVE.busy[id])return;LIVE.busy[id]=1;const [feed,iv]=id.split(':');
- (feed==='ogset'?fetchTokens(OG_MEMES):fetchFeed(feed,iv||'1h')).then(list=>{LIVE.feeds[id]=list.map(regLive).filter(Boolean).map(t=>t.key);LIVE.err[id]=0})
+ (feed==='ogset'?fetchTokens(OG_MEMES):fetchFeed(feed,iv||'1h')).then(list=>{let ks=list.map(regLive).filter(Boolean).map(t=>t.key);if(id==='new'){const j=new Set(ks);ks=[...PPKEYS.filter(k=>!j.has(k)&&T[k]&&Date.now()-T[k]._pp<9e5),...ks]}LIVE.feeds[id]=ks;LIVE.err[id]=0})
   .catch(()=>{LIVE.err[id]=1}).finally(()=>{LIVE.busy[id]=0;LIVE.at[id]=Date.now();if(SH&&SH.kind==='f')drawSheet();else if(currentRoute()==='market'&&!document.querySelector('.sheet.open'))render()})}
 function loadLiveToken(mint,quiet){if(LIVE.tokBusy[mint])return;LIVE.tokBusy[mint]=1;
- fetchToken(mint).then(x=>{if(x){regLive(x);LIVE.tokErr[mint]=0}else LIVE.tokErr[mint]='gone'})
+ fetchToken(mint).then(x=>{if(x){regLive(x);LIVE.tokErr[mint]=0;loadRisk(mint)}else LIVE.tokErr[mint]='gone'})
   .catch(()=>{LIVE.tokErr[mint]=LIVE.tokErr[mint]||'err'})
   .finally(()=>{LIVE.tokBusy[mint]=0;const [,r,p]=location.hash.split('/');if(r==='token'&&p===mint){if(quiet&&T[mint]){liveTick(T[mint]);if(!LCHART&&T[mint].pool&&$('#lchart')){const msg=$('#lchartmsg');if(msg){msg.hidden=false;msg.textContent='Loading chart…'}mountLiveChart()}}else render()}})}
-const C={
- fadedpixel:{h:'fadedpixel',win:68,avg:142,calls:57,best:2140,followers:12400},
- lagosape:{h:'lagosape',win:61,avg:97,calls:83,best:1310,followers:8900},
- minnie_sol:{h:'minnie_sol',win:58,avg:88,calls:40,best:960,followers:5100},
- dr_liquidity:{h:'dr_liquidity',win:54,avg:61,calls:112,best:720,followers:15800},
- quietmoney:{h:'quietmoney',win:51,avg:44,calls:29,best:410,followers:2300},
- zerobeta:{h:'zerobeta',win:47,avg:33,calls:66,best:380,followers:1900}
-};
-let calls=[
- {id:4,sponsored:true,sponsor:'Nebula',c:'lagosape',t:'NEBU',thesis:'Nebula opens its public sale on Ethereum Oct 14. Intent-based bridging with a working testnet and a 40k waitlist.',ago:'3h',likes:88,reposts:17,replies:12,views:9400},
- {id:7,c:'minnie_sol',t:'DOTB',entry:24.5e3,buy:40,thesis:'6 hours old, dev still in the chat, and the art is actually good. Tiny bag, big upside.',target:500e3,horizon:'3 days',ago:'4h',likes:52,reposts:9,replies:14,views:5100},
- {id:2,c:'lagosape',t:'KFSH',entry:9.8e6,buy:300,thesis:'Survived two dumps and still printing higher lows. Volume is real, not wash.',target:50e6,horizon:'30 days',ago:'5h',likes:131,reposts:22,replies:22,views:11800},
- {id:3,c:'minnie_sol',t:'MOTH',entry:520e3,buy:110,sold:{pct:40,ago:'2h'},thesis:'Fresh deployer wallet, top 10 holders under 20%. Small bet, fast exit if it loses $300K.',target:3e6,horizon:'3 days',ago:'8h',likes:47,reposts:5,replies:9,views:3900},
- {id:5,c:'dr_liquidity',t:'ORBIT',entry:31e6,thesis:'Base lending market with sticky TVL. Token unlock is behind us. Slow grind, not a flip.',target:80e6,horizon:'30 days',ago:'1d',likes:76,reposts:11,replies:14,views:7300},
- {id:6,c:'quietmoney',t:'GLORP',entry:1.1e6,buy:90,thesis:'Late, but the chart says there is room. Following the smart wallets in.',target:4e6,horizon:'3 days',ago:'1d',likes:19,reposts:2,replies:4,views:1600},
- {id:21,c:'dr_liquidity',kind:'perps',perp:{m:'SOL',side:'long',lev:5,rel:.972,target:null,stop:null,trel:1.12},thesis:'Funding flipped negative while spot bids keep stepping up. Shorts are paying me to wait.',horizon:'7 days',ago:'3h',likes:64,reposts:9,replies:11,views:6100},
- {id:22,c:'zerobeta',kind:'perps',perp:{m:'BTC',side:'short',lev:10,rel:1.008,target:null,stop:null,trel:.95,srel:1.03},thesis:'Third rejection at the same level on lower volume. Tight stop above the wick.',horizon:'3 days',ago:'6h',likes:38,reposts:4,replies:7,views:3300},
- {id:23,c:'lagosape',kind:'perps',perp:{m:'ETH',side:'long',lev:3,rel:.985,target:null,stop:null,trel:1.2},thesis:'ETH/BTC bottoming on the weekly. Slow swing long, low leverage, no stress.',horizon:'30 days',ago:'1d',likes:51,reposts:6,replies:9,views:4800},
- {id:31,c:'minnie_sol',kind:'random',thesis:'Reminder that the best trade this week was the one you didn’t take. Touch grass, then come back to the charts.',ago:'1h',likes:122,reposts:18,replies:24,views:9800},
- {id:32,c:'fadedpixel',kind:'random',thesis:'Hosting a Space tonight on how I size memecoin calls. Bring your worst entries, we’re reviewing them live 😂',ago:'5h',likes:87,reposts:21,replies:31,views:7400},
- {id:33,c:'quietmoney',kind:'random',thesis:'Week 3 of journaling every trade. Biggest lesson so far: I exit winners too early and hold losers too long. Fixing it one call at a time.',ago:'2d',likes:43,reposts:3,replies:8,views:2900}
-];
+const C={};
+let calls=[];
 /* Official Callit post, pinned to the top of For you so newcomers see how it works. */
 const BOTPOST={id:'welcome',c:'callit',kind:'random',pinned:true,thesis:'Welcome to Callit 👋 Here\'s how it works. 1) Find a token in Market, or paste a contract address in Search. 2) Make a call: buy in with your own wallet and your entry is stamped at the live market cap. 3) Every call is tracked in public: win rate, returns and sells. Bought-in callers earn a share of fees when people trade from their calls. Call it. Get Paid.',ago:'1d',likes:0,reposts:0,replies:0,views:0};
 const pinnedPost=()=>`<div class="pinwrap"><div class="pinlab">${ic('pin',13)} Pinned</div>${postRandom(BOTPOST)}</div>`;
@@ -601,7 +600,7 @@ function chart(seed,up,w=600,h=190){const r=rng(seed);let y=up?.25:.75,p=[];for(
 function qr(seed){const r=rng(seed),n=21,c=9;let o='';const f=(x,y)=>(x<7&&y<7)||(x>13&&y<7)||(x<7&&y>13);
  for(let y=0;y<n;y++)for(let x=0;x<n;x++){const on=f(x,y)?((x%14===0||x%14===6||y%14===0||y%14===6)||(x%14>1&&x%14<5&&y%14>1&&y%14<5)):r()>.5;if(on)o+=`<rect x="${x*c}" y="${y*c}" width="${c}" height="${c}"/>`}
  return `<svg viewBox="0 0 ${n*c} ${n*c}" width="180" height="180" style="background:#fff;padding:10px;border-radius:14px" fill="#0B1B27">${o}</svg>`}
-const ranked=()=>Object.values(C).filter(c=>c.calls>=10).sort((a,b)=>b.win-a.win||b.avg-a.avg);
+const ranked=()=>Object.values(C).filter(c=>c.real&&c.calls>=1).sort((a,b)=>b.win-a.win||b.avg-a.avg||b.calls-a.calls);
 const rankOf=h=>{const i=ranked().findIndex(c=>c.h===h);return i<0?null:i+1};
 const usd=(s,a)=>T[s].price*a;
 /* Real wallets can only trade real tokens (demo tokens have made-up mints). */
@@ -727,6 +726,53 @@ function trenchStats(t){if(t.live){const L=t.L||{},a=L.audit||{},bs=(L.buys24||0
   return {top:a.top10==null?null:Math.round(a.top10),dev:a.dev==null?null:Math.round(a.dev*10)/10,snip:null,ins:null,fees:null,tx:bs,buys:bs?L.buys24/bs:.5}}
  const r=rng(t.seed*97);const pct=(a,b)=>Math.round(a+r()*(b-a));
  if(!t._x)t._x={top:pct(0,t.ageH<1?9:3),dev:t.ageH<1?pct(8,38):pct(0,2),snip:pct(0,t.ageH<1?4:1),ins:pct(0,26),fees:(t.vol/1e6)*(20+r()*40),tx:Math.round(t.vol/(60+r()*40)),buys:.45+r()*.3};return t._x}
+
+/* ---------- Heat: one live class per token from momentum, buy pressure, holder growth and safety ---------- */
+const HEAT={runner:['🚀','Runner','Fast market-cap velocity, heavy buy pressure, holders climbing'],heating:['🔥','Heating','Momentum is building'],fresh:['🌱','Fresh','Under 10 minutes old, still finding its feet'],
+ second:['🔁','Second Wind','Dumped, then reclaimed with new buyers'],cooling:['🧊','Cooling','Momentum is fading'],danger:['☠️','Danger','Bundled, dev dumping, or top holders own too much'],steady:['〰️','Steady','No strong move either way']};
+const clp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const holderGrowth=t=>{const h=t&&t._hh;if(!h||h.length<2)return 0;const z=h[h.length-1],b=h[0],mins=(z[0]-b[0])/6e4;return mins<.5?0:(z[1]-b[1])/mins};
+const flowOf=(L,k)=>{const f=L&&L.flow&&L.flow[k];return f&&(f.bv+f.sv)>0?f:null};
+function heatOf(t){if(!t||!t.live)return {k:'steady',s:0};const L=t.L||{},a=L.audit||{},c=L.chg||{},f5=flowOf(L,'m5'),f1=flowOf(L,'h1');
+ const m1=chg1m(t),m5=c.m5,h1=c.h1,h6=c.h6,h24=c.h24,fl=f5||f1,bp=fl?fl.bv/(fl.bv+fl.sv):null,vol5=f5?f5.bv+f5.sv:null,hg=holderGrowth(t),ageM=(t.ageH||0)*60;
+ const bun=t._risk&&t._risk.bundle&&t._risk.bundle.pct!=null?t._risk.bundle.pct:null;
+ const danger=!!a.sus||(a.top10!=null&&a.top10>45)||(a.dev!=null&&a.dev>15)||(bun!=null&&bun>25)||(m5!=null&&m5<-35);
+ const s=Math.round(clp(50+clp((m5||0)*1.2,-30,35)+clp((m1||0)*2,-15,20)+(bp!=null?(bp-.5)*60:0)+clp(hg*3,-10,15)+(vol5?Math.min(10,Math.log10(vol5+1)*2.5):0)-(danger?25:0),0,100));
+ let k='steady';
+ if(danger)k='danger';
+ else if(((m5||0)>=25||(h1||0)>=80)&&(bp==null||bp>=.58)&&(m1==null||m1>-3)&&(vol5==null||vol5>3000))k='runner';
+ else if(((h6!=null&&h6<=-35)||(h24!=null&&h24<=-45))&&(m5||0)>=8&&(bp==null||bp>=.55))k='second';
+ else if(ageM<10)k='fresh';
+ else if(((m5||0)>=8||(m1!=null&&m1>=4))&&(bp==null||bp>=.52))k='heating';
+ else if((m5!=null&&m5<=-8)||(h1!=null&&h1<=-20&&(m5||0)<=0))k='cooling';
+ return {k,s,m1,m5,bp,hg,vol5}}
+/* Bought-in Callit callers on this token. Nobody else can show this: only Callit has verified calls. */
+const backers=t=>new Set(calls.filter(k=>k.t===t.key&&k.buy>0&&!k.sponsored).map(k=>k.c)).size;
+const heatChip=(t,h)=>{const [e,l,d]=HEAT[h.k];return h.k==='steady'?'':`<span class="heat h-${h.k}" title="${esc(l)}: ${esc(d)}. Heat ${h.s}/100">${e} ${l}</span>`};
+const backChip=t=>{const n=backers(t);return n?`<span class="heat h-called" title="${n} Callit caller${n>1?'s':''} bought in">📣 ${n}</span>`:''};
+/* Motion: milestone effects play once per token, the first render after the event. */
+const MCSTEPS=[1e5,5e5,1e6,1e7,1e8];
+function fxOf(t,h){const now=Date.now(),b=bond(t),m=mcap(t);let fx=t._fx&&t._fx.u>now?t._fx:null;
+ if(t._bd!=null){if(t._bd<100&&b>=100)fx={c:'fx-grad',lab:'🎓 Graduated',u:now+5200};else if(t._bd<80&&b>=80&&b<100)fx={c:'fx-hot',lab:'Almost bonded',u:now+5200}}
+ if(t._mcl!=null){const st=MCSTEPS.filter(v=>t._mcl<v&&m>=v).pop();if(st)fx={c:'fx-mc',lab:'🏅 '+fmtUsd(st).replace('.00','')+' MC',u:now+5200}}
+ if(t._hk&&t._hk!==h.k&&['runner','second'].includes(h.k)&&!fx)fx={c:'fx-heat',lab:HEAT[h.k][0]+' '+HEAT[h.k][1],u:now+5200};
+ t._bd=b;t._mcl=m;t._hk=h.k;t._fx=fx;
+ const f1=flowOf(t.L,'h1'),f5=flowOf(t.L,'m5'),spike=f1&&f5&&(f5.bv+f5.sv)>3*((f1.bv+f1.sv)/12)&&(f5.bv+f5.sv)>5000;
+ return {cls:(fx?' '+fx.c:'')+(b>=80&&b<100?' fx-near':'')+(spike?' fx-beat':''),tag:fx&&fx.lab?`<span class="fxtag">${esc(fx.lab)}</span>`:''}}
+const HEATF=(()=>{try{return JSON.parse(localStorage.getItem('callit.heat')||'{}')}catch(_){return {}}})();
+const saveHeat=()=>{try{localStorage.setItem('callit.heat',JSON.stringify(HEATF))}catch(_){}};
+function heatBar(all){const cnt={};all.forEach(t=>{const k=heatOf(t).k;cnt[k]=(cnt[k]||0)+1;if(backers(t))cnt.called=(cnt.called||0)+1});
+ const chip=(k,l)=>`<button type="button" class="hchip${HEATF.k===k?' on':''}" data-act="heatf" data-f="${k}" aria-pressed="${HEATF.k===k}">${l}${cnt[k]?` <b class="num">${cnt[k]}</b>`:''}</button>`;
+ return `<div class="heatbar" role="group" aria-label="Heat classes">${chip('runner','🚀 Runners')}${chip('heating','🔥 Heating')}${chip('fresh','🌱 Fresh')}${chip('second','🔁 Second Wind')}${chip('called','📣 Caller-backed')}${chip('cooling','🧊 Cooling')}
+ <button type="button" class="hchip dz${HEATF.hide?' on':''}" data-act="heatdz" aria-pressed="${!!HEATF.hide}">☠️ ${HEATF.hide?'Danger hidden':'Hide danger'}${cnt.danger?` <b class="num">${cnt.danger}</b>`:''}</button></div>`}
+function heatApply(rows){if(!rows)return rows;let r=rows;if(HEATF.hide)r=r.filter(t=>heatOf(t).k!=='danger');
+ if(HEATF.k==='called')r=r.filter(t=>backers(t)).sort((a,b)=>backers(b)-backers(a)||heatOf(b).s-heatOf(a).s);
+ else if(HEATF.k)r=r.filter(t=>heatOf(t).k===HEATF.k).sort((a,b)=>heatOf(b).s-heatOf(a).s);return r}
+function heatCard(t){if(!t.live)return '';const h=heatOf(t),[e,l,d]=HEAT[h.k],n=backers(t),pc=v=>v==null?'—':pctS(v);
+ return `<section class="card heatcard h-${h.k}" aria-label="Heat"><div class="hcrow"><span class="hcbig">${e}</span><div class="grow"><b>${l}</b><div class="hint">${d}</div></div><div class="hcs num" title="Heat score">${h.s}<small>/100</small></div></div>
+ <div class="hcbar"><i style="width:${h.s}%"></i></div>
+ <div class="hcgrid num"><span><small>1m</small>${pc(h.m1)}</span><span><small>5m</small>${pc(h.m5)}</span><span><small>Buy pressure</small>${h.bp==null?'—':Math.round(h.bp*100)+'%'}</span><span><small>Holders/min</small>${h.hg?(h.hg>0?'+':'')+h.hg.toFixed(1):'—'}</span></div>
+ ${n?`<p class="hcback">📣 ${n} Callit caller${n>1?'s':''} bought in. <a href="#/token/${esc(t.key)}" data-act="none">See calls below</a></p>`:''}</section>`}
 /* ---------- trenches: feeds, filters, display ---------- */
 const LPDOM={Pump:'pump.fun',Bonk:'bonk.fun',Believe:'believe.app',Moonshot:'moonshot.com',Launchlab:'raydium.io',Bags:'bags.fm','Jup Studio':'jup.ag',Meteora:'meteora.ag',Boop:'boop.fun'};
 /* Little badge on each token: the launchpad it came from (pump.fun, Bonk, Meteora...), Solana otherwise. */
@@ -786,25 +832,47 @@ function spark(t){const r=rng(t.seed*13);let y=.5,p=[];for(let i=0;i<24;i++){y+=
  return `<svg class="spark ${t.chg>=0?'up':'down'}" viewBox="0 0 64 22" preserveAspectRatio="none" aria-hidden="true"><path d="${p.map((v,i)=>(i?'L':'M')+(i/23*64).toFixed(1)+','+(22-v*22).toFixed(1)).join('')}"/></svg>`}
 function heat(t){const cs=callsOn(t);if(!cs.length)return '';const who=[...new Set(cs.map(k=>k.c))];
  return `<span class="heat" title="${who.length} caller${who.length>1?'s':''} on this">${who.slice(0,3).map(h=>avatar(h)).join('')}<b>${cs.length} call${cs.length>1?'s':''}</b></span>`}
-function trow(t){const x=trenchStats(t),m=mcap(t),y=t.ageH<1,red=(v,lim)=>v==null?'muted':v>lim?'down':'up',pv=v=>v==null?'—':v+'%',D=TS.disp,b=bond(t),tf=S.rowTf||'1h',cv=chgOf(t,tf),fl=t._pm&&t._pm!==m?(m>t._pm?' fl-up':' fl-dn'):'';t._pm=m;
+function trow(t){const H=heatOf(t),FX=fxOf(t,H),x=trenchStats(t),m=mcap(t),y=t.ageH<1,red=(v,lim)=>v==null?'muted':v>lim?'down':'up',pv=v=>v==null?'—':v+'%',D=TS.disp,b=bond(t),tf=S.rowTf||'1h',cv=chgOf(t,tf),fl=t._pm&&t._pm!==m?(m>t._pm?' fl-up':' fl-dn'):'';t._pm=m;
  const soc=(t.soc||'').split('').map(c=>({x:ic('xlogo',15),w:ic('globe',15),c:ic('people',15)})[c]).join('');
- return `<a class="trow${D.compact?' compact':''}${D.pro?'':' lite'}" href="#/token/${t.key}"><span class="tav ${t.chg>=0?'ok':'bad'}" style="--b:${b.toFixed(0)}%">${tokav(t.key)}${lpBadge(t)}</span>
- <div class="tmid"><div class="tname"><b>${esc(t.name)}</b>${t.hot?'<span class="hot">HOT</span>':''}<button class="wstar${S.watch.has(t.key)?' on':''}" data-act="track" data-t="${esc(t.key)}" aria-pressed="${S.watch.has(t.key)}" aria-label="${S.watch.has(t.key)?'Remove from':'Add to'} watchlist" title="Watchlist">${ic('star',15,S.watch.has(t.key))}</button></div>
+ return `<a class="trow${D.compact?' compact':''}${D.pro?'':' lite'}${FX.cls}" href="#/token/${t.key}">${FX.tag}<span class="tav ${t.chg>=0?'ok':'bad'}" style="--b:${b.toFixed(0)}%">${tokav(t.key)}${lpBadge(t)}</span>
+ <div class="tmid"><div class="tname"><b>${esc(t.name)}</b>${heatChip(t,H)}${backChip(t)}<button class="wstar${S.watch.has(t.key)?' on':''}" data-act="track" data-t="${esc(t.key)}" aria-pressed="${S.watch.has(t.key)}" aria-label="${S.watch.has(t.key)?'Remove from':'Add to'} watchlist" title="Watchlist">${ic('star',15,S.watch.has(t.key))}</button></div>
  <div class="tsub"><span>${esc(t.sym)}</span><span class="${y?'my':'up'}">${ic('sprout',13)}${ageStr(t.ageH)}</span><span class="soc">${soc}</span></div>${D.heat?heat(t):''}</div>
  ${D.pro?`<div class="tst num"><span class="up" title="Holders">${ic('profile',13)}${fmtK(t.holders)}</span><span class="${red(x.top,10)}" title="Top 10 holders">${ic('target',13)}${pv(x.top)}</span><span class="${red(x.dev,10)}" title="Dev holding">${ic('stake',13)}${pv(x.dev)}</span>${x.snip==null?'':`<span class="${red(x.snip,5)}" title="Snipers">${ic('sniper',13)}${pv(x.snip)}</span>`}${x.ins==null?'':`<span class="${red(x.ins,15)}" title="Insiders">${ic('crown',13)}${pv(x.ins)}</span>`}<em class="tchg ${pcls(cv)}" title="Price change, ${tf}">${pctS(cv)}<small>${tf}</small></em></div>`:''}
  <div class="tr num">${D.spark?spark(t):''}<div>${D.pro?`<span class="k">V</span> ${fmtUsd(t.vol).replace(/\.\d+([KMB])/,'$1')} `:''}<span class="k">MC</span> <b class="${mcCls(m)}${fl}" data-tmc="${t.key}">${fmtUsd(m)}</b></div>
  ${D.pro?`<div>${x.fees==null?`<span class="k">B/S</span> ${Math.round(x.buys*100)}%`:`<span class="k">F</span> ${ic('solglyph',12)} ${x.fees.toFixed(2)}`}</div><div class="bs"><i style="flex:${x.buys}"></i><i style="flex:${1-x.buys}"></i></div><div><span class="k">TX</span> ${fmtK(x.tx)}</div>`:`<div class="${pcls(cv)}">${pctS(cv)} <small class="muted">${tf}</small></div>`}</div></a>`}
 const skelRows=()=>Array.from({length:8},()=>`<div class="trow skel" aria-hidden="true"><span class="tav"><span class="tokav"></span></span><div class="tmid"><i></i><i></i></div><div class="tr"><i></i></div></div>`).join('')+'<p class="sr-only" role="status">Loading live tokens</p>';
 function vTrenches(){const on=TS.feeds.filter(f=>f[1]).map(f=>f[0]);if(S.tt!=='watch'&&!on.includes(S.tt))S.tt=on[0]||'watch';
- const f=filOf(S.tt);S.rowTf=f.tf||'1h';const rows=feedRows(S.tt,f),n=activeCount(f);
+ const f=filOf(S.tt);S.rowTf=f.tf||'1h';const raw=feedRows(S.tt,f),rows=heatApply(raw),n=activeCount(f);
  const tab=(k,l)=>`<button role="tab" aria-selected="${S.tt===k}" class="${S.tt===k?'on':''}" data-act="tt" data-f="${k}">${l}</button>`;
  return `<div class="ttabs"><div class="tscroll" role="tablist">${tab('watch',ic('star',18,S.tt==='watch'))}${on.map(k=>tab(k,FEEDS[k][0])).join('')}</div>
  <span class="ttools"><button class="ib" data-act="fsopen" aria-label="Filters${n?`, ${n} active`:''}">${ic('filter',20)}${n?`<span class="fbadge">${n}</span>`:''}</button><button class="ib" data-act="dsopen" aria-label="Display settings">${ic('gear',20)}</button></span></div>
  <div class="tfbar"><span class="tflive"><i></i>Live</span><span class="muted tflbl">${S.tt==='movers'?'Top gainers':'% change'}</span><div class="seg tfseg" role="tablist" aria-label="Timeframe">${TF_OK.map(x=>`<button role="tab" aria-selected="${S.rowTf===x}" class="${S.rowTf===x?'on':''}" data-act="ttf" data-f="${x}">${x}</button>`).join('')}</div></div>
+ ${raw&&raw.length?heatBar(raw):''}
  ${n?`<div class="fline"><span>${n} filter${n>1?'s':''} on ${S.tt==='watch'?'Watchlist':FEEDS[S.tt][0]}</span><button data-act="fsclear1">Clear</button></div>`:''}
- <div>${rows===null?((lfIds(S.tt,f)||[]).some(id=>LIVE.err[id])?`<div class="empty"><b class="h2">Live data is taking a break</b><p>We couldn't reach the market feed. It usually comes back in a few seconds.</p><button class="btn primary" data-act="lretry">Try again</button></div>`:skelRows()):rows.map(trow).join('')||`<div class="empty"><b class="h2">${S.tt==='watch'?'No watchlist tokens yet':'Nothing matches'}</b><p>${S.tt==='watch'?'Open any token and tap Watchlist to pin it here.':'Loosen the filters or try another feed.'}</p>${n?'<button class="btn primary" data-act="fsclear1">Clear filters</button>':''}</div>`}</div>
+ <div>${rows===null?((lfIds(S.tt,f)||[]).some(id=>LIVE.err[id])?`<div class="empty"><b class="h2">Live data is taking a break</b><p>We couldn't reach the market feed. It usually comes back in a few seconds.</p><button class="btn primary" data-act="lretry">Try again</button></div>`:skelRows()):rows.map(trow).join('')||`<div class="empty"><b class="h2">${S.tt==='watch'?'No watchlist tokens yet':HEATF.k?'No '+(HEATF.k==='called'?'caller-backed':HEAT[HEATF.k][1].toLowerCase())+' tokens right now':'Nothing matches'}</b><p>${S.tt==='watch'?'Open any token and tap Watchlist to pin it here.':'Loosen the filters or try another feed.'}</p>${n?'<button class="btn primary" data-act="fsclear1">Clear filters</button>':''}</div>`}</div>
  <p class="hint pad">Degen zone. New tokens are high risk. Row icons: holders, top 10, dev, snipers, insiders. The ring around each token fills as it moves through its bonding curve.</p>`}
 
+
+/* ---------- admin: users, trades and calls, live (only for handles in ADMIN_HANDLES) ---------- */
+const ADM={tab:'overview',data:null,err:null,busy:0};
+function loadAdmin(){if(ADM.busy)return;ADM.busy=1;API('/api/admin/overview').then(j=>{ADM.data=j;ADM.err=null}).catch(e=>{ADM.err=e.message||'Not allowed'}).finally(()=>{ADM.busy=0;if(currentRoute()==='admin'&&!document.querySelector('#modal .modal'))render()})}
+setInterval(()=>{if(!document.hidden&&currentRoute()==='admin')loadAdmin()},15e3);
+function adminPing(){if(S.admin!=null||!realAuth()||!S.connected)return;S.admin=false;API('/api/admin/overview?ping=1').then(()=>{S.admin=true;if(currentRoute()==='you')render()}).catch(()=>{})}
+const agoT=iso=>{const m=(Date.now()-Date.parse(iso))/6e4;return m<1?'now':m<60?Math.round(m)+'m':m<1440?Math.round(m/60)+'h':Math.round(m/1440)+'d'};
+function vAdmin(){if(!ADM.data&&!ADM.err)loadAdmin();
+ if(ADM.err)return `<div class="empty"><b class="h2">Admins only</b><p>${esc(String(ADM.err).replace(/\.+$/,''))}. Add your username to <code>ADMIN_HANDLES</code> in Vercel (comma-separated), then reload.</p></div>`;
+ if(!ADM.data)return `<div class="empty"><p>Loading admin data…</p></div>`;
+ const d=ADM.data,s=d.stats||{},tab=(k,l)=>`<button role="tab" aria-selected="${ADM.tab===k}" class="${ADM.tab===k?'on':''}" data-act="admtab" data-f="${k}">${l}</button>`;
+ const stat=(l,v,sub)=>`<div class="astat"><span class="muted">${l}</span><b class="num">${v}</b>${sub?`<small class="muted">${sub}</small>`:''}</div>`;
+ const who=h=>h?`<a href="#/profile/${esc(h)}">@${esc(h)}</a>`:'<span class="muted">—</span>';
+ const sol=sig=>sig?`<a class="muted" href="https://solscan.io/tx/${esc(sig)}" target="_blank" rel="noopener">${esc(sig.slice(0,6))}…</a>`:'';
+ const users=`<table><thead><tr><th>User</th><th>Wallet</th><th>Joined</th><th>Calls</th><th>Trades</th></tr></thead><tbody>${(d.users||[]).map(u=>`<tr><td><div class="person">${u.avatar_url?`<img class="av" src="${esc(u.avatar_url)}" alt="">`:''}${who(u.handle)}</div></td><td class="num muted">${u.wallet_address?esc(short(u.wallet_address)):'—'}</td><td>${agoT(u.created_at)}</td><td class="num">${u.calls||0}</td><td class="num">${u.trades||0}</td></tr>`).join('')}</tbody></table>`;
+ const txs=`<table><thead><tr><th>When</th><th>User</th><th>Trade</th><th>USD</th><th>Tx</th></tr></thead><tbody>${(d.txs||[]).map(x=>`<tr><td>${agoT(x.created_at)}</td><td>${who(x.handle)}</td><td><span class="akind ${esc(x.kind)}">${esc(x.kind)}</span> ${esc(x.label||'')}</td><td class="num">${x.usd_value!=null?fmtUsd(+x.usd_value):'—'}</td><td>${sol(x.signature)}${x.verified?' ✓':''}</td></tr>`).join('')}</tbody></table>`;
+ const posts=`<table><thead><tr><th>When</th><th>User</th><th>Post</th><th>Entry</th><th>Buy</th></tr></thead><tbody>${(d.posts||[]).map(p=>`<tr data-go="#/post/${esc(p.id)}"><td>${agoT(p.created_at)}</td><td>${who(p.handle)}</td><td>${p.kind==='meme'?`<b>$${esc(p.token_sym||'?')}</b> `:''}<span class="muted">${esc((p.body||'').slice(0,80))}</span></td><td class="num">${p.entry_mc?fmtUsd(+p.entry_mc):'—'}</td><td class="num">${+p.buy_usd?fmtUsd(+p.buy_usd):'—'}</td></tr>`).join('')}</tbody></table>`;
+ return `<div class="pad adm"><div class="ahead"><h1 class="h2">Admin</h1><span class="stlive"><i></i>Live · every 15s</span></div>
+ <div class="agrid">${stat('Users',fmtK(s.users||0),`+${s.users24h||0} today · +${s.users7d||0} this week`)}${stat('Calls & posts',fmtK(s.posts||0),`+${s.posts24h||0} today`)}${stat('Trades today',fmtK(s.txs24h||0),'')}${stat('Volume today',fmtUsd(s.vol24h||0),'')}</div>
+ <div class="seg wide" role="tablist" style="margin:14px 0">${tab('overview','New users')}${tab('trades','Trades')}${tab('calls','Calls & posts')}</div>
+ <div class="tablewrap">${ADM.tab==='trades'?txs:ADM.tab==='calls'?posts:users}</div></div>`}
 /* ---------- bottom sheet ---------- */
 let SH=null;
 function openSheet(kind){SH={kind,tab:'source',d:kind==='f'?JSON.parse(JSON.stringify(filOf(S.tt))):null};
@@ -883,7 +951,21 @@ function liveStats(t){const L=t.L||{},c=L.chg||{},bs=(L.buys24||0)+(L.sells24||0
  ${bs?`<div class="lbs num"><b class="up">${fmtK(L.buys24||0)} buys</b><div class="bs"><i style="flex:${L.buys24||0}"></i><i style="flex:${L.sells24||0}"></i></div><b class="down">${fmtK(L.sells24||0)} sells</b>${L.traders24?`<span class="muted">· ${fmtK(L.traders24)} traders</span>`:''}</div>`:''}`}
 /* Token-2022 transfer tax (from on-chain mint extensions) and the launchpad it came from. */
 const taxRows=t=>{const x=t.L&&t.L.tax,row=(label,ok,val)=>`<div class="sf ${ok==null?'unk':ok?'ok':'bad'}"><span class="sfi">${ok==null?'?':ok?ic('check',14):'!'}</span><span class="grow">${label}</span><b>${val}</b></div>`;
- return row('Token tax',x?!(x.bps>0):null,x?(x.bps>0?`${+(x.bps/100).toFixed(2)}% per transfer`:'None'):'Unknown')+(t.lp?row('Launchpad',true,esc(t.lp)):'')};
+ const R=t._risk,bu=R&&R.bundle;
+ return row('Token tax',x?!(x.bps>0):null,x?(x.bps>0?`${+(x.bps/100).toFixed(2)}% per transfer`:'None'):'Unknown')+(t.lp?row('Launchpad',true,esc(t.lp)):'')
+  +row('Dex paid',R&&R.dexPaid!=null?R.dexPaid:null,!R?'Checking…':R.dexPaid==null?'Unknown':R.dexPaid?'Paid':'Not paid')
+  +row('Bundled at launch',bu&&bu.pct!=null?bu.pct<10:null,!R?'Checking…':!bu||bu.pct==null?(bu&&bu.reason==='old'?'Too old to check':'Unknown'):`${bu.pct.toFixed(1)}% · ${bu.wallets} wallet${bu.wallets===1?'':'s'}`)};
+/* Holder bubbles: top holders sized by % of supply. Red = bought in the launch block (bundle), orange = creator, blue = pools. */
+function bubbles(t){const R=t._risk,hs=R&&R.holders;if(!hs||!hs.length)return `<p class="hint" style="margin:8px 0">${R?'No holder data for this token yet.':'Loading holder map…'}</p>`;
+ const W=320,H=220,cx=W/2,cy=H/2,max=Math.max(...hs.map(h=>h.pct)),placed=[];
+ hs.slice(0,24).forEach(h=>{const r=Math.max(5,Math.sqrt(h.pct/max)*46);let a=0,d=0,x=cx,y=cy;
+  for(let i=0;i<900;i++){x=cx+Math.cos(a)*d;y=cy+Math.sin(a)*d*.7;if(x-r>2&&x+r<W-2&&y-r>2&&y+r<H-2&&placed.every(p=>Math.hypot(p.x-x,p.y-y)>=p.r+r+2))break;a+=.45;d+=.6}
+  placed.push({x,y,r,h})});
+ return `<svg class="bmap" viewBox="0 0 ${W} ${H}" role="img" aria-label="Holder bubble map">${placed.map(p=>`<g class="bb ${p.h.tag||''}"><circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${p.r.toFixed(1)}"/>${p.r>13?`<text x="${p.x.toFixed(1)}" y="${(p.y+3.5).toFixed(1)}">${p.h.pct<1?p.h.pct.toFixed(1):Math.round(p.h.pct)}%</text>`:''}<title>${esc(short(p.h.owner))} · ${p.h.pct.toFixed(2)}%${p.h.tag?' · '+p.h.tag:''}</title></g>`).join('')}</svg>
+ <div class="blegend"><span class="bundle">Bundle</span><span class="dev">Creator</span><span class="pool">Pool</span><span>Holder</span></div>`}
+const RISKB={};
+function loadRisk(mint){const t=T[mint];if(!t||!isMintStr(mint)||RISKB[mint]||(t._riskAt&&Date.now()-t._riskAt<6e4))return;RISKB[mint]=1;t._riskAt=Date.now();
+ fetch('/api/market/risk/'+mint).then(r=>r.ok?r.json():null).then(j=>{if(!j)return;t._risk=j;const l=$('.sfcard .sflist');if(l&&currentRoute()==='token')l.innerHTML=liveSafety(t)+taxRows(t);const b=$('#bubwrap');if(b)b.innerHTML=bubbles(t)}).catch(()=>{}).finally(()=>{RISKB[mint]=0})};
 function liveSafety(t){const a=(t.L&&t.L.audit)||{},L=t.L||{};
  const row=(label,ok,val)=>`<div class="sf ${ok==null?'unk':ok?'ok':'bad'}"><span class="sfi">${ok==null?'?':ok?ic('check',14):'!'}</span><span class="grow">${label}</span><b>${val}</b></div>`;
  return `${a.sus?`<div class="sfwarn">${ic('bell',16)} Jupiter flags this token as suspicious. Be very careful.</div>`:''}
@@ -912,7 +994,7 @@ function vLiveToken(t){const key=t.key,tr=S.watch.has(key),on=calls.filter(k=>k.
  <div class="lchart" id="lchart" data-mint="${key}"><div class="lchart-msg" id="lchartmsg">${t.pool?'Loading chart…':'No trading pool for a chart yet.'}</div></div>
  <div id="lstats">${liveStats(t)}</div>
  <div class="llinks">${liveLinks(t)}</div>
- ${(sc=>`<details class="card sfcard" data-sf ${(SFOPEN==null?sc.bad:SFOPEN)?'open':''}><summary><h3>Safety check</h3><span class="sfbadge ${!sc.n?'unk':sc.bad?(sc.ok>=sc.n-1&&!(t.L&&t.L.audit&&t.L.audit.sus)?'warn':'bad'):'ok'}">${sc.n?`${sc.ok}/${sc.n} passed`:'No data'}</span><span class="sfchev" aria-hidden="true">${ic('down',18)}</span></summary><div class="sflist">${liveSafety(t)}${taxRows(t)}</div><p class="hint" style="margin:10px 0 0">From Jupiter's token audit. Not a guarantee. Always size your bets.</p></details>`)(sfScore(t))}
+ ${heatCard(t)}${(sc=>`<details class="card sfcard" data-sf ${(SFOPEN==null?sc.bad:SFOPEN)?'open':''}><summary><h3>Safety check</h3><span class="sfbadge ${!sc.n?'unk':sc.bad?(sc.ok>=sc.n-1&&!(t.L&&t.L.audit&&t.L.audit.sus)?'warn':'bad'):'ok'}">${sc.n?`${sc.ok}/${sc.n} passed`:'No data'}</span><span class="sfchev" aria-hidden="true">${ic('down',18)}</span></summary><div class="sflist">${liveSafety(t)}${taxRows(t)}</div><div class="bubsec"><div class="bubhead"><b>Holder map</b><a class="lnk" href="https://app.bubblemaps.io/sol/token/${esc(t.key)}" target="_blank" rel="noopener">Open in Bubblemaps ↗</a></div><div id="bubwrap">${bubbles(t)}</div></div><p class="hint" style="margin:10px 0 0">From Jupiter's token audit. Not a guarantee. Always size your bets.</p></details>`)(sfScore(t))}
  <div class="card"><h3>Trade $${esc(t.sym)}</h3><div data-swapbox data-tok="${key}"></div></div>
  <div style="display:flex;justify-content:space-between;align-items:center;margin:22px 0 4px"><b class="h2">Calls on $${esc(t.sym)}</b><button class="btn sm primary" data-act="newcall" data-t="${key}">Call it</button></div></div>
  <div id="feed" style="border-top:1px solid var(--line);margin-top:10px">${on.map(post).join('')||'<div class="empty"><b>No calls yet</b><p>Call it first and your entry gets stamped at the live market cap.</p></div>'}</div>`}
@@ -933,7 +1015,24 @@ function vToken(sym){const t=T[sym];if(!t)return isMintStr(sym)?(loadLiveToken(s
  <div style="display:flex;justify-content:space-between;align-items:center;margin:22px 0 4px"><b class="h2">Calls on $${t.sym}</b><button class="btn sm primary" data-act="newcall" data-t="${sym}">Call it</button></div></div>
  <div id="feed" style="border-top:1px solid var(--line);margin-top:10px">${on.map(post).join('')||'<div class="empty"><b>No calls yet</b><p>Call it first and your entry gets stamped at today’s market cap.</p></div>'}</div>`}
 
-function vLeaders(){return topCalls()+`<div class="pad" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><span class="muted">Ranked by win rate. Minimum 10 calls. Sponsored calls don't count.</span>
+let CALLERS={},CBUSY={};
+function loadCallers(force){const w=S.lb||'30d';if(CBUSY[w]||(!force&&CALLERS[w]&&Date.now()-CALLERS[w].at<2e4))return;CBUSY[w]=1;
+ fetch('/api/leaders/callers?window='+encodeURIComponent(w)).then(r=>r.ok?r.json():{callers:[]}).then(j=>{const list=j.callers||[],sig=JSON.stringify(list),same=CALLERS[w]&&CALLERS[w].sig===sig;CALLERS[w]={at:Date.now(),list,sig};
+  list.forEach(c=>{if(c.avatar_url)AVURL[c.handle]=c.avatar_url;if(c.display_name)DN[c.handle]=c.display_name;C[c.handle]=Object.assign(C[c.handle]||{},{h:c.handle,win:c.win,avg:c.avg,calls:c.calls,best:c.best,followers:c.followers||0,pnl:c.pnl||0,real:1})});
+  if(!same&&currentRoute()==='callerboard'&&!document.querySelector('#modal .modal'))render()}).catch(()=>{CALLERS[w]=CALLERS[w]||{at:Date.now(),list:[],sig:'[]',err:1}}).finally(()=>{CBUSY[w]=0})}
+setInterval(()=>{if(!document.hidden&&currentRoute()==='callerboard')loadCallers(true)},2e4);
+function lbActivity(){const rec=calls.filter(k=>k.srv&&k.kind==='meme'&&k.t&&!k.sponsored).sort((a,b)=>(b.at||0)-(a.at||0)).slice(0,8);
+ if(!rec.length)return '';return `<section class="lbfeed" aria-label="Latest calls"><div class="lbfh"><span class="stlive"><i></i>Live</span><b>Latest calls</b></div>${rec.map(k=>{const p=perf(k);return `<a class="lbfi" href="#/post/${k.id}">${avatar(k.c)}<span class="grow"><b>@${esc(k.c)}</b> called <b>$${esc(symOf(k.t))}</b> at ${fmtUsd(k.entry)}<small class="muted"> · ${esc(k.ago)}</small></span><em class="num ${p==null?'muted':p>=0?'up':'down'}">${p==null?'—':pctS(p)}</em></a>`}).join('')}</section>`}
+function vLeaders(){loadCallers();const w=S.lb||'30d',L=ranked(),st=CALLERS[w],podium=L.slice(0,3),me=L.findIndex(c=>c.h===S.me);
+ const pod=podium.length?`<div class="podium">${[1,0,2].filter(i=>podium[i]).map(i=>{const c=podium[i];return `<a class="pod p${i+1}" href="#/profile/${esc(c.h)}"><span class="pcrown">${['👑','🥈','🥉'][i]}</span>${avatar(c.h)}<b>${esc(nameOf(c.h))}</b><span class="muted">@${esc(c.h)}</span><span class="pwin num">${c.win}%<small>win</small></span><span class="num ${c.avg>=0?'up':'down'}">${fmtPct(c.avg)} avg</span><span class="pstep">${i+1}</span></a>`}).join('')}</div>`:'';
+ const head=`<div class="pad lbhead"><span class="muted">${st?'Ranked by win rate, then average return. Updates live.':'Loading callers…'}</span><div class="seg">${['7d','30d','All time'].map(x=>`<button class="${(S.lb||'30d')===x?'on':''}" data-act="lb" data-f="${x}">${x}</button>`).join('')}</div></div>`;
+ if(st&&!L.length)return topCalls()+head+`<div class="empty"><b class="h2">The board is wide open</b><p>No calls in this window yet. Make the first one and take #1.</p><button class="btn primary" data-act="newcall">Make a call</button></div>`+lbActivity();
+ return topCalls()+head+pod+lbActivity()+`<div class="tablewrap" style="border-top:1px solid var(--line)"><table><thead><tr><th>Rank</th><th>Caller</th><th>Win rate</th><th>Avg return</th><th>Calls</th><th>Best call</th><th></th></tr></thead><tbody>
+ ${L.map((c,i)=>`<tr class="${c.h===S.me?'mine':''}" data-go="#/profile/${c.h}"><td class="rkc">${i+1}${rankMove('lbt',c.h,i)}</td><td><div class="person">${avatar(c.h)}${esc(c.h)}</div></td><td class="num">${c.win}%</td><td class="num ${c.avg>=0?'up':'down'}">${fmtPct(c.avg)}</td><td class="num">${c.calls}</td><td class="num ${c.best>=0?'up':'down'}">${fmtPct(c.best)}</td>
+ <td>${c.h===S.me?'<span class="muted">You</span>':`<button class="btn sm ${S.following.has(c.h)?'ghost':'primary'}" data-act="follow" data-h="${c.h}">${S.following.has(c.h)?'Following':'Follow'}</button>`}</td></tr>`).join('')}</tbody></table></div>${(()=>{RANKS.lbt={};L.forEach((c,i)=>RANKS.lbt[c.h]=i);return ''})()}
+ ${me>=0?`<div class="myrank"><span>Your rank</span><b class="num">#${me+1}</b><span class="muted">${L[me].win}% win · ${L[me].calls} calls</span></div>`:''}
+ <p class="hint pad">A call wins if it hits its target, or is up at least 50% since the call. Only calls backed by a buy earn caller fees.</p>`}
+function vLeadersOld(){return topCalls()+`<div class="pad" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><span class="muted">Ranked by win rate. Minimum 10 calls. Sponsored calls don't count.</span>
  <div class="seg">${['7d','30d','All time'].map(x=>`<button class="${S.lb===x?'on':''}" data-act="lb" data-f="${x}">${x}</button>`).join('')}</div></div>
  <div class="tablewrap" style="border-top:1px solid var(--line)"><table><thead><tr><th>Rank</th><th>Caller</th><th>Win rate</th><th>Avg return</th><th>Calls</th><th>Best call</th><th></th></tr></thead><tbody>
  ${ranked().map((c,i)=>`<tr data-go="#/profile/${c.h}"><td class="rkc">${i+1}</td><td><div class="person">${avatar(c.h)}${c.h}</div></td><td class="num">${c.win}%</td><td class="num up">${fmtPct(c.avg)}</td><td class="num">${c.calls}</td><td class="num up">${fmtPct(c.best)}</td>
@@ -1059,7 +1158,7 @@ function render(){if(isPhone())document.body.classList.add('collapsed');const [,
  if(r==='community')html=vRoom(p);
  else if(r==='post')html=vPost(p);
  else if(r==='token'){const t=T[p];if(t&&tradable(t)&&p!==S.swap.from){S.swap.from=S.swap.from===p?S.swap.from:(S.swap.from===S.swap.to||!T[S.swap.from]?'SOL':S.swap.from);S.swap.to=p}html=vToken(p)}
- else html=({market:vMarket,trenches:vMarket,defi:vDefi,you:vYou,profile:()=>vProfile(p),callerboard:vLeaders,promote:vPromote,about:vAbout,
+ else html=({market:vMarket,trenches:vMarket,defi:vDefi,you:()=>{adminPing();return (S.admin?`<div class="pad" style="padding-bottom:0"><a class="btn sm primary" href="#/admin">${ic('leaderboard',15)} Admin panel</a></div>`:'')+vYou()},profile:()=>vProfile(p),callerboard:vLeaders,admin:vAdmin,promote:vPromote,about:vAbout,
   messages:()=>vMessages(p),lists:()=>vLists(p),
   news:vNews,premium:vPremium,notifications:vNotifs,assistant:vAssistant,bookmarks:vBookmarks}[r]||vHome)();
  if(LCHART){LCHART();LCHART=null}
@@ -1192,17 +1291,7 @@ function searchModal(){S.stf=TF_OK.includes(S.stf)?S.stf:'1h';S.sk=S.sk==='calle
   inp.addEventListener('keydown',e=>{if(e.key==='Enter'){const f=box.querySelector('a.li');if(f){e.preventDefault();location.hash=f.getAttribute('href');closeModal()}}});
   clearInterval(STR);STR=setInterval(()=>{if(!box.isConnected)return clearInterval(STR);if(!document.hidden&&!qv()&&S.sk==='tokens')loadTrend(true)},10000);
   draw();setTimeout(()=>inp.focus(),40)})}
-const NOTIFS=[
- {id:1,k:'calls',h:'quietmoney',t:'posted a new call on $GLORP',go:'#/post/6',m:12,unread:1},
- {id:2,k:'earn',h:'quietmoney',t:'bought $GLORP from a call you follow',go:'#/post/6',m:35,unread:1},
- {id:3,k:'calls',h:'minnie_sol',t:'called $DOTB. It\'s up +113% since',go:'#/token/DOTB',m:70,unread:1},
- {id:4,k:'mentions',h:'lagosape',t:'mentioned you: "who else is watching KFSH?"',go:'#/token/KFSH',m:130},
- {id:5,k:'alerts',sym:'NIMB',t:'$NIMB is up 64% in 24h. It\'s on your watchlist',go:'#/token/NIMB',m:180},
- {id:6,k:'follows',h:'dr_liquidity',t:'followed you',go:'#/profile/dr_liquidity',m:300},
- {id:7,k:'mentions',h:'zerobeta',t:'replied to your call: "target feels low"',go:'#/post/1',m:420},
- {id:8,k:'alerts',sym:'GLORP',t:'$GLORP crossed $1.8M market cap',go:'#/token/GLORP',m:600},
- {id:9,k:'follows',h:'minnie_sol',t:'and 3 others followed you',go:'#/profile/minnie_sol',m:1440},
- {id:10,k:'earn',t:'Caller fees paid: +0.042 SOL for last week',go:'#/wallet',m:2880}];
+const NOTIFS=[];
 const MOCK_NOTIFS=NOTIFS.slice();
 /* Real notifications from the backend replace the demo ones for signed-in users. */
 window.callitSetNotifs=list=>{const now=Date.now();
@@ -1299,10 +1388,7 @@ const COMMS=[
  {id:'dotb',name:'dotbook Club',sym:'DOTB',desc:'Holders-only. Art, memes, early bags.',members:640,online:57,gate:1},
  {id:'nimb',name:'Nimbus Agents',sym:'NIMB',desc:'AI agent tokens and the people aping them.',members:3600,online:201},
  {id:'moth',name:'Lampmoth Light',sym:'MOTH',desc:'Holders-only. Small bags, fast exits.',members:1900,online:66,gate:1}];
-const MSG={lounge:[['fadedpixel','GLORP dev just locked another 5% of supply. Still early imo','4m'],['quietmoney','anyone watching NIMB? volume is silly for 13h old','3m'],['lagosape','KFSH higher low confirmed. not selling','1m']],
- glorp:[['fadedpixel','Holders doubled again overnight 👀','12m'],['quietmoney','Added more at 1.7M. Target unchanged','6m']],
- kfsh:[['lagosape','Two dumps survived. Volume is real','20m'],['zerobeta','Whales from GLORP are rotating in','9m']],
- dotb:[['minnie_sol','Dev is still in the chat. Art keeps getting better','30m']],nimb:[['dr_liquidity','Watching this one, not in yet','15m']],moth:[['minnie_sol','Stop at 300K. Rules are rules','1h']]};
+const MSG={};
 S.joined=new Set(['lounge']);
 const commAv=c=>c.sym?tokav(c.sym):'<span class="mark" style="width:44px;height:44px;border-radius:12px"></span>';
 function vCommunity(){return `<div>${COMMS.map(c=>{const last=(MSG[c.id]||[]).slice(-1)[0],j=S.joined.has(c.id);
@@ -1368,7 +1454,7 @@ function locked(preview,f,title,text,items){return `<div class="lockwrap"><div c
  ${items&&items.length?`<ul>${items.map(x=>`<li>${ic('check',15)} ${x}</li>`).join('')}</ul>`:''}${notifyBtn(f)}</div></div></div>`}
 function mockPerps(){const R=[['SOL','Solana','#9d7bff','$142.30','+3.8%','12.4x'],['BTC','Bitcoin','#F7931A','$64,210','+1.2%','8.1x'],['ETH','Ethereum','#8EA2FF','$3,120','-0.6%','10.7x']];
  return `<div class="pad">${R.map(([k,n,c,px,ch,oi])=>`<div class="mockrow"><span class="tokav" style="background:${c}">${k}</span><div class="grow"><b>${k}-PERP</b><span class="hint">${n} · up to 50x</span></div><div class="mocknum"><b class="num">${px}</b><span class="${ch[0]==='-'?'dn':'up'}">${ch}</span></div><div class="mockbtns"><span class="mlong">Long</span><span class="mshort">Short</span></div></div>`).join('')}</div>`}
-function mockPredict(){const R=[['Will $BONK hit a $3B market cap by Friday?',64],['Will @fadedpixel top the Callerboard this week?',41],['Will this week’s #1 call graduate before Sunday?',72]];
+function mockPredict(){const R=[['Will $BONK hit a $3B market cap by Friday?',64],['Will a brand-new caller top the Callerboard this week?',41],['Will this week’s #1 call graduate before Sunday?',72]];
  return `<div class="pad">${R.map(([q,y])=>`<div class="mockq"><b>${q}</b><div class="mockbar"><i style="width:${y}%"></i></div><div class="mockyn"><span class="up">Yes ${y}%</span><span class="dn">No ${100-y}%</span></div></div>`).join('')}</div>`}
 function perpsLocked(){const demo=calls.filter(k=>k.kind==='perps').slice(0,2).map(post).join('');
  return locked(demo||mockPerps(),'perps','Perps calls are coming','Call longs and shorts on SOL, BTC and ETH with leverage. Your ROE and liquidation price are tracked live on your profile.',['Long or short with up to 50x','Live ROE on every call','Counts toward your caller rank'])}
@@ -1430,9 +1516,8 @@ function loadTopTrades(){if(Date.now()-TOPTAT<6e4)return;TOPTAT=Date.now();
   TOPT.forEach(x=>{if(x.avatar_url)AVURL[x.handle]=x.avatar_url;if(x.display_name)DN[x.handle]=x.display_name;if(!T[x.mint])miss.push(x.mint)});
   const go=()=>refreshStrip('stt',topTradeCards());miss.length?fetchTokens(miss.slice(0,50)).then(l=>{l.forEach(regLive);go()}).catch(go):go()}).catch(()=>{})}
 function topTradeList(){const who=ranked().map(c=>c.h),toks=Object.values(T).filter(t=>t.chain==='Solana'&&!t.base&&!t.prelaunch&&t.holders),r=rng(4242+Math.floor(Date.now()/WEEK));
- const demo=who.flatMap(h=>toks.slice(0,6).map(t=>({h,t,pnl:Math.round((r()*r())*t.vol*.06*100)/100,x:1+r()*r()*14})));
  const real=TOPT.filter(x=>T[x.mint]).map(x=>({h:x.handle,t:T[x.mint],pnl:+x.pnl||0,x:+x.x||1}));
- const seen=new Set();return [...real,...demo].filter(x=>x.pnl>0).sort((a,b)=>b.pnl-a.pnl).filter(x=>{const id=x.h+'|'+x.t.key;return !seen.has(id)&&seen.add(id)}).slice(0,10)}
+ const seen=new Set();return real.filter(x=>x.pnl>0).sort((a,b)=>b.pnl-a.pnl).filter(x=>{const id=x.h+'|'+x.t.key;return !seen.has(id)&&seen.add(id)}).slice(0,10)}
 function topTradeCards(){const list=topTradeList(),key=x=>x.h+'|'+x.t.key,out=list.map((x,i)=>`<a class="scard" href="#/token/${x.t.key}"><div class="sctop">${avatar(x.h)}<b>${esc(x.h)}</b>${rankMove('stt',key(x),i)}${medal(i)}</div>
  <div class="scbody">${tokav(x.t.key)}<div class="grow"><b class="num up">+${fmtUsd(x.pnl)}</b><span class="num">$${esc(x.t.sym)} · <em class="up">${x.x.toFixed(1)}x</em></span></div></div></a>`);
  out.ord=list.map(key).join();RANKS.stt={};list.forEach((x,i)=>RANKS.stt[key(x)]=i);return out}
@@ -1532,7 +1617,7 @@ function obDone(){try{localStorage.setItem('callit.onboarded','1')}catch(_){}clo
 function maybeOnboard(){let d=false;try{d=localStorage.getItem('callit.onboarded')==='1'}catch(_){}if(!d)setTimeout(()=>onboard(1),400)}
 
 /* ---------- messages ---------- */
-const DMS={fadedpixel:[['fadedpixel','Saw your profile. What are you watching this week?','2h'],['me','Mostly AI agents and a couple of fresh launches','1h']],lagosape:[['lagosape','KFSH chart still looks healthy to me','5h']],minnie_sol:[['minnie_sol','Thanks for the follow 🙏','1d']]};
+const DMS={};
 function vMessages(h){if(h&&DMS[h]!==undefined||h&&C[h]){DMS[h]=DMS[h]||[];const ms=DMS[h];
   return `<div class="rhead"><a href="#/profile/${h}">${avatar(h)}</a><div class="grow"><b>${esc(h)}</b><div class="hint">@${esc(h)}${C[h]&&C[h].win?` · ${C[h].win}% win rate`:''}</div></div><a class="btn sm ghost" href="#/profile/${h}">Profile</a></div>
   <div class="msgs" id="msgs">${ms.length?ms.map(([w,tx,ago])=>{const me=w==='me';return `<div class="msg${me?' me':''}">${avatar(me?S.me:w)}<div><div class="mh"><b>${esc(me?(PROF.name||S.me):w)}</b><span class="hint">${ago}</span></div><p>${esc(tx)}</p></div></div>`}).join(''):`<div class="empty"><b>Say hi to ${esc(h)}</b><p>Messages are private between you two.</p></div>`}</div>
@@ -1902,7 +1987,7 @@ document.addEventListener('click',e=>{
    if(imp>15)return modal('High price impact',`This swap moves the price about ${imp.toFixed(1)}%. You may get much less than shown.`,`<button class="btn block" style="background:var(--down);color:#fff;border-color:var(--down)" id="impgo">Swap anyway</button><button class="btn ghost block" data-act="close" style="margin-top:8px">Cancel</button>`,m=>$('#impgo',m).onclick=()=>{closeModal();go()});
    go()},
   swmax:()=>{const w=S.swap,f=+b.dataset.f;w.amt=f===1?maxOf(w.from):String(+(+maxOf(w.from)*f).toFixed(6));renderSwaps();if(f===1&&w.from==='SOL')toast(`Kept ${FEE_RESERVE} SOL for network fees`)},
-  slip:()=>{S.slip=+b.dataset.f;SWS.slip=S.slip;saveSWS();renderSwaps()},swapset:()=>swapSettings(),
+  slip:()=>{S.slip=+b.dataset.f;SWS.slip=S.slip;saveSWS();renderSwaps()},swapset:()=>swapSettings(),heatf:()=>{HEATF.k=HEATF.k===b.dataset.f?'':b.dataset.f;saveHeat();render()},heatdz:()=>{HEATF.hide=!HEATF.hide;saveHeat();render()},admtab:()=>{ADM.tab=b.dataset.f;render()},none:()=>{},
   swunit:()=>{const w=S.swap,p=(T[w.from]||{}).price;S.swUsd=!S.swUsd;w.usdTxt=w.amt&&p?String(+(+w.amt*p).toFixed(2)):'';w._ua=w.amt;renderSwaps();const i=document.querySelector('[data-swap="amt"]');if(i&&!isPhone())i.focus()},
   shownew:()=>{calls.forEach(k=>k.fresh=false);S.queued.forEach(k=>k.fresh=true);calls=[...S.queued,...calls];S.queued=[];render();scrollTo({top:0})},
   submitpromo:()=>{const n=$('#pn').value.trim(),l=$('#pl').value.trim(),p=$('#pp').value.trim();
@@ -1939,7 +2024,7 @@ setInterval(()=>{if(document.hidden)return;if(calls.some(k=>k.perp)||S.cat==='pe
 loadPerps();if(realAuth())loadPosts();
 /* simulated realtime: new calls arrive and wait behind the pill */
 let QUEUED=false;
-function queueDemoCalls(){if(QUEUED)return;QUEUED=true;setTimeout(()=>{const a=T[LIVEMAP.BSHK||'KFSH'],b=T[LIVEMAP.KOI||'DOTB'];if(!a||!b)return;
+function queueDemoCalls(){/* demo calls retired: real calls only */if(true||QUEUED)return;QUEUED=true;setTimeout(()=>{const a=T[LIVEMAP.BSHK||'KFSH'],b=T[LIVEMAP.KOI||'DOTB'];if(!a||!b)return;
  S.queued.push({id:901,c:'zerobeta',t:a.key,entry:mcap(a)*.98,buy:220,thesis:'Smart wallets that caught the last run are loading this now. Same pattern.',target:mcap(a)*4,horizon:'7 days',ago:'now',likes:3,reposts:0,replies:0,views:120},
  {id:902,c:'dr_liquidity',t:b.key,entry:mcap(b)*.95,buy:35,thesis:'Liquidity keeps climbing here. Taking a small position.',target:mcap(b)*3,horizon:'3 days',ago:'now',likes:1,reposts:0,replies:0,views:44});
  const np=$('#newpill');if(np&&S.tab==='foryou'&&currentRoute()==='home')np.innerHTML=newPill()},12000)}
