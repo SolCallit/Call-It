@@ -86,6 +86,8 @@ export function mountChart(
   chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
 
   let first = true;
+  let fails = 0;
+  let retry: ReturnType<typeof setTimeout> | null = null;
   // Newest candle in raw price units (before the MC factor), so ticks and reloads agree.
   let last: { time: number; open: number; high: number; low: number; close: number } | null = null;
   const put = (c: NonNullable<typeof last>) => {
@@ -100,7 +102,7 @@ export function mountChart(
       if (!r.ok) throw new Error(String(r.status));
       const list = ((await r.json()).candles || []) as number[][];
       if (dead || !chart) return;
-      if (!list.length) { opts.onState?.('empty'); return; }
+      if (!list.length) { if (first && fails++ < 2) { retry = setTimeout(load, 2500); return; } opts.onState?.('empty'); return; }
       const f = opts.factor || 1;
       candles.setData(list.map(([t, o, h, l, c]) => ({ time: t as UTCTimestamp, open: o * f, high: h * f, low: l * f, close: c * f })));
       const z = list[list.length - 1];
@@ -112,7 +114,12 @@ export function mountChart(
       first = false;
       opts.onState?.('ok');
     } catch {
-      if (first) opts.onState?.('error');
+      // Upstream rate limits are common: retry quickly (1s, 2s, 4s...) and only show an error after a few misses.
+      if (first) {
+        fails++;
+        if (fails <= 4) { retry = setTimeout(load, 1000 * 2 ** (fails - 1)); return; }
+        opts.onState?.('error');
+      }
     }
   };
   load();
@@ -121,6 +128,7 @@ export function mountChart(
   const stop = () => {
     dead = true;
     if (timer) clearInterval(timer);
+    if (retry) clearTimeout(retry);
     chart?.remove();
     chart = null;
   };

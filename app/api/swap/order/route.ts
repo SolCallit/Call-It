@@ -19,6 +19,10 @@ export async function GET(req: NextRequest) {
   const amount = sp.get("amount") ?? "";
   const taker = sp.get("taker") ?? "";
   const slippageRaw = sp.get("slippageBps");
+  // Optional swap settings, capped so a bad value can never drain SOL into fees.
+  const lam = (k: string) => { const n = Number(sp.get(k)); return Number.isInteger(n) && n > 0 && n <= 100_000_000 ? n : undefined; };
+  const priorityFeeLamports = lam("priorityFeeLamports");
+  const jitoTipLamports = lam("jitoTipLamports");
 
   if (!PUBKEY.test(inputMint) || !PUBKEY.test(outputMint)) {
     return NextResponse.json({ error: "Invalid mint address" }, { status: 400 });
@@ -43,7 +47,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const order = await getOrder({ inputMint, outputMint, amount, taker, slippageBps });
+    const order = await getOrder({ inputMint, outputMint, amount, taker, slippageBps, priorityFeeLamports, jitoTipLamports });
 
     // Quote came back but Jupiter couldn't build a tx (insufficient funds/SOL, etc.)
     if (!order.transaction) {

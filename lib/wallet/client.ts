@@ -49,12 +49,14 @@ export type SwapResult = { signature: string; inAmount?: string; outAmount?: str
 
 /** Jupiter Meta-Aggregator: quote + assembled tx, user signs, Jupiter lands it. */
 export async function swap(
-  p: { inputMint: string; outputMint: string; amount: string; taker: string; slippageBps?: number },
+  p: { inputMint: string; outputMint: string; amount: string; taker: string; slippageBps?: number; priorityFeeLamports?: number; jitoTipLamports?: number },
   step: (msg: string) => void,
 ): Promise<SwapResult> {
   step('Getting the best price…');
   const qs = new URLSearchParams({ inputMint: p.inputMint, outputMint: p.outputMint, amount: p.amount, taker: p.taker });
   if (p.slippageBps != null) qs.set('slippageBps', String(p.slippageBps));
+  if (p.priorityFeeLamports) qs.set('priorityFeeLamports', String(p.priorityFeeLamports));
+  if (p.jitoTipLamports) qs.set('jitoTipLamports', String(p.jitoTipLamports));
   const q = (await authed(`/api/swap/order?${qs}`)) as { requestId: string; transaction: string; inAmount: string; outAmount: string };
   step('Approve in your wallet…');
   const signed = await sign(q.transaction, p.taker);

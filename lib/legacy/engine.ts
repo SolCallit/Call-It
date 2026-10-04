@@ -30,18 +30,24 @@ let PROF={};try{PROF=JSON.parse(localStorage.getItem('callit.profile')||'{}')||{
 const saveProf=()=>{try{localStorage.setItem('callit.profile',JSON.stringify(PROF));return true}catch(_){return false}};
 const avatar=(h,cls='')=>(h===S.me&&PROF.avatar||AVURL[h])?`<span class="av ${cls}" style="background:#0B1B27 url(${h===S.me&&PROF.avatar||AVURL[h]}) center/cover" role="img" aria-label="${esc(h)}"></span>`:`<span class="av ${cls}" style="background:hsl(${(hue(h)%70)+185} 52% 42%)">${esc(h.slice(0,2).toUpperCase())}</span>`;
 const isPrem=h=>h===S.me&&S.premium&&S.premium.until>Date.now();
-const vbadge=h=>isPrem(h)?`<span class="vb" title="Callit Premium">${ic('verified',17)}</span>`:'';
+const vbadge=h=>isPrem(h)||h==='callit'?`<span class="vb" title="Callit Premium">${ic('verified',17)}</span>`:'';
 const bannerBg=h=>h===S.me&&PROF.banner?`background:#0B1B27 url(${PROF.banner}) center/cover`:`background:linear-gradient(120deg,hsl(${(hue(h)%70)+185} 55% 26%),#0B1B27 70%),#0B1B27`;
 const followingOf=h=>h===S.me?[...S.following]:ranked().map(c=>c.h).filter(x=>x!==h).slice(0,(hue(h)%3)+2);
 const followersOf=h=>h===S.me?[]:ranked().map(c=>c.h).filter(x=>x!==h&&(S.following.has(x)||hue(x+h)%2===0)).concat(S.following.has(h)&&S.me?[S.me]:[]);
 function shrink(file,max,cb){const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,max/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);cb(c.toDataURL('image/jpeg',.82))};im.src=r.result};r.readAsDataURL(file)}
-const tokav=s=>{const t=T[s],lab=t&&t.sym?t.sym:String(s),ca=t&&(t.ca||t.key),mint=isMintStr(ca)?ca:(isMintStr(s)?s:''),src=(t&&t.icon)||(mint?'/api/market/icon/'+mint:'');
- /* Real logo first; if it fails (hotlink block, dead IPFS gateway) retry once through our own /api/market/icon proxy, then fall back to initials. */
- return src?`<span class="tokav img" style="background:hsl(${hue(lab)} 58% 45%)"><i>${esc(lab.slice(0,3))}</i><img src="${esc(src)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer"${mint&&t&&t.icon?` data-m="${mint}"`:''} onerror="if(this.dataset.m&&!this.dataset.f){this.dataset.f=1;this.src='/api/market/icon/'+this.dataset.m}else this.remove()"></span>`
+/* Token icons: a small resized copy from an image CDN loads far faster than raw IPFS. Falls back to the original, then our proxy, then initials. */
+const ipfsU=u=>String(u||'').replace(/^ipfs:\/\/(ipfs\/)?/,'https://ipfs.io/ipfs/');
+const cdnIcon=(u,w=64)=>{u=ipfsU(u);return /^https:\/\//.test(u)&&!/wsrv\.nl/.test(u)?`https://wsrv.nl/?url=${encodeURIComponent(u)}&w=${w}&h=${w}&fit=cover&output=webp&n=-1&maxage=7d`:u};
+window.__cimg=el=>{const a=(el.dataset.alt||'').split('|').filter(Boolean);if(a.length){el.dataset.alt=a.slice(1).join('|');el.src=a[0]}else el.remove()};
+const tokav=s=>{const t=T[s],lab=t&&t.sym?t.sym:String(s),ca=t&&(t.ca||t.key),mint=isMintStr(ca)?ca:(isMintStr(s)?s:''),icon=t&&t.icon;
+ const prox=mint?'/api/market/icon/'+mint:'',srcs=(icon?[cdnIcon(icon),ipfsU(icon),prox]:prox?[cdnIcon(location.origin+prox),prox]:[]).filter((x,i,a)=>x&&a.indexOf(x)===i);
+ return srcs.length?`<span class="tokav img" style="background:hsl(${hue(lab)} 58% 45%)"><i>${esc(lab.slice(0,3))}</i><img src="${esc(srcs[0])}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-alt="${esc(srcs.slice(1).join('|'))}" onerror="__cimg(this)"></span>`
   :`<span class="tokav" style="background:hsl(${hue(lab)} 58% 45%)">${esc(lab.slice(0,3))}</span>`};
 const symOf=k=>T[k]&&T[k].sym||k;
 
 const P={
+ pin:'<path d="M9 3h6l-1 6 3 3v1H7v-1l3-3-1-6z"/><path d="M12 13v8"/>',
+ cog:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/>',
  home:'<path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/>',
  more:'<circle cx="5" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="19" cy="12" r="1.4" fill="currentColor"/>',
  link:'<path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1"/>',
@@ -135,19 +141,23 @@ const LIVEMAP={};
 const hashStr=s=>{let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return h%997+1};
 const ageLong=h=>h<1/60?'just now':h<1?Math.round(h*60)+' min':h<48?Math.round(h)+(Math.round(h)===1?' hour':' hours'):Math.round(h/24)+' days';
 const isMintStr=s=>/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(s||'');
-const LPNAME=s=>{s=String(s||'').toLowerCase();return s.includes('pump')?'Pump':s.includes('bonk')?'Bonk':s.includes('believe')?'Believe':s.includes('moonshot')?'Moonshot':s.includes('launchlab')||s.includes('raydium')?'Launchlab':s.includes('bags')?'Bags':s.includes('jup')?'Jup Studio':null};
+const LPNAME=s=>{s=String(s||'').toLowerCase();return s.includes('pump')?'Pump':s.includes('bonk')?'Bonk':s.includes('believe')?'Believe':s.includes('moonshot')?'Moonshot':s.includes('launchlab')||s.includes('raydium')?'Launchlab':s.includes('bags')?'Bags':s.includes('jup')?'Jup Studio':s.includes('meteora')||s.includes('dbc')||s.startsWith('met')?'Meteora':s.includes('boop')?'Boop':null};
 function regLive(x){if(!x||!x.mint)return null;const o=T[x.mint]||{},price=x.price||0,ageH=x.createdAt?Math.max(0,(Date.now()-Date.parse(x.createdAt))/36e5):null;
  Object.assign(o,{key:x.mint,sym:x.sym,name:x.name,chain:'Solana',price,supply:price&&x.mc?x.mc/price:(o.supply||0),liq:x.liq||0,vol:x.vol24||0,holders:x.holders||0,
   ageH:ageH==null?9999:ageH,age:ageH==null?'—':ageLong(ageH),chg:x.chg.h24!=null?x.chg.h24:(x.chg.h1||0),ca:x.mint,seed:o.seed||hashStr(x.mint),live:1,icon:x.icon||o.icon,
   pool:x.pool||o.pool||null,lp:LPNAME(x.launchpad)||(/pump$/.test(x.mint)?'Pump':/bonk$/.test(x.mint)?'Bonk':null),
   soc:(x.socials.x?'x':'')+(x.socials.web?'w':'')+(x.socials.tg?'c':''),L:{...(o.L||{}),...x,pool:x.pool||(o.L&&o.L.pool)||null}});
+ if(price){const n=Date.now(),h=(o._ph||[]).filter(p=>n-p[0]<9e4);if(!h.length||n-h[h.length-1][0]>1500)h.push([n,price]);o._ph=h}
+ if(o.icon&&!o._pre){o._pre=1;try{const im=new Image();im.decoding='async';im.src=cdnIcon(o.icon)}catch(_){}}
  delete o._x;T[x.mint]=o;return o}
 /* Engine feeds -> live lists. almost/grad are built from the newest + trending lists. */
 /* Timeframes for % change: drives Movers ranking, row % and the min-change filter. */
-const TF_OK=['5m','1h','6h','24h'],TFK={'5m':'m5','1h':'h1','6h':'h6','24h':'h24'};
-const chgOf=(t,tf)=>{if(!t)return null;const c=t.L&&t.L.chg,v=c?c[TFK[tf]||'h24']:null;return v!=null?v:(!t.live||tf==='24h'?t.chg:null)};
+const TF_OK=['1m','5m','1h','6h','24h'],TFK={'1m':'m1','5m':'m5','1h':'h1','6h':'h6','24h':'h24'};
+/* 1m change isn't in the data feeds, so it comes from the live prices we've seen in the last ~75s. */
+const chg1m=t=>{const h=t&&t._ph;if(!h||h.length<2)return null;const z=h[h.length-1],b=h.find(p=>z[0]-p[0]<=75e3);return !b||z[0]-b[0]<2e4||!b[1]?null:(z[1]/b[1]-1)*100};
+const chgOf=(t,tf)=>{if(!t)return null;if(tf==='1m')return chg1m(t);const c=t.L&&t.L.chg,v=c?c[TFK[tf]||'h24']:null;return v!=null?v:(!t.live||tf==='24h'?t.chg:null)};
 const byChg=tf=>(a,b)=>{const x=chgOf(a,tf),y=chgOf(b,tf);return (y==null?-1e9:y)-(x==null?-1e9:x)};
-const lfIds=(k,f)=>{const tf=TF_OK.includes(f&&f.tf)?f.tf:'1h';
+const lfIds=(k,f)=>{const tf0=TF_OK.includes(f&&f.tf)?f.tf:'1h',tf=tf0==='1m'?'5m':tf0;
  return ({movers:['movers:'+tf],new:['new'],crowded:['traded:24h'],almost:['new','movers:5m'],grad:['movers:'+tf,'new'],og:['ogset']})[k]||null};
 const LF={movers:['movers:1h'],new:['new'],crowded:['traded:24h'],almost:['new','movers:5m'],grad:['movers:1h','new'],og:['ogset']};
 /* OG memes: the established Solana memecoins, by mint. Anything that isn't a meme stays out. */
@@ -165,7 +175,7 @@ function loadFeed(id){if(LIVE.busy[id])return;LIVE.busy[id]=1;const [feed,iv]=id
 function loadLiveToken(mint,quiet){if(LIVE.tokBusy[mint])return;LIVE.tokBusy[mint]=1;
  fetchToken(mint).then(x=>{if(x){regLive(x);LIVE.tokErr[mint]=0}else LIVE.tokErr[mint]='gone'})
   .catch(()=>{LIVE.tokErr[mint]=LIVE.tokErr[mint]||'err'})
-  .finally(()=>{LIVE.tokBusy[mint]=0;const [,r,p]=location.hash.split('/');if(r==='token'&&p===mint){if(quiet&&T[mint])liveTick(T[mint]);else render()}})}
+  .finally(()=>{LIVE.tokBusy[mint]=0;const [,r,p]=location.hash.split('/');if(r==='token'&&p===mint){if(quiet&&T[mint]){liveTick(T[mint]);if(!LCHART&&T[mint].pool&&$('#lchart')){const msg=$('#lchartmsg');if(msg){msg.hidden=false;msg.textContent='Loading chart…'}mountLiveChart()}}else render()}})}
 const C={
  fadedpixel:{h:'fadedpixel',win:68,avg:142,calls:57,best:2140,followers:12400},
  lagosape:{h:'lagosape',win:61,avg:97,calls:83,best:1310,followers:8900},
@@ -175,7 +185,6 @@ const C={
  zerobeta:{h:'zerobeta',win:47,avg:33,calls:66,best:380,followers:1900}
 };
 let calls=[
- {id:1,c:'fadedpixel',t:'GLORP',entry:412e3,buy:150,thesis:'Dev locked LP, community took over the X account, and holders doubled overnight. Early for a coin this clean.',target:5e6,horizon:'7 days',ago:'2h',likes:214,reposts:41,replies:38,views:18200},
  {id:4,sponsored:true,sponsor:'Nebula',c:'lagosape',t:'NEBU',thesis:'Nebula opens its public sale on Ethereum Oct 14. Intent-based bridging with a working testnet and a 40k waitlist.',ago:'3h',likes:88,reposts:17,replies:12,views:9400},
  {id:7,c:'minnie_sol',t:'DOTB',entry:24.5e3,buy:40,thesis:'6 hours old, dev still in the chat, and the art is actually good. Tiny bag, big upside.',target:500e3,horizon:'3 days',ago:'4h',likes:52,reposts:9,replies:14,views:5100},
  {id:2,c:'lagosape',t:'KFSH',entry:9.8e6,buy:300,thesis:'Survived two dumps and still printing higher lows. Volume is real, not wash.',target:50e6,horizon:'30 days',ago:'5h',likes:131,reposts:22,replies:22,views:11800},
@@ -189,6 +198,9 @@ let calls=[
  {id:32,c:'fadedpixel',kind:'random',thesis:'Hosting a Space tonight on how I size memecoin calls. Bring your worst entries, we’re reviewing them live 😂',ago:'5h',likes:87,reposts:21,replies:31,views:7400},
  {id:33,c:'quietmoney',kind:'random',thesis:'Week 3 of journaling every trade. Biggest lesson so far: I exit winners too early and hold losers too long. Fixing it one call at a time.',ago:'2d',likes:43,reposts:3,replies:8,views:2900}
 ];
+/* Official Callit post, pinned to the top of For you so newcomers see how it works. */
+const BOTPOST={id:'welcome',c:'callit',kind:'random',pinned:true,thesis:'Welcome to Callit 👋 Here\'s how it works. 1) Find a token in Market, or paste a contract address in Search. 2) Make a call: buy in with your own wallet and your entry is stamped at the live market cap. 3) Every call is tracked in public: win rate, returns and sells. Bought-in callers earn a share of fees when people trade from their calls. Call it. Get Paid.',ago:'1d',likes:0,reposts:0,replies:0,views:0};
+const pinnedPost=()=>`<div class="pinwrap"><div class="pinlab">${ic('pin',13)} Pinned</div>${postRandom(BOTPOST)}</div>`;
 const ADS=[
  {id:'vault',brand:'Vaultline',h:'vaultline',ic:'wallet',text:'Keep your bags cold. The pocket hardware wallet that signs Solana transactions in one tap.',title:'Vaultline Wallet',sub:'★★★★★ 2,140 reviews',cta:'Shop',g:['#1F7AE0','#0B1B27']},
  {id:'solstice',brand:'Solstice Card',h:'solsticecard',ic:'swap',text:'Spend USDC anywhere cards work. No top-ups, no waiting, 2% back in SOL.',title:'Spend crypto like cash',sub:'Solana · Visa debit',cta:'Get the card',g:['#0B9366','#0B1B27']},
@@ -231,6 +243,7 @@ async function upMedia(list,kind='post'){const out=[];for(const u of list||[]){i
 function liveAgo(o,at){if(!at)return o;o.at=at;Object.defineProperty(o,'ago',{configurable:true,enumerable:true,get(){const m=(Date.now()-o.at)/6e4;return m<1?'now':m<60?Math.round(m)+'m':m<1440?Math.round(m/60)+'h':Math.round(m/1440)+'d'}});return o}
 /* Display names seen on posts/replies, so every feed shows "Name @handle" without a profile fetch each. */
 const DN={};
+AVURL.callit=AVURL.callit||'/icon-192.png';DN.callit=DN.callit||'Callit';
 function nameOf(h){return h===S.me?(PROF.name||h):(PUB[h]&&!PUB[h].pending&&PUB[h].display_name)||DN[h]||h}
 /* X-style author line: bold display name, verified badge, muted @handle. Tapping it opens the profile. */
 function who(h){const n=nameOf(h);return `<a class="pwho" href="#/profile/${esc(h)}"><span class="pname">${esc(n)}</span>${vbadge(h)}${n!==h?`<span class="phandle">@${esc(h)}</span>`:''}</a>`}
@@ -556,8 +569,28 @@ function realTx(desc,run,done){const el=$('#txt');let sig='';
  clearTimeout(el._h);draw('wait','Preparing…');
  run(m=>draw('wait',m)).then(s=>{sig=s||'';draw('ok',sig?`Confirmed · ${sig.slice(0,4)}…${sig.slice(-4)}`:'Done');el._h=setTimeout(()=>el.classList.remove('show'),9000);done&&done(true);loadBalances();setTimeout(loadBalances,5000)})
   .catch(e=>{const m=String(e&&e.message||e);draw('bad',/reject|denied|cancel|declin|closed/i.test(m)?'You cancelled it. Nothing was sent.':m.slice(0,160));done&&done(false)})}
+/* Swap settings, saved on this device. Speed = priority fee cap; front-running protection = Jito tip. */
+const SPEED={auto:0,fast:1e5,turbo:1e6,ultra:5e6};
+const SWS=(()=>{const d={slip:0,speed:'auto',mev:false,tip:'0.001'};try{return {...d,...JSON.parse(localStorage.getItem('callit.swapset')||'{}')}}catch(_){return d}})();if(SWS.slip)S.slip=SWS.slip;
+const saveSWS=()=>{try{localStorage.setItem('callit.swapset',JSON.stringify(SWS))}catch(_){}};
+const swFees=()=>({priorityFeeLamports:SPEED[SWS.speed]||undefined,jitoTipLamports:SWS.mev?Math.round(Math.min(.1,Math.max(0,+SWS.tip||0))*1e9)||undefined:undefined});
+const swSummary=()=>[S.slip?S.slip+'%':'Auto',SWS.speed!=='auto'?SWS.speed[0].toUpperCase()+SWS.speed.slice(1):'',SWS.mev?'Protected':''].filter(Boolean).join(' · ');
+function swapSettings(){const P0=[0,.5,1,3],st={slip:S.slip||0,speed:SWS.speed,mev:SWS.mev};
+ const seg=(k,items,cur)=>`<div class="seg wide sset" data-k="${k}" role="radiogroup">${items.map(([v,l])=>`<button type="button" role="radio" aria-checked="${cur===v}" class="${cur===v?'on':''}" data-v="${v}">${l}</button>`).join('')}</div>`;
+ modal('Swap settings','',`<div class="ssec"><b>Max slippage</b>${seg('slip',P0.map(v=>[String(v),v?v+'%':'Auto']),String(st.slip))}
+  <label class="solin ssin"><input id="sslip" class="num" inputmode="decimal" placeholder="Custom" value="${P0.includes(st.slip)?'':st.slip}" aria-label="Custom slippage"><span class="muted">%</span></label>
+  <p class="hint">How far the price can move before your swap cancels. Auto lets Jupiter set it from live conditions.</p></div>
+ <div class="ssec"><b>Speed</b>${seg('speed',[['auto','Auto'],['fast','Fast'],['turbo','Turbo'],['ultra','Ultra']],st.speed)}<p class="hint">Faster adds a priority fee (up to 0.0001, 0.001 or 0.005 SOL) so swaps land when Solana is busy.</p></div>
+ <div class="ssec"><b>Front-running protection</b>${seg('mev',[['1','On'],['0','Off']],st.mev?'1':'0')}<p class="hint">Sends your swap through Jito with a tip so bots can't jump ahead of your buy.</p>
+  <label class="solin ssin"><span class="hint">Tip</span><input id="stip" class="num" inputmode="decimal" value="${esc(SWS.tip)}" ${st.mev?'':'disabled'} aria-label="Tip amount in SOL"><span class="muted">SOL</span></label></div>
+ <div class="err" id="sserr"></div><button class="btn primary block" id="ssave">Save settings</button>`,
+ m=>{m.querySelectorAll('.sset').forEach(g=>g.onclick=e=>{const b=e.target.closest('[data-v]');if(!b)return;g.querySelectorAll('button').forEach(x=>{x.classList.toggle('on',x===b);x.setAttribute('aria-checked',x===b)});const k=g.dataset.k,v=b.dataset.v;
+   if(k==='slip'){st.slip=+v;$('#sslip',m).value=''}else if(k==='speed')st.speed=v;else{st.mev=v==='1';$('#stip',m).disabled=!st.mev}});
+  $('#sslip',m).oninput=e=>{const v=parseFloat(e.target.value);if(v>0){st.slip=v;m.querySelectorAll('[data-k="slip"] button').forEach(x=>x.classList.remove('on'))}};
+  $('#ssave',m).onclick=()=>{const tip=parseFloat($('#stip',m).value),er=$('#sserr',m);if(!(st.slip>=0&&st.slip<=50)){er.textContent='Slippage can be at most 50%.';return}if(st.mev&&!(tip>=1e-4&&tip<=.1)){er.textContent='Tip must be between 0.0001 and 0.1 SOL.';return}
+   S.slip=st.slip;Object.assign(SWS,{slip:st.slip,speed:st.speed,mev:st.mev,tip:st.mev?String(tip):SWS.tip});saveSWS();closeModal();renderSwaps();toast('Swap settings saved')}})}
 function realSwap(from,to,amt,desc,done,opt={}){let base;try{base=baseOf(from,amt)}catch(e){toast(e.message);done&&done(false);return}
- realTx(desc,step=>jupSwap({inputMint:mintOf(from),outputMint:mintOf(to),amount:base,taker:S.addr,slippageBps:S.slip?Math.round(S.slip*100):undefined},step).then(r=>{
+ realTx(desc,step=>jupSwap({inputMint:mintOf(from),outputMint:mintOf(to),amount:base,taker:S.addr,slippageBps:S.slip?Math.round(S.slip*100):undefined,...swFees()},step).then(r=>{
   const od=decOf(to),got=r.outAmount&&od!=null?Number(r.outAmount)/10**od:null;
   const kind=from==='SOL'?'buy':to==='SOL'?'sell':'swap',pf=T[from]&&T[from].price;
   logTx({k:{buy:'Bought',sell:'Sold',swap:'Swapped'}[kind],kind,label:`${fmtAmt(amt)} ${symOf(from)} → ${got!=null?fmtAmt(got)+' ':''}${symOf(to)}`,signature:r.signature,in_mint:mintOf(from),in_amount:amt,out_mint:mintOf(to),out_amount:got,usd_value:pf?amt*pf:null,call_ref:opt.callRef!=null?String(opt.callRef):null});return r.signature}),done)}
@@ -623,9 +656,10 @@ function swapHTML(tok){const w=S.swap,side=tok?(w.from===tok?'sell':'buy'):null,
  if(!S.connected)label='Connect wallet';else if(side==='sell'&&!held){label=`You don't hold $${symOf(tok)}`;dis=true}else if(!a){label='Enter an amount';dis=true}else if(a>(S.bal[w.from]||0)){label=`Not enough ${symOf(w.from)}`;dis=true}else if(side)label=`${side==='sell'?'Sell':'Buy'} $${symOf(tok)}`;
  const tabs=tok?`<div class="bstabs" role="tablist" aria-label="Buy or sell"><button role="tab" aria-selected="${side==='buy'}" class="${side==='buy'?'on buy':''}" data-act="tside" data-f="buy" data-t="${tok}">Buy</button><button role="tab" aria-selected="${side==='sell'}" class="${side==='sell'?'on sell':''}" data-act="tside" data-f="sell" data-t="${tok}">Sell${held?` <span class="num">${fmtAmt(held)}</span>`:''}</button></div>`:'';
  const quick=S.connected&&(S.bal[w.from]||0)>0?(side==='sell'?[['.25','25%'],['.5','50%'],['.75','75%'],['1','Max']]:[['.5','Half'],['1','Max']]).map(([f,l])=>`<button class="mx" data-act="swmax" data-f="${f}">${l}</button>`).join(''):'';
- return `${tabs}<div class="swap${side?' side-'+side:''}"><div class="box"><div class="row"><span class="hint">${side==='sell'?'You sell':'You pay'}</span><span class="balx"><span class="hint num">Balance ${fmtAmt(S.bal[w.from]||0)}</span>${quick}</span></div>
-  <div class="row"><input class="amt num" inputmode="decimal" placeholder="0" value="${esc(w.amt)}" data-swap="amt" aria-label="Amount to pay">${tbtn('from',w.from)}</div>
-  <div class="hint num">${a?fmtUsd(usd(w.from,a)):'$0'}</div></div>
+ if(S.swUsd&&w.amt!==w._ua){w.usdTxt=w.amt&&f.price?String(+(+w.amt*f.price).toFixed(2)):'';w._ua=w.amt}
+ return `${tabs}<div class="swap${side?' side-'+side:''}"><div class="swhead"><span class="hint">${tok?'':'Swap'}</span><button type="button" class="swset" data-act="swapset" aria-label="Swap settings">${ic('cog',16)}<span>${swSummary()}</span></button></div><div class="box"><div class="row"><span class="hint">${side==='sell'?'You sell':'You pay'}</span><span class="balx"><span class="hint num">Balance ${fmtAmt(S.bal[w.from]||0)}</span>${quick}</span></div>
+  <div class="row">${S.swUsd?'<span class="usdpre num">$</span>':''}<input class="amt num" inputmode="decimal" placeholder="0" value="${esc(S.swUsd?(w.usdTxt||''):w.amt)}" data-swap="amt" aria-label="Amount to pay in ${S.swUsd?'USD':esc(f.sym)}">${tbtn('from',w.from)}</div>
+  <div class="hint num swalt"><span>${S.swUsd?`≈ ${a?fmtAmt(a):'0'} ${esc(f.sym)}`:(a?fmtUsd(usd(w.from,a)):'$0')}</span><button type="button" class="unitsw" data-act="swunit" title="Type the amount in ${S.swUsd?esc(f.sym):'USD'}" aria-label="Switch amount to ${S.swUsd?esc(f.sym):'USD'}">${ic('swap',12)}<span>${S.swUsd?esc(f.sym):'USD'}</span></button></div></div>
   <button class="flip" data-act="flip" aria-label="Flip tokens">${ic('swap',16)}</button>
   <div class="box"><div class="row"><span class="hint">You get</span><span class="hint num">Balance ${fmtAmt(S.bal[w.to]||0)}</span></div>
   <div class="row"><div class="amt num">${out?fmtAmt(out):'0'}</div>${tbtn('to',w.to)}</div></div>
@@ -656,7 +690,8 @@ function vHome(){let list=calls.filter(k=>visible(k)&&catOf(k)===S.cat),empty=ca
  if(S.tab==='watchlist')return homeTabs()+vWatch();
  return `${homeTabs()}
  <div class="newpill" id="newpill">${S.queued.length&&S.tab==='foryou'?newPill():''}</div>
- ${S.tab==='foryou'&&S.cat==='meme'?topCalls():''}
+ ${S.tab==='foryou'&&S.cat==='meme'?topTrades():''}
+ ${S.tab==='foryou'?pinnedPost():''}
  <div id="feed">${(S.tab==='foryou'?withAds(list):list.map(post).join(''))||empty}</div>`}
 /* Watchlist: just the token, price, volume and market cap, with Buy / Sell that open the real trade sheet. */
 let WLOAD=0;
@@ -693,6 +728,9 @@ function trenchStats(t){if(t.live){const L=t.L||{},a=L.audit||{},bs=(L.buys24||0
  const r=rng(t.seed*97);const pct=(a,b)=>Math.round(a+r()*(b-a));
  if(!t._x)t._x={top:pct(0,t.ageH<1?9:3),dev:t.ageH<1?pct(8,38):pct(0,2),snip:pct(0,t.ageH<1?4:1),ins:pct(0,26),fees:(t.vol/1e6)*(20+r()*40),tx:Math.round(t.vol/(60+r()*40)),buys:.45+r()*.3};return t._x}
 /* ---------- trenches: feeds, filters, display ---------- */
+const LPDOM={Pump:'pump.fun',Bonk:'bonk.fun',Believe:'believe.app',Moonshot:'moonshot.com',Launchlab:'raydium.io',Bags:'bags.fm','Jup Studio':'jup.ag',Meteora:'meteora.ag',Boop:'boop.fun'};
+/* Little badge on each token: the launchpad it came from (pump.fun, Bonk, Meteora...), Solana otherwise. */
+const lpBadge=t=>{const L=lpOf(t),d=L&&LPDOM[L];return d?`<i class="chainb lpb" title="Launched on ${esc(L)}"><b>${esc(L[0])}</b><img src="https://www.google.com/s2/favicons?domain=${d}&sz=64" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()"></i>`:`<i class="chainb">${ic('solglyph',11)}</i>`};
 const LPS=[['Pump','#4ADE80'],['Bonk','#F59E0B'],['Believe','#22C55E'],['Moonshot','#C084FC'],['Launchlab','#38BDF8'],['Bags','#10B981'],['Jup Studio','#FB923C']];
 const CHAINS=[['Solana','#9d7bff',1],['Base','#3B82F6',0],['BSC','#F0B90B',0],['Ethereum','#8EA2FF',0],['Arbitrum','#60A5FA',0]];
 const FEEDS={movers:['Movers','Biggest price momentum right now'],new:['New','Fresh launches, newest first'],called:['Called','Tokens our callers are on, most calls first','Only on Callit'],
@@ -714,7 +752,7 @@ const filOf=k=>({...defFil(),...(TS.fil[k]||{})});
 const parseAmt=v=>{v=String(v||'').trim().toUpperCase().replace(/[$,\s]/g,'');if(!v)return null;const n=parseFloat(v);if(isNaN(n))return null;return n*(v.endsWith('B')?1e9:v.endsWith('M')?1e6:v.endsWith('K')?1e3:1)};
 const words=v=>String(v||'').toLowerCase().split(',').map(w=>w.trim()).filter(Boolean);
 function match(t,f){const x=trenchStats(t),m=mcap(t),b=bond(t),nm=(t.name+' '+t.sym).toLowerCase(),n=parseAmt,cs=callsOn(t);
- if(!f.chains.includes(t.chain)||(lpOf(t)&&!f.lps.includes(lpOf(t))))return false;
+ if(!f.chains.includes(t.chain)||(lpOf(t)&&LPS.some(l=>l[0]===lpOf(t))&&!f.lps.includes(lpOf(t))))return false;
  const inc=words(f.inc),exc=words(f.exc);if(inc.length&&!inc.some(w=>nm.includes(w)))return false;if(exc.some(w=>nm.includes(w)))return false;
  if(f.bmin!==''&&b<+f.bmin)return false;if(f.bmax!==''&&b>+f.bmax)return false;
  if(n(f.mcMin)!=null&&m<n(f.mcMin))return false;if(n(f.mcMax)!=null&&m>n(f.mcMax))return false;
@@ -750,7 +788,7 @@ function heat(t){const cs=callsOn(t);if(!cs.length)return '';const who=[...new S
  return `<span class="heat" title="${who.length} caller${who.length>1?'s':''} on this">${who.slice(0,3).map(h=>avatar(h)).join('')}<b>${cs.length} call${cs.length>1?'s':''}</b></span>`}
 function trow(t){const x=trenchStats(t),m=mcap(t),y=t.ageH<1,red=(v,lim)=>v==null?'muted':v>lim?'down':'up',pv=v=>v==null?'—':v+'%',D=TS.disp,b=bond(t),tf=S.rowTf||'1h',cv=chgOf(t,tf),fl=t._pm&&t._pm!==m?(m>t._pm?' fl-up':' fl-dn'):'';t._pm=m;
  const soc=(t.soc||'').split('').map(c=>({x:ic('xlogo',15),w:ic('globe',15),c:ic('people',15)})[c]).join('');
- return `<a class="trow${D.compact?' compact':''}${D.pro?'':' lite'}" href="#/token/${t.key}"><span class="tav ${t.chg>=0?'ok':'bad'}" style="--b:${b.toFixed(0)}%">${tokav(t.key)}<i class="chainb">${ic('solglyph',11)}</i></span>
+ return `<a class="trow${D.compact?' compact':''}${D.pro?'':' lite'}" href="#/token/${t.key}"><span class="tav ${t.chg>=0?'ok':'bad'}" style="--b:${b.toFixed(0)}%">${tokav(t.key)}${lpBadge(t)}</span>
  <div class="tmid"><div class="tname"><b>${esc(t.name)}</b>${t.hot?'<span class="hot">HOT</span>':''}<button class="wstar${S.watch.has(t.key)?' on':''}" data-act="track" data-t="${esc(t.key)}" aria-pressed="${S.watch.has(t.key)}" aria-label="${S.watch.has(t.key)?'Remove from':'Add to'} watchlist" title="Watchlist">${ic('star',15,S.watch.has(t.key))}</button></div>
  <div class="tsub"><span>${esc(t.sym)}</span><span class="${y?'my':'up'}">${ic('sprout',13)}${ageStr(t.ageH)}</span><span class="soc">${soc}</span></div>${D.heat?heat(t):''}</div>
  ${D.pro?`<div class="tst num"><span class="up" title="Holders">${ic('profile',13)}${fmtK(t.holders)}</span><span class="${red(x.top,10)}" title="Top 10 holders">${ic('target',13)}${pv(x.top)}</span><span class="${red(x.dev,10)}" title="Dev holding">${ic('stake',13)}${pv(x.dev)}</span>${x.snip==null?'':`<span class="${red(x.snip,5)}" title="Snipers">${ic('sniper',13)}${pv(x.snip)}</span>`}${x.ins==null?'':`<span class="${red(x.ins,15)}" title="Insiders">${ic('crown',13)}${pv(x.ins)}</span>`}<em class="tchg ${pcls(cv)}" title="Price change, ${tf}">${pctS(cv)}<small>${tf}</small></em></div>`:''}
@@ -843,6 +881,9 @@ function liveStats(t){const L=t.L||{},c=L.chg||{},bs=(L.buys24||0)+(L.sells24||0
  return `<div class="stats num"><div><span>Market cap</span><b>${fmtSmall(mcap(t))}</b></div><div><span>Price</span><b>${fmtSmall(t.price)}</b></div><div><span>Liquidity</span><b>${t.liq?fmtSmall(t.liq):'—'}</b></div><div><span>24h volume</span><b>${t.vol?fmtSmall(t.vol):'—'}</b></div><div><span>Holders</span><b>${t.holders?t.holders.toLocaleString():'—'}</b></div><div><span>Age</span><b>${esc(t.age)}</b></div></div>
  <div class="lchg num">${[['5m',c.m5],['1h',c.h1],['6h',c.h6],['24h',c.h24]].map(([k,v])=>`<span><i>${k}</i><b class="${pcls(v)}">${pctS(v)}</b></span>`).join('')}</div>
  ${bs?`<div class="lbs num"><b class="up">${fmtK(L.buys24||0)} buys</b><div class="bs"><i style="flex:${L.buys24||0}"></i><i style="flex:${L.sells24||0}"></i></div><b class="down">${fmtK(L.sells24||0)} sells</b>${L.traders24?`<span class="muted">· ${fmtK(L.traders24)} traders</span>`:''}</div>`:''}`}
+/* Token-2022 transfer tax (from on-chain mint extensions) and the launchpad it came from. */
+const taxRows=t=>{const x=t.L&&t.L.tax,row=(label,ok,val)=>`<div class="sf ${ok==null?'unk':ok?'ok':'bad'}"><span class="sfi">${ok==null?'?':ok?ic('check',14):'!'}</span><span class="grow">${label}</span><b>${val}</b></div>`;
+ return row('Token tax',x?!(x.bps>0):null,x?(x.bps>0?`${+(x.bps/100).toFixed(2)}% per transfer`:'None'):'Unknown')+(t.lp?row('Launchpad',true,esc(t.lp)):'')};
 function liveSafety(t){const a=(t.L&&t.L.audit)||{},L=t.L||{};
  const row=(label,ok,val)=>`<div class="sf ${ok==null?'unk':ok?'ok':'bad'}"><span class="sfi">${ok==null?'?':ok?ic('check',14):'!'}</span><span class="grow">${label}</span><b>${val}</b></div>`;
  return `${a.sus?`<div class="sfwarn">${ic('bell',16)} Jupiter flags this token as suspicious. Be very careful.</div>`:''}
@@ -871,7 +912,7 @@ function vLiveToken(t){const key=t.key,tr=S.watch.has(key),on=calls.filter(k=>k.
  <div class="lchart" id="lchart" data-mint="${key}"><div class="lchart-msg" id="lchartmsg">${t.pool?'Loading chart…':'No trading pool for a chart yet.'}</div></div>
  <div id="lstats">${liveStats(t)}</div>
  <div class="llinks">${liveLinks(t)}</div>
- ${(sc=>`<details class="card sfcard" data-sf ${(SFOPEN==null?sc.bad:SFOPEN)?'open':''}><summary><h3>Safety check</h3><span class="sfbadge ${!sc.n?'unk':sc.bad?(sc.ok>=sc.n-1&&!(t.L&&t.L.audit&&t.L.audit.sus)?'warn':'bad'):'ok'}">${sc.n?`${sc.ok}/${sc.n} passed`:'No data'}</span><span class="sfchev" aria-hidden="true">${ic('down',18)}</span></summary><div class="sflist">${liveSafety(t)}</div><p class="hint" style="margin:10px 0 0">From Jupiter's token audit. Not a guarantee. Always size your bets.</p></details>`)(sfScore(t))}
+ ${(sc=>`<details class="card sfcard" data-sf ${(SFOPEN==null?sc.bad:SFOPEN)?'open':''}><summary><h3>Safety check</h3><span class="sfbadge ${!sc.n?'unk':sc.bad?(sc.ok>=sc.n-1&&!(t.L&&t.L.audit&&t.L.audit.sus)?'warn':'bad'):'ok'}">${sc.n?`${sc.ok}/${sc.n} passed`:'No data'}</span><span class="sfchev" aria-hidden="true">${ic('down',18)}</span></summary><div class="sflist">${liveSafety(t)}${taxRows(t)}</div><p class="hint" style="margin:10px 0 0">From Jupiter's token audit. Not a guarantee. Always size your bets.</p></details>`)(sfScore(t))}
  <div class="card"><h3>Trade $${esc(t.sym)}</h3><div data-swapbox data-tok="${key}"></div></div>
  <div style="display:flex;justify-content:space-between;align-items:center;margin:22px 0 4px"><b class="h2">Calls on $${esc(t.sym)}</b><button class="btn sm primary" data-act="newcall" data-t="${key}">Call it</button></div></div>
  <div id="feed" style="border-top:1px solid var(--line);margin-top:10px">${on.map(post).join('')||'<div class="empty"><b>No calls yet</b><p>Call it first and your entry gets stamped at the live market cap.</p></div>'}</div>`}
@@ -892,7 +933,7 @@ function vToken(sym){const t=T[sym];if(!t)return isMintStr(sym)?(loadLiveToken(s
  <div style="display:flex;justify-content:space-between;align-items:center;margin:22px 0 4px"><b class="h2">Calls on $${t.sym}</b><button class="btn sm primary" data-act="newcall" data-t="${sym}">Call it</button></div></div>
  <div id="feed" style="border-top:1px solid var(--line);margin-top:10px">${on.map(post).join('')||'<div class="empty"><b>No calls yet</b><p>Call it first and your entry gets stamped at today’s market cap.</p></div>'}</div>`}
 
-function vLeaders(){return `<div class="pad" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><span class="muted">Ranked by win rate. Minimum 10 calls. Sponsored calls don't count.</span>
+function vLeaders(){return topCalls()+`<div class="pad" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><span class="muted">Ranked by win rate. Minimum 10 calls. Sponsored calls don't count.</span>
  <div class="seg">${['7d','30d','All time'].map(x=>`<button class="${S.lb===x?'on':''}" data-act="lb" data-f="${x}">${x}</button>`).join('')}</div></div>
  <div class="tablewrap" style="border-top:1px solid var(--line)"><table><thead><tr><th>Rank</th><th>Caller</th><th>Win rate</th><th>Avg return</th><th>Calls</th><th>Best call</th><th></th></tr></thead><tbody>
  ${ranked().map((c,i)=>`<tr data-go="#/profile/${c.h}"><td class="rkc">${i+1}</td><td><div class="person">${avatar(c.h)}${c.h}</div></td><td class="num">${c.win}%</td><td class="num up">${fmtPct(c.avg)}</td><td class="num">${c.calls}</td><td class="num up">${fmtPct(c.best)}</td>
@@ -1077,8 +1118,11 @@ function callModal(pre,draft){if(!S.connected)return connectModal(()=>callModal(
   const check=()=>{$('#cn',m).textContent=tx.value.length+' / 280';post.textContent=(tok?buyOn():!skip)?`Buy ${parseFloat(sol)||0} SOL & post call`:'Post call';post.disabled=!(tok&&!tok.prelaunch&&tx.value.trim().length>=10&&(!buyOn()||parseFloat(sol)>0))};
   const find=()=>{const raw=inp.value.trim().replace(/^\$/,''),v=raw.toUpperCase();tok=Object.values(T).find(t=>!t.base&&(t.ca.toUpperCase()===v))||Object.values(T).filter(t=>!t.base&&String(t.sym).toUpperCase()===v).sort((a,b)=>(b.vol||0)-(a.vol||0))[0]||null;
    if(!tok&&isMintStr(raw)&&!CAQ[raw]){CAQ[raw]=1;fetchToken(raw).then(x=>{if(x){regLive(x);if(inp.value.trim().replace(/^\$/,'')===raw)find()}}).catch(()=>{})}
-   $('#cprev',m).innerHTML=tok?`<div class="preview">${tokav(tok.key)}<div style="flex:1"><b>${esc(tok.name)} $${tok.sym}</b> <span class="chain">${tok.chain}</span><div class="hint num">${tok.prelaunch?'Launches '+esc(tok.prelaunch)+'. Calls open at launch.':'Entry would be '+fmtUsd(mcap(tok))+' MC'}</div></div></div>`:(v?`<p class="hint" style="margin-top:-6px">${isMintStr(v.length>30?inp.value.trim():'')?'Looking up this contract address…':'No token found. Paste the contract address, or pick one from Search or the Market.'}</p>`:'');drawBuy();check()};
-  inp.addEventListener('input',find);tx.addEventListener('input',check);find();
+   $('#cprev',m).innerHTML=tok?`<div class="preview">${tokav(tok.key)}<div style="flex:1"><b>${esc(tok.name)} $${tok.sym}</b> <span class="chain">${tok.chain}</span><div class="hint num">${tok.prelaunch?'Launches '+esc(tok.prelaunch)+'. Calls open at launch.':'Entry would be <b id="cent" class="num">'+fmtUsd(mcap(tok))+'</b> MC <span class="livedot" title="Updates live"></span>'}</div></div></div>`:(v?`<p class="hint" style="margin-top:-6px">${isMintStr(v.length>30?inp.value.trim():'')?'Looking up this contract address…':'No token found. Paste the contract address, or pick one from Search or the Market.'}</p>`:'');drawBuy();check()};
+  let CTB=0;const refreshTok=()=>{if(CTB||!tok||!tok.live||!isMintStr(tok.key)||!m.isConnected)return;CTB=1;const k=tok.key;
+   fetchToken(k).then(x=>{if(!x||!m.isConnected||!tok||tok.key!==k)return;const prev=mcap(tok);regLive(x);const e=$('#cent',m);if(e)flashSet(e,fmtUsd(mcap(tok)),Math.sign(mcap(tok)-prev))}).catch(()=>{}).finally(()=>{CTB=0})};
+  const CTK=setInterval(()=>{if(!m.isConnected)return clearInterval(CTK);if(!document.hidden)refreshTok()},2500);
+  inp.addEventListener('input',()=>{find();refreshTok()});tx.addEventListener('input',check);find();refreshTok();
   post.addEventListener('click',()=>{const g=$('#cg',m).value.trim().toUpperCase(),n=parseFloat(g)*(g.endsWith('B')?1e9:g.endsWith('M')?1e6:g.endsWith('K')?1e3:1);
    if(g&&!(n>mcap(tok))){$('#cerr',m).textContent='Target must be above the current market cap of '+fmtUsd(mcap(tok))+'.';return}
    let buy=0;if(buyOn()){const a=parseFloat(sol);if(a>S.bal.SOL){$('#cerr',m).textContent=`You only have ${fmtAmt(S.bal.SOL)} SOL. Lower the amount or deposit more.`;return}
@@ -1115,7 +1159,7 @@ function searchModal(){S.stf=TF_OK.includes(S.stf)?S.stf:'1h';S.sk=S.sk==='calle
   const loadTrend=force=>{const id='movers:'+S.stf;if(LIVE.busy[id]||(!force&&LIVE.feeds[id]))return;LIVE.busy[id]=1;
    fetchFeed('movers',S.stf).then(l=>{LIVE.feeds[id]=l.map(regLive).filter(Boolean).map(t=>t.key);LIVE.err[id]=0;LIVE.at[id]=Date.now()}).catch(()=>{LIVE.err[id]=1}).finally(()=>{LIVE.busy[id]=0;if(box.isConnected&&!qv()&&S.sk==='tokens')draw()})};
   const trending=()=>{const id='movers:'+S.stf,ks=LIVE.feeds[id];
-   const seg=`<div class="shead"><span class="tsec" style="margin:0">Trending now</span><div class="seg tfseg" role="tablist" aria-label="Timeframe">${TF_OK.map(x=>`<button type="button" role="tab" aria-selected="${S.stf===x}" class="${S.stf===x?'on':''}" data-stf="${x}">${x}</button>`).join('')}</div></div>`;
+   const seg=`<div class="shead"><span class="tsec" style="margin:0">Trending now</span><div class="seg tfseg" role="tablist" aria-label="Timeframe">${TF_OK.filter(x=>x!=='1m').map(x=>`<button type="button" role="tab" aria-selected="${S.stf===x}" class="${S.stf===x?'on':''}" data-stf="${x}">${x}</button>`).join('')}</div></div>`;
    if(!ks){loadTrend();return seg+(LIVE.err[id]?`<p class="hint" style="padding:8px 4px">Live tokens didn't load. <button class="lnk" data-sretry>Try again</button></p>`:Array.from({length:6},()=>`<div class="li sskel" aria-hidden="true"><span class="tokav"></span><div class="grow"><i></i><i></i></div></div>`).join(''))}
    const list=ks.map(k=>T[k]).filter(t=>t&&t.price&&!NOT_MEME.has(String(t.sym).toUpperCase())).sort(byChg(S.stf)).slice(0,10);
    return seg+(list.map(t=>trow2(t,S.stf)).join('')||'<p class="hint" style="padding:8px 4px">Nothing trending in this window yet.</p>')};
@@ -1149,8 +1193,8 @@ function searchModal(){S.stf=TF_OK.includes(S.stf)?S.stf:'1h';S.sk=S.sk==='calle
   clearInterval(STR);STR=setInterval(()=>{if(!box.isConnected)return clearInterval(STR);if(!document.hidden&&!qv()&&S.sk==='tokens')loadTrend(true)},10000);
   draw();setTimeout(()=>inp.focus(),40)})}
 const NOTIFS=[
- {id:1,k:'calls',h:'fadedpixel',t:'posted a new call on $GLORP',go:'#/post/1',m:12,unread:1},
- {id:2,k:'earn',h:'quietmoney',t:'bought $GLORP from a call you follow',go:'#/post/1',m:35,unread:1},
+ {id:1,k:'calls',h:'quietmoney',t:'posted a new call on $GLORP',go:'#/post/6',m:12,unread:1},
+ {id:2,k:'earn',h:'quietmoney',t:'bought $GLORP from a call you follow',go:'#/post/6',m:35,unread:1},
  {id:3,k:'calls',h:'minnie_sol',t:'called $DOTB. It\'s up +113% since',go:'#/token/DOTB',m:70,unread:1},
  {id:4,k:'mentions',h:'lagosape',t:'mentioned you: "who else is watching KFSH?"',go:'#/token/KFSH',m:130},
  {id:5,k:'alerts',sym:'NIMB',t:'$NIMB is up 64% in 24h. It\'s on your watchlist',go:'#/token/NIMB',m:180},
@@ -1315,7 +1359,7 @@ function vMarket(){const t=S.mt||'trenches',M=[['trenches','Trenches','flame'],[
  if(0)return bar+soonCard('Perps are coming','Long or short the tokens you call, with leverage and your caller track record on the line. Built on Solana perp venues.',['Long and short from any call','Position shows on your call card','Same fee share for bought-in callers']);
  if(t==='predict')return bar+locked(mockPredict(),'predict','Predictions are coming','Back your read on outcomes: will it hit the target, will it graduate, who tops the Callerboard this week.',['Markets on live calls','Settle on-chain','Callers can seed their own markets']);
  if(0)return bar+soonCard('Predictions are coming','Back your read on outcomes: will it hit the target, will it graduate, who tops the Callerboard this week.',['Markets on live calls','Settle on-chain','Callers can seed their own markets']);
- return bar+topTrades()+`<div class="inmkt">${vTrenches()}</div>`}
+ return bar+`<div class="inmkt">${vTrenches()}</div>`}
 /* Coming soon: a real preview of the feature fades out under a lock. Nothing in the preview is clickable. */
 const SOONF={perps:'Perps',predict:'Predictions',stake:'$CALLIT staking'};
 function notifyBtn(f){const on=S.notifyOn&&S.notifyOn[f];return `<button class="btn ${on?'ghost':'primary'}" data-act="notify" data-f="${f}">${ic(on?'check':'bell',16)} ${on?'You\'re on the list':'Notify me at launch'}</button>`}
@@ -1332,32 +1376,70 @@ function soonCard(h,p,items){return `<div class="soonx"><div class="sxmark"><spa
 
 /* ---------- attachments ---------- */
 const EMOJI=['🚀','🔥','💎','🙌','📈','📉','🐸','🐳','👀','🤝','💰','⚡','🎯','🧠','😂','🥲','😤','🫡','✅','❌','🟢','🔴','🌕','🐂'];
-function mediaGrid(m,edit){if(!m||!m.length)return '';return `<div class="media n${Math.min(m.length,4)}">${m.map((u,i)=>`<div class="mcell"><img src="${u}" alt="Attached image ${i+1}" loading="lazy">${/^data:image\/gif/.test(u)?'<span class="gifb">GIF</span>':''}${edit?`<button type="button" class="mrm" data-rmm="${i}" aria-label="Remove image ${i+1}">${ic('x',14)}</button>`:''}</div>`).join('')}</div>`}
+function mediaGrid(m,edit){if(!m||!m.length)return '';return `<div class="media n${Math.min(m.length,4)}">${m.map((u,i)=>`<div class="mcell"><img src="${u}" alt="Attached image ${i+1}" loading="lazy">${/^data:image\/gif|\.gif(\?|$)|tenor\.com|giphy\.com/.test(u)?'<span class="gifb">GIF</span>':''}${edit?`<button type="button" class="mrm" data-rmm="${i}" aria-label="Remove image ${i+1}">${ic('x',14)}</button>`:''}</div>`).join('')}</div>`}
 function attachBar(){return `<div class="attbar"><label class="att" title="Photos" aria-label="Add photos">${ic('image',19)}<input type="file" accept="image/png,image/jpeg,image/webp" multiple data-att="img" hidden></label>
- <label class="att" title="GIF" aria-label="Add a GIF"><span class="gift">GIF</span><input type="file" accept="image/gif" data-att="gif" hidden></label>
+ <button type="button" class="att" data-att="gifs" title="GIF" aria-label="Add a GIF"><span class="gift">GIF</span></button><input type="file" accept="image/gif" data-att="gif" hidden>
  <button type="button" class="att" data-att="emoji" title="Emoji" aria-label="Add emoji">${ic('smile',19)}</button><span class="attn hint" data-attn></span></div>`}
 function wireAttach(root,st,onChange){if(!root)return;const txt=root.querySelector('textarea,input.rin');
  const add=u=>{if(st.media.length>=4){toast('Up to 4 images per post');return}st.media.push(u);onChange()};
  root.querySelectorAll('[data-att="img"]').forEach(i=>i.onchange=()=>{[...i.files].slice(0,4-st.media.length).forEach(f=>shrink(f,1400,add));i.value=''});
- root.querySelectorAll('[data-att="gif"]').forEach(i=>i.onchange=()=>{const f=i.files[0];i.value='';if(!f)return;if(f.size>5e6){toast('GIFs up to 5 MB');return}const r=new FileReader();r.onload=()=>add(r.result);r.readAsDataURL(f)});
+ root.querySelectorAll('[data-att="gif"]').forEach(i=>i.onchange=()=>{const f=i.files[0];i.value='';if(!f)return;if(f.type!=='image/gif'){shrink(f,1400,add);return}if(f.size>3e6){toast('GIFs can be up to 3 MB. Try a smaller one, or search GIFs instead');return}const r=new FileReader();r.onload=()=>add(r.result);r.readAsDataURL(f)});
+ root.querySelectorAll('[data-att="gifs"]').forEach(bt=>bt.onclick=e=>{e.stopPropagation();const old=root.querySelector('.gifp');if(old){old.remove();return}const em=root.querySelector('.emo');if(em)em.remove();
+  const pop=document.createElement('div');pop.className='gifp';pop.innerHTML=`<div class="tsearch">${ic('search',16)}<input placeholder="Search GIFs" autocomplete="off" enterkeyhint="search"></div><div class="gifg" aria-live="polite"></div><button type="button" class="lnk gifup">Upload a GIF from your device</button>`;bt.closest('.attbar').after(pop);
+  const g=pop.querySelector('.gifg'),q=pop.querySelector('input');let gt=0;
+  const load=()=>{const v=q.value.trim();g.innerHTML='<p class="hint">Loading GIFs…</p>';fetch('/api/gifs?q='+encodeURIComponent(v)).then(r=>r.json().then(j=>({ok:r.ok,j}))).then(({ok,j})=>{if(!pop.isConnected)return;
+   if(!ok||j.configured===false){g.innerHTML='<p class="hint">GIF search isn\'t switched on yet. Upload a GIF instead.</p>';return}
+   g.innerHTML=(j.gifs||[]).map(x=>`<button type="button" data-gif="${esc(x.url)}" aria-label="${esc(x.title||'GIF')}"><img src="${esc(x.preview)}" alt="" loading="lazy"></button>`).join('')||'<p class="hint">No GIFs match. Try another word.</p>'}).catch(()=>{if(pop.isConnected)g.innerHTML='<p class="hint">GIFs didn\'t load. Check your connection.</p>'})};
+  q.oninput=()=>{clearTimeout(gt);gt=setTimeout(load,300)};load();setTimeout(()=>q.focus(),30);
+  pop.onclick=ev=>{ev.stopPropagation();const x=ev.target.closest('[data-gif]');if(x){add(x.dataset.gif);pop.remove();return}if(ev.target.closest('.gifup')){root.querySelector('[data-att="gif"]').click();pop.remove()}}});
  root.querySelectorAll('[data-att="emoji"]').forEach(bt=>bt.onclick=e=>{e.stopPropagation();const old=root.querySelector('.emo');if(old){old.remove();return}
   const pop=document.createElement('div');pop.className='emo';pop.innerHTML=EMOJI.map(x=>`<button type="button">${x}</button>`).join('');bt.closest('.attbar').after(pop);
   pop.onclick=ev=>{const x=ev.target.closest('button');if(!x||!txt)return;const a=txt.selectionStart??txt.value.length,z=txt.selectionEnd??a;txt.value=txt.value.slice(0,a)+x.textContent+txt.value.slice(z);txt.focus();const c=a+x.textContent.length;txt.setSelectionRange(c,c);txt.dispatchEvent(new Event('input',{bubbles:true}))}});
  root.addEventListener('click',e=>{const x=e.target.closest('[data-rmm]');if(x){st.media.splice(+x.dataset.rmm,1);onChange()}})}
-document.addEventListener('click',e=>{const p=document.querySelector('.emo');if(p&&!e.target.closest('.emo,[data-att="emoji"]'))p.remove()});
+document.addEventListener('click',e=>{const p=document.querySelector('.emo');if(p&&!e.target.closest('.emo,[data-att="emoji"]'))p.remove();const g=document.querySelector('.gifp');if(g&&!e.target.closest('.gifp,[data-att="gifs"]'))g.remove()});
+/* Tap any post image to view it full screen. Swipe or use the arrows for the others in the same post. */
+function openViewer(list,at){let i=at;const ov=document.createElement('div');ov.className='lbox';ov.setAttribute('role','dialog');ov.setAttribute('aria-modal','true');ov.setAttribute('aria-label','Image viewer');
+ ov.innerHTML=`<button class="ib lbx" data-l="x" aria-label="Close">${ic('x',22)}</button>${list.length>1?`<button class="ib lbp" data-l="-1" aria-label="Previous image">${ic('back',22)}</button><button class="ib lbn" data-l="1" aria-label="Next image">${ic('back',22).replace('<svg','<svg style="transform:scaleX(-1)"')}</button><span class="lbc num"></span>`:''}<img alt="">`;
+ const im=ov.querySelector('img'),show=()=>{im.src=list[i];const c=ov.querySelector('.lbc');if(c)c.textContent=`${i+1} / ${list.length}`},go=d=>{i=(i+d+list.length)%list.length;show()};
+ const close=()=>{ov.remove();removeEventListener('keydown',key)},key=e=>{if(e.key==='Escape')close();else if(e.key==='ArrowRight')go(1);else if(e.key==='ArrowLeft')go(-1)};
+ ov.onclick=e=>{const b=e.target.closest('[data-l]');if(b){e.stopPropagation();b.dataset.l==='x'?close():go(+b.dataset.l);return}if(e.target!==im)close()};
+ let sx=null;ov.addEventListener('touchstart',e=>{if(e.touches.length===1)sx=e.touches[0].clientX},{passive:true});ov.addEventListener('touchend',e=>{if(sx==null||list.length<2)return;const dx=e.changedTouches[0].clientX-sx;sx=null;if(Math.abs(dx)>50)go(dx<0?1:-1)});
+ addEventListener('keydown',key);document.body.appendChild(ov);show();ov.querySelector('.lbx').focus()}
+document.addEventListener('click',e=>{const img=e.target.closest('.media .mcell img');if(!img||img.closest('.mcell').querySelector('.mrm'))return;e.preventDefault();e.stopPropagation();const all=[...img.closest('.media').querySelectorAll('.mcell img')];openViewer(all.map(x=>x.src),all.indexOf(img))},true);
 
 /* ---------- top strips ---------- */
 const medal=i=>i<3?`<span class="medal m${i}">${i+1}</span>`:`<span class="medal">${i+1}</span>`;
-function strip(id,title,sub,cards){return `<section class="strip" aria-label="${title}"><div class="sthead"><span class="stic">${ic('leaderboard',16)}</span><div><b>${title}</b><span>${sub}</span></div>
- <span class="starr"><button class="ib" data-act="stscroll" data-f="${id}" data-d="-1" aria-label="Scroll left">${ic('back',16)}</button><button class="ib" data-act="stscroll" data-f="${id}" data-d="1" aria-label="Scroll right">${ic('back',16).replace('<svg','<svg style="transform:scaleX(-1)"')}</button></span></div>
- <div class="strack" id="${id}">${cards}</div></section>`}
-function topCalls(){const list=calls.filter(k=>k.buy&&!k.sponsored&&nums(k)).map(k=>({k,n:nums(k)})).sort((a,b)=>b.n.pnl-a.n.pnl).slice(0,8);if(!list.length)return '';
- return strip('stc','Top calls this week','Biggest caller profits, bought in with their own wallet',list.map(({k,n},i)=>`<a class="scard" href="#/post/${k.id}"><div class="sctop">${avatar(k.c)}<b>${esc(k.c)}</b>${medal(i)}</div>
- <div class="scbody">${tokav(k.t)}<div class="grow"><b class="num ${n.pnl>=0?'up':'down'}">${money(n.pnl)}</b><span class="num">$${symOf(k.t)} · <em class="${n.up?'up':'down'}">${fmtPct(n.p)}</em></span></div></div></a>`).join(''))}
-function topTrades(){const who=ranked().map(c=>c.h),toks=Object.values(T).filter(t=>t.chain==='Solana'&&!t.base&&!t.prelaunch&&t.holders),r=rng(4242);
- const trades=who.flatMap(h=>toks.slice(0,6).map(t=>({h,t,pnl:Math.round((r()*r())*t.vol*.06*100)/100,x:1+r()*r()*14}))).sort((a,b)=>b.pnl-a.pnl).filter((x,i,a)=>a.findIndex(y=>y.h===x.h)===i).slice(0,8);
- return strip('stt','Weekly top trades','Largest realized wins in the trenches',trades.map((x,i)=>`<a class="scard" href="#/token/${x.t.key}"><div class="sctop">${avatar(x.h)}<b>${esc(x.h)}</b>${medal(i)}</div>
- <div class="scbody">${tokav(x.t.key)}<div class="grow"><b class="num up">+${fmtUsd(x.pnl).replace('$','$')}</b><span class="num">$${x.t.sym} · <em class="up">${x.x.toFixed(1)}x</em></span></div></div></a>`).join(''))}
+/* Top-10 strips loop endlessly (a second, hidden copy makes the seam invisible). Ranks are live: anyone can take a spot. */
+const WEEK=7*864e5,RANKS={};
+const twin=cards=>cards.join('')+cards.map(c=>c.replace('<a ','<a aria-hidden="true" tabindex="-1" ')).join('');
+function rankMove(id,key,i){const p=RANKS[id]&&RANKS[id][key];return p!=null&&p!==i?`<span class="rmv ${p>i?'up':'dn'}" title="${p>i?'Up':'Down'} ${Math.abs(p-i)}">${p>i?'▲':'▼'}${Math.abs(p-i)}</span>`:''}
+function strip(id,title,sub,cards,loop){const run=loop&&cards.length>2;
+ return `<section class="strip${run?' looping':''}" aria-label="${title}"><div class="sthead"><span class="stic">${ic('leaderboard',16)}</span><div><b>${title}</b><span>${sub}</span></div>
+ ${run?'<span class="stlive"><i></i>Live</span>':`<span class="starr"><button class="ib" data-act="stscroll" data-f="${id}" data-d="-1" aria-label="Scroll left">${ic('back',16)}</button><button class="ib" data-act="stscroll" data-f="${id}" data-d="1" aria-label="Scroll right">${ic('back',16).replace('<svg','<svg style="transform:scaleX(-1)"')}</button></span>`}</div>
+ <div class="strack${run?' loop':''}" id="${id}">${run?`<div class="lptrack" data-ord="${esc(cards.ord||'')}" style="--dur:${cards.length*4.5}s">${twin(cards)}</div>`:cards.join('')}</div></section>`}
+function refreshStrip(id,cards){const tr=document.querySelector('#'+id+' .lptrack');if(!tr||cards.length<3||tr.dataset.ord===cards.ord)return;tr.dataset.ord=cards.ord;tr.style.setProperty('--dur',cards.length*4.5+'s');tr.innerHTML=twin(cards)}
+const topCallsList=()=>calls.filter(k=>k.buy&&!k.sponsored&&(!k.at||Date.now()-k.at<WEEK)&&nums(k)).map(k=>({k,n:nums(k)})).sort((a,b)=>b.n.pnl-a.n.pnl).slice(0,10);
+function topCallCards(){const list=topCallsList(),out=list.map(({k,n},i)=>`<a class="scard" href="#/post/${k.id}"><div class="sctop">${avatar(k.c)}<b>${esc(k.c)}</b>${rankMove('stc',k.id,i)}${medal(i)}</div>
+ <div class="scbody">${tokav(k.t)}<div class="grow"><b class="num ${n.pnl>=0?'up':'down'}" data-tcp="${k.id}">${money(n.pnl)}</b><span class="num">$${esc(symOf(k.t))} · <em class="${n.up?'up':'down'}">${fmtPct(n.p)}</em></span></div></div></a>`);
+ out.ord=list.map(x=>x.k.id).join();RANKS.stc={};list.forEach((x,i)=>RANKS.stc[x.k.id]=i);return out}
+function topCalls(){const c=topCallCards();return c.length?strip('stc','Top 10 calls this week','Biggest caller profits, bought in with their own wallet. Live ranks.',c,1):''}
+/* Real traders' realized wins from the last 7 days (server), topped up with demo traders until the app has volume. */
+let TOPT=[],TOPTAT=0;
+function loadTopTrades(){if(Date.now()-TOPTAT<6e4)return;TOPTAT=Date.now();
+ fetch('/api/leaders/trades').then(r=>r.ok?r.json():{trades:[]}).then(j=>{TOPT=(j.trades||[]).filter(x=>x&&x.handle&&isMintStr(x.mint));const miss=[];
+  TOPT.forEach(x=>{if(x.avatar_url)AVURL[x.handle]=x.avatar_url;if(x.display_name)DN[x.handle]=x.display_name;if(!T[x.mint])miss.push(x.mint)});
+  const go=()=>refreshStrip('stt',topTradeCards());miss.length?fetchTokens(miss.slice(0,50)).then(l=>{l.forEach(regLive);go()}).catch(go):go()}).catch(()=>{})}
+function topTradeList(){const who=ranked().map(c=>c.h),toks=Object.values(T).filter(t=>t.chain==='Solana'&&!t.base&&!t.prelaunch&&t.holders),r=rng(4242+Math.floor(Date.now()/WEEK));
+ const demo=who.flatMap(h=>toks.slice(0,6).map(t=>({h,t,pnl:Math.round((r()*r())*t.vol*.06*100)/100,x:1+r()*r()*14})));
+ const real=TOPT.filter(x=>T[x.mint]).map(x=>({h:x.handle,t:T[x.mint],pnl:+x.pnl||0,x:+x.x||1}));
+ const seen=new Set();return [...real,...demo].filter(x=>x.pnl>0).sort((a,b)=>b.pnl-a.pnl).filter(x=>{const id=x.h+'|'+x.t.key;return !seen.has(id)&&seen.add(id)}).slice(0,10)}
+function topTradeCards(){const list=topTradeList(),key=x=>x.h+'|'+x.t.key,out=list.map((x,i)=>`<a class="scard" href="#/token/${x.t.key}"><div class="sctop">${avatar(x.h)}<b>${esc(x.h)}</b>${rankMove('stt',key(x),i)}${medal(i)}</div>
+ <div class="scbody">${tokav(x.t.key)}<div class="grow"><b class="num up">+${fmtUsd(x.pnl)}</b><span class="num">$${esc(x.t.sym)} · <em class="up">${x.x.toFixed(1)}x</em></span></div></div></a>`);
+ out.ord=list.map(key).join();RANKS.stt={};list.forEach((x,i)=>RANKS.stt[key(x)]=i);return out}
+function topTrades(){loadTopTrades();const c=topTradeCards();return c.length?strip('stt','Top 10 traders this week','Largest realized wins in the trenches. Live ranks.',c,1):''}
+/* Re-rank both strips every 15s while they're on screen. */
+setInterval(()=>{if(document.hidden)return;if(document.getElementById('stc'))refreshStrip('stc',topCallCards());if(document.getElementById('stt')){loadTopTrades();refreshStrip('stt',topTradeCards())}},15000);
+document.addEventListener('pointerdown',e=>{const t=e.target.closest('.strack.loop');if(!t)return;t.classList.add('held');const up=()=>{setTimeout(()=>t.classList.remove('held'),1800);removeEventListener('pointerup',up);removeEventListener('pointercancel',up)};addEventListener('pointerup',up);addEventListener('pointercancel',up)});
 
 /* ---------- news ---------- */
 const WIRE=[['Solana memecoin launches hit a new weekly high as launchpad competition heats up','Callit Wire',38],['Creator fee splits become the new battleground for token launchpads','Callit Wire',95],['Stablecoin balances on Solana keep climbing as traders park profits','Callit Wire',160],['Perp DEX volume climbs as traders chase leverage on majors','Callit Wire',240],['Why bundled supply is the first thing smart money checks now','Callit Wire',410]];
@@ -1820,7 +1902,8 @@ document.addEventListener('click',e=>{
    if(imp>15)return modal('High price impact',`This swap moves the price about ${imp.toFixed(1)}%. You may get much less than shown.`,`<button class="btn block" style="background:var(--down);color:#fff;border-color:var(--down)" id="impgo">Swap anyway</button><button class="btn ghost block" data-act="close" style="margin-top:8px">Cancel</button>`,m=>$('#impgo',m).onclick=()=>{closeModal();go()});
    go()},
   swmax:()=>{const w=S.swap,f=+b.dataset.f;w.amt=f===1?maxOf(w.from):String(+(+maxOf(w.from)*f).toFixed(6));renderSwaps();if(f===1&&w.from==='SOL')toast(`Kept ${FEE_RESERVE} SOL for network fees`)},
-  slip:()=>{S.slip=+b.dataset.f;renderSwaps()},
+  slip:()=>{S.slip=+b.dataset.f;SWS.slip=S.slip;saveSWS();renderSwaps()},swapset:()=>swapSettings(),
+  swunit:()=>{const w=S.swap,p=(T[w.from]||{}).price;S.swUsd=!S.swUsd;w.usdTxt=w.amt&&p?String(+(+w.amt*p).toFixed(2)):'';w._ua=w.amt;renderSwaps();const i=document.querySelector('[data-swap="amt"]');if(i&&!isPhone())i.focus()},
   shownew:()=>{calls.forEach(k=>k.fresh=false);S.queued.forEach(k=>k.fresh=true);calls=[...S.queued,...calls];S.queued=[];render();scrollTo({top:0})},
   submitpromo:()=>{const n=$('#pn').value.trim(),l=$('#pl').value.trim(),p=$('#pp').value.trim();
    if(!n||!l||p.length<20)return $('#perr').textContent='Add a project name, a CA or website, and at least 20 characters about the project.';
@@ -1829,7 +1912,7 @@ document.addEventListener('click',e=>{
   settheme:()=>{const f=b.dataset.f;if(f==='system')delete document.documentElement.dataset.theme;else document.documentElement.dataset.theme=f;settingsModal()},
   setside:()=>{document.body.classList.toggle('collapsed',b.dataset.f==='closed');syncTray();settingsModal()}
  }[a];act&&act()});
-document.addEventListener('input',e=>{if(e.target.dataset.swap!=='amt')return;S.swap.amt=e.target.value.replace(/[^0-9.]/g,'');
+document.addEventListener('input',e=>{if(e.target.dataset.swap!=='amt')return;{const v=e.target.value.replace(/[^0-9.]/g,''),w=S.swap;if(S.swUsd){const p=(T[w.from]||{}).price;w.usdTxt=v;w.amt=p&&+v?String(+(+v/p).toPrecision(9)):'';w._ua=w.amt}else w.amt=v}
  const all=[...document.querySelectorAll('[data-swap="amt"]')],idx=all.indexOf(e.target),pos=e.target.selectionStart;renderSwaps();
  const i=document.querySelectorAll('[data-swap="amt"]')[idx];if(i){i.focus();try{i.setSelectionRange(pos,pos)}catch(_){}}});
 document.addEventListener('change',e=>{const k=e.target.dataset.swap;if(k!=='from'&&k!=='to')return;const w=S.swap,v=e.target.value,o=k==='from'?'to':'from';if(w[o]===v)w[o]=w[k];w[k]=v;renderSwaps()});
@@ -1848,7 +1931,8 @@ setInterval(()=>{const r=rng(Date.now()%1e6);Object.values(T).forEach(t=>{if(!t.
   el=q('pnl');if(el){flashSet(el,money(n.pnl),dir);el.classList.toggle('up',n.pnl>=0);el.classList.toggle('down',n.pnl<0)}
   el=q('mc');if(el){const h=`${fmtUsd(n.mc)}<small>MC</small>`;if(el.innerHTML!==h){el.innerHTML=h;if(dir){el.classList.remove('fl-up','fl-dn');void el.offsetWidth;el.classList.add(dir>0?'fl-up':'fl-dn')}}el.classList.toggle('up',n.up);el.classList.toggle('down',!n.up)}});
  document.querySelectorAll('[data-tmc]').forEach(el=>{const t=T[el.dataset.tmc];if(!t)return;const m=mcap(t);if(el.textContent!==fmtUsd(m)){el.textContent=fmtUsd(m);el.className=mcCls(m)}});
- document.querySelectorAll('[data-price]').forEach(el=>{const t=T[el.dataset.price];if(t)el.textContent=fmtPrice(t.price)})},3000);
+ document.querySelectorAll('[data-price]').forEach(el=>{const t=T[el.dataset.price];if(t)el.textContent=fmtPrice(t.price)});
+ document.querySelectorAll('[data-tcp]').forEach(el=>{const k=calls.find(x=>String(x.id)===el.dataset.tcp),n=k&&nums(k);if(n){flashSet(el,money(n.pnl),0);el.classList.toggle('up',n.pnl>=0);el.classList.toggle('down',n.pnl<0)}})},3000);
 
 setInterval(()=>{if(document.hidden)return;perpTick()},3000);
 setInterval(()=>{if(document.hidden)return;if(calls.some(k=>k.perp)||S.cat==='perps')loadPerps();if(currentRoute()==='home')loadPosts()},20000);

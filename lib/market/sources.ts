@@ -229,7 +229,18 @@ export async function candles(pool: string, mint: string, tf: Tf): Promise<numbe
     `${GT}/networks/solana/pools/${pool}/ohlcv/${unit}?aggregate=${agg}&limit=300&currency=usd&token=${mint}`,
     ttl,
   );
-  const list = data?.data?.attributes?.ohlcv_list;
+  let list = data?.data?.attributes?.ohlcv_list;
+  if (!Array.isArray(list) || !list.length) {
+    // Brand-new or bonding-curve pools are often missing: fall back to the token's most liquid pool.
+    const pools = await getJSON<{ data?: { attributes?: { address?: string } }[] }>(`${GT}/networks/solana/tokens/${mint}/pools?page=1`, 60);
+    const alt = pools?.data?.map((p) => p.attributes?.address).find((a) => a && a !== pool);
+    if (alt) {
+      const d2 = await getJSON<{ data?: { attributes?: { ohlcv_list?: number[][] } } }>(
+        `${GT}/networks/solana/pools/${alt}/ohlcv/${unit}?aggregate=${agg}&limit=300&currency=usd&token=${mint}`, ttl);
+      const l2 = d2?.data?.attributes?.ohlcv_list;
+      if (Array.isArray(l2)) list = l2;
+    }
+  }
   if (!Array.isArray(list)) return null;
   return list.filter((c) => Array.isArray(c) && c.length >= 6).map((c) => c.slice(0, 6).map(Number)).reverse();
 }

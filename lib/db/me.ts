@@ -42,5 +42,8 @@ export const str = (v: unknown, max: number) => (typeof v === 'string' ? v.trim(
 /** Only images we host ourselves may be attached to posts/profiles. */
 export function ownMediaUrl(u: unknown): u is string {
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  return typeof u === 'string' && !!base && u.startsWith(`${base}/storage/v1/object/public/media/`) && u.length < 400;
+  if (typeof u !== 'string' || u.length >= 400) return false;
+  // GIFs picked from GIF search are served by Tenor / GIPHY.
+  if (/^https:\/\/(media\d*\.tenor\.com|media\d*\.giphy\.com|i\.giphy\.com)\/[^\s"'<>]+$/.test(u)) return true;
+  return !!base && u.startsWith(`${base}/storage/v1/object/public/media/`);
 }

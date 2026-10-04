@@ -17,6 +17,8 @@ export type OrderParams = {
   amount: string; // smallest units of the input token
   taker: string; // user's wallet pubkey (required to get a transaction back)
   slippageBps?: number; // omit to let Jupiter pick
+  priorityFeeLamports?: number; // speed setting (treated as a max cap)
+  jitoTipLamports?: number; // front-running protection
 };
 
 export type JupiterOrder = {
@@ -56,6 +58,9 @@ export async function getOrder(p: OrderParams): Promise<JupiterOrder> {
   });
 
   if (p.slippageBps !== undefined) qs.set("slippageBps", String(p.slippageBps));
+  if (p.priorityFeeLamports) qs.set("priorityFeeLamports", String(p.priorityFeeLamports));
+  if (p.jitoTipLamports) qs.set("jitoTipLamports", String(p.jitoTipLamports));
+  if (p.priorityFeeLamports || p.jitoTipLamports) qs.set("broadcastFeeType", "maxCap");
 
   // Referral fees: only attached when BOTH are configured (Jupiter requires the pair).
   const referralAccount = process.env.JUPITER_REFERRAL_ACCOUNT;

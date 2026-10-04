@@ -1701,3 +1701,76 @@ body.collapsed .acctrow .logout{width:40px;height:40px}
 .ogtag{display:inline-flex;align-items:center;margin-left:6px;padding:1px 7px;border-radius:999px;font:900 10px/1.5 var(--body);letter-spacing:.08em;color:#1C1300;background:linear-gradient(180deg,#FDE68A,#F59E0B);box-shadow:0 1px 0 rgba(255,255,255,.55) inset,0 2px 0 #B45309;vertical-align:2px}
 .srow.isog{background:color-mix(in srgb,#F59E0B 7%,transparent)}
 .sognote{display:flex;align-items:center;gap:6px;margin:4px 4px 8px;color:#F59E0B}
+
+
+/* ===== Oct 4 update ===== */
+/* Looping top-10 strips */
+.strack.loop{overflow:hidden;scroll-snap-type:none;padding:4px 0 8px;mask-image:linear-gradient(90deg,transparent,#000 5%,#000 95%,transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 5%,#000 95%,transparent)}
+.lptrack{display:flex;gap:10px;width:max-content;padding:0 5px;animation:lpmove var(--dur,40s) linear infinite;will-change:transform}
+.strack.loop:hover .lptrack,.strack.loop:focus-within .lptrack,.strack.loop.held .lptrack{animation-play-state:paused}
+@keyframes lpmove{from{transform:translate3d(0,0,0)}to{transform:translate3d(-50%,0,0)}}
+.stlive{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--up);padding:4px 10px;border-radius:999px;background:color-mix(in srgb,var(--up) 12%,transparent)}
+.stlive i{width:7px;height:7px;border-radius:50%;background:var(--up);box-shadow:0 0 0 0 var(--up);animation:lvpulse 1.6s ease-out infinite}
+@keyframes lvpulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--up) 60%,transparent)}100%{box-shadow:0 0 0 7px transparent}}
+.rmv{font-size:11px;font-weight:800;margin-left:auto;margin-right:6px}.rmv.up{color:var(--up)}.rmv.dn{color:var(--down)}
+@media (prefers-reduced-motion:reduce){.lptrack{animation:none}.strack.loop{overflow-x:auto}.lptrack>[aria-hidden="true"]{display:none}.stlive i{animation:none}}
+
+/* Launchpad badge on token rows */
+.chainb.lpb{overflow:hidden;background:var(--bg2)}
+.chainb.lpb b{font-size:9px;font-weight:800;line-height:1;color:var(--text)}
+.chainb.lpb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:inherit}
+
+/* Pinned official post */
+.pinwrap{border-bottom:1px solid var(--line)}
+.pinlab{display:flex;align-items:center;gap:6px;padding:10px 16px 0 58px;font-size:12.5px;font-weight:700;color:var(--muted)}
+.pinwrap .post{border-bottom:0}
+
+/* Live entry MC in Make a call */
+.livedot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--up);margin-left:4px;vertical-align:middle;animation:lvpulse 1.6s ease-out infinite}
+#cent{transition:color .3s}
+
+/* GIF picker */
+.gifp{margin-top:8px;border:1px solid var(--line);border-radius:16px;padding:10px;background:var(--bg2)}
+.gifp .tsearch{margin:0 0 8px}
+.gifg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-height:240px;overflow:auto;overscroll-behavior:contain}
+.gifg button{border:0;padding:0;border-radius:10px;overflow:hidden;background:var(--bg);aspect-ratio:1;cursor:pointer}
+.gifg img{width:100%;height:100%;object-fit:cover;display:block}
+.gifg .hint{grid-column:1/-1;margin:6px 2px}
+.gifup{margin-top:8px;font-size:13px}
+
+/* Full-screen image viewer */
+.mcell img{cursor:zoom-in}
+.lbox{position:fixed;inset:0;z-index:200;background:rgba(3,8,12,.94);display:grid;place-items:center;padding:56px 12px calc(24px + env(safe-area-inset-bottom,0px));animation:rise .15s ease-out;touch-action:pinch-zoom}
+.lbox img{max-width:100%;max-height:100%;object-fit:contain;border-radius:12px;user-select:none}
+.lbox .ib{position:absolute;color:#fff;background:rgba(255,255,255,.12);width:42px;height:42px;border-radius:50%}
+.lbx{top:calc(10px + env(safe-area-inset-top,0px));right:12px}.lbp{left:10px;top:50%;translate:0 -50%}.lbn{right:10px;top:50%;translate:0 -50%}
+.lbc{position:absolute;top:calc(20px + env(safe-area-inset-top,0px));left:50%;translate:-50% 0;color:#C9D6E2;font-size:13px;font-weight:700}
+
+/* Swap: settings + SOL/USD switch */
+.swhead{display:flex;align-items:center;justify-content:space-between;margin:-2px 0 8px}
+.swset{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--bg2);color:var(--text);font:inherit;font-size:12.5px;font-weight:700;padding:6px 11px 6px 9px;border-radius:999px;cursor:pointer;box-shadow:var(--raise-sm);transition:translate .3s var(--spring),box-shadow .2s,border-color .2s}
+.swset:hover{translate:0 -2px;border-color:var(--hi)}.swset:active{translate:0 1px;scale:.97}
+.swset svg{transition:rotate .5s var(--spring)}.swset:hover svg{rotate:60deg}
+.swalt{display:flex;align-items:center;gap:8px}
+.unitsw{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:inherit;font-size:11.5px;font-weight:800;padding:3px 9px;border-radius:999px;cursor:pointer;transition:translate .3s var(--spring),border-color .2s}
+.unitsw:hover{translate:0 -1px;border-color:var(--hi)}.unitsw:active{scale:.94}
+.usdpre{font-size:26px;font-weight:800;color:var(--muted);margin-right:2px}
+.ssec{padding:4px 0 14px;border-bottom:1px solid var(--line);margin-bottom:14px}
+.ssec>b{display:block;margin-bottom:8px}
+.ssec .hint{margin:8px 0 0}
+.ssin{margin-top:10px}
+.sset button[disabled],.ssin input:disabled{opacity:.5}
+
+/* Logo in the phone header is a real button: raised, with hover and press */
+@media (max-width:760px){
+ .mmenu{width:38px;height:38px;border-radius:12px;background:var(--bg2);border:1.5px solid var(--line);box-shadow:var(--raise-sm);transition:translate .35s var(--spring),box-shadow .25s,border-color .2s;cursor:pointer}
+ .mmenu .mark{width:30px;height:30px;border-radius:9px}
+ .mmenu:hover{translate:0 -2px;border-color:var(--hi)}
+ .mmenu:active{translate:0 1px;scale:.94;box-shadow:none}
+ /* Search sheet keeps its height when results come in, instead of dropping down */
+ .scrim:has(.modal[aria-label="Search"]) .modal{min-height:min(86dvh,760px)}
+}
+/* PnL / share card keeps its card shape on phones, contents scale to fit */
+.xcard{aspect-ratio:1.58/1;container-type:inline-size}
+.xmid{min-height:0;flex:1}
+@container (max-width:360px){.xcard .xbig{font-size:40px}.xcard .xstats{gap:6px}.xcard .xstats b{font-size:13px}.xcard .xsub{font-size:12px}}
