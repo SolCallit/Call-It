@@ -1013,7 +1013,7 @@ function filterSheet(){const d=SH.d,T2=SH.tab,feed=S.tt==='watch'?'Watchlist':FE
   <li><b>Exit room.</b> Enough liquidity to sell, and market cap with room to grow.</li>
   <li><b>Doesn't chase tops.</b> Marks tokens going vertical or pulling back after a pump so you don't buy someone's exit.</li>
   <li><b>Callers with skin in the game.</b> Boosts tokens bought by Callit callers with a strong win rate.</li></ul>
-  <p class="hint">Every row gets a score out of 100 and its reasons. It improves your odds; it can't promise a win. Size your bets small on new tokens.</p></div>`}
+  <p class="hint">Every row gets a score out of 100 and the reasons behind it.</p></div>`}
  if(T2==='source'){const allLp=d.lps.length===LPS.length;
   h=`<div class="fgrp"><div class="fh"><b>Chains</b></div><div class="chips">${CHAINS.map(([c,col,live])=>chip('chains',c,col,d.chains.includes(c),!live)).join('')}</div></div>
   <div class="fgrp"><div class="fh"><b>Launchpads</b><button class="lnk" data-act="fslpall">${allLp?'Clear all':'Select all'}</button></div><div class="chips">${LPS.map(([l,col])=>chip('lps',l,col,d.lps.includes(l))).join('')}</div></div>
