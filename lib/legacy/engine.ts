@@ -860,7 +860,7 @@ function heatCard(t){if(!t.live)return '';const h=heatOf(t),[e,l,d]=HEAT[h.k],n=
 const LPDOM={Pump:'pump.fun',Bonk:'bonk.fun',Believe:'believe.app',Moonshot:'moonshot.com',Launchlab:'raydium.io',Bags:'bags.fm','Jup Studio':'jup.ag',Meteora:'meteora.ag',Boop:'boop.fun'};
 /* Little badge on each token: the launchpad it came from (pump.fun, Bonk, Meteora...), Solana otherwise. */
 const lpBadge=t=>{const L=lpOf(t),d=L&&LPDOM[L];return d?`<i class="chainb lpb" title="Launched on ${esc(L)}"><b>${esc(L[0])}</b><img src="https://www.google.com/s2/favicons?domain=${d}&sz=64" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()"></i>`:`<i class="chainb">${ic('solglyph',11)}</i>`};
-const LPS=[['Pump','#4ADE80'],['Bonk','#F59E0B'],['Believe','#22C55E'],['Moonshot','#C084FC'],['Launchlab','#38BDF8'],['Bags','#10B981'],['Jup Studio','#FB923C']];
+const LPS=[['Pump','#4ADE80'],['Bonk','#F59E0B'],['Meteora','#F472B6'],['Bags','#10B981'],['Believe','#22C55E'],['Launchlab','#38BDF8'],['Jup Studio','#FB923C'],['Moonshot','#C084FC'],['Boop','#60A5FA']];
 const CHAINS=[['Solana','#9d7bff',1],['Base','#3B82F6',0],['BSC','#F0B90B',0],['Ethereum','#8EA2FF',0],['Arbitrum','#60A5FA',0]];
 const FEEDS={movers:['Movers','Biggest price momentum right now'],new:['New','Fresh launches, newest first'],called:['Called','Tokens our callers are on, most calls first','Only on Callit'],
  crowded:['Crowded','Most holders first'],almost:['Almost bonded','60 to 99% through the bonding curve'],grad:['Migrated','Bonded and migrated to a DEX, newest first'],og:['OG','The established Solana memecoins, biggest first']};
@@ -1072,7 +1072,7 @@ function vTokenLoading(mint){const e=LIVE.tokErr[mint];
  return `<div class="pad lskel" aria-busy="true"><div class="lsk-h"><span class="tokav"></span><div><i></i><i></i></div></div><i class="lsk-p"></i><div class="lchart"><div class="lchart-msg">Loading token…</div></div><div class="stats num">${'<div><span>&nbsp;</span><b>&nbsp;</b></div>'.repeat(5)}</div></div>`}
 function liveStats(t){const L=t.L||{},c=L.chg||{},bs=(L.buys24||0)+(L.sells24||0);
  return `<div class="stats num"><div><span>Market cap</span><b>${fmtSmall(mcap(t))}</b></div><div><span>Price</span><b>${fmtSmall(t.price)}</b></div><div><span>Liquidity</span><b>${t.liq?fmtSmall(t.liq):'—'}</b></div><div><span>24h volume</span><b>${t.vol?fmtSmall(t.vol):'—'}</b></div><div><span>Holders</span><b>${t.holders?t.holders.toLocaleString():'—'}</b></div><div><span>Age</span><b>${esc(t.age)}</b></div></div>
- <div class="lchg num">${[['5m',c.m5],['1h',c.h1],['6h',c.h6],['24h',c.h24]].map(([k,v])=>`<span><i>${k}</i><b class="${pcls(v)}">${pctS(v)}</b></span>`).join('')}</div>
+ <div class="lchg num">${[['5m',c.m5,5],['1h',c.h1,60],['6h',c.h6,360],['24h',c.h24,1440]].map(([k,v,mins])=>[k,(t.ageH||0)*60<mins*.9&&k!=='5m'?null:v]).map(([k,v])=>`<span><i>${k}</i><b class="${pcls(v)}">${pctS(v)}</b></span>`).join('')}</div>
  ${bs?`<div class="lbs num"><b class="up">${fmtK(L.buys24||0)} buys</b><div class="bs"><i style="flex:${L.buys24||0}"></i><i style="flex:${L.sells24||0}"></i></div><b class="down">${fmtK(L.sells24||0)} sells</b>${L.traders24?`<span class="muted">· ${fmtK(L.traders24)} traders</span>`:''}</div>`:''}`}
 /* Token-2022 transfer tax (from on-chain mint extensions) and the launchpad it came from. */
 const taxRows=t=>{const x=t.L&&t.L.tax,row=(label,ok,val)=>`<div class="sf ${ok==null?'unk':ok?'ok':'bad'}"><span class="sfi">${ok==null?'?':ok?ic('check',14):'!'}</span><span class="grow">${label}</span><b>${val}</b></div>`;
@@ -1108,12 +1108,16 @@ document.addEventListener('toggle',e=>{const d=e.target;if(d&&d.matches&&d.match
 document.addEventListener('toggle',e=>{const d=e.target;if(d&&d.matches&&d.matches('[data-sf]')){SFOPEN=d.open;try{localStorage.setItem('callit.sfOpen',d.open?'1':'0')}catch(_){}}},true);
 function liveLinks(t){const so=(t.L&&t.L.socials)||{},a=(u,l,i)=>u&&/^https?:\/\//.test(u)?`<a class="lk" href="${esc(u)}" target="_blank" rel="noopener noreferrer">${ic(i,15)}${l}</a>`:'';
  return a(so.x,'X','xlogo')+a(so.web,'Website','globe')+a(so.tg,'Telegram','people')+a(`https://dexscreener.com/solana/${t.pool||t.key}`,'DexScreener','market')+a(`https://solscan.io/token/${t.key}`,'Solscan','search')+`<button class="lk" data-act="xsearch" data-k="${esc(t.key)}">${ic('xlogo',13)}Search on X</button>`}
+/* What a meme is paired with. SOL is the default, so only show it when it's something else (USDC, a stock token, another meme). */
+const QUOTES={'So11111111111111111111111111111111111111112':'SOL','EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v':'USDC','Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB':'USDT','USD1ttGY1N17NEEHLmELoaybftRBUSErhqYiQzvEmuB':'USD1'};
+function pairChip(t){const q=t.L&&t.L.quote;if(!q||!q.mint||QUOTES[q.mint]==='SOL')return '';const sym=QUOTES[q.mint]||q.sym||'?',stock=/x$/.test(sym)&&sym.length<=6&&!QUOTES[q.mint];
+ return ` <a class="chain pairchip${stock?' stock':''}" href="#/token/${esc(q.mint)}" title="Trades against ${esc(sym)}. Buys route through ${esc(sym)} automatically.">${stock?'📈 ':''}Paired · ${esc(sym)}</a>`}
 function vLiveToken(t){const key=t.key,tr=S.watch.has(key),on=calls.filter(k=>k.t===key),L=t.L||{},ch=(L.chg||{}).h24;
- S.ltf=S.ltf||'15m';S.lmode=S.lmode||'mc';
+ S.ltf=S.ltf&&S.ltfUser?S.ltf:((t.ageH||0)<.5?'1m':'15m');S.lmode=S.lmode||'mc';
  return `<div class="pad" style="padding-bottom:0"><div style="display:flex;align-items:center;gap:12px">${tokav(key)}<div style="flex:1;min-width:0"><b class="h2">${esc(t.name)}</b>${L.verified?`<span class="vbadge" title="Verified on Jupiter">${ic('check',11)}</span>`:''} <span class="muted">$${esc(t.sym)}</span>
- <div><span class="chain">Solana</span>${t.lp?` <span class="chain lpchip">${esc(t.lp)}</span>`:''} <button class="copyca" data-act="copy" data-v="${esc(t.ca)}">${short(t.ca)} ${ic('copy',13)}</button></div></div>
+ <div><span class="chain">Solana</span>${t.lp?` <span class="chain lpchip">${esc(t.lp)}</span>`:''}${pairChip(t)} <button class="copyca" data-act="copy" data-v="${esc(t.ca)}">${short(t.ca)} ${ic('copy',13)}</button></div></div>
  <button class="btn sm ${tr?'primary':'ghost'}" data-act="track" data-t="${key}">${ic('star',15,tr)} ${tr?'On watchlist':'Watchlist'}</button></div>
- <div class="lhead"><span class="price num" id="lprice">${S.lmode==='mc'?fmtSmall(mcap(t)):fmtSmall(t.price)}</span><b class="num ${pcls(ch)}" id="lchg">${pctS(ch)} 24h</b><span class="livedot" title="Live">LIVE</span>
+ <div class="lhead"><span class="price num" id="lprice">${S.lmode==='mc'?fmtSmall(mcap(t)):fmtSmall(t.price)}</span><b class="num ${pcls(ch)}" id="lchg">${pctS(ch)} 24h</b><span class="livetag" title="Live"><i></i>LIVE</span>
  <div class="seg lmode">${[['mc','MC'],['price','Price']].map(([k,l])=>`<button class="${S.lmode===k?'on':''}" data-act="lmode" data-f="${k}">${l}</button>`).join('')}</div></div>
  <div class="seg ltf" role="tablist">${['1m','5m','15m','1h','4h','1d'].map(x=>`<button class="${S.ltf===x?'on':''}" data-act="ltf" data-f="${x}">${x}</button>`).join('')}</div>
  <div class="lchart" id="lchart" data-mint="${key}"><div class="lchart-msg" id="lchartmsg">${t.pool?'Loading chart…':'No trading pool for a chart yet.'}</div></div>
@@ -1305,6 +1309,14 @@ function render(){if(isPhone())document.body.classList.add('collapsed');const [,
  if(r==='post'){wireAttach($('#rbox'),RDRAFT,()=>drawRMedia());if(S.focusReply){S.focusReply=false;setTimeout(()=>{const i=$('#rin');i&&i.focus()},60)}}}
 
 /* ---------- modals ---------- */
+/* Keyboard: iOS Safari and in-app browsers ignore interactive-widget, so track the visual viewport
+   and lift bottom sheets above the keyboard (--kb) with a height that fits what's left (--vvh). */
+(()=>{if(typeof window==='undefined'||!window.visualViewport)return;const vv=window.visualViewport,de=document.documentElement;
+ const set=()=>{const kb=Math.max(0,Math.round(window.innerHeight-vv.height-vv.offsetTop));de.style.setProperty('--kb',(kb>60?kb:0)+'px');de.style.setProperty('--vvh',Math.round(vv.height)+'px');de.classList.toggle('kb-open',kb>60)};
+ vv.addEventListener('resize',set);vv.addEventListener('scroll',set);set();
+ // Keep whatever you're typing in view inside a sheet.
+ document.addEventListener('focusin',e=>{const el=e.target;if(!el||!el.matches||!el.matches('textarea,input:not([type=range]):not([type=checkbox])')||!el.closest('.modal,.sh'))return;
+  setTimeout(()=>{try{el.scrollIntoView({block:'center',behavior:'smooth'})}catch(_){}},280)})})();
 function modal(title,sub,body,onMount){$('#modal').innerHTML=`<div class="scrim" data-act="close"><div class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="mhead"><div><h2>${title}</h2>${sub?`<p class="sub">${sub}</p>`:''}</div><button class="ib" data-act="close" aria-label="Close">${ic('x',18)}</button></div>${body}</div></div>`;
  onMount&&onMount($('#modal .modal'));skin($('#modal'));const f=$('#modal input,#modal textarea');f&&f.focus()}
 function skin(root){(root||document).querySelectorAll('select.input:not([data-skinned])').forEach(sel=>{sel.dataset.skinned=1;sel.hidden=true;
@@ -1380,20 +1392,32 @@ let SRT=0,STR=0,SUT=0;
 const tickOf=t=>String(t.sym||'').toUpperCase().replace(/^\$/,'').trim();
 const bornOf=t=>{const d=t&&t.L&&t.L.createdAt;const v=d?Date.parse(d):NaN;return isNaN(v)?null:v};
 const legit=t=>!!(t.L&&t.L.verified)||OGSET.has(t.key);
-function ogKeys(list){const g={},og=new Set();list.forEach(t=>{const k=tickOf(t);if(k)(g[k]=g[k]||[]).push(t)});
- Object.values(g).forEach(a=>{a.forEach(t=>{if(OGSET.has(t.key))og.add(t.key)});if(a.length<2||a.some(t=>og.has(t.key)))return;
-  const dated=a.filter(t=>bornOf(t)!=null);if(!dated.length)return;const pool=dated.some(legit)?dated.filter(legit):dated;
-  og.add(pool.sort((x,y)=>bornOf(x)-bornOf(y))[0].key)});return og}
+/* Clusters: same ticker OR same name (ignoring case, spaces, symbols) are one narrative, so
+   "SpaceXSI $SPCX", "SpaceXSI $SXSI" and "spacexsi" get ONE OG between them, not one each. */
+const normK=v=>String(v||'').toLowerCase().replace(/^\$/,'').replace(/[^a-z0-9]/g,'');
+function clusters(list){const par={},f=x=>par[x]===x?x:(par[x]=f(par[x])),u=(a,b)=>{par[a]=par[a]||a;par[b]=par[b]||b;par[f(a)]=f(b)};
+ list.forEach(t=>{const a=normK(t.sym),b=normK(t.name);if(a)u(a,a);if(b)u(b,b);if(a&&b)u(a,b)});
+ const g={};list.forEach(t=>{const k=normK(t.sym)||normK(t.name);if(!k)return;const r=f(k);(g[r]=g[r]||[]).push(t)});return Object.values(g)}
+function ogKeys(list){const og=new Set(),run=new Set();og.run=run;og.of={};
+ clusters(list).forEach(a=>{a.forEach(t=>{og.of[t.key]=a});
+  // OG: a known OG meme wins; else the oldest legit (verified) copy; else the oldest copy.
+  const known=a.filter(t=>OGSET.has(t.key));
+  if(known.length)known.forEach(t=>og.add(t.key));
+  else if(a.length>=2){const dated=a.filter(t=>bornOf(t)!=null);if(dated.length){const pool=dated.some(legit)?dated.filter(legit):dated;og.add(pool.sort((x,y)=>bornOf(x)-bornOf(y))[0].key)}}
+  // Runner: the copy with the biggest market cap, if it's actually running.
+  if(a.length>=2){const top=[...a].sort((x,y)=>(mcap(y)||0)-(mcap(x)||0))[0];if(top&&(mcap(top)||0)>=2e4)run.add(top.key)}});
+ return og}
 const ageTag=t=>{const b=bornOf(t);return b==null?'':`<span class="sage" title="Launched ${new Date(b).toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'})}">${ageStr(Math.max(0,(Date.now()-b)/36e5))}</span>`};
 function searchModal(){S.stf=TF_OK.includes(S.stf)?S.stf:'1h';S.sk=S.sk==='callers'?'callers':'tokens';
  const ph=()=>S.sk==='callers'?'Search callers by @handle or name':'Search a token, ticker or paste a CA';
  const kbar=()=>`<div class="kseg tgl skind" style="--i:${S.sk==='callers'?1:0};--n:2;grid-template-columns:repeat(2,1fr)" role="tablist" aria-label="What are you searching for?">${[['tokens','Tokens','market'],['callers','Callers','profile']].map(([k,l,i])=>`<button type="button" role="tab" aria-selected="${S.sk===k}" class="${S.sk===k?'on':''}" data-sk="${k}">${ic(i,15)}<span>${l}</span></button>`).join('')}</div>`;
  modal('Search','',`${kbar()}<div class="tsearch">${ic('search',18)}<input id="sq" placeholder="${ph()}" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search"></div><div class="list" id="sres" style="margin-top:6px"></div>`,
  m=>{const box=$('#sres',m),inp=$('#sq',m),qv=()=>inp.value.trim().replace(/^[$@]/,'');
-  const trow2=(t,tf,og)=>{const v=chgOf(t,tf),isOg=og&&og.has(t.key);return `<a class="li srow${isOg?' isog':''}" href="#/token/${t.key}" data-act="close">${tokav(t.key)}<div class="grow"><b>${esc(t.name)}</b>${t.L&&t.L.verified?`<span class="vbadge" title="Verified on Jupiter">${ic('check',10)}</span>`:''}${isOg?'<span class="ogtag" title="The first token launched with this ticker">OG</span>':''}<div class="hint num">$${esc(t.sym)}${ageTag(t)} · ${fmtSmall(mcap(t))} MC${t.vol?` · V ${fmtSmall(t.vol)}`:''}</div></div><b class="num ${pcls(v)}">${pctS(v)}</b><button class="wstar${S.watch.has(t.key)?' on':''}" data-act="track" data-t="${esc(t.key)}" aria-pressed="${S.watch.has(t.key)}" aria-label="Watchlist" title="Watchlist">${ic('star',17,S.watch.has(t.key))}</button></a>`};
+  const trow2=(t,tf,og)=>{const v=chgOf(t,tf),isOg=og&&og.has(t.key);return `<a class="li srow${isOg?' isog':''}${og&&og.run&&og.run.has(t.key)?' isrun':''}" href="#/token/${t.key}" data-act="close">${tokav(t.key)}<div class="grow"><b>${esc(t.name)}</b>${t.L&&t.L.verified?`<span class="vbadge" title="Verified on Jupiter">${ic('check',10)}</span>`:''}${isOg?'<span class="ogtag" title="The first token launched with this name or ticker">OG</span>':''}${og&&og.run&&og.run.has(t.key)?'<span class="runtag" title="Biggest market cap of every token with this name"><i class="rkt" aria-hidden="true">🚀</i>Runner</span>':''}<div class="hint num">$${esc(t.sym)}${ageTag(t)} · ${fmtSmall(mcap(t))} MC${t.vol?` · V ${fmtSmall(t.vol)}`:''}</div></div><b class="num ${pcls(v)}">${pctS(v)}</b><button class="wstar${S.watch.has(t.key)?' on':''}" data-act="track" data-t="${esc(t.key)}" aria-pressed="${S.watch.has(t.key)}" aria-label="Watchlist" title="Watchlist">${ic('star',17,S.watch.has(t.key))}</button></a>`};
   const prow=c=>`<a class="li" href="#/profile/${c.h}" data-act="close">${avatar(c.h)}<div class="grow"><b>${esc(nameOf(c.h))}</b><div class="hint">@${esc(c.h)}${c.calls?` · ${c.calls} calls, ${c.win}% win rate`:''}</div></div>${rankOf(c.h)?`<span class="rk">#${rankOf(c.h)}</span>`:''}</a>`;
   /* Legit and OG first, then by volume. */
-  const rank=(list,og)=>list.sort((a,b)=>((og.has(b.key)?2:0)+(legit(b)?1:0))-((og.has(a.key)?2:0)+(legit(a)?1:0))||(b.vol||0)-(a.vol||0));
+  /* Runner first, then OG, then legit, then biggest market cap. */
+  const rank=(list,og)=>list.sort((a,b)=>((og.run&&og.run.has(b.key)?4:0)+(og.has(b.key)?2:0)+(legit(b)?1:0))-((og.run&&og.run.has(a.key)?4:0)+(og.has(a.key)?2:0)+(legit(a)?1:0))||(mcap(b)||0)-(mcap(a)||0));
   const loadTrend=force=>{const id='movers:'+S.stf;if(LIVE.busy[id]||(!force&&LIVE.feeds[id]))return;LIVE.busy[id]=1;
    fetchFeed('movers',S.stf).then(l=>{LIVE.feeds[id]=l.map(regLive).filter(Boolean).map(t=>t.key);LIVE.err[id]=0;LIVE.at[id]=Date.now()}).catch(()=>{LIVE.err[id]=1}).finally(()=>{LIVE.busy[id]=0;if(box.isConnected&&!qv()&&S.sk==='tokens')draw()})};
   const trending=()=>{const id='movers:'+S.stf,ks=LIVE.feeds[id];
@@ -1420,8 +1444,8 @@ function searchModal(){S.stf=TF_OK.includes(S.stf)?S.stf:'1h';S.sk=S.sk==='calle
    if(q.length<2)return;
    SRT=setTimeout(()=>searchTokens(q).then(res=>{const el=$('#slive',m);if(!el||qv()!==q||S.sk!=='tokens')return;
     const rows=res.map(regLive).filter(Boolean),seen=new Set(),all=[...rows,...local].filter(t=>!seen.has(t.key)&&seen.add(t.key));
-    const og=ogKeys(all),top=rank(all,og).slice(0,12),copies=top.filter(t=>!og.has(t.key)&&[...og].some(k=>T[k]&&tickOf(T[k])===tickOf(t))).length;
-    el.innerHTML=top.length?`<div class="tsec">Tokens</div>${copies?`<p class="hint sognote">${ic('target',13)} ${copies} cop${copies>1?'ies':'y'} share a ticker with an OG. Check the contract before you buy.</p>`:''}${top.map(t=>trow2(t,'24h',og)).join('')}`:(isMintStr(q)?`<a class="li" href="#/token/${q}" data-act="close"><div class="grow"><b>Open ${short(q)}</b><div class="hint">Look up this contract address</div></div></a>`:`<p class="hint" style="padding:8px 4px">No live token matches “${esc(q)}”.</p>`)})
+    const og=ogKeys(all),top=rank(all,og).slice(0,12),copies=top.filter(t=>!og.has(t.key)&&(og.of[t.key]||[]).some(x=>og.has(x.key))).length;
+    el.innerHTML=top.length?`<div class="tsec">Tokens</div>${copies?`<p class="hint sognote">${ic('target',13)} ${copies} cop${copies>1?'ies':'y'} of an OG in here. Check the contract before you buy.</p>`:''}${top.map(t=>trow2(t,'24h',og)).join('')}`:(isMintStr(q)?`<a class="li" href="#/token/${q}" data-act="close"><div class="grow"><b>Open ${short(q)}</b><div class="hint">Look up this contract address</div></div></a>`:`<p class="hint" style="padding:8px 4px">No live token matches “${esc(q)}”.</p>`)})
     .catch(()=>{const b=$('#sbusy',m);if(b)b.textContent='Live search is unavailable right now.'}),250)};
   m.addEventListener('click',e=>{const k=e.target.closest('[data-sk]');if(k){e.preventDefault();if(S.sk===k.dataset.sk)return;slideTo(k);S.sk=k.dataset.sk;inp.placeholder=ph();draw();inp.focus();return}
    const t=e.target.closest('[data-stf]');if(t){e.preventDefault();S.stf=t.dataset.stf;draw();return}
@@ -2130,7 +2154,7 @@ document.addEventListener('click',e=>{
    if(b.closest('#modal')||b.closest('.pbar')||b.closest('.trow')){document.querySelectorAll(`[data-act="track"][data-t="${CSS.escape(t)}"]`).forEach(x=>{if(x.classList.contains('wrm'))return;x.classList.toggle('on',on);x.setAttribute('aria-pressed',on);const sv=x.querySelector('svg');if(sv)sv.setAttribute('fill',on?'currentColor':'none')});return}
    render()},
   withdraw:()=>withdrawModal(),send:()=>withdrawModal(),receive:()=>depositModal(),deposit:()=>depositModal(),
-  ltf:()=>{S.ltf=b.dataset.f;render()},lmode:()=>{S.lmode=b.dataset.f;render()},lretry:()=>{(lfIds(S.tt,filOf(S.tt))||[]).forEach(id=>{LIVE.err[id]=0;loadFeed(id)});render()},ltokretry:()=>{LIVE.tokErr[b.dataset.t]=0;render()},
+  ltf:()=>{S.ltf=b.dataset.f;S.ltfUser=1;render()},lmode:()=>{S.lmode=b.dataset.f;render()},lretry:()=>{(lfIds(S.tt,filOf(S.tt))||[]).forEach(id=>{LIVE.err[id]=0;loadFeed(id)});render()},ltokretry:()=>{LIVE.tokErr[b.dataset.t]=0;render()},
   tside:()=>{const w=S.swap,t=b.dataset.t;if(b.dataset.f==='sell'){w.from=t;w.to='SOL'}else{w.from='SOL';w.to=t}w.amt='';renderSwaps()},
   flip:()=>{const w=S.swap;[w.from,w.to]=[w.to,w.from];w.amt='';renderSwaps()},
   doswap:()=>{const w=S.swap,x=parseFloat(w.amt),out=usd(w.from,x)*.995/T[w.to].price,imp=impact(w.to,usd(w.from,x));

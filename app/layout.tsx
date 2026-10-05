@@ -25,6 +25,8 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
+  // Android Chrome: the page shrinks above the keyboard instead of being covered by it.
+  interactiveWidget: 'resizes-content',
   themeColor: '#0B1B27',
 };
 
