@@ -2,13 +2,14 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Me } from '@/lib/db/me';
 
-type Kind = 'follows' | 'likes' | 'reposts' | 'replies';
+type Kind = 'follows' | 'likes' | 'reposts' | 'replies' | 'mentions';
 
 const COPY: Record<Kind, string> = {
   follows: 'followed you',
   likes: 'liked your post',
   reposts: 'reposted your post',
   replies: 'replied to your post',
+  mentions: 'mentioned you',
 };
 
 /**
@@ -53,4 +54,28 @@ export async function postOwner(db: SupabaseClient, ref: string): Promise<{ prof
   if (!/^[0-9a-f-]{36}$/i.test(ref)) return null;
   const { data } = await db.from('posts').select('profile_id, body').eq('id', ref).maybeSingle();
   return data ? { profileId: data.profile_id as string, body: (data.body as string) || '' } : null;
+}
+
+/** @handles in a post or reply (unique, max 5, the author excluded). */
+export function mentionsIn(text: string, self: string): string[] {
+  const out = new Set<string>();
+  for (const m of text.matchAll(/(^|[^A-Za-z0-9_@])@([A-Za-z0-9_]{1,30})/g)) {
+    const h = m[2].toLowerCase();
+    if (h !== self.toLowerCase()) out.add(m[2]);
+    if (out.size >= 5) break;
+  }
+  return [...out];
+}
+
+/** Notifies everyone @mentioned. Never throws. */
+export async function notifyMentions(db: SupabaseClient, actor: Me, text: string, link: string, skip: string[] = []): Promise<void> {
+  const hs = mentionsIn(text, actor.handle);
+  if (!hs.length) return;
+  try {
+    const { data } = await db.from('profiles').select('id, handle').in('handle', hs);
+    await Promise.all((data || []).filter((p) => !skip.includes(p.id as string))
+      .map((p) => notifySocial(db, actor, 'mentions', { profileId: p.id as string }, { link, snippet: text })));
+  } catch (e) {
+    console.warn('[notify] mentions failed', (e as Error).message);
+  }
 }

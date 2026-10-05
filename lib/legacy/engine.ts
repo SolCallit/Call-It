@@ -18,6 +18,17 @@ export function bootCallit(): void {
 
 const $=(s,r=document)=>r.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+/* Post text: @mentions open profiles, #tags open the tag feed, $TICKERS open the token if we know it, links open in a new tab. */
+const RICH_RE=/(https?:\/\/[^\s<>"']+)|(^|[^A-Za-z0-9_@#$&])([@#$])([A-Za-z0-9_]{1,40})/g;
+function rich(txt){txt=String(txt||'');let out='',last=0;
+ for(const m of txt.matchAll(RICH_RE)){const [all,url,pre='',sig,word]=m;out+=esc(txt.slice(last,m.index));last=m.index+all.length;
+  if(url){const u=url.replace(/[.,!?)]+$/,''),tail=url.slice(u.length);out+=`<a class="rlink" href="${esc(u)}" target="_blank" rel="noopener noreferrer nofollow">${esc(u.replace(/^https?:\/\//,'').slice(0,40))}${u.replace(/^https?:\/\//,'').length>40?'…':''}</a>${esc(tail)}`;continue}
+  out+=esc(pre);
+  if(sig==='@'&&word.length<=30)out+=`<a class="mtn" href="#/profile/${esc(word)}">@${esc(word)}</a>`;
+  else if(sig==='#'&&/[A-Za-z]/.test(word))out+=`<a class="htag" href="#/tag/${esc(word.toLowerCase())}">#${esc(word)}</a>`;
+  else if(sig==='$'&&/^[A-Za-z][A-Za-z0-9]{0,11}$/.test(word)){const up=word.toUpperCase(),t=Object.values(T).find(x=>x&&String(x.sym).toUpperCase()===up&&(x.live||x.base));out+=t?`<a class="htag" href="#/token/${esc(t.key)}">$${esc(word)}</a>`:`$${esc(word)}`}
+  else out+=esc(sig+word)}
+ return out+esc(txt.slice(last))}
 function rng(seed){let s=(seed*2654435761)>>>0||1;return()=>(s=(s*1664525+1013904223)>>>0)/4294967296}
 const fmtUsd=n=>n>=1e9?'$'+(n/1e9).toFixed(2)+'B':n>=1e6?'$'+(n/1e6).toFixed(2)+'M':n>=1e3?'$'+(n/1e3).toFixed(n<1e4?1:0)+'K':'$'+n.toFixed(2);
 const fmtPrice=p=>p>=1?'$'+p.toLocaleString(undefined,{maximumFractionDigits:2}):p>=0.01?'$'+p.toFixed(4):'$'+p.toPrecision(3);
@@ -344,11 +355,11 @@ function perpCard(k){const p=k.perp,n=perpNums(k),L=p.side==='long';
 function postPerp(k){const p=k.perp;if(!p.entry)return '';const n=perpNums(k);
  return `<article class="post${k.fresh?' fresh':''}" data-go="#/post/${k.id}" tabindex="0" aria-label="Perps call by ${esc(k.c)} on ${p.m}">
  <a href="#/profile/${k.c}" aria-label="Open @${esc(k.c)}'s profile" class="pav">${avatar(k.c,'md')}</a><div style="min-width:0">${phead(k)}
- <p class="ptext">${esc(k.thesis)}</p>${mediaGrid(k.media)}${perpCard(k)}<div class="pnote">${perpNote(k,n)}</div>
+ <p class="ptext">${rich(k.thesis)}</p>${mediaGrid(k.media)}${perpCard(k)}<div class="pnote">${perpNote(k,n)}</div>
  ${pbar(k,`<span class="pright"><span class="mc num" data-ppx="${p.m}" title="${p.m} mark price">${n?fmtPrice(n.px):'—'}</span></span>`)}</div></article>`}
 function postRandom(k){return `<article class="post${k.fresh?' fresh':''}" data-go="#/post/${k.id}" tabindex="0" aria-label="Post by ${esc(k.c)}">
  <a href="#/profile/${k.c}" aria-label="Open @${esc(k.c)}'s profile" class="pav">${avatar(k.c,'md')}</a><div style="min-width:0">${phead(k)}
- ${k.thesis?`<p class="ptext">${esc(k.thesis)}</p>`:''}${mediaGrid(k.media)}${pbar(k)}</div></article>`}
+ ${k.thesis?`<p class="ptext">${rich(k.thesis)}</p>`:''}${mediaGrid(k.media)}${pbar(k)}</div></article>`}
 function perpPanel(k){if(!k.perp.entry)return '<p class="hint">Loading the live price…</p>';const p=k.perp,n=perpNums(k),L=p.side==='long',cls=n?(n.up?'up':'down'):'';
  const prog=p.target&&n?Math.min(100,Math.max(0,(n.px-p.entry)/(p.target-p.entry)*100)):null;
  return `<div class="tpanel">${perpCard(k)}<div class="tgrid num"><div><span>Entry</span><b>${fmtPrice(p.entry)}</b></div><div><span>Mark price</span><b class="${cls}" data-ppx="${p.m}">${n?fmtPrice(n.px):'—'}</b></div><div><span>Price move</span><b class="${cls}">${n?fmtPct(n.move):'—'}</b></div>
@@ -618,7 +629,7 @@ function post(k){if(k.kind==='random')return postRandom(k);if(k.kind==='perps')r
  <a href="#/profile/${k.c}" aria-label="Open @${esc(k.c)}'s profile" class="pav">${avatar(k.c,'md')}</a>
  <div style="min-width:0">
   <div class="phead">${who(k.c)}${r&&!k.sponsored?`<span class="rk">#${r}</span>`:''}${k.sponsored?'<span class="tag">Sponsored</span>':''}${k.c!==S.me?`<button class="fchip${S.following.has(k.c)?' on':''}" data-act="follow" data-h="${k.c}" aria-label="${S.following.has(k.c)?'Following':'Follow'} ${esc(k.c)}">${S.following.has(k.c)?ic('check',12)+'<span>Following</span>':'+<span>Follow</span>'}</button>`:''}<time>${k.ago==='now'?'now':k.ago+' ago'}</time>${k.sponsored?'':moreBtn(k)}</div>
-  <p class="ptext">${esc(k.thesis)}</p>${mediaGrid(k.media)}
+  <p class="ptext">${rich(k.thesis)}</p>${mediaGrid(k.media)}
   <a class="ccard" href="#/token/${t.key}">${tokav(t.key)}<div class="cn"><b>${esc(t.name)}</b><span>$${t.sym} <span class="chain">${t.chain}</span></span></div>${right}</a>
   ${k.sponsored?`<div class="pnote">Paid promotion by ${esc(k.sponsor)}. Not counted in rankings.</div>`:`<div class="pnote">${k.target?`Target ${fmtUsd(k.target)} within ${esc(k.horizon)} · `:''}${k.buy?`<span class="bk">${ic('check',13)} Bought in</span>`:`<span class="bk no">No buy · earns no fees</span>`}${k.sold?` · <span class="sold">${ic('repost',13)} Caller sold ${k.sold.pct}% · ${k.sold.ago} ago</span>`:''}</div>`}
   <div class="pbar"><div class="icons">
@@ -712,6 +723,14 @@ function vBookmarks(){const ids=[...S.bm].reverse(),have=new Map(calls.map(k=>[S
  const list=ids.map(id=>have.get(id)).filter(k=>k&&visible(k));
  if(!S.bm.size)return `<div class="empty"><span class="eic">${ic('bookmark',26)}</span><b class="h2">Save posts for later</b><p>Tap the bookmark on any call or post. Only you can see what you save.</p><a class="btn primary" href="#/home">Go to Home</a></div>`;
  return `<div class="pad bmhead"><span class="muted">${S.bm.size} saved</span><button class="lnk" data-act="bmclear">Clear all</button></div><div id="feed">${list.map(post).join('')}${miss.length&&list.length<ids.length?`<div class="post pskel" aria-hidden="true"><span class="av md"></span><div><i></i><i></i><i></i><b></b></div></div>`:''}</div>`}
+/* #tag feed: loaded posts with the tag, plus anything older from the server. */
+const TAGQ={};
+function vTag(tag){tag=String(tag||'').toLowerCase().replace(/[^a-z0-9_]/g,'').slice(0,40);if(!tag)return `<div class="empty"><b class="h2">No tag</b></div>`;
+ const has=k=>new RegExp('(^|[^A-Za-z0-9_])#'+tag+'(?![A-Za-z0-9_])','i').test(k.thesis||'');
+ const q=TAGQ[tag];if(!q&&SYNC()){TAGQ[tag]='busy';API('/api/posts?limit=60&tag='+encodeURIComponent(tag)).then(j=>{mergePosts(j.posts||[]);TAGQ[tag]='ok'}).catch(()=>{TAGQ[tag]='err'}).finally(()=>{if(currentRoute()==='tag')render()})}
+ const list=calls.filter(k=>visible(k)&&has(k));
+ return `<div class="pad taghead"><span class="tagic">#</span><div><b class="h2">#${esc(tag)}</b><div class="hint">${list.length} post${list.length===1?'':'s'}</div></div><button class="btn sm primary" data-act="tagpost" data-f="${esc(tag)}" style="margin-left:auto">Post with #${esc(tag)}</button></div>
+ <div id="feed">${list.map(post).join('')||(TAGQ[tag]==='busy'?`<div class="post pskel" aria-hidden="true"><span class="av md"></span><div><i></i><i></i><i></i><b></b></div></div>`:`<div class="empty"><b>Nothing tagged #${esc(tag)} yet</b><p>Be the first. Add #${esc(tag)} to your next call or post.</p></div>`)}</div>`}
 const newPill=()=>`<button data-act="shownew">${S.queued.slice(0,2).map(k=>avatar(k.c)).join('')}<span style="margin-left:${S.queued.length>1?-8:0}px"></span>New calls</button>`;
 
 function vMarket(){const rows=Object.values(T).filter(t=>!t.base);
@@ -1159,7 +1178,7 @@ async function astSend(text){const q=String(text||'').trim();if(!q||AST.busy)ret
 /* ---------- chrome ---------- */
 const NAV_A=[['home','Home'],['market','Market'],['defi','DeFi'],['callerboard','Callerboard'],['you','You'],['assistant','Assistant']];
 const NAV_B=[['messages','Messages'],['bookmarks','Bookmarks'],['lists','Lists'],['news','News'],['promote','Promote'],['about','About']];
-const TITLES=Object.fromEntries([...NAV_A,...NAV_B,['notifications','Notifications'],['bookmarks','Bookmarks'],['token','Token'],['community','Community'],['post','Post'],['premium','Premium'],['messages','Messages']]);
+const TITLES=Object.fromEntries([...NAV_A,...NAV_B,['notifications','Notifications'],['bookmarks','Bookmarks'],['token','Token'],['community','Community'],['post','Post'],['premium','Premium'],['messages','Messages'],['admin','Admin'],['tag','Tag']]);
 P.lists=P.list;P.defi='<circle cx="12" cy="12" r="8.5"/><path d="M8 10h8l-2.5-2.5M16 14H8l2.5 2.5"/>';P.callerboard=P.leaderboard;P.you=P.profile;
 const NAVH={stack:[],cur:location.hash||'#/home',back:false};
 function goBack(){const prev=NAVH.stack.pop();NAVH.back=true;location.hash=prev&&prev!==location.hash?prev:'#/home'}
@@ -1203,7 +1222,7 @@ function render(){if(isPhone())document.body.classList.add('collapsed');const [,
  else if(r==='token'){const t=T[p];if(t&&tradable(t)&&p!==S.swap.from){S.swap.from=S.swap.from===p?S.swap.from:(S.swap.from===S.swap.to||!T[S.swap.from]?'SOL':S.swap.from);S.swap.to=p}html=vToken(p)}
  else html=({market:vMarket,trenches:vMarket,defi:vDefi,you:()=>{adminPing();return (S.admin?`<div class="pad" style="padding-bottom:0"><a class="btn sm primary" href="#/admin">${ic('leaderboard',15)} Admin panel</a></div>`:'')+vYou()},profile:()=>vProfile(p),callerboard:vLeaders,admin:vAdmin,promote:vPromote,about:vAbout,
   messages:()=>vMessages(p),lists:()=>vLists(p),
-  news:vNews,premium:vPremium,notifications:vNotifs,assistant:vAssistant,bookmarks:vBookmarks}[r]||vHome)();
+  news:vNews,premium:vPremium,notifications:vNotifs,assistant:vAssistant,bookmarks:vBookmarks,tag:()=>vTag(p)}[r]||vHome)();
  if(LCHART){LCHART();LCHART=null}
  $('#view').innerHTML=html;$('#rail').innerHTML=rail();chrome(r);renderSwaps();skin($('#view'));syncLanding();mountLiveChart();
  if(r==='post'){wireAttach($('#rbox'),RDRAFT,()=>drawRMedia());if(S.focusReply){S.focusReply=false;setTimeout(()=>{const i=$('#rin');i&&i.focus()},60)}}}
@@ -1628,7 +1647,7 @@ function vPost(id){const k=calls.find(x=>String(x.id)===String(id));if(!k)return
   :t?`<a class="ccard" href="#/token/${t.key}">${tokav(t.key)}<div class="cn"><b>${esc(t.name)}</b><span>$${t.sym} <span class="chain">${t.chain}</span></span></div><div class="cr"><b>Soon</b><span>Launches ${esc(t.prelaunch)}</span></div></a>`:'';
  return `<article class="fpost"><div class="fhead"><a href="#/profile/${k.c}" aria-label="Open @${esc(k.c)}'s profile">${avatar(k.c,'md')}</a><div class="grow"><div class="phead" style="margin:0"><span class="pname">${esc(nameOf(k.c))}</span>${vbadge(k.c)}${r&&!k.sponsored?`<span class="rk">#${r}</span>`:''}${k.sponsored?'<span class="tag">Sponsored</span>':''}</div><div class="hint">@${esc(k.c)}</div></div>
   ${k.c===S.me?'':`<button class="btn sm ${S.following.has(k.c)?'ghost':'primary'}" data-act="follow" data-h="${k.c}">${S.following.has(k.c)?'Following':'Follow'}</button>`}${k.sponsored?'':moreBtn(k)}</div>
-  <p class="ftext">${esc(k.thesis)}</p>${mediaGrid(k.media)}${trade}
+  <p class="ftext">${rich(k.thesis)}</p>${mediaGrid(k.media)}${trade}
   ${k.sponsored?`<div class="pnote">Paid promotion by ${esc(k.sponsor)}. Not counted in rankings.</div>`:''}
   <div class="fmeta hint">${k.ago==='now'?'Just now':k.ago+' ago'} · <b>${fmtK(k.views||0)}</b> views</div>
   <div class="fstats"><span><b>${k.replies||0}</b> replies</span><span><b>${k.reposts||0}</b> reposts</span><span><b>${k.likes||0}</b> likes</span></div>
@@ -1640,7 +1659,7 @@ function vPost(id){const k=calls.find(x=>String(x.id)===String(id));if(!k)return
   <div class="rbox" id="rbox">${S.connected?avatar(S.me):'<span class="av" style="background:var(--bg2)"></span>'}<div class="grow"><textarea id="rin" class="rin" maxlength="280" rows="1" placeholder="${S.connected?'Post your reply':'Sign in to reply'}" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px';window.drawRMedia&&window.drawRMedia()" ${S.connected?'':'disabled'}></textarea><div id="rmedia"></div>
    <div class="rfoot">${S.connected?attachBar():''}<button class="btn primary sm" id="rgo" data-act="${S.connected?'rsend':'connect'}" data-id="${k.id}" ${S.connected?'disabled':''}>${S.connected?'Reply':'Sign in'}</button></div></div></div></article>
  <div class="replies">${reps.map((x,ri)=>`<div class="rep"><a href="#/profile/${x.h}" aria-label="Open @${esc(x.h)}'s profile">${avatar(x.h)}</a><div class="grow"><div class="phead" style="margin:0"><span class="pname">${esc(nameOf(x.h))}</span><span class="hint">@${esc(x.h)}</span><time>${x.ago==='now'?'now':x.ago}</time></div>
-  <div class="hint" style="font-size:13px">Replying to <span style="color:var(--hi)">@${esc(k.c)}</span></div>${x.t?`<p class="ptext" style="margin:4px 0 0">${esc(x.t)}</p>`:''}${mediaGrid(x.media)}
+  <div class="hint" style="font-size:13px">Replying to <span style="color:var(--hi)">@${esc(k.c)}</span></div>${x.t?`<p class="ptext" style="margin:4px 0 0">${rich(x.t)}</p>`:''}${mediaGrid(x.media)}
   <div class="rbar"><button class="act" data-act="rrep" data-h="${esc(x.h)}" aria-label="Reply to @${esc(x.h)}">${ic('reply',17)}<span class="num">${x.reps||''}</span></button>
   <button class="act${x.rted?' reposted':''}" data-act="rrt" data-p="${k.id}" data-i="${ri}" aria-label="Repost">${ic('repost',17)}<span class="num">${x.rts||''}</span></button>
   <button class="act${x.liked?' liked':''}" data-act="rlike" data-p="${k.id}" data-i="${ri}" aria-label="Like">${ic('heart',17,x.liked)}<span class="num">${x.likes||''}</span></button>
@@ -1936,6 +1955,7 @@ document.addEventListener('click',e=>{
  if(a==='close'){if(e.target.closest('.wstar')){const w=e.target.closest('.wstar');e.preventDefault();const t=w.dataset.t,on=!S.watch.has(t);on?S.watch.add(t):S.watch.delete(t);bg('/api/social',{action:'watch',key:t,on});w.classList.toggle('on',on);w.innerHTML=ic('star',17,on);toast(on?`$${symOf(t)} added to your watchlist`:`$${symOf(t)} removed from your watchlist`);return}
   if(e.target===b||b.tagName!=='DIV'){closeModal()}return}
  const act={
+  tagpost:()=>{const tg=b.dataset.f;composeModal(S.cat==='perps'?'meme':S.cat);setTimeout(()=>{const ta=$('#modal textarea');if(!ta)return;ta.value=(ta.value?ta.value.trimEnd()+' ':'')+'#'+tg+' ';ta.dispatchEvent(new Event('input',{bubbles:true}));ta.focus()},80)},
   newcall:()=>composeModal(b.dataset.t?'meme':(b.dataset.k||(currentRoute()==='home'?S.cat:'meme')),{pre:b.dataset.t}),
   install:()=>installApp(),instclose:()=>{try{localStorage.setItem('callit.installDismissed','1')}catch(_){}const x=$('#instbar');x&&x.remove()},
   dmsend:()=>{const i=$('#msgin'),v=i&&i.value.trim();if(!v)return;DMS[b.dataset.f].push(['me',v,'now']);render();const m=$('#msgs');m&&m.lastElementChild&&m.lastElementChild.scrollIntoView({block:'end'});setTimeout(()=>{const n=$('#msgin');n&&n.focus()},50)},
@@ -2127,6 +2147,29 @@ function liveBoot(){BOOT_TRIES++;const ids=['traded:24h','movers:1h','organic:24
   const c=pickLive();
   if(c.length>=8&&DEMO_KEYS.some(k=>T[k])){remapDemo(c);S.live='ok';queueDemoCalls();refreshLandingTicks();if(!document.querySelector('.sheet.open')&&!$('#modal').innerHTML)render();else S.dirty=1}
   else if(S.live!=='ok'){if(S.live==='wait'){S.live='demo';queueDemoCalls();render()}if(BOOT_TRIES<4)setTimeout(liveBoot,15000)}})}
+/* @mention autocomplete in every composer and reply box. */
+const MAC={el:null,list:[],i:0,q:'',t:0};
+function macClose(){const b=$('#mbox');if(b)b.remove();MAC.el=null;MAC.list=[]}
+function macWord(ta){const v=ta.value.slice(0,ta.selectionStart),m=v.match(/(^|[^A-Za-z0-9_@])@([A-Za-z0-9_]{0,30})$/);return m?{q:m[2],at:ta.selectionStart-m[2].length-1}:null}
+function macDraw(){const ta=MAC.el;if(!ta||!MAC.list.length){const b=$('#mbox');if(b)b.remove();return}
+ let b=$('#mbox');if(!b){b=document.createElement('div');b.id='mbox';b.className='mbox';b.setAttribute('role','listbox');document.body.appendChild(b)}
+ const r=ta.getBoundingClientRect();b.style.left=Math.max(8,r.left)+'px';b.style.width=Math.min(320,r.width)+'px';
+ const below=innerHeight-r.bottom>230;b.style.top=below?(r.bottom+6)+'px':'';b.style.bottom=below?'':(innerHeight-r.top+6)+'px';
+ b.innerHTML=MAC.list.map((p,i)=>`<button type="button" role="option" aria-selected="${i===MAC.i}" class="${i===MAC.i?'on':''}" data-mi="${i}">${p.avatar_url?`<span class="av" style="background:#0B1B27 url(${esc(p.avatar_url)}) center/cover"></span>`:avatar(p.handle)}<span class="grow"><b>${esc(p.display_name||p.handle)}</b><span class="hint">@${esc(p.handle)}</span></span></button>`).join('')}
+function macPick(i){const ta=MAC.el,p=MAC.list[i];if(!ta||!p)return;const w=macWord(ta);if(!w)return macClose();
+ const v=ta.value,ins='@'+p.handle+' ';ta.value=v.slice(0,w.at)+ins+v.slice(ta.selectionStart);const c=w.at+ins.length;ta.setSelectionRange(c,c);if(p.avatar_url)AVURL[p.handle]=p.avatar_url;
+ macClose();ta.dispatchEvent(new Event('input',{bubbles:true}));ta.focus()}
+document.addEventListener('input',e=>{const ta=e.target;if(!(ta instanceof HTMLTextAreaElement)||!ta.closest('#modal,#rbox')||ta.id==='epb')return;
+ const w=macWord(ta);if(!w){if(MAC.el===ta)macClose();return}MAC.el=ta;MAC.q=w.q;MAC.i=0;
+ const ql=w.q.toLowerCase(),local=[...new Set([...S.following,...Object.keys(C)])].filter(h=>h&&h!==S.me&&C[h]&&(C[h].real||S.following.has(h))&&h.toLowerCase().startsWith(ql)).slice(0,5).map(h=>({handle:h,display_name:DN[h]||null,avatar_url:AVURL[h]||null}));
+ MAC.list=local;macDraw();clearTimeout(MAC.t);if(w.q.length<2)return;
+ MAC.t=setTimeout(()=>fetch('/api/profile?q='+encodeURIComponent(w.q)).then(r=>r.ok?r.json():{profiles:[]}).then(j=>{if(MAC.el!==ta||MAC.q!==w.q)return;
+  const seen=new Set(),all=[...local,...(j.profiles||[])].filter(p=>p.handle!==S.me&&!seen.has(p.handle)&&seen.add(p.handle));MAC.list=all.slice(0,6);MAC.i=0;macDraw()}).catch(()=>{}),180)});
+document.addEventListener('keydown',e=>{if(!MAC.el||!MAC.list.length||e.target!==MAC.el)return;
+ if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();MAC.i=(MAC.i+(e.key==='ArrowDown'?1:-1)+MAC.list.length)%MAC.list.length;macDraw()}
+ else if(e.key==='Enter'||e.key==='Tab'){e.preventDefault();e.stopPropagation();macPick(MAC.i)}else if(e.key==='Escape'){e.stopPropagation();macClose()}},true);
+document.addEventListener('mousedown',e=>{const o=e.target.closest&&e.target.closest('#mbox [data-mi]');if(o){e.preventDefault();macPick(+o.dataset.mi)}else if(!e.target.closest||!e.target.closest('#mbox'))macClose()});
+addEventListener('hashchange',macClose);
 S.live='wait';
 setTimeout(()=>{if(S.live==='wait'){S.live='demo';queueDemoCalls();render()}},6000);
 liveBoot();

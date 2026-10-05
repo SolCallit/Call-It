@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireMe, maybeMe, dbOrNull, json, isHandle, isMint, num, str, ownMediaUrl } from '@/lib/db/me';
 import { jupMany } from '@/lib/market/sources';
 import { PERP_MARKETS, isPerpMarket } from '@/lib/perps/markets';
+import { notifyMentions } from '@/lib/notify/social';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -12,7 +13,7 @@ const KINDS = ['meme', 'perps', 'random'];
 type Row = Record<string, unknown> & { id: string; profiles: { handle: string; display_name: string | null; avatar_url: string | null } | null };
 
 /**
- * GET /api/posts?kind=meme|perps|random&handle=<h>&before=<iso>&limit=<n>
+ * GET /api/posts?kind=meme|perps|random&handle=<h>&tag=<hashtag>&before=<iso>&limit=<n>
  * Public feed. With a token, also returns which posts the caller liked/reposted.
  */
 export async function GET(req: Request) {
@@ -36,6 +37,9 @@ export async function GET(req: Request) {
   if (handle && isHandle(handle)) q = q.eq('profiles.handle', handle);
   if (before && !Number.isNaN(Date.parse(before))) q = q.lt('created_at', before);
   if (ids.length) q = q.in('id', ids);
+  // tag=<word>: posts containing #word (case-insensitive)
+  const tag = (sp.get('tag') || '').replace(/^#/, '');
+  if (/^[A-Za-z0-9_]{1,40}$/.test(tag)) q = q.ilike('body', `%#${tag.replace(/_/g, '\\_')}%`);
 
   const { data, error } = await q;
   if (error) return json({ error: 'db_read', detail: error.message }, 500);
@@ -125,6 +129,7 @@ export async function POST(req: Request) {
     return json({ error: 'db_write', detail: error.message }, 500);
   }
   const { profile_id: _p, ...post } = data as Record<string, unknown>;
+  if (body) await notifyMentions(db, me, body, `#/post/${(post as { id: string }).id}`);
   const { data: pr } = await db.from('profiles').select('display_name, avatar_url').eq('id', me.id).maybeSingle();
   return json({ post: { ...post, handle: me.handle, display_name: pr?.display_name ?? null, avatar_url: pr?.avatar_url ?? null, likes: 0, reposts: 0, replies: 0 } });
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireMe, dbOrNull, json, str, ownMediaUrl } from '@/lib/db/me';
-import { notifySocial, postOwner } from '@/lib/notify/social';
+import { notifySocial, notifyMentions, postOwner } from '@/lib/notify/social';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -35,5 +35,7 @@ export async function POST(req: Request) {
   if (error) return json({ error: 'db_write', detail: error.message }, 500);
   const owner = await postOwner(ctx.db, ref);
   if (owner) await notifySocial(ctx.db, ctx.me, 'replies', { profileId: owner.profileId }, { link: `#/post/${ref}`, snippet: body || 'sent a photo' });
+  // The post owner already got a reply notification, so don't also ping them for an @mention.
+  if (body) await notifyMentions(ctx.db, ctx.me, body, `#/post/${ref}`, owner ? [owner.profileId] : []);
   return json({ reply: data });
 }
