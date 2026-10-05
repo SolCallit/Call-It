@@ -2035,3 +2035,7 @@ tr.mine td{background:color-mix(in srgb,var(--hi) 10%,transparent)}
 .rav img{width:100%;height:100%;object-fit:cover}.rav i{font-style:normal;font-weight:800;font-size:11px;color:var(--muted)}
 .rdel{display:grid;place-items:center;width:20px;height:20px;border-radius:50%;color:var(--muted);cursor:pointer}
 .rdel:hover{background:var(--hover);color:var(--text)}
+
+/* No accidental pull-to-refresh (full reload) while a sheet or the trade panel is open */
+html:has(#modal .modal),html:has(#sheet.open),body:has(#modal .modal),body:has(#sheet.open){overscroll-behavior-y:none}
+.modal,#sheet .sh{overscroll-behavior:contain}

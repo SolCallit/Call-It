@@ -2043,7 +2043,11 @@ window.callitApplySession=(p,o={})=>{
  if(realAuth()&&S.addr!==prevAddr){S.bal={SOL:0};S.activity=[];S.balAt=0;for(const k in RAW)delete RAW[k];S.swap.amt=''}
  C[S.me]=C[S.me]||{h:S.me,win:0,avg:0,calls:0,best:0,followers:0};
  PROF={...PROF,name:p.display_name??PROF.name??'',bio:p.bio??PROF.bio??'',web:p.website??PROF.web??'',x:p.x_handle??PROF.x??'',avatar:p.avatar_url||PROF.avatar,banner:p.banner_url||PROF.banner};saveProf();
- closeModal();render();loadBalances();if(realAuth()){loadMe();loadPosts()}
+ // Only close the sign-in sheet. Session re-syncs (token refresh, embedded wallet arriving a moment
+ // after load) used to close whatever was open, which is why the Buy sheet kept snapping shut.
+ const om=document.querySelector('#modal .modal'),lab=om&&om.getAttribute('aria-label')||'';
+ if(om&&/^(Sign in to Callit|Welcome back|Create your Callit account)$/.test(lab))closeModal();
+ render();loadBalances();if(realAuth()){loadMe();loadPosts()}
  if(first){toast(o.isNew?'Welcome to Callit. Your wallet is ready':'Signed in');const n=pendingNext;pendingNext=null;if(n)n();else if(o.isNew)maybeOnboard()}};
 window.callitAuthChanged=()=>syncLanding();
 window.callitWalletChanged=()=>{if(REALW())loadBalances()};
