@@ -201,7 +201,7 @@ function ppPaint(){if(PPR)return;PPR=setTimeout(()=>{PPR=0;if(currentRoute()==='
 setInterval(()=>{if(ppWant())ppConnect();else if(PP)ppClose()},2500);
 function loadFeed(id){if(LIVE.busy[id])return;LIVE.busy[id]=1;const [feed,iv]=id.split(':');
  (feed==='ogset'?fetchTokens(OG_MEMES):fetchFeed(feed,iv||'1h')).then(list=>{let ks=list.map(regLive).filter(Boolean).map(t=>t.key);if(id==='new'){const j=new Set(ks);ks=[...PPKEYS.filter(k=>!j.has(k)&&T[k]&&Date.now()-T[k]._pp<9e5),...ks]}LIVE.feeds[id]=ks;LIVE.err[id]=0})
-  .catch(()=>{LIVE.err[id]=1}).finally(()=>{LIVE.busy[id]=0;LIVE.at[id]=Date.now();if(SH&&SH.kind==='f')drawSheet();else if(currentRoute()==='market'&&!document.querySelector('.sheet.open'))render();else if(id==='movers:1h'){const rl=$('#rail');if(rl)rl.innerHTML=rail();const el=$('#landing');if(el&&!el.hidden){const tk=el.querySelectorAll('.lxtick');if(tk[0])tk[0].outerHTML=lxTicker(lxLive(0),'');if(tk[1])tk[1].outerHTML=lxTicker(lxLive(1),' rev')}}})}
+  .catch(()=>{LIVE.err[id]=1}).finally(()=>{LIVE.busy[id]=0;LIVE.at[id]=Date.now();if(SH&&SH.kind==='f')drawSheet();else if(currentRoute()==='market'&&!document.querySelector('.sheet.open'))render();else if(['movers:1h','new','movers:5m'].includes(id)&&!document.querySelector('#rail .mbox')){const rl=$('#rail');if(rl)rl.innerHTML=rail();const el=$('#landing');if(el&&!el.hidden){const tk=el.querySelectorAll('.lxtick');if(tk[0])tk[0].outerHTML=lxTicker(lxLive(0),'');if(tk[1])tk[1].outerHTML=lxTicker(lxLive(1),' rev')}}})}
 function loadLiveToken(mint,quiet){if(LIVE.tokBusy[mint])return;LIVE.tokBusy[mint]=1;
  fetchToken(mint).then(x=>{if(x){regLive(x);LIVE.tokErr[mint]=0;loadRisk(mint)}else LIVE.tokErr[mint]='gone'})
   .catch(()=>{LIVE.tokErr[mint]=LIVE.tokErr[mint]||'err'})
@@ -1144,12 +1144,25 @@ function vAbout(){return `<div class="prose"><div style="margin-bottom:18px">${s
  <p>Wallets are non-custodial. Sign in with email, Google or X, or bring Phantom, Solflare or Backpack.</p></div>`}
 
 /* ---------- rail ---------- */
-function rail(){return adBoard()+railRest()+`<div class="railfoot">${socials('sm')}<div class="legal" style="justify-content:flex-start"><button data-act="doc" data-f="terms">Terms</button><button data-act="doc" data-f="privacy">Privacy</button><span>© ${new Date().getFullYear()} Callit</span></div></div>`}
-function railRest(){const lv=(LIVE.feeds['movers:1h']||[]).map(k=>T[k]).filter(t=>t&&t.price&&!NOT_MEME.has(String(t.sym).toUpperCase()));
+/* Right rail changes with the page: Home leads with a live Market card, Market leads with the Callerboard. */
+const ageS=t=>{const h=t&&t.ageH;if(h==null||!isFinite(h))return '';const m=h*60;return m<1?'now':m<60?Math.round(m)+'m':h<24?Math.round(h)+'h':Math.round(h/24)+'d'};
+const rskel=n=>Array.from({length:n},()=>'<div class="nrow c nskel" aria-hidden="true"><span class="tokav"></span><span class="grow"><i></i><i></i></span></div>').join('');
+function marketCard(){const k=['new','almost','grad'].includes(S.rmt)?S.rmt:'new',L={new:'New',almost:'Bonding',grad:'Migrated'};
+ const rows=feedRows(k,defFil()),list=(rows||[]).filter(t=>t&&t.sym).slice(0,5);
+ const sub=t=>k==='almost'?`<span class="rbond"><i style="width:${Math.round(bond(t))}%"></i></span>${Math.round(bond(t))}%`:k==='new'?`${ageS(t)||'new'} old`:`Migrated ${ageS(t)} ago`;
+ return `<div class="card rmkt"><div class="rcardh"><h3>Market</h3><a class="lnk" href="#/market" data-act="rmgo" data-f="${k}">Open</a></div>
+ <div class="rseg" role="tablist">${Object.entries(L).map(([x,l])=>`<button role="tab" aria-selected="${k===x}" class="${k===x?'on':''}" data-act="rmt" data-f="${x}">${l}</button>`).join('')}</div>
+ <div class="list">${rows===null?rskel(4):list.length?list.map(t=>{const c=chgOf(t,'1h');return `<a class="li" href="#/token/${t.key}">${tokav(t.key)}<div class="grow"><b>$${esc(t.sym)}</b><div class="hint">${sub(t)}</div></div><div class="r num"><b>${fmtUsd(mcap(t))}</b>${c!=null?`<div class="hint ${c>=0?'up':'down'}">${fmtPct(c)}</div>`:''}</div></a>`}).join(''):`<p class="hint" style="margin:10px 0">Nothing ${L[k].toLowerCase()} right now.</p>`}</div></div>`}
+function callerCard(){const top=ranked().slice(0,5);
+ return `<div class="card"><div class="rcardh"><h3>Callerboard</h3><a class="lnk" href="#/callerboard">See all</a></div>
+ <div class="list">${top.length?top.map((c,i)=>`<div class="li"><span class="rrank">${i+1}</span>${avatar(c.h)}<div class="grow"><a class="pname" href="#/profile/${c.h}">${esc(DN[c.h]||c.h)}</a><div class="hint">${c.win}% win · ${c.calls} call${c.calls===1?'':'s'}${c.avg?` · <span class="${c.avg>=0?'up':'down'}">${fmtPct(c.avg)}</span> avg`:''}</div></div>${c.h===S.me?'':`<button class="btn sm ${S.following.has(c.h)?'ghost':'primary'}" data-act="follow" data-h="${c.h}">${S.following.has(c.h)?'Following':'Follow'}</button>`}</div>`).join('')
+  :`<p class="hint" style="margin:10px 0">No ranked callers yet. Make a call and take #1.</p><button class="btn primary block" data-act="newcall">Make a call</button>`}</div></div>`}
+function rail(){const r=currentRoute();return (r==='market'?callerCard()+railRest(1)+adBoard():r==='home'?adBoard()+marketCard()+railRest():adBoard()+railRest())+`<div class="railfoot">${socials('sm')}<div class="legal" style="justify-content:flex-start"><button data-act="doc" data-f="terms">Terms</button><button data-act="doc" data-f="privacy">Privacy</button><span>© ${new Date().getFullYear()} Callit</span></div></div>`}
+function railRest(noCallers){const lv=(LIVE.feeds['movers:1h']||[]).map(k=>T[k]).filter(t=>t&&t.price&&!NOT_MEME.has(String(t.sym).toUpperCase()));
  const trend=lv.filter(t=>t.live).sort((a,b)=>b.chg-a.chg).slice(0,5);if(!lv.length&&!LIVE.err['movers:1h'])loadFeed('movers:1h');
  return `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">Trending</h3><a class="lnk" href="#/market">Market</a></div><div class="list">${trend.length?'':Array.from({length:4},()=>'<div class="nrow c nskel" aria-hidden="true"><span class="tokav"></span><span class="grow"><i></i><i></i></span></div>').join('')}${trend.map(t=>`<a class="li" href="#/token/${t.key}">${tokav(t.key)}<div class="grow"><b>$${t.sym}</b><div class="hint">${(n=>n+(n===1?' call':' calls'))(calls.filter(k=>k.t===t.key).length)}</div></div><div class="r num"><b>${fmtUsd(mcap(t))}</b><div class="hint ${t.chg>=0?'up':'down'}">${fmtPct(t.chg)}</div></div></a>`).join('')}</div></div>
- <div class="card"><h3>Top callers</h3><div class="list">${ranked().slice(0,4).map(c=>`<div class="li">${avatar(c.h)}<div class="grow"><a class="pname" href="#/profile/${c.h}">${c.h}</a><div class="hint">${c.win}% win rate</div></div><button class="btn sm ${S.following.has(c.h)?'ghost':'primary'}" data-act="follow" data-h="${c.h}">${S.following.has(c.h)?'Following':'Follow'}</button></div>`).join('')}</div>
- <a class="btn ghost block" style="margin-top:10px" href="#/callerboard">See Callerboard</a></div>`}
+ ${noCallers?'':`<div class="card"><h3>Top callers</h3><div class="list">${ranked().slice(0,4).map(c=>`<div class="li">${avatar(c.h)}<div class="grow"><a class="pname" href="#/profile/${c.h}">${c.h}</a><div class="hint">${c.win}% win rate</div></div><button class="btn sm ${S.following.has(c.h)?'ghost':'primary'}" data-act="follow" data-h="${c.h}">${S.following.has(c.h)?'Following':'Follow'}</button></div>`).join('')}</div>
+ <a class="btn ghost block" style="margin-top:10px" href="#/callerboard">See Callerboard</a></div>`}`}
 
 /* ---------- AI assistant ---------- */
 const AST={msgs:[],busy:false,err:''};
@@ -1955,6 +1968,7 @@ document.addEventListener('click',e=>{
  if(a==='close'){if(e.target.closest('.wstar')){const w=e.target.closest('.wstar');e.preventDefault();const t=w.dataset.t,on=!S.watch.has(t);on?S.watch.add(t):S.watch.delete(t);bg('/api/social',{action:'watch',key:t,on});w.classList.toggle('on',on);w.innerHTML=ic('star',17,on);toast(on?`$${symOf(t)} added to your watchlist`:`$${symOf(t)} removed from your watchlist`);return}
   if(e.target===b||b.tagName!=='DIV'){closeModal()}return}
  const act={
+  rmt:()=>{S.rmt=b.dataset.f;const rl=$('#rail');if(rl)rl.innerHTML=rail()},rmgo:()=>{S.mt='trenches';S.tt=b.dataset.f},
   tagpost:()=>{const tg=b.dataset.f;composeModal(S.cat==='perps'?'meme':S.cat);setTimeout(()=>{const ta=$('#modal textarea');if(!ta)return;ta.value=(ta.value?ta.value.trimEnd()+' ':'')+'#'+tg+' ';ta.dispatchEvent(new Event('input',{bubbles:true}));ta.focus()},80)},
   newcall:()=>composeModal(b.dataset.t?'meme':(b.dataset.k||(currentRoute()==='home'?S.cat:'meme')),{pre:b.dataset.t}),
   install:()=>installApp(),instclose:()=>{try{localStorage.setItem('callit.installDismissed','1')}catch(_){}const x=$('#instbar');x&&x.remove()},

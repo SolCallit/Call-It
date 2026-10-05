@@ -1957,3 +1957,13 @@ tr.mine td{background:color-mix(in srgb,var(--hi) 10%,transparent)}
 .mbox b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .taghead{display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line)}
 .tagic{width:48px;height:48px;border-radius:16px;display:grid;place-items:center;font-size:26px;font-weight:800;color:var(--hi);background:color-mix(in srgb,var(--hi) 12%,var(--bg2));flex:none}
+
+/* ---------- right rail: Market + Callerboard cards ---------- */
+.rcardh{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.rcardh h3{margin:0}
+.rseg{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:4px;border-radius:999px;background:var(--bg2);margin-bottom:4px}
+.rseg button{border:0;background:none;color:var(--muted);font:inherit;font-size:13px;font-weight:700;padding:7px 0;border-radius:999px;cursor:pointer}
+.rseg button.on{background:var(--bg);color:var(--text);box-shadow:var(--raise-sm)}
+.rbond{display:inline-block;vertical-align:middle;width:42px;height:5px;border-radius:999px;background:var(--line);overflow:hidden;margin-right:6px}
+.rbond i{display:block;height:100%;background:linear-gradient(90deg,#3DDC97,#F5C542)}
+.rrank{width:18px;flex:none;text-align:center;font-weight:800;font-size:13px;color:var(--muted)}
