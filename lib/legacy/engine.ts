@@ -562,9 +562,9 @@ const keyOfMint=m=>m===SOL_MINT?'SOL':m===USDC_MINT?'USDC':m;
 const decOf=k=>DEC[k]!=null?DEC[k]:(T[k]&&T[k].L&&T[k].L.decimals!=null?T[k].L.decimals:null);
 /* Whole balance -> exact raw amount from chain (no rounding dust left behind). */
 const baseOf=(k,a)=>{const d=decOf(k);if(d==null)throw new Error('Token details are still loading. Try again in a second.');return RAW[k]&&k!=='SOL'&&a>=(S.bal[k]||0)*(1-1e-9)?RAW[k]:toBaseUnits(a,d)};
-function balRender(){const ae=document.activeElement;if(ae&&ae.dataset&&ae.dataset.swap==='amt')return;
- if($('#modal').innerHTML||document.querySelector('.sheet.open')){S.dirty=1;renderSwaps();return}
- const r=currentRoute();if(r==='you'||r==='profile')render();else renderSwaps()}
+function balRender(){const ae=document.activeElement;if(ae&&ae.matches&&ae.matches('input,textarea,select')){S.dirty=1;renderSwapsSoft();return}
+ if($('#modal').innerHTML||document.querySelector('.sheet.open')){S.dirty=1;renderSwapsSoft();return}
+ const r=currentRoute();if(r==='you'||r==='profile')render();else renderSwapsSoft()}
 let BALBUSY=0;
 function loadBalances(){if(!REALW()||BALBUSY)return;BALBUSY=1;const who=S.addr;
  walletBalances(who).then(r=>{if(S.addr!==who)return;const b={SOL:r.sol},raw={SOL:r.lamports},miss=[];
@@ -686,7 +686,13 @@ function pickToken(k){const w=S.swap,cur=w[k],all=Object.values(T).filter(tradab
   <div class="tpop">${pop.map(x=>`<button class="chip${x===cur?' on':''}" style="--c:var(--hi)" data-pick="${x}">${tokav(x)}${esc(symOf(x))}</button>`).join('')}</div><div class="tlist" id="tl"></div>`,
  m=>{draw(m);$('#tq',m).addEventListener('input',e=>{q=e.target.value.trim().toLowerCase();draw(m)});
   m.addEventListener('click',e=>{const b=e.target.closest('[data-pick]');if(!b)return;const v=b.dataset.pick,o=k==='from'?'to':'from';if(w[o]===v)w[o]=w[k];w[k]=v;closeModal();renderSwaps()})})}
-const renderSwaps=()=>document.querySelectorAll('[data-swapbox]').forEach(el=>el.innerHTML=swapHTML(el.dataset.tok||null));
+const renderSwaps=()=>document.querySelectorAll('[data-swapbox]').forEach(el=>{el._stale=0;el.innerHTML=swapHTML(el.dataset.tok||null)});
+/* Background refreshes (live price ticks, balances) must never rebuild a swap box while the user is typing in it:
+   replacing the input closes the phone keyboard. Mark it stale and redraw once they leave the field. */
+const swapBusy=el=>{const a=document.activeElement;return !!a&&el.contains(a)&&a.matches('input,textarea,select')};
+const renderSwapsSoft=()=>document.querySelectorAll('[data-swapbox]').forEach(el=>{if(swapBusy(el)){el._stale=1;return}el._stale=0;el.innerHTML=swapHTML(el.dataset.tok||null)});
+document.addEventListener('focusout',e=>{const box=e.target.closest&&e.target.closest('[data-swapbox]');if(!box||!box._stale)return;
+ setTimeout(()=>{if(box.isConnected&&!swapBusy(box)){box._stale=0;box.innerHTML=swapHTML(box.dataset.tok||null)}},150)});
 
 /* ---------- views ---------- */
 function homeTabs(){return catBar()+`<div class="tabs" role="tablist">${[['foryou','For you'],['following','Following'],['community','Community'],['watchlist','Watchlist']].map(([k,l])=>`<button role="tab" aria-selected="${S.tab===k}" class="${S.tab===k?'on':''}" data-act="tab" data-f="${k}">${l}</button>`).join('')}</div>`}
@@ -1049,7 +1055,7 @@ function vLiveToken(t){const key=t.key,tr=S.watch.has(key),on=calls.filter(k=>k.
 /* Light refresh of a live token page without touching the chart. */
 function liveTick(t){const pr=$('#lprice'),cg=$('#lchg'),st=$('#lstats');if(!pr)return;const ch=((t.L||{}).chg||{}).h24;
  const dir=t._lp?Math.sign(t.price-t._lp):0;t._lp=t.price;if(LCHART&&LCHART.tick)LCHART.tick(t.price);
- flashSet(pr,S.lmode==='mc'?fmtSmall(mcap(t)):fmtSmall(t.price),dir);cg.className='num '+pcls(ch);cg.textContent=pctS(ch)+' 24h';st.innerHTML=liveStats(t);renderSwaps()}
+ flashSet(pr,S.lmode==='mc'?fmtSmall(mcap(t)):fmtSmall(t.price),dir);cg.className='num '+pcls(ch);cg.textContent=pctS(ch)+' 24h';st.innerHTML=liveStats(t);renderSwapsSoft()}
 function vToken(sym){const t=T[sym];if(!t)return isMintStr(sym)?(loadLiveToken(sym),vTokenLoading(sym)):vHome();if(t.live)return vLiveToken(t);const on=calls.filter(k=>k.t===sym),tr=S.watch.has(sym);
  const head=`<div class="pad" style="padding-bottom:0"><div style="display:flex;align-items:center;gap:12px">${tokav(t.key)}<div style="flex:1;min-width:0"><b class="h2">${esc(t.name)}</b> <span class="muted">$${t.sym}</span><div><span class="chain">${t.chain}</span> <button class="copyca" data-act="copy" data-v="${esc(t.ca)}">${short(t.ca)} ${ic('copy',13)}</button></div></div>
  <button class="btn sm ${tr?'primary':'ghost'}" data-act="track" data-t="${sym}">${ic('star',15,tr)} ${tr?'On watchlist':'Watchlist'}</button></div>`;
@@ -2156,7 +2162,7 @@ function refreshCallTokens(){if(CTBUSY)return;const ms=[...new Set([...calls,...
  fetchTokens(ms).then(list=>list.forEach(regLive)).catch(()=>{}).finally(()=>{CTBUSY=0})}
 let BOOT_TRIES=0;
 function liveBoot(){BOOT_TRIES++;const ids=['traded:24h','movers:1h','organic:24h'];
- fetchToken('So11111111111111111111111111111111111111112').then(x=>{if(x&&x.price){T.SOL.price=x.price;if(x.chg&&x.chg.h24!=null)T.SOL.chg=x.chg.h24;renderSwaps()}}).catch(()=>{});
+ fetchToken('So11111111111111111111111111111111111111112').then(x=>{if(x&&x.price){T.SOL.price=x.price;if(x.chg&&x.chg.h24!=null)T.SOL.chg=x.chg.h24;renderSwapsSoft()}}).catch(()=>{});
  Promise.allSettled(ids.map(id=>{const [f,iv]=id.split(':');return fetchFeed(f,iv).then(l=>{LIVE.feeds[id]=l.map(regLive).filter(Boolean).map(t=>t.key);LIVE.err[id]=0;LIVE.at[id]=Date.now()})})).then(()=>{
   const c=pickLive();
   if(c.length>=8&&DEMO_KEYS.some(k=>T[k])){remapDemo(c);S.live='ok';queueDemoCalls();refreshLandingTicks();if(!document.querySelector('.sheet.open')&&!$('#modal').innerHTML)render();else S.dirty=1}
