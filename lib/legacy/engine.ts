@@ -1408,6 +1408,15 @@ function ogKeys(list){const og=new Set(),run=new Set();og.run=run;og.of={};
   if(a.length>=2){const top=[...a].sort((x,y)=>(mcap(y)||0)-(mcap(x)||0))[0];if(top&&(mcap(top)||0)>=2e4)run.add(top.key)}});
  return og}
 const ageTag=t=>{const b=bornOf(t);return b==null?'':`<span class="sage" title="Launched ${new Date(b).toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'})}">${ageStr(Math.max(0,(Date.now()-b)/36e5))}</span>`};
+/* Recent searches: the tokens this user opened from Search, newest first, saved per account on this device. */
+const RKEY=()=>'callit.recent:'+(S.me||'guest');
+const recentGet=()=>{try{const v=JSON.parse(localStorage.getItem(RKEY())||'[]');return Array.isArray(v)?v.filter(x=>x&&isMintStr(x.k)):[]}catch(_){return []}};
+const recentSet=a=>{try{localStorage.setItem(RKEY(),JSON.stringify(a.slice(0,12)))}catch(_){}};
+function recentAdd(k){if(!isMintStr(k))return;const t=T[k]||{};recentSet([{k,s:String(t.sym||short(k)).slice(0,14),i:t.icon||null},...recentGet().filter(x=>x.k!==k)])}
+function recentBar(){const a=recentGet();if(!a.length)return '';
+ const av=x=>x.i?`<img src="${esc(cdnIcon(x.i,48))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('i'),{textContent:'${esc(x.s[0]||'?')}'}))">`:`<i>${esc((x.s||'?')[0])}</i>`;
+ return `<div class="shead"><span class="tsec" style="margin:0">Recent</span><button type="button" class="ib" data-rclear aria-label="Clear recent searches" title="Clear all">${ic('trash',17)}</button></div>
+ <div class="rchips">${a.map(x=>`<a class="rchip" href="#/token/${esc(x.k)}" data-act="close" data-rk="${esc(x.k)}"><span class="rav">${av(x)}</span><b>${esc(x.s)}</b><span class="rdel" role="button" tabindex="0" data-rdel="${esc(x.k)}" aria-label="Remove ${esc(x.s)}">${ic('x',13)}</span></a>`).join('')}</div>`}
 function searchModal(){S.stf=TF_OK.includes(S.stf)?S.stf:'1h';S.sk=S.sk==='callers'?'callers':'tokens';
  const ph=()=>S.sk==='callers'?'Search callers by @handle or name':'Search a token, ticker or paste a CA';
  const kbar=()=>`<div class="kseg tgl skind" style="--i:${S.sk==='callers'?1:0};--n:2;grid-template-columns:repeat(2,1fr)" role="tablist" aria-label="What are you searching for?">${[['tokens','Tokens','market'],['callers','Callers','profile']].map(([k,l,i])=>`<button type="button" role="tab" aria-selected="${S.sk===k}" class="${S.sk===k?'on':''}" data-sk="${k}">${ic(i,15)}<span>${l}</span></button>`).join('')}</div>`;
@@ -1437,7 +1446,7 @@ function searchModal(){S.stf=TF_OK.includes(S.stf)?S.stf:'1h';S.sk=S.sk==='calle
     .catch(()=>{const bz=$('#sbusy',m);if(bz)bz.textContent='Caller search is unavailable right now.'}),250)};
   const draw=()=>{const q=qv(),ql=q.toLowerCase();clearTimeout(SRT);
    if(S.sk==='callers')return drawCallers(q);
-   if(!q){box.innerHTML=trending();return}
+   if(!q){box.innerHTML=recentBar()+trending();return}
    const local=Object.values(T).filter(t=>t.live&&t.price&&(String(t.sym).toLowerCase().startsWith(ql)||t.name.toLowerCase().includes(ql)||t.key===q)).sort((a,b)=>(b.vol||0)-(a.vol||0)).slice(0,5);
    const og0=ogKeys(local);
    box.innerHTML=`<div id="slive">${local.length?`<div class="tsec">Tokens</div>${rank(local,og0).map(t=>trow2(t,'24h',og0)).join('')}`:''}${q.length>=2?'<p class="hint" style="margin:8px 4px" id="sbusy">Searching live tokens…</p>':''}</div>`+(q.length<2&&!local.length?'<p class="hint" style="padding:8px 4px">Keep typing: a ticker, a name or a contract address.</p>':'');
@@ -1447,11 +1456,15 @@ function searchModal(){S.stf=TF_OK.includes(S.stf)?S.stf:'1h';S.sk=S.sk==='calle
     const og=ogKeys(all),top=rank(all,og).slice(0,12),copies=top.filter(t=>!og.has(t.key)&&(og.of[t.key]||[]).some(x=>og.has(x.key))).length;
     el.innerHTML=top.length?`<div class="tsec">Tokens</div>${copies?`<p class="hint sognote">${ic('target',13)} ${copies} cop${copies>1?'ies':'y'} of an OG in here. Check the contract before you buy.</p>`:''}${top.map(t=>trow2(t,'24h',og)).join('')}`:(isMintStr(q)?`<a class="li" href="#/token/${q}" data-act="close"><div class="grow"><b>Open ${short(q)}</b><div class="hint">Look up this contract address</div></div></a>`:`<p class="hint" style="padding:8px 4px">No live token matches “${esc(q)}”.</p>`)})
     .catch(()=>{const b=$('#sbusy',m);if(b)b.textContent='Live search is unavailable right now.'}),250)};
-  m.addEventListener('click',e=>{const k=e.target.closest('[data-sk]');if(k){e.preventDefault();if(S.sk===k.dataset.sk)return;slideTo(k);S.sk=k.dataset.sk;inp.placeholder=ph();draw();inp.focus();return}
+  m.addEventListener('click',e=>{
+   const del=e.target.closest('[data-rdel]');if(del){e.preventDefault();e.stopPropagation();recentSet(recentGet().filter(x=>x.k!==del.dataset.rdel));draw();inp.focus();return}
+   if(e.target.closest('[data-rclear]')){e.preventDefault();recentSet([]);draw();inp.focus();return}
+   const row=e.target.closest('a[href^="#/token/"]');if(row&&!e.target.closest('[data-act="track"]'))recentAdd(row.getAttribute('href').slice(8));
+   const k=e.target.closest('[data-sk]');if(k){e.preventDefault();if(S.sk===k.dataset.sk)return;slideTo(k);S.sk=k.dataset.sk;inp.placeholder=ph();draw();inp.focus();return}
    const t=e.target.closest('[data-stf]');if(t){e.preventDefault();S.stf=t.dataset.stf;draw();return}
    if(e.target.closest('[data-sretry]')){LIVE.err['movers:'+S.stf]=0;draw()}});
   inp.addEventListener('input',draw);
-  inp.addEventListener('keydown',e=>{if(e.key==='Enter'){const f=box.querySelector('a.li');if(f){e.preventDefault();location.hash=f.getAttribute('href');closeModal()}}});
+  inp.addEventListener('keydown',e=>{if(e.key==='Enter'){const f=box.querySelector('#slive a.li')||box.querySelector('a.li');if(f){e.preventDefault();const h=f.getAttribute('href');if(h.startsWith('#/token/'))recentAdd(h.slice(8));location.hash=h;closeModal()}}});
   clearInterval(STR);STR=setInterval(()=>{if(!box.isConnected)return clearInterval(STR);if(!document.hidden&&!qv()&&S.sk==='tokens')loadTrend(true)},10000);
   draw();setTimeout(()=>inp.focus(),40)})}
 const NOTIFS=[];
