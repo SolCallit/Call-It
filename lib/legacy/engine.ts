@@ -1048,10 +1048,42 @@ function vLiveToken(t){const key=t.key,tr=S.watch.has(key),on=calls.filter(k=>k.
  <div class="lchart" id="lchart" data-mint="${key}"><div class="lchart-msg" id="lchartmsg">${t.pool?'Loading chart…':'No trading pool for a chart yet.'}</div></div>
  <div id="lstats">${liveStats(t)}</div>
  <div class="llinks">${liveLinks(t)}</div>
+ <div id="lpair">${pairCard(t)}</div><div id="labout">${aboutCard(t)}</div>
  ${heatCard(t)}${(sc=>`<details class="card sfcard" data-sf ${(SFOPEN==null?sc.bad:SFOPEN)?'open':''}><summary><h3>Safety check</h3><span class="sfbadge ${!sc.n?'unk':sc.bad?(sc.ok>=sc.n-1&&!(t.L&&t.L.audit&&t.L.audit.sus)?'warn':'bad'):'ok'}">${sc.n?`${sc.ok}/${sc.n} passed`:'No data'}</span><span class="sfchev" aria-hidden="true">${ic('down',18)}</span></summary><div class="sflist">${liveSafety(t)}${taxRows(t)}</div><div class="bubsec"><div class="bubhead"><b>Holder map</b><a class="lnk" href="https://app.bubblemaps.io/sol/token/${esc(t.key)}" target="_blank" rel="noopener">Open in Bubblemaps ↗</a></div><div id="bubwrap">${bubbles(t)}</div></div><p class="hint" style="margin:10px 0 0">From Jupiter's token audit. Not a guarantee. Always size your bets.</p></details>`)(sfScore(t))}
  <div class="card"><h3>Trade $${esc(t.sym)}</h3><div data-swapbox data-tok="${key}"></div></div>
  <div style="display:flex;justify-content:space-between;align-items:center;margin:22px 0 4px"><b class="h2">Calls on $${esc(t.sym)}</b><button class="btn sm primary" data-act="newcall" data-t="${key}">Call it</button></div></div>
  <div id="feed" style="border-top:1px solid var(--line);margin-top:10px">${on.map(post).join('')||'<div class="empty"><b>No calls yet</b><p>Call it first and your entry gets stamped at the live market cap.</p></div>'}</div>`}
+/* Pair info (DexScreener-style) and the coin's lore. Loaded on their own and patched in place, never a full re-render. */
+const PAIRS={};
+function loadPairs(mint,force){const P=PAIRS[mint]||(PAIRS[mint]={});if(P.busy||(!force&&P.at&&Date.now()-P.at<1e4))return;P.busy=1;
+ fetch('/api/market/pairs/'+mint).then(r=>r.ok?r.json():null).then(j=>{if(j){P.d=j;P.err=0}else P.err=1}).catch(()=>{P.err=1}).finally(()=>{P.busy=0;P.at=Date.now();
+  const [,r,p]=location.hash.split('/');if(r!=='token'||p!==mint||!T[mint])return;const a=$('#lpair'),b=$('#labout');if(a)a.innerHTML=pairCard(T[mint]);if(b)b.innerHTML=aboutCard(T[mint])})}
+const PTF=[['m5','5M'],['h1','1H'],['h6','6H'],['h24','24H']];
+const agoLong=ms=>{const m=Math.max(0,(Date.now()-ms)/6e4),d=Math.floor(m/1440),h=Math.floor(m%1440/60);return d?`${d}d ${h}h ago`:h?`${h}h ${Math.floor(m%60)}m ago`:`${Math.max(1,Math.floor(m))}m ago`};
+const fmtPool=v=>v==null?'—':v>=1e9?(v/1e9).toFixed(2)+'B':v>=1e6?(v/1e6).toFixed(2)+'M':v>=1e3?Math.round(v).toLocaleString():(+v.toPrecision(4)).toLocaleString();
+function sbar(a,b){const t=a+b,x=t?a/t*100:50;return `<div class="psbar"><i class="b" style="width:${x}%"></i><i class="s" style="width:${100-x}%"></i></div>`}
+function pairCard(t){const P=PAIRS[t.key];if(!P||!P.d){loadPairs(t.key);return P&&P.err?'':`<div class="card pcard" aria-busy="true"><div class="nrow c nskel"><span class="grow"><i></i><i></i></span></div></div>`}
+ const list=P.d.pairs||[];if(!list.length)return '';const i=Math.min(S.pidx|0,list.length-1),x=list[i],tf=S.ptf||'h24',tx=x.txns[tf]||{buys:0,sells:0},fl=t.L&&t.L.flow&&(tf==='m5'||tf==='h1')?t.L.flow[tf]:null;
+ const baseUsd=x.liq.base!=null&&x.priceUsd?x.liq.base*x.priceUsd:null,quoteUsd=x.liq.usd!=null&&baseUsd!=null?Math.max(0,x.liq.usd-baseUsd):null;
+ return `<div class="card pcard">${P.d.header&&i===0?`<div class="phead" style="background-image:url('${esc(P.d.header)}')" role="img" aria-label="${esc(t.name)} banner"></div>`:''}
+ <div class="ptop"><div><b class="ppair">${esc(x.base.sym)} <span class="muted">/</span> ${esc(x.quote.sym)}</b><div class="hint">Solana › ${esc(x.dex)}${x.via?` <span class="muted">via</span> ${esc(x.via)}`:''}</div></div><a class="lnk" href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">DexScreener ↗</a></div>
+ ${list.length>1?`<div class="pchips" role="tablist" aria-label="Pairs">${list.map((y,j)=>`<button role="tab" aria-selected="${j===i}" class="${j===i?'on':''}" data-act="pidx" data-f="${j}">${esc(y.quote.sym)} · ${esc(y.dex)}<span class="num">${fmtUsd(y.liq.usd)}</span></button>`).join('')}</div>`:''}
+ <div class="pgrid g2"><div><span>Price USD</span><b class="num">${x.priceUsd!=null?fmtSmall(x.priceUsd):'—'}</b></div><div><span>Price</span><b class="num">${x.priceNative!=null?fmtSmall(x.priceNative).replace('$','')+' '+esc(x.quote.sym):'—'}</b></div></div>
+ <div class="pgrid g3"><div><span>Liquidity</span><b class="num">${fmtUsd(x.liq.usd)}</b></div><div><span>FDV</span><b class="num">${fmtUsd(x.fdv)}</b></div><div><span>Mkt cap</span><b class="num">${fmtUsd(x.mc??x.fdv)}</b></div></div>
+ <div class="ptf" role="tablist">${PTF.map(([k,l])=>{const c=x.chg[k];return `<button role="tab" aria-selected="${tf===k}" class="${tf===k?'on':''}" data-act="ptf" data-f="${k}"><span>${l}</span><b class="num ${c==null?'':c>=0?'up':'down'}">${c==null?'—':fmtPct(c)}</b></button>`}).join('')}</div>
+ <div class="pflow"><div class="pfl"><div><span>Txns</span><b class="num">${(tx.buys+tx.sells).toLocaleString()}</b></div><div><span>Volume</span><b class="num">${fmtUsd(x.vol[tf])}</b></div></div>
+  <div class="pfr"><div class="pfrow"><span>Buys <b class="num">${tx.buys.toLocaleString()}</b></span><span>Sells <b class="num">${tx.sells.toLocaleString()}</b></span></div>${sbar(tx.buys,tx.sells)}
+  ${fl?`<div class="pfrow"><span>Buy vol <b class="num">${fmtUsd(fl.bv)}</b></span><span>Sell vol <b class="num">${fmtUsd(fl.sv)}</b></span></div>${sbar(fl.bv,fl.sv)}`:''}</div></div>
+ <div class="prows">${x.createdAt?`<div><span>Pair created</span><b>${agoLong(x.createdAt)}</b></div>`:''}
+  <div><span>Pooled ${esc(x.base.sym)}</span><b class="num">${fmtPool(x.liq.base)}${baseUsd!=null?` <em>${fmtUsd(baseUsd)}</em>`:''}</b></div>
+  <div><span>Pooled ${esc(x.quote.sym)}</span><b class="num">${fmtPool(x.liq.quote)}${quoteUsd!=null?` <em>${fmtUsd(quoteUsd)}</em>`:''}</b></div>
+  <div><span>Pair</span><button class="copyca" data-act="copy" data-v="${esc(x.address)}">${short(x.address)} ${ic('copy',13)}</button></div></div></div>`}
+function aboutCard(t){const P=PAIRS[t.key],d=P&&P.d;if(!d||(!d.about&&!(d.links||[]).length))return '';
+ const txt=d.about||'',long=txt.length>220;
+ return `<div class="card acard"><h3>About $${esc(t.sym)}</h3>${!txt?'':long?`<details class="alore"><summary><p class="ptext asum">${rich(txt.slice(0,220))}…</p><span class="lnk amore"></span></summary><p class="ptext">${rich(txt)}</p></details>`:`<p class="ptext">${rich(txt)}</p>`}
+ ${(d.links||[]).length?`<div class="alinks">${d.links.map(l=>`<a class="btn sm ghost" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer nofollow">${esc(l.label)} ↗</a>`).join('')}</div>`:''}
+ <p class="hint" style="margin:10px 0 0">Written by the token's creator, not checked by Callit.</p></div>`}
+setInterval(()=>{if(document.hidden)return;const [,r,p]=location.hash.split('/');if(r==='token'&&p&&T[p]&&T[p].live)loadPairs(p)},10000);
 /* Light refresh of a live token page without touching the chart. */
 function liveTick(t){const pr=$('#lprice'),cg=$('#lchg'),st=$('#lstats');if(!pr)return;const ch=((t.L||{}).chg||{}).h24;
  const dir=t._lp?Math.sign(t.price-t._lp):0;t._lp=t.price;if(LCHART&&LCHART.tick)LCHART.tick(t.price);
@@ -1327,6 +1359,10 @@ function ogKeys(list){const g={},og=new Set();list.forEach(t=>{const k=tickOf(t)
   const dated=a.filter(t=>bornOf(t)!=null);if(!dated.length)return;const pool=dated.some(legit)?dated.filter(legit):dated;
   og.add(pool.sort((x,y)=>bornOf(x)-bornOf(y))[0].key)});return og}
 const ageTag=t=>{const b=bornOf(t);return b==null?'':`<span class="sage" title="Launched ${new Date(b).toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'})}">${ageStr(Math.max(0,(Date.now()-b)/36e5))}</span>`};
+/* Recent searches: tokens and callers you opened from Search, newest first, kept on this device. */
+function recentGet(){try{const v=JSON.parse(localStorage.getItem('callit.recent')||'[]');return Array.isArray(v)?v:[]}catch(_){return []}}
+function recentAdd(x){const id=y=>y.t==='tok'?'t:'+y.k:'u:'+y.h,l=[x,...recentGet().filter(y=>id(y)!==id(x))].slice(0,12);try{localStorage.setItem('callit.recent',JSON.stringify(l))}catch(_){}}
+function recentClear(kind){try{localStorage.setItem('callit.recent',JSON.stringify(recentGet().filter(y=>y.t!==kind)))}catch(_){}}
 function searchModal(){S.stf=TF_OK.includes(S.stf)?S.stf:'1h';S.sk=S.sk==='callers'?'callers':'tokens';
  const ph=()=>S.sk==='callers'?'Search callers by @handle or name':'Search a token, ticker or paste a CA';
  const kbar=()=>`<div class="kseg tgl skind" style="--i:${S.sk==='callers'?1:0};--n:2;grid-template-columns:repeat(2,1fr)" role="tablist" aria-label="What are you searching for?">${[['tokens','Tokens','market'],['callers','Callers','profile']].map(([k,l,i])=>`<button type="button" role="tab" aria-selected="${S.sk===k}" class="${S.sk===k?'on':''}" data-sk="${k}">${ic(i,15)}<span>${l}</span></button>`).join('')}</div>`;
@@ -1353,9 +1389,13 @@ function searchModal(){S.stf=TF_OK.includes(S.stf)?S.stf:'1h';S.sk=S.sk==='calle
     const seen=new Set(),all=[...local.map(c=>c.h),...(j.profiles||[]).map(p=>p.handle)].filter(h=>!S.blocked.has(h)&&!seen.has(h)&&seen.add(h)).slice(0,12);
     el.innerHTML=all.map(h=>prow(C[h])).join('');if(bz)bz.remove();if(!all.length)el.innerHTML=`<p class="hint" style="padding:8px 4px">No caller matches “${esc(q)}”.</p>`})
     .catch(()=>{const bz=$('#sbusy',m);if(bz)bz.textContent='Caller search is unavailable right now.'}),250)};
+  const recent=kind=>{const R=recentGet().filter(x=>x.t===kind).slice(0,6);if(!R.length)return '';
+   return `<div class="shead"><span class="tsec" style="margin:0">Recent</span><button type="button" class="lnk" data-sclear="${kind}">Clear</button></div>`+R.map(x=>kind==='tok'
+    ?`<a class="li srow" href="#/token/${esc(x.k)}" data-act="close">${T[x.k]?tokav(x.k):`<span class="tokav">${esc(String(x.sym||'?').slice(0,3))}</span>`}<div class="grow"><b>${esc(x.name||x.sym)}</b><div class="hint">$${esc(x.sym)}${T[x.k]&&T[x.k].price?` · ${fmtUsd(mcap(T[x.k]))} MC`:''}</div></div><span class="srec" aria-hidden="true">${ic('search',14)}</span></a>`
+    :`<a class="li" href="#/profile/${esc(x.h)}" data-act="close">${avatar(x.h)}<div class="grow"><b>${esc(nameOf(x.h))}</b><div class="hint">@${esc(x.h)}</div></div><span class="srec" aria-hidden="true">${ic('search',14)}</span></a>`).join('')};
   const draw=()=>{const q=qv(),ql=q.toLowerCase();clearTimeout(SRT);
-   if(S.sk==='callers')return drawCallers(q);
-   if(!q){box.innerHTML=trending();return}
+   if(S.sk==='callers'){if(!q){box.innerHTML=recent('usr')+`<div class="tsec">Top callers</div>`+ranked().slice(0,8).map(prow).join('');return}return drawCallers(q)}
+   if(!q){box.innerHTML=recent('tok')+trending();return}
    const local=Object.values(T).filter(t=>t.live&&t.price&&(String(t.sym).toLowerCase().startsWith(ql)||t.name.toLowerCase().includes(ql)||t.key===q)).sort((a,b)=>(b.vol||0)-(a.vol||0)).slice(0,5);
    const og0=ogKeys(local);
    box.innerHTML=`<div id="slive">${local.length?`<div class="tsec">Tokens</div>${rank(local,og0).map(t=>trow2(t,'24h',og0)).join('')}`:''}${q.length>=2?'<p class="hint" style="margin:8px 4px" id="sbusy">Searching live tokens…</p>':''}</div>`+(q.length<2&&!local.length?'<p class="hint" style="padding:8px 4px">Keep typing: a ticker, a name or a contract address.</p>':'');
@@ -1365,7 +1405,11 @@ function searchModal(){S.stf=TF_OK.includes(S.stf)?S.stf:'1h';S.sk=S.sk==='calle
     const og=ogKeys(all),top=rank(all,og).slice(0,12),copies=top.filter(t=>!og.has(t.key)&&[...og].some(k=>T[k]&&tickOf(T[k])===tickOf(t))).length;
     el.innerHTML=top.length?`<div class="tsec">Tokens</div>${copies?`<p class="hint sognote">${ic('target',13)} ${copies} cop${copies>1?'ies':'y'} share a ticker with an OG. Check the contract before you buy.</p>`:''}${top.map(t=>trow2(t,'24h',og)).join('')}`:(isMintStr(q)?`<a class="li" href="#/token/${q}" data-act="close"><div class="grow"><b>Open ${short(q)}</b><div class="hint">Look up this contract address</div></div></a>`:`<p class="hint" style="padding:8px 4px">No live token matches “${esc(q)}”.</p>`)})
     .catch(()=>{const b=$('#sbusy',m);if(b)b.textContent='Live search is unavailable right now.'}),250)};
-  m.addEventListener('click',e=>{const k=e.target.closest('[data-sk]');if(k){e.preventDefault();if(S.sk===k.dataset.sk)return;slideTo(k);S.sk=k.dataset.sk;inp.placeholder=ph();draw();inp.focus();return}
+  m.addEventListener('click',e=>{const cl=e.target.closest('[data-sclear]');if(cl){e.preventDefault();recentClear(cl.dataset.sclear);draw();return}
+   const hit=e.target.closest('#sres a.li[href]');if(hit){const h=hit.getAttribute('href');let mm;
+    if((mm=h.match(/^#\/token\/(.+)$/))){const t=T[decodeURIComponent(mm[1])];if(t)recentAdd({t:'tok',k:t.key,sym:t.sym,name:t.name})}
+    else if((mm=h.match(/^#\/profile\/(.+)$/)))recentAdd({t:'usr',h:decodeURIComponent(mm[1])})}
+   const k=e.target.closest('[data-sk]');if(k){e.preventDefault();if(S.sk===k.dataset.sk)return;slideTo(k);S.sk=k.dataset.sk;inp.placeholder=ph();draw();inp.focus();return}
    const t=e.target.closest('[data-stf]');if(t){e.preventDefault();S.stf=t.dataset.stf;draw();return}
    if(e.target.closest('[data-sretry]')){LIVE.err['movers:'+S.stf]=0;draw()}});
   inp.addEventListener('input',draw);
@@ -1975,6 +2019,7 @@ document.addEventListener('click',e=>{
   if(e.target===b||b.tagName!=='DIV'){closeModal()}return}
  const act={
   rmt:()=>{S.rmt=b.dataset.f;const rl=$('#rail');if(rl)rl.innerHTML=rail()},rmgo:()=>{S.mt='trenches';S.tt=b.dataset.f},
+  pidx:()=>{S.pidx=+b.dataset.f;const [,,p]=location.hash.split('/'),el=$('#lpair');if(el&&T[p])el.innerHTML=pairCard(T[p])},ptf:()=>{S.ptf=b.dataset.f;const [,,p]=location.hash.split('/'),el=$('#lpair');if(el&&T[p])el.innerHTML=pairCard(T[p])},
   tagpost:()=>{const tg=b.dataset.f;composeModal(S.cat==='perps'?'meme':S.cat);setTimeout(()=>{const ta=$('#modal textarea');if(!ta)return;ta.value=(ta.value?ta.value.trimEnd()+' ':'')+'#'+tg+' ';ta.dispatchEvent(new Event('input',{bubbles:true}));ta.focus()},80)},
   newcall:()=>composeModal(b.dataset.t?'meme':(b.dataset.k||(currentRoute()==='home'?S.cat:'meme')),{pre:b.dataset.t}),
   install:()=>installApp(),instclose:()=>{try{localStorage.setItem('callit.installDismissed','1')}catch(_){}const x=$('#instbar');x&&x.remove()},
@@ -2189,7 +2234,7 @@ document.addEventListener('keydown',e=>{if(!MAC.el||!MAC.list.length||e.target!=
  if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();MAC.i=(MAC.i+(e.key==='ArrowDown'?1:-1)+MAC.list.length)%MAC.list.length;macDraw()}
  else if(e.key==='Enter'||e.key==='Tab'){e.preventDefault();e.stopPropagation();macPick(MAC.i)}else if(e.key==='Escape'){e.stopPropagation();macClose()}},true);
 document.addEventListener('mousedown',e=>{const o=e.target.closest&&e.target.closest('#mbox [data-mi]');if(o){e.preventDefault();macPick(+o.dataset.mi)}else if(!e.target.closest||!e.target.closest('#mbox'))macClose()});
-addEventListener('hashchange',macClose);
+addEventListener('hashchange',()=>{macClose();S.pidx=0});
 S.live='wait';
 setTimeout(()=>{if(S.live==='wait'){S.live='demo';queueDemoCalls();render()}},6000);
 liveBoot();

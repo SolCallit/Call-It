@@ -1967,3 +1967,51 @@ tr.mine td{background:color-mix(in srgb,var(--hi) 10%,transparent)}
 .rbond{display:inline-block;vertical-align:middle;width:42px;height:5px;border-radius:999px;background:var(--line);overflow:hidden;margin-right:6px}
 .rbond i{display:block;height:100%;background:linear-gradient(90deg,#3DDC97,#F5C542)}
 .rrank{width:18px;flex:none;text-align:center;font-weight:800;font-size:13px;color:var(--muted)}
+
+/* ---------- token page: pair (DexScreener-style) + about ---------- */
+.pcard{padding:0;overflow:hidden}
+.pcard>*:not(.phead){margin-left:16px;margin-right:16px}
+.phead{height:110px;background:#0B1B27 center/cover no-repeat;margin:0 0 12px!important}
+.pcard>.ptop:first-child{margin-top:14px}
+.ptop{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px}
+.ppair{font-size:18px;font-weight:800}
+.pchips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-bottom:10px;padding-bottom:2px}
+.pchips button{flex:none;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:none;color:var(--muted);font:inherit;font-size:12.5px;font-weight:700;padding:6px 10px;border-radius:999px;cursor:pointer}
+.pchips button span{color:var(--text);font-weight:600}
+.pchips button.on{border-color:var(--hi);color:var(--text);background:color-mix(in srgb,var(--hi) 12%,transparent)}
+.pgrid{display:grid;gap:8px;margin-bottom:8px}
+.pgrid.g2{grid-template-columns:1fr 1fr}.pgrid.g3{grid-template-columns:repeat(3,1fr)}
+.pgrid>div{border:1px solid var(--line);border-radius:12px;padding:8px 10px;text-align:center;min-width:0}
+.pgrid span,.pflow span,.prows span{display:block;font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.pgrid b{display:block;font-size:15px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ptf{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);border-radius:12px 12px 0 0;overflow:hidden;margin-top:12px}
+.ptf button{border:0;border-left:1px solid var(--line);background:none;padding:8px 0;font:inherit;cursor:pointer;color:var(--muted)}
+.ptf button:first-child{border-left:0}
+.ptf button span{display:block;font-size:12px;font-weight:700}
+.ptf button b{font-size:14px;font-weight:800}
+.ptf button.on{background:var(--bg2);color:var(--text)}
+.pflow{display:grid;grid-template-columns:120px 1fr;gap:14px;border:1px solid var(--line);border-top:0;border-radius:0 0 12px 12px;padding:12px;margin-bottom:10px}
+.pfl{display:flex;flex-direction:column;gap:10px;border-right:1px solid var(--line);padding-right:12px}
+.pfl b{font-size:16px;font-weight:800}
+.pfrow{display:flex;justify-content:space-between;font-size:13px;color:var(--muted)}
+.pfrow span{display:inline;font-size:12px}
+.pfrow b{color:var(--text);margin-left:4px;font-size:13.5px}
+.psbar{display:flex;gap:3px;height:5px;margin:5px 0 10px}
+.psbar i{display:block;border-radius:999px;min-width:3px}
+.psbar .b{background:var(--up)}.psbar .s{background:var(--down)}
+.prows{margin-bottom:14px}
+.prows>div{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line)}
+.prows span{text-transform:none;letter-spacing:0;font-size:14px;font-weight:500;color:var(--text)}
+.prows b{font-weight:700}
+.prows em{font-style:normal;color:var(--muted);margin-left:8px;font-weight:600}
+.acard h3{margin-bottom:6px}
+.alore summary{list-style:none;cursor:pointer}
+.alore summary::-webkit-details-marker{display:none}
+.alore[open] .asum{display:none}
+.amore::after{content:'Read more'}
+.alore[open] .amore::after{content:'Show less'}
+.alore[open] summary{order:2}
+.alore{display:flex;flex-direction:column}
+.alinks{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.srec{color:var(--muted);opacity:.6}
+@media (max-width:520px){.pflow{grid-template-columns:96px 1fr}.pgrid b{font-size:14px}}
