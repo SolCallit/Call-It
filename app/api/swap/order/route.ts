@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyPrivyToken } from "@/lib/auth/privy-server";
 import { getOrder } from "@/lib/jupiter";
+import { errText } from "@/lib/errors";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,7 +54,7 @@ export async function GET(req: NextRequest) {
     if (!order.transaction) {
       return NextResponse.json(
         {
-          error: order.errorMessage ?? order.error ?? "Could not build swap transaction",
+          error: errText(order.errorMessage ?? order.error) || "Could not build this swap. Check your balance and try a smaller amount.",
           errorCode: order.errorCode,
           router: order.router,
         },
@@ -80,6 +81,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (e) {
     console.error("[swap/order]", e);
-    return NextResponse.json({ error: "Failed to get quote" }, { status: 502 });
+    return NextResponse.json({ error: "Couldn't get a price from Jupiter. Try again.", detail: e instanceof Error ? e.message : String(e) }, { status: 502 });
   }
 }

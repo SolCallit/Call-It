@@ -8,7 +8,8 @@
  * and its data into /lib. This file shrinks until it's gone.
  */
 import { fetchFeed, fetchToken, fetchTokens, searchTokens, mountChart, fmtSmall } from '@/lib/market/client';
-import { walletBalances, swap as jupSwap, withdraw as doWithdraw, toBaseUnits, qrSvg, SOL_MINT, USDC_MINT } from '@/lib/wallet/client';
+import { walletBalances, swap as jupSwap, withdraw as doWithdraw, toBaseUnits, qrSvg, SOL_MINT, USDC_MINT, reportTxError } from '@/lib/wallet/client';
+import { friendlyError, isUserCancel } from '@/lib/errors';
 
 let booted = false;
 
@@ -546,7 +547,7 @@ function xcardImage(d,fname,mode,url,text){const W=1200,H=630,c=document.createE
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2200)}
 function fakeSig(){const a='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';let s='';for(let i=0;i<88;i++)s+=a[Math.floor(Math.random()*a.length)];return s}
 function txRun(desc,apply,opt={}){const el=$('#txt'),sig=fakeSig();let step=0;
- const draw=(st,msg)=>{el.className='txt show '+st;el.innerHTML=`<span class="txi">${st==='ok'?ic('check',18):st==='bad'?ic('x',18):'<i class="spin"></i>'}</span><div class="grow"><b>${esc(desc)}</b><span class="hint">${msg}</span></div>${st==='ok'?`<button class="lnk" data-act="copy" data-v="${sig}">Copy tx</button>`:st==='bad'?'<button class="lnk" id="txretry">Retry</button>':''}<button class="ib" id="txx" aria-label="Dismiss">${ic('x',16)}</button>`;
+ const draw=(st,msg)=>{el.className='txt show '+st;el.innerHTML=`<span class="txi">${st==='ok'?ic('check',18):st==='bad'?ic('x',18):'<i class="spin"></i>'}</span><div class="grow"><b>${esc(desc)}</b><span class="hint">${msg}</span></div>${st==='ok'?`<button class="lnk" data-act="copy" data-v="${sig}">Copy tx</button>`:st==='bad'&&!/Not enough|cancelled|isn.t connected|Sign in again/.test(msg)?'<button class="lnk" id="txretry">Retry</button>':''}<button class="ib" id="txx" aria-label="Dismiss">${ic('x',16)}</button>`;
   $('#txx').onclick=()=>el.classList.remove('show');const r=$('#txretry');if(r)r.onclick=()=>txRun(desc,apply,opt)};
  clearTimeout(el._h);draw('wait','Approve in your wallet…');
  setTimeout(()=>{if(!navigator.onLine){draw('bad','You’re offline. Nothing was sent.');return}draw('wait','Sending to Solana…');
@@ -574,11 +575,11 @@ function loadBalances(){if(!REALW()||BALBUSY)return;BALBUSY=1;const who=S.addr;
   if(changed)balRender()}).catch(e=>console.warn('[callit] balances',e)).finally(()=>{BALBUSY=0})}
 /* Same toast as txRun, driven by a real transaction. run(step) resolves to the signature. */
 function realTx(desc,run,done){const el=$('#txt');let sig='';
- const draw=(st,msg)=>{el.className='txt show '+st;el.innerHTML=`<span class="txi">${st==='ok'?ic('check',18):st==='bad'?ic('x',18):'<i class="spin"></i>'}</span><div class="grow"><b>${esc(desc)}</b><span class="hint">${esc(msg)}</span></div>${st==='ok'&&sig?`<a class="lnk" href="https://solscan.io/tx/${sig}" target="_blank" rel="noopener noreferrer">View</a>`:st==='bad'?'<button class="lnk" id="txretry">Retry</button>':''}<button class="ib" id="txx" aria-label="Dismiss">${ic('x',16)}</button>`;
+ const draw=(st,msg)=>{el.className='txt show '+st;el.innerHTML=`<span class="txi">${st==='ok'?ic('check',18):st==='bad'?ic('x',18):'<i class="spin"></i>'}</span><div class="grow"><b>${esc(desc)}</b><span class="hint">${esc(msg)}</span></div>${st==='ok'&&sig?`<a class="lnk" href="https://solscan.io/tx/${sig}" target="_blank" rel="noopener noreferrer">View</a>`:st==='bad'&&!/Not enough|cancelled|isn.t connected|Sign in again/.test(msg)?'<button class="lnk" id="txretry">Retry</button>':''}<button class="ib" id="txx" aria-label="Dismiss">${ic('x',16)}</button>`;
   $('#txx').onclick=()=>el.classList.remove('show');const r=$('#txretry');if(r)r.onclick=()=>realTx(desc,run,done)};
  clearTimeout(el._h);draw('wait','Preparing…');
  run(m=>draw('wait',m)).then(s=>{sig=s||'';draw('ok',sig?`Confirmed · ${sig.slice(0,4)}…${sig.slice(-4)}`:'Done');el._h=setTimeout(()=>el.classList.remove('show'),9000);done&&done(true);loadBalances();setTimeout(loadBalances,5000)})
-  .catch(e=>{const m=String(e&&e.message||e);draw('bad',/reject|denied|cancel|declin|closed/i.test(m)?'You cancelled it. Nothing was sent.':m.slice(0,160));done&&done(false)})}
+  .catch(e=>{const m=e&&e.name==='TxError'?e.message:friendlyError(e);if(!isUserCancel(e))reportTxError(/^withdraw/i.test(desc)?'withdraw':'swap',e,S.addr);draw('bad',isUserCancel(e)?'You cancelled it. Nothing was sent.':m);done&&done(false)})}
 /* Swap settings, saved on this device. Speed = priority fee cap; front-running protection = Jito tip. */
 const SPEED={auto:0,fast:1e5,turbo:1e6,ultra:5e6};
 const SWS=(()=>{const d={slip:0,speed:'auto',mev:false,tip:'0.001'};try{return {...d,...JSON.parse(localStorage.getItem('callit.swapset')||'{}')}}catch(_){return d}})();if(SWS.slip)S.slip=SWS.slip;
@@ -787,11 +788,74 @@ function heatBar(all){const cnt={};all.forEach(t=>{const k=heatOf(t).k;cnt[k]=(c
 function heatApply(rows){if(!rows)return rows;let r=rows;if(HEATF.hide)r=r.filter(t=>heatOf(t).k!=='danger');
  if(HEATF.k==='called')r=r.filter(t=>backers(t)).sort((a,b)=>backers(b)-backers(a)||heatOf(b).s-heatOf(a).s);
  else if(HEATF.k)r=r.filter(t=>heatOf(t).k===HEATF.k).sort((a,b)=>heatOf(b).s-heatOf(a).s);return r}
+/* ---------- AI Auto: one tap for people who don't want to tune filters. Ranks tokens by their odds of
+   being a good entry: hard safety gates first (a rug can't be a win), then real demand, healthy
+   liquidity, room to run, bought-in callers, and it marks tops so users don't buy someone's exit. ---------- */
+const AIM={balanced:['🎯','Balanced','Safety and upside together. Start here.',50],safe:['🛡️','Safe plays','Clean holders, real liquidity, steady buyers. Fewer picks, fewer rugs.',58],early:['🌱','Early gems','Newer and riskier. For small bets on big upside.',45]};
+const AIG={safe:{top:25,dev:8,bun:15,liq:8e3,ageMin:15,ageMax:43200},balanced:{top:35,dev:12,bun:25,liq:3e3,ageMin:3,ageMax:10080},early:{top:45,dev:15,bun:30,liq:1500,ageMin:0,ageMax:180}};
+const AIW={balanced:{S:.28,D:.22,T:.15,F:.10,K:.10,R:.08,Q:.07},safe:{S:.38,D:.18,T:.10,F:.08,K:.10,R:.06,Q:.10},early:{S:.20,D:.28,T:.18,F:.12,K:.10,R:.10,Q:.02}};
+const c01=v=>Math.max(0,Math.min(1,v));
+const aiGrade=s=>s>=80?['strong','Strong']:s>=65?['good','Good']:s>=50?['watch','Watch']:['weak','Weak'];
+function aiOf(t,mode){if(!t||!t.live||!AIM[mode])return null;
+ const L=t.L||{},a=L.audit||{},c=L.chg||{},x=trenchStats(t),H=heatOf(t),m=mcap(t)||0,liq=t.liq||0,ageM=(t.ageH||0)*60,G=AIG[mode];
+ const bun=t._risk&&t._risk.bundle&&t._risk.bundle.pct!=null?t._risk.bundle.pct:null,onCurve=isLaunch(t)&&bond(t)<100;
+ let gate=null;
+ if(H.k==='danger')gate='Flagged dangerous (bundles, dev dumping or whale-heavy)';
+ else if(a.mintOff===false)gate='Dev can still mint more tokens';
+ else if(a.freezeOff===false)gate='Dev can freeze your tokens';
+ else if(x.top!=null&&x.top>G.top)gate=`Top 10 wallets own ${x.top}%`;
+ else if(x.dev!=null&&x.dev>G.dev)gate=`Dev still holds ${x.dev}%`;
+ else if(bun!=null&&bun>G.bun)gate=`${Math.round(bun)}% was bundled at launch`;
+ else if(liq<G.liq)gate='Too little liquidity to sell out cleanly';
+ else if(ageM<G.ageMin)gate='Too new to judge yet';
+ else if(ageM>G.ageMax)gate='Outside this mode’s age window';
+ else if(mode==='safe'&&(a.mintOff==null||a.freezeOff==null))gate='Safety not verified yet';
+ const why=[],warn=[];
+ // S: safety
+ let S=.45;if(a.mintOff&&a.freezeOff){S+=.2;why.push([9,'Mint & freeze revoked'])}else if(a.mintOff==null)warn.push('Safety still checking');
+ if(x.top!=null){S+=x.top<=15?.18:x.top<=25?.1:x.top>35?-.15:0;if(x.top<=20)why.push([7,`Top 10 hold ${x.top}%`])}
+ if(x.dev!=null){S+=x.dev<=3?.1:x.dev>10?-.12:0;if(x.dev<=1)why.push([5,'Dev holds ~0%'])}
+ if(bun!=null)S+=bun<=10?.07:bun>20?-.12:0;S=c01(S);
+ // D: real demand (buy pressure, new holders, unique traders)
+ const bp=H.bp,hg=H.hg||0,tr=L.traders24||0;
+ const D=c01((bp!=null?c01((bp-.45)/.35)*.5:.2)+c01(hg/4)*.3+c01(Math.log10(tr+1)/3)*.2);
+ if(bp!=null&&bp>=.6)why.push([8,`${Math.round(bp*100)}% buys`]);if(hg>=1)why.push([7,`+${hg.toFixed(1)} holders/min`]);
+ // T: trend, and don't chase tops
+ const m5=H.m5,h1=c.h1;let T=.5;
+ if(m5!=null)T+=m5>=3&&m5<=40?.25:m5<-10?-.25:0;
+ if(h1!=null)T+=h1>=5&&h1<=200?.2:h1<-30?-.2:0;
+ if(h1!=null&&h1>250&&(m5||0)<0){T-=.45;warn.push(`Pulling back after +${Math.round(h1)}% this hour`)}
+ else if(m5!=null&&m5>60){T-=.3;warn.push('Going vertical. Wait for a dip')}
+ else if(H.k==='second')why.push([6,'Reclaimed with new buyers']);
+ T=c01(T);
+ // F: turnover (volume vs market cap)
+ const turn=m?(t.vol||0)/m:0,F=turn<.1?.2:turn<.3?.5:turn<=6?1:.6;if(turn>8)warn.push('Volume looks wash-traded');
+ // K: Callit callers with real money in
+ const bk=calls.filter(k=>k.t===t.key&&k.buy>0&&!k.sponsored),best=Math.max(0,...bk.map(k=>(C[k.c]&&C[k.c].calls>=3?C[k.c].win:0)));
+ const nB=new Set(bk.map(k=>k.c)).size,K=c01(nB*.25+(best>=60?.5:best>=40?.25:0));
+ if(nB)why.push([best>=60?10:6,`${nB} caller${nB>1?'s':''} bought in${best>=60?` (best ${best}% win)`:''}`]);
+ // R: room to run
+ const R=m<15e3?.55:m<=1.5e6?1:m<=1e7?.65:.35;if(m>=15e3&&m<=5e5)why.push([4,'Early market cap']);
+ // Q: liquidity health (bonding curves can always be sold into)
+ const lr=m?liq/m:0,Q=onCurve?.8:lr>=.15?1:lr>=.06?.6:.15;if(!onCurve&&lr<.06)warn.push('Thin liquidity for its size');
+ const W=AIW[mode],s=Math.round(100*(W.S*S+W.D*D+W.T*T+W.F*F+W.K*K+W.R*R+W.Q*Q));
+ return {s,gate,why:why.sort((p,q)=>q[0]-p[0]).map(w=>w[1]),warn,grade:aiGrade(s)}}
+const aiPass=(t,mode)=>{const A=aiOf(t,mode);return !!A&&!A.gate&&A.s>=AIM[mode][3]};
+const aiSort=(rows,mode)=>rows&&mode&&AIM[mode]?[...rows].sort((p,q)=>(aiOf(q,mode)||{s:0}).s-(aiOf(p,mode)||{s:0}).s):rows;
+const aiChip=(t,mode)=>{const A=mode&&aiOf(t,mode);if(!A)return '';const [g]=A.grade;
+ return `<span class="aiS g-${g}" title="AI Auto ${A.s}/100. ${esc([...A.why.slice(0,3),...A.warn].join(' · '))}">🎯 ${A.s}</span>`};
+const aiWhy=(t,mode)=>{const A=mode&&aiOf(t,mode);if(!A)return '';const w=A.warn[0];
+ return `<div class="aiwhy">${A.why.slice(0,2).map(x=>`<span>✓ ${esc(x)}</span>`).join('')}${w?`<span class="warn">! ${esc(w)}</span>`:''}</div>`};
+/* Token page: what AI Auto thinks of this token, in plain words. */
+function aiCard(t){const A=aiOf(t,'balanced');if(!A)return '';const [g,gl]=A.grade;
+ return `<div class="aicard g-${A.gate?'weak':g}"><div class="aihead"><b>🎯 AI Auto</b>${A.gate?`<span class="aipill">Skipped</span>`:`<span class="aipill">${gl} · ${A.s}/100</span>`}</div>
+ ${A.gate?`<p class="hint">AI Auto leaves this out: ${esc(A.gate)}.</p>`:''}
+ <div class="aiwhy">${A.why.slice(0,4).map(x=>`<span>✓ ${esc(x)}</span>`).join('')}${A.warn.map(x=>`<span class="warn">! ${esc(x)}</span>`).join('')}</div></div>`}
 function heatCard(t){if(!t.live)return '';const h=heatOf(t),[e,l,d]=HEAT[h.k],n=backers(t),pc=v=>v==null?'—':pctS(v);
  return `<section class="card heatcard h-${h.k}" aria-label="Heat"><div class="hcrow"><span class="hcbig">${e}</span><div class="grow"><b>${l}</b><div class="hint">${d}</div></div><div class="hcs num" title="Heat score">${h.s}<small>/100</small></div></div>
  <div class="hcbar"><i style="width:${h.s}%"></i></div>
  <div class="hcgrid num"><span><small>1m</small>${pc(h.m1)}</span><span><small>5m</small>${pc(h.m5)}</span><span><small>Buy pressure</small>${h.bp==null?'—':Math.round(h.bp*100)+'%'}</span><span><small>Holders/min</small>${h.hg?(h.hg>0?'+':'')+h.hg.toFixed(1):'—'}</span></div>
- ${n?`<p class="hcback">📣 ${n} Callit caller${n>1?'s':''} bought in. <a href="#/token/${esc(t.key)}" data-act="none">See calls below</a></p>`:''}</section>`}
+ ${n?`<p class="hcback">📣 ${n} Callit caller${n>1?'s':''} bought in. <a href="#/token/${esc(t.key)}" data-act="none">See calls below</a></p>`:''}${aiCard(t)}</section>`}
 /* ---------- trenches: feeds, filters, display ---------- */
 const LPDOM={Pump:'pump.fun',Bonk:'bonk.fun',Believe:'believe.app',Moonshot:'moonshot.com',Launchlab:'raydium.io',Bags:'bags.fm','Jup Studio':'jup.ag',Meteora:'meteora.ag',Boop:'boop.fun'};
 /* Little badge on each token: the launchpad it came from (pump.fun, Bonk, Meteora...), Solana otherwise. */
@@ -806,12 +870,12 @@ const isLaunch=t=>!t.live||!!t.lp;
 const bond=t=>t.live&&!t.lp?100:Math.min(100,mcap(t)/69e3*100);
 const lpOf=t=>t.live?t.lp:(t.lp||(t.lp=LPS[t.seed%LPS.length][0]));
 const callsOn=t=>calls.filter(k=>k.t===t.key&&!k.sponsored);
-const defFil=()=>({chains:['Solana'],lps:LPS.map(l=>l[0]),inc:'',exc:'',bmin:'',bmax:'',mcMin:'',mcMax:'',volMin:'',hMin:'',ageMax:0,top:100,dev:100,snip:100,ins:100,x:0,web:0,comm:0,called:0,topc:0,bought:0,tf:'1h',chgMin:''});
+const defFil=()=>({chains:['Solana'],lps:LPS.map(l=>l[0]),inc:'',exc:'',bmin:'',bmax:'',mcMin:'',mcMax:'',volMin:'',hMin:'',ageMax:0,top:100,dev:100,snip:100,ins:100,x:0,web:0,comm:0,called:0,topc:0,bought:0,tf:'1h',chgMin:'',ai:''});
 const defDisp=()=>({pro:1,spark:0,heat:1,compact:0});
 const defFeeds=()=>[['new',1],['almost',1],['grad',1],['movers',1],['called',1],['og',1],['crowded',0]];
 const TS=(()=>{let v={};try{v=JSON.parse(localStorage.getItem('callit.trenches')||'{}')}catch(_){}
  let feeds=Array.isArray(v.feeds)&&v.fv===2?v.feeds.filter(f=>FEEDS[f[0]]):defFeeds();defFeeds().forEach(d=>{if(!feeds.some(f=>f[0]===d[0]))feeds.push(d)});
- return {fv:2,disp:{...defDisp(),...(v.disp||{})},feeds,fil:v.fil||{}}})();
+ return {fv:2,disp:{...defDisp(),...(v.disp||{})},feeds,fil:v.fil||{},aiLast:AIM[v.aiLast]?v.aiLast:''}})();
 const saveTS=()=>{try{localStorage.setItem('callit.trenches',JSON.stringify(TS))}catch(_){}};
 const filOf=k=>({...defFil(),...(TS.fil[k]||{})});
 const parseAmt=v=>{v=String(v||'').trim().toUpperCase().replace(/[$,\s]/g,'');if(!v)return null;const n=parseFloat(v);if(isNaN(n))return null;return n*(v.endsWith('B')?1e9:v.endsWith('M')?1e6:v.endsWith('K')?1e3:1)};
@@ -827,6 +891,7 @@ function match(t,f){const x=trenchStats(t),m=mcap(t),b=bond(t),nm=(t.name+' '+t.
  if(x.top>f.top||x.dev>f.dev||x.snip>f.snip||x.ins>f.ins)return false;
  const soc=t.soc||'';if(f.x&&!soc.includes('x')||f.web&&!soc.includes('w')||f.comm&&!soc.includes('c'))return false;
  if(f.called&&!cs.length)return false;if(f.topc&&!cs.some(k=>(rankOf(k.c)||99)<=3))return false;if(f.bought&&!cs.some(k=>k.buy))return false;
+ if(f.ai&&!aiPass(t,f.ai))return false;
  return true}
 function activeCount(f){const d=defFil();let c=0;for(const k in d){if(k==='tf')continue;const a=Array.isArray(d[k])?[...d[k]].sort().join():d[k],b=Array.isArray(f[k])?[...f[k]].sort().join():f[k];if(String(a)!==String(b))c++}return c}
 function feedRows(k,f){
@@ -854,19 +919,21 @@ function heat(t){const cs=callsOn(t);if(!cs.length)return '';const who=[...new S
 function trow(t){const H=heatOf(t),FX=fxOf(t,H),x=trenchStats(t),m=mcap(t),y=t.ageH<1,red=(v,lim)=>v==null?'muted':v>lim?'down':'up',pv=v=>v==null?'—':v+'%',D=TS.disp,b=bond(t),tf=S.rowTf||'1h',cv=chgOf(t,tf),fl=t._pm&&t._pm!==m?(m>t._pm?' fl-up':' fl-dn'):'';t._pm=m;
  const soc=(t.soc||'').split('').map(c=>({x:ic('xlogo',15),w:ic('globe',15),c:ic('people',15)})[c]).join('');
  return `<a class="trow${D.compact?' compact':''}${D.pro?'':' lite'}${FX.cls}" href="#/token/${t.key}">${FX.tag}<span class="tav ${t.chg>=0?'ok':'bad'}" style="--b:${b.toFixed(0)}%">${tokav(t.key)}${lpBadge(t)}</span>
- <div class="tmid"><div class="tname"><b>${esc(t.name)}</b>${heatChip(t,H)}${backChip(t)}<button class="wstar${S.watch.has(t.key)?' on':''}" data-act="track" data-t="${esc(t.key)}" aria-pressed="${S.watch.has(t.key)}" aria-label="${S.watch.has(t.key)?'Remove from':'Add to'} watchlist" title="Watchlist">${ic('star',15,S.watch.has(t.key))}</button></div>
- <div class="tsub"><span>${esc(t.sym)}</span><span class="${y?'my':'up'}">${ic('sprout',13)}${ageStr(t.ageH)}</span><span class="soc">${soc}</span></div>${D.heat?heat(t):''}</div>
+ <div class="tmid"><div class="tname"><b>${esc(t.name)}</b>${aiChip(t,S.aiMode)}${heatChip(t,H)}${backChip(t)}<button class="wstar${S.watch.has(t.key)?' on':''}" data-act="track" data-t="${esc(t.key)}" aria-pressed="${S.watch.has(t.key)}" aria-label="${S.watch.has(t.key)?'Remove from':'Add to'} watchlist" title="Watchlist">${ic('star',15,S.watch.has(t.key))}</button></div>
+ <div class="tsub"><span>${esc(t.sym)}</span><span class="${y?'my':'up'}">${ic('sprout',13)}${ageStr(t.ageH)}</span><span class="soc">${soc}</span></div>${S.aiMode?aiWhy(t,S.aiMode):''}${D.heat?heat(t):''}</div>
  ${D.pro?`<div class="tst num"><span class="up" title="Holders">${ic('profile',13)}${fmtK(t.holders)}</span><span class="${red(x.top,10)}" title="Top 10 holders">${ic('target',13)}${pv(x.top)}</span><span class="${red(x.dev,10)}" title="Dev holding">${ic('stake',13)}${pv(x.dev)}</span>${x.snip==null?'':`<span class="${red(x.snip,5)}" title="Snipers">${ic('sniper',13)}${pv(x.snip)}</span>`}${x.ins==null?'':`<span class="${red(x.ins,15)}" title="Insiders">${ic('crown',13)}${pv(x.ins)}</span>`}<em class="tchg ${pcls(cv)}" title="Price change, ${tf}">${pctS(cv)}<small>${tf}</small></em></div>`:''}
  <div class="tr num">${D.spark?spark(t):''}<div>${D.pro?`<span class="k">V</span> ${fmtUsd(t.vol).replace(/\.\d+([KMB])/,'$1')} `:''}<span class="k">MC</span> <b class="${mcCls(m)}${fl}" data-tmc="${t.key}">${fmtUsd(m)}</b></div>
  ${D.pro?`<div>${x.fees==null?`<span class="k">B/S</span> ${Math.round(x.buys*100)}%`:`<span class="k">F</span> ${ic('solglyph',12)} ${x.fees.toFixed(2)}`}</div><div class="bs"><i style="flex:${x.buys}"></i><i style="flex:${1-x.buys}"></i></div><div><span class="k">TX</span> ${fmtK(x.tx)}</div>`:`<div class="${pcls(cv)}">${pctS(cv)} <small class="muted">${tf}</small></div>`}</div></a>`}
 const skelRows=()=>Array.from({length:8},()=>`<div class="trow skel" aria-hidden="true"><span class="tav"><span class="tokav"></span></span><div class="tmid"><i></i><i></i></div><div class="tr"><i></i></div></div>`).join('')+'<p class="sr-only" role="status">Loading live tokens</p>';
+function aiBar(f){const on=!!f.ai,[e,l]=AIM[f.ai||'balanced'];
+ return `<div class="aibar${on?' on':''}"><button type="button" class="aiq" data-act="aiq" aria-pressed="${on}"><span class="aiqi">🎯</span><span><b>AI Auto${on?` · ${l}`:''}</b><small>${on?'Showing the best entries right now, best first':'Let Callit filter for you. One tap.'}</small></span><i class="aisw"></i></button>${on?`<button type="button" class="lnk" data-act="fsopen" data-tab="auto">Change</button>`:''}</div>`}
 function vTrenches(){const on=TS.feeds.filter(f=>f[1]).map(f=>f[0]);if(S.tt!=='watch'&&!on.includes(S.tt))S.tt=on[0]||'watch';
- const f=filOf(S.tt);S.rowTf=f.tf||'1h';const raw=feedRows(S.tt,f),rows=heatApply(raw),n=activeCount(f);
+ const f=filOf(S.tt);S.rowTf=f.tf||'1h';S.aiMode=f.ai||'';const raw=feedRows(S.tt,f),rows=aiSort(heatApply(raw),f.ai),n=activeCount(f);
  const tab=(k,l)=>`<button role="tab" aria-selected="${S.tt===k}" class="${S.tt===k?'on':''}" data-act="tt" data-f="${k}">${l}</button>`;
  return `<div class="ttabs"><div class="tscroll" role="tablist">${tab('watch',ic('star',18,S.tt==='watch'))}${on.map(k=>tab(k,FEEDS[k][0])).join('')}</div>
  <span class="ttools"><button class="ib" data-act="fsopen" aria-label="Filters${n?`, ${n} active`:''}">${ic('filter',20)}${n?`<span class="fbadge">${n}</span>`:''}</button><button class="ib" data-act="dsopen" aria-label="Display settings">${ic('gear',20)}</button></span></div>
  <div class="tfbar"><span class="tflive"><i></i>Live</span><span class="muted tflbl">${S.tt==='movers'?'Top gainers':'% change'}</span><div class="seg tfseg" role="tablist" aria-label="Timeframe">${TF_OK.map(x=>`<button role="tab" aria-selected="${S.rowTf===x}" class="${S.rowTf===x?'on':''}" data-act="ttf" data-f="${x}">${x}</button>`).join('')}</div></div>
- ${raw&&raw.length?heatBar(raw):''}
+ ${aiBar(f)}${raw&&raw.length?heatBar(raw):''}
  ${n?`<div class="fline"><span>${n} filter${n>1?'s':''} on ${S.tt==='watch'?'Watchlist':FEEDS[S.tt][0]}</span><button data-act="fsclear1">Clear</button></div>`:''}
  <div>${rows===null?((lfIds(S.tt,f)||[]).some(id=>LIVE.err[id])?`<div class="empty"><b class="h2">Live data is taking a break</b><p>We couldn't reach the market feed. It usually comes back in a few seconds.</p><button class="btn primary" data-act="lretry">Try again</button></div>`:skelRows()):rows.map(trow).join('')||`<div class="empty"><b class="h2">${S.tt==='watch'?'No watchlist tokens yet':HEATF.k?'No '+(HEATF.k==='called'?'caller-backed':HEAT[HEATF.k][1].toLowerCase())+' tokens right now':'Nothing matches'}</b><p>${S.tt==='watch'?'Open any token and tap Watchlist to pin it here.':'Loosen the filters or try another feed.'}</p>${n?'<button class="btn primary" data-act="fsclear1">Clear filters</button>':''}</div>`}</div>
  <p class="hint pad">Degen zone. New tokens are high risk. Row icons: holders, top 10, dev, snipers, insiders. The ring around each token fills as it moves through its bonding curve.</p>`}
@@ -917,13 +984,14 @@ function vAdmin(){if(!ADM.data&&!ADM.err)loadAdmin();
  const users=`<table><thead><tr><th>User</th><th>Wallet</th><th>Joined</th><th>Calls</th><th>Trades</th></tr></thead><tbody>${(d.users||[]).map(u=>`<tr><td><div class="person">${u.avatar_url?`<img class="av" src="${esc(u.avatar_url)}" alt="">`:''}${who(u.handle)}</div></td><td class="num muted">${u.wallet_address?esc(short(u.wallet_address)):'—'}</td><td>${agoT(u.created_at)}</td><td class="num">${u.calls||0}</td><td class="num">${u.trades||0}</td></tr>`).join('')}</tbody></table>`;
  const txs=`<table><thead><tr><th>When</th><th>User</th><th>Trade</th><th>USD</th><th>Tx</th></tr></thead><tbody>${(d.txs||[]).map(x=>`<tr><td>${agoT(x.created_at)}</td><td>${who(x.handle)}</td><td><span class="akind ${esc(x.kind)}">${esc(x.kind)}</span> ${esc(x.label||'')}</td><td class="num">${x.usd_value!=null?fmtUsd(+x.usd_value):'—'}</td><td>${sol(x.signature)}${x.verified?' ✓':''}</td></tr>`).join('')}</tbody></table>`;
  const posts=`<table><thead><tr><th>When</th><th>User</th><th>Post</th><th>Entry</th><th>Buy</th></tr></thead><tbody>${(d.posts||[]).map(p=>`<tr data-go="#/post/${esc(p.id)}"><td>${agoT(p.created_at)}</td><td>${who(p.handle)}</td><td>${p.kind==='meme'?`<b>$${esc(p.token_sym||'?')}</b> `:''}<span class="muted">${esc((p.body||'').slice(0,80))}</span></td><td class="num">${p.entry_mc?fmtUsd(+p.entry_mc):'—'}</td><td class="num">${+p.buy_usd?fmtUsd(+p.buy_usd):'—'}</td></tr>`).join('')}</tbody></table>`;
+ const errs=d.errors==null?`<div class="rdnote"><b>Run migration 0007</b> in Supabase to start logging failed withdrawals and swaps.</div>`:!d.errors.length?`<div class="empty"><p>No failed transactions logged. </p></div>`:`<div class="tablewrap"><table><thead><tr><th>When</th><th>User</th><th>Action</th><th>Step</th><th>Reason</th></tr></thead><tbody>${d.errors.map(x=>`<tr title="${esc(JSON.stringify(x.raw||{}).slice(0,1500))}\n\n${esc(x.user_agent||'')}"><td>${agoT(x.created_at)}</td><td>${who(x.handle)}${x.wallet?`<div class="hint">${esc(short(x.wallet))}</div>`:''}</td><td><span class="akind">${esc(x.action)}</span></td><td>${esc(x.stage||'')}</td><td style="max-width:420px;white-space:normal">${esc(x.message||'')}</td></tr>`).join('')}</tbody></table></div><p class="hint" style="margin-top:8px">Hover (or long-press) a row for the raw error and browser.</p>`;
  return `<div class="pad adm"><div class="ahead"><h1 class="h2">Admin</h1><span class="stlive"><i></i>Live · every 15s</span></div>
  <div class="agrid">${stat('Users',fmtK(s.users||0),`+${s.users24h||0} today · +${s.users7d||0} this week`)}${stat('Calls & posts',fmtK(s.posts||0),`+${s.posts24h||0} today`)}${stat('Trades today',fmtK(s.txs24h||0),'')}${stat('Volume today',fmtUsd(s.vol24h||0),'')}</div>
- <div class="seg wide" role="tablist" style="margin:14px 0">${tab('radar','Radar')}${tab('overview','New users')}${tab('trades','Trades')}${tab('calls','Calls & posts')}</div>
- ${ADM.tab==='radar'?vRadar():`<div class="tablewrap">${ADM.tab==='trades'?txs:ADM.tab==='calls'?posts:users}</div>`}</div>`}
+ <div class="seg wide" role="tablist" style="margin:14px 0">${tab('radar','Radar')}${tab('overview','New users')}${tab('trades','Trades')}${tab('calls','Calls & posts')}${tab('errors','Tx errors'+(d.errors&&d.errors.length?' '+d.errors.length:''))}</div>
+ ${ADM.tab==='radar'?vRadar():ADM.tab==='errors'?errs:`<div class="tablewrap">${ADM.tab==='trades'?txs:ADM.tab==='calls'?posts:users}</div>`}</div>`}
 /* ---------- bottom sheet ---------- */
 let SH=null;
-function openSheet(kind){SH={kind,tab:'source',d:kind==='f'?JSON.parse(JSON.stringify(filOf(S.tt))):null};
+function openSheet(kind,tab){SH={kind,tab:tab||'auto',d:kind==='f'?JSON.parse(JSON.stringify(filOf(S.tt))):null};
  $('#sheet').innerHTML=`<div class="sh-scrim" data-act="shclose"></div><div class="sh" role="dialog" aria-modal="true" aria-label="${kind==='f'?'Filters':'Display settings'}"><div class="sh-grab"></div><div id="shin"></div></div>`;
  drawSheet();requestAnimationFrame(()=>$('#sheet').classList.add('open'))}
 function closeSheet(){const s=$('#sheet');if(!s.innerHTML)return;s.classList.remove('open');SH=null;setTimeout(()=>{if(!SH)s.innerHTML=''},220)}
@@ -933,10 +1001,19 @@ function drawSheet(){const el=$('#shin');if(!el||!SH)return;const body=el.queryS
 function fsCount(){const r=feedRows(S.tt,SH.d);return r?r.length:-1}
 const fsBtn=n=>n<0?'Loading…':n?`Show ${n} token${n>1?'s':''}`:'No tokens match';
 function filterSheet(){const d=SH.d,T2=SH.tab,feed=S.tt==='watch'?'Watchlist':FEEDS[S.tt][0];
- const tabs=[['source','Source'],['metrics','Metrics'],['safety','Safety'],['social','Social']];
+ const tabs=[['auto','🎯 AI Auto'],['source','Source'],['metrics','Metrics'],['safety','Safety'],['social','Social']];
  const chip=(grp,v,col,on,soon)=>`<button class="chip${on?' on':''}" style="--c:${col}" data-act="fschip" data-g="${grp}" data-v="${v}" ${soon?'disabled':''}><i></i>${v}${soon?'<small>soon</small>':''}</button>`;
  const rng2=(lbl,a,b,pa,pb,hint)=>`<div class="fgrp"><div class="fh"><b>${lbl}</b>${hint?`<span>${hint}</span>`:''}</div><div class="pair"><input class="input num" data-fk="${a}" value="${esc(d[a])}" placeholder="${pa}" inputmode="decimal"><span>to</span>${b?`<input class="input num" data-fk="${b}" value="${esc(d[b])}" placeholder="${pb}" inputmode="decimal">`:'<span class="muted">no cap</span>'}</div></div>`;
  let h='';
+ if(T2==='auto'){h=`<div class="fgrp"><div class="fh"><b>Let Callit filter for you</b><span>Pick a style. It overrides nothing else you set.</span></div>
+  <div class="aimodes"><button class="rcard${!d.ai?' on':''}" data-act="fsai" data-v=""><b>Off</b><span>I'll set my own filters.</span></button>${Object.entries(AIM).map(([k,[e,l,sub]])=>`<button class="rcard${d.ai===k?' on':''}" data-act="fsai" data-v="${k}"><b>${e} ${l}</b><span>${sub}</span></button>`).join('')}</div></div>
+  <div class="fgrp"><div class="fh"><b>What it checks</b></div><ul class="aichecks">
+  <li><b>Skips rugs first.</b> Mint or freeze still on, whale-heavy top 10, dev holding a lot, bundled launches, flagged dangerous.</li>
+  <li><b>Real demand.</b> Buy pressure, new holders per minute, unique traders.</li>
+  <li><b>Exit room.</b> Enough liquidity to sell, and market cap with room to grow.</li>
+  <li><b>Doesn't chase tops.</b> Marks tokens going vertical or pulling back after a pump so you don't buy someone's exit.</li>
+  <li><b>Callers with skin in the game.</b> Boosts tokens bought by Callit callers with a strong win rate.</li></ul>
+  <p class="hint">Every row gets a score out of 100 and its reasons. It improves your odds; it can't promise a win. Size your bets small on new tokens.</p></div>`}
  if(T2==='source'){const allLp=d.lps.length===LPS.length;
   h=`<div class="fgrp"><div class="fh"><b>Chains</b></div><div class="chips">${CHAINS.map(([c,col,live])=>chip('chains',c,col,d.chains.includes(c),!live)).join('')}</div></div>
   <div class="fgrp"><div class="fh"><b>Launchpads</b><button class="lnk" data-act="fslpall">${allLp?'Clear all':'Select all'}</button></div><div class="chips">${LPS.map(([l,col])=>chip('lps',l,col,d.lps.includes(l))).join('')}</div></div>
@@ -1997,7 +2074,7 @@ document.addEventListener('click',e=>{
   viewav:()=>viewPhoto(b.dataset.h),
   collapse:()=>{document.body.classList.toggle('collapsed');syncTray()},
   tt:()=>{if(S.tt===b.dataset.f)return scrollTo({top:0,behavior:'smooth'});S.tt=b.dataset.f;render();scrollTo({top:0})},
-  fsopen:()=>openSheet('f'),dsopen:()=>openSheet('d'),shclose:()=>closeSheet(),
+  fsopen:()=>openSheet('f',b.dataset.tab),dsopen:()=>openSheet('d'),shclose:()=>closeSheet(),
   fstab:()=>{SH.tab=b.dataset.v;drawSheet()},
   fschip:()=>{const a=SH.d[b.dataset.g],v=b.dataset.v,i=a.indexOf(v);i<0?a.push(v):a.splice(i,1);drawSheet()},
   fslpall:()=>{SH.d.lps=SH.d.lps.length===LPS.length?[]:LPS.map(l=>l[0]);drawSheet()},
@@ -2005,9 +2082,11 @@ document.addEventListener('click',e=>{
   fstf:()=>{SH.d.tf=b.dataset.v;drawSheet()},
   ttf:()=>{TS.fil[S.tt]={...filOf(S.tt),tf:b.dataset.f};saveTS();render()},
   fsrisk:()=>{Object.assign(SH.d,RISK[b.dataset.v][2]);drawSheet()},
+  fsai:()=>{SH.d.ai=b.dataset.v;drawSheet()},
+  aiq:()=>{const k=S.tt,cur=filOf(k);TS.fil[k]={...(TS.fil[k]||{}),ai:cur.ai?'':(TS.aiLast||'balanced')};if(cur.ai)TS.aiLast=cur.ai;saveTS();render()},
   fsflag:()=>{const k=b.dataset.v;SH.d[k]=SH.d[k]?0:1;drawSheet()},
   fsclear:()=>{SH.d=defFil();drawSheet()},
-  fsapply:()=>{TS.fil[S.tt]=SH.d;saveTS();closeSheet();render()},
+  fsapply:()=>{TS.fil[S.tt]=SH.d;if(SH.d.ai)TS.aiLast=SH.d.ai;saveTS();closeSheet();render()},
   fsclear1:()=>{delete TS.fil[S.tt];saveTS();render()},
   dsopt:()=>{const k=b.dataset.v;TS.disp[k]=TS.disp[k]?0:1;saveTS();drawSheet();render()},
   dsfeed:()=>{const f=TS.feeds.find(x=>x[0]===b.dataset.v);if(f[1]&&TS.feeds.filter(x=>x[1]).length===1)return toast('Keep at least one feed on');f[1]=f[1]?0:1;

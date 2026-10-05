@@ -1957,3 +1957,36 @@ tr.mine td{background:color-mix(in srgb,var(--hi) 10%,transparent)}
 .mbox b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .taghead{display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line)}
 .tagic{width:48px;height:48px;border-radius:16px;display:grid;place-items:center;font-size:26px;font-weight:800;color:var(--hi);background:color-mix(in srgb,var(--hi) 12%,var(--bg2));flex:none}
+
+/* ---------- AI Auto ---------- */
+.aibar{display:flex;align-items:center;gap:10px;padding:8px 12px 2px}
+.aiq{flex:1;min-width:0;display:flex;align-items:center;gap:10px;text-align:left;font:inherit;color:var(--text);cursor:pointer;
+  background:var(--bg2);border:1.5px solid var(--line);border-radius:999px;padding:7px 8px 7px 8px;box-shadow:var(--raise-sm);
+  transition:translate .3s var(--spring),border-color .2s,background .2s}
+.aiq:hover{translate:0 -1px}.aiq:active{translate:0 1px}
+.aiq>span:nth-child(2){flex:1;min-width:0;display:flex;flex-direction:column}
+.aiq b{font-size:14px;line-height:1.2}.aiq small{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.aiqi{width:32px;height:32px;flex:none;display:grid;place-items:center;border-radius:50%;background:var(--bg);font-size:17px}
+.aisw{flex:none;width:40px;height:24px;border-radius:999px;background:var(--line);position:relative;transition:background .2s}
+.aisw::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.35);transition:translate .3s var(--spring)}
+.aibar.on .aiq{border-color:color-mix(in srgb,var(--up) 55%,var(--line));background:color-mix(in srgb,var(--up) 10%,var(--bg2))}
+.aibar.on .aisw{background:var(--up)}.aibar.on .aisw::after{translate:16px 0}
+.aiS{display:inline-flex;align-items:center;gap:3px;flex:none;font-size:10.5px;font-weight:800;line-height:1;padding:3px 7px;border-radius:999px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.aiS.g-strong{background:color-mix(in srgb,var(--up) 22%,transparent);color:var(--up)}
+.aiS.g-good{background:color-mix(in srgb,var(--up) 12%,transparent);color:var(--up)}
+.aiS.g-watch{background:color-mix(in srgb,#F5A524 16%,transparent);color:#E39A1F}
+.aiS.g-weak{background:var(--bg2);color:var(--muted)}
+.aiwhy{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:3px;font-size:11.5px;color:var(--up);min-width:0}
+.aiwhy span{white-space:nowrap}.aiwhy .warn{color:#E39A1F}
+.aimodes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.aimodes .rcard{display:flex;flex-direction:column;gap:2px;cursor:pointer;font:inherit;color:var(--text)}
+.aimodes .rcard span{font-size:12.5px;color:var(--muted)}
+.aimodes .rcard.on{border-color:var(--up);background:color-mix(in srgb,var(--up) 10%,var(--bg2))}
+.aichecks{margin:0;padding-left:18px;display:grid;gap:6px;font-size:13.5px;color:var(--muted)}.aichecks b{color:var(--text)}
+.aicard{margin-top:12px;padding:10px 12px;border-radius:14px;background:var(--bg);border:1px solid var(--line)}
+.aicard .aihead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}
+.aipill{font-size:12px;font-weight:800;padding:3px 9px;border-radius:999px;background:var(--bg2)}
+.aicard.g-strong .aipill,.aicard.g-good .aipill{color:var(--up);background:color-mix(in srgb,var(--up) 14%,transparent)}
+.aicard.g-watch .aipill{color:#E39A1F}.aicard.g-weak .aipill{color:var(--down)}
+.aicard .aiwhy{font-size:12.5px;gap:4px 12px}
+@media (prefers-reduced-motion:reduce){.aiq,.aisw::after{transition:none}}

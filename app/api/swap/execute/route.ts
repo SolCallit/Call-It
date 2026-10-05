@@ -38,11 +38,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       status: result.status,
       signature: result.signature ?? null,
-      error: result.status === "Success" ? null : result.error ?? "Swap failed",
+      error: result.status === "Success" ? null : (typeof result.error === "string" ? result.error : result.error ? JSON.stringify(result.error) : "Swap failed. Nothing was spent."),
       code: result.code,
     });
   } catch (e) {
     console.error("[swap/execute]", e);
-    return NextResponse.json({ error: "Failed to execute swap" }, { status: 502 });
+    return NextResponse.json({ error: "Jupiter couldn't send the swap. Try again.", detail: e instanceof Error ? e.message : String(e) }, { status: 502 });
   }
 }

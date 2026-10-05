@@ -39,8 +39,12 @@ export async function GET(req: Request) {
   ]) : [{ data: [] }, { data: [] }];
   const count = (rows: { profile_id: string }[] | null) => { const m = new Map<string, number>(); (rows || []).forEach((r) => m.set(r.profile_id, (m.get(r.profile_id) || 0) + 1)); return m; };
   const PC = count(pc.data as { profile_id: string }[]), TC = count(tc.data as { profile_id: string }[]);
+  // Failed withdrawals/swaps (migration 0007). Missing table = empty list, not an error.
+  const te = await db.from('tx_errors').select('id, wallet, action, stage, message, raw, user_agent, created_at').order('created_at', { ascending: false }).limit(60);
+  const W = new Map<string, string>((ul.data || []).filter((u) => u.wallet_address).map((u) => [u.wallet_address as string, u.handle as string]));
   return json({
     stats: { users, users24h, users7d, posts, posts24h, txs24h, vol24h },
+    errors: te.error ? null : (te.data || []).map((x) => ({ ...x, handle: (x.wallet && W.get(x.wallet)) || null })),
     users: (ul.data || []).map((u) => ({ handle: u.handle, display_name: u.display_name, avatar_url: u.avatar_url, wallet_address: u.wallet_address, created_at: u.created_at, calls: PC.get(u.id) || 0, trades: TC.get(u.id) || 0 })),
     txs: (tl.data || []).map((x) => ({ ...x, profile_id: undefined, handle: H.get(x.profile_id) || null })),
     posts: (pl.data || []).map((x) => ({ ...x, profile_id: undefined, handle: H.get(x.profile_id) || null })),
