@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { json } from '@/lib/db/me';
-import { alertUsers, followersOf, usd } from '@/lib/push/send';
+import { alertUsers, bellersOf, usd } from '@/lib/push/send';
 import { jupMany, type LiveToken } from '@/lib/market/sources';
 
 export const runtime = 'nodejs';
@@ -63,7 +63,7 @@ export async function GET(req: Request) {
     const x = t.mc / entry, hit = MILESTONES.filter((m) => x >= m).pop();
     if (!hit) continue;
     const handle = (c.profiles as unknown as { handle: string }).handle, sym = c.token_sym || t.sym || 'token';
-    const fol = (await followersOf(db, handle)).filter((id) => id !== c.profile_id);
+    const fol = (await bellersOf(db, handle, 'calls')).filter((id) => id !== c.profile_id);
     const a = { link: `#/post/${c.id}`, icon: t.icon };
     sent += await alertUsers(db, [c.profile_id as string], 'milestones', `m:${c.id}:${hit}`, { ...a, title: `🚀 Your $${sym} call hit ${hit}x`, body: `Called at ${usd(entry)} MC → now ${usd(t.mc)}. Share it.` });
     sent += await alertUsers(db, fol, 'milestones', `m:${c.id}:${hit}`, { ...a, title: `🚀 @${handle}'s $${sym} call hit ${hit}x`, body: `Called at ${usd(entry)} MC → now ${usd(t.mc)}.` });

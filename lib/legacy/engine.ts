@@ -1156,7 +1156,7 @@ function vProfile(h){if(!h&&S.connected)h=S.me;if(h&&h===S.me&&realAuth()&&Date.
  const mine=calls.filter(k=>k.c===h),me=h===S.me,r=rankOf(h),f=S.following.has(h);
  const pb=PUB[h]&&!PUB[h].pending?PUB[h]:null,P=me?PROF:pubP(h),nm=P.name||DN[h]||h,fg=me?S.following.size:pb?pb.following:c.real?0:followingOf(h).length,fr=me?(S.followers!=null?S.followers:0):pb?pb.followers:c.real?0:c.followers+(f?1:0);
  return `<div class="banner" style="${bannerBg(h)}">${me?`<button class="bnadd" data-act="editprof" data-f="banner" aria-label="${PROF.banner?'Change':'Add a'} banner">${ic('camera',20)}<span>${PROF.banner?'Change banner':'Add a banner'}</span></button>`:''}</div>
- <div class="phero"><div class="top"><button class="avwrap avbtn" data-act="viewav" data-h="${esc(h)}" aria-label="View profile photo">${avatar(h,'lg')}${r&&r<=3?`<span class="rkbadge">#${r}</span>`:''}</button>${me?'<span style="display:flex;gap:8px"><button class="ib" data-act="shprof" data-h="'+esc(h)+'" aria-label="Share your profile">'+ic('share',18)+'</button><button class="btn sm editp" data-act="editprof">'+ic('pen',15)+' Edit profile</button></span>':`<span style="display:flex;gap:8px"><button class="ib" data-act="shprof" data-h="${esc(h)}" aria-label="Share ${esc(h)}'s profile">${ic('share',18)}</button><button class="ib" data-act="profmenu" data-h="${h}" aria-label="More options for ${esc(h)}">${ic('more',18)}</button><button class="ib" data-act="dm" data-h="${h}" aria-label="Message ${esc(h)}">${ic('messages',18)}</button><button class="btn sm ${f?'ghost':'primary'}" data-act="follow" data-h="${h}">${f?'Following':'Follow'}</button></span>`}</div>
+ <div class="phero"><div class="top"><button class="avwrap avbtn" data-act="viewav" data-h="${esc(h)}" aria-label="View profile photo">${avatar(h,'lg')}${r&&r<=3?`<span class="rkbadge">#${r}</span>`:''}</button>${me?'<span style="display:flex;gap:8px"><button class="ib" data-act="shprof" data-h="'+esc(h)+'" aria-label="Share your profile">'+ic('share',18)+'</button><button class="btn sm editp" data-act="editprof">'+ic('pen',15)+' Edit profile</button></span>':`<span style="display:flex;gap:8px"><button class="ib" data-act="shprof" data-h="${esc(h)}" aria-label="Share ${esc(h)}'s profile">${ic('share',18)}</button><button class="ib" data-act="profmenu" data-h="${h}" aria-label="More options for ${esc(h)}">${ic('more',18)}</button><button class="ib" data-act="dm" data-h="${h}" aria-label="Message ${esc(h)}">${ic('messages',18)}</button>${f&&S.connected?ubellBtn(h):''}<button class="btn sm ${f?'ghost':'primary'}" data-act="follow" data-h="${h}">${f?'Following':'Follow'}</button></span>`}</div>
  <div class="pname2"><b class="h2">${esc(nm)}</b>${vbadge(h)}${r?`<span class="rk">${ic('leaderboard',13)} Rank #${r}</span>`:''}</div><div class="muted">@${esc(h)}</div>
  ${P.bio?`<p class="pbio">${esc(P.bio)}</p>`:me?`<p class="pbio muted">Add a bio so people know what you call. <button class="lnk" data-act="editprof" style="padding:0">Add bio</button></p>`:''}
  <div class="pmeta">${P.web?`<a href="${esc(/^https?:/.test(P.web)?P.web:'https://'+P.web)}" target="_blank" rel="noopener">${ic('globe',15)} ${esc(P.web.replace(/^https?:\/\//,''))}</a>`:''}${P.x?`<a href="https://x.com/${esc(P.x.replace('@',''))}" target="_blank" rel="noopener">${ic('xlogo',14)} @${esc(P.x.replace('@',''))}</a>`:''}<span>${ic('wallet',15)} ${me&&S.addr?short(S.addr):'Solana caller'}</span></div>
@@ -1376,6 +1376,18 @@ async function pushOn(){if(!S.connected)return connectModal(()=>pushOn());const 
 async function pushOff(){try{const s=AL.sub;if(s){await API('/api/push/subscribe',{method:'DELETE',body:{endpoint:s.endpoint}}).catch(()=>{});await s.unsubscribe()}AL.sub=null;toast('Alerts off for this device')}catch(_){}if(currentRoute()==='alerts')render()}
 function alLoad(force){if(!SYNC()||AL.busy||(!force&&AL.d))return;AL.busy=1;API('/api/alerts').then(j=>{AL.d=j;AL.err=null;BELLS=new Set((j.bells||[]).map(b=>b.mint))}).catch(e=>{AL.err=e.message}).finally(()=>{AL.busy=0;if(['alerts','token'].includes(currentRoute())&&!document.querySelector('#modal .modal'))render()})}
 let BELLS=new Set();
+/* X-style 🔔 on a profile: following alone sends no pop-ups; ringing the bell does. */
+const UB={};
+function ubellBtn(h){if(UB[h]===undefined&&SYNC()){UB[h]=null;API('/api/alerts/user?handle='+encodeURIComponent(h)).then(j=>{UB[h]=j.level||null}).catch(()=>{}).finally(()=>{const el=document.querySelector(`[data-act="ubell"][data-h="${CSS.escape(h)}"]`);if(el)el.outerHTML=ubellBtn(h)})}
+ const on=!!UB[h];return `<button class="ib bellb ${on?'on':''}" data-act="ubell" data-h="${esc(h)}" aria-label="${on?'Notifications on':'Turn on notifications'} for @${esc(h)}" title="${on?(UB[h]==='calls'?'Calls only':'All activity'):'Notify me'}">${ic('bell',18)}${on?'<i class="bdot"></i>':''}</button>`}
+function ubellModal(h){if(!S.connected)return connectModal();const cur=UB[h]||'off';
+ const opt=(k,l,d)=>`<button class="ubopt ${cur===k?'on':''}" data-ub="${k}"><span class="grow"><b>${l}</b><span class="hint">${d}</span></span><span class="ubrad" aria-hidden="true"></span></button>`;
+ modal(`Notifications from @${esc(h)}`,'Pop-ups on your phone, even when Callit is closed.',`<div class="ubopts">${opt('all','All activity','Every call, buy, sell and post')}${opt('calls','Calls only','New calls and when their calls hit 2x, 5x, 10x')}${opt('off','Off','Nothing, but you still follow them')}</div>`,
+  m=>m.addEventListener('click',e=>{const o=e.target.closest('[data-ub]');if(!o)return;const lv=o.dataset.ub;m.querySelectorAll('[data-ub]').forEach(x=>x.disabled=true);
+   API('/api/alerts/user',{body:{handle:h,level:lv}}).then(j=>{UB[h]=j.level||null;closeModal();
+    toast(lv==='off'?`Notifications off for @${h}`:lv==='calls'?`🔔 You’ll get @${h}’s calls`:`🔔 You’ll get everything from @${h}`);
+    if(lv!=='off'&&pushState()==='off')setTimeout(()=>pushOn(),400);const el=document.querySelector(`[data-act="ubell"][data-h="${CSS.escape(h)}"]`);if(el)el.outerHTML=ubellBtn(h)})
+   .catch(er=>{m.querySelectorAll('[data-ub]').forEach(x=>x.disabled=false);toast(er.message)})}))}
 function vAlerts(){if(!S.connected)return `<div class="empty"><b class="h2">Sign in for alerts</b><p>Track wallets, bell tokens and get pinged when callers you follow move.</p><button class="btn primary" data-act="connect">Sign in</button></div>`;
  alLoad();const st=pushState(),d=AL.d||(SYNC()?null:{prefs:null,bells:[],wallets:[]}),P=(d&&d.prefs)||{follows:true,bells:true,wallets:true,milestones:true,quiet:false};
  const dev={on:['Alerts are on for this device','You’ll get pop-ups even when Callit is closed.','Turn off','pushoff'],off:['Turn on alerts','Pop-ups on this device, even when Callit is closed.','Turn on','pushon'],
@@ -1387,10 +1399,10 @@ function vAlerts(){if(!S.connected)return `<div class="empty"><b class="h2">Sign
  ${d&&d.push===false?`<p class="rdnote" style="margin-top:10px"><b>Push isn’t configured on the server yet.</b> Alerts still land in Notifications.</p>`:''}
  ${AL.err?`<p class="rdnote" style="margin-top:10px">${esc(AL.err)}</p>`:''}
  <h3 class="alh">What to alert me about</h3><div class="card altgs">
- ${tg('follows','Callers you follow','Their new calls, buys and sells on Callit')}
+ ${tg('follows','Profiles you 🔔','Calls, buys, sells and posts from profiles where you rang the bell')}
  ${tg('wallets','Tracked wallets','Any Solana wallet you add below, every buy and sell')}
  ${tg('bells','Token bells','Price moves and new calls on tokens you 🔔')}
- ${tg('milestones','Call milestones','When your calls, or calls by people you follow, hit 2x, 5x, 10x…')}
+ ${tg('milestones','Call milestones','When your calls, or calls by profiles you 🔔, hit 2x, 5x, 10x…')}
  ${tg('quiet','Quiet mode','Pause every alert')}</div>
  <h3 class="alh">Tracked wallets <span class="hint">${d?d.wallets.length:0}/30</span></h3>
  <div class="card"><div class="alform"><input id="alw" placeholder="Wallet address" autocomplete="off" spellcheck="false"><input id="all" placeholder="Name (optional)" maxlength="30"><button class="btn primary" data-act="aladd">Track</button></div>
@@ -2068,7 +2080,7 @@ document.addEventListener('click',e=>{
   if(e.target===b||b.tagName!=='DIV'){closeModal()}return}
  const act={
   rmt:()=>{S.rmt=b.dataset.f;const rl=$('#rail');if(rl)rl.innerHTML=rail()},rmgo:()=>{S.mt='trenches';S.tt=b.dataset.f},
-  pushon:()=>pushOn(),pushoff:()=>pushOff(),bell:()=>bellModal(b.dataset.t),
+  ubell:()=>ubellModal(b.dataset.h),pushon:()=>pushOn(),pushoff:()=>pushOff(),bell:()=>bellModal(b.dataset.t),
   aladd:()=>{const a=$('#alw'),l=$('#all');const v=(a.value||'').trim();if(!isMintStr(v))return toast('Paste a valid Solana wallet address');b.disabled=true;
    API('/api/alerts/wallets',{body:{address:v,label:l.value}}).then(j=>{toast(j.live?'Tracking. You’ll get a pop-up on every swap':'Saved. Live tracking starts once Helius is set up');if(pushState()==='off')setTimeout(()=>pushOn(),400);AL.d=null;alLoad(1)}).catch(e=>toast(e.message)).finally(()=>{b.disabled=false})},
   aldel:()=>API('/api/alerts/wallets?address='+encodeURIComponent(b.dataset.f),{method:'DELETE'}).then(()=>{AL.d=null;alLoad(1)}).catch(e=>toast(e.message)),
@@ -2163,7 +2175,7 @@ document.addEventListener('click',e=>{
   delpost:()=>{const id=b.dataset.id;modal('Delete post?','It’s removed from your profile and every feed.',`<button class="btn block" style="background:var(--down);color:#fff;border-color:var(--down)" id="dlgo">Delete</button><button class="btn ghost block" data-act="close" style="margin-top:8px">Cancel</button>`,
     m=>$('#dlgo',m).onclick=()=>{API('/api/posts?id='+encodeURIComponent(id),{method:'DELETE'}).then(()=>{calls=calls.filter(x=>String(x.id)!==String(id));closeModal();toast('Post deleted');if(currentRoute()==='post')location.hash='#/home';else render()}).catch(e=>toast(e.message))})},
   copy:()=>{copy(b.dataset.v,b.dataset.m||'Address copied');if(b.closest('#modal')&&!b.dataset.busy){const o=b.innerHTML;b.dataset.busy=1;b.classList.add('done');b.innerHTML=`${ic('check',15)} Copied`;setTimeout(()=>{if(b.isConnected){b.innerHTML=o;b.classList.remove('done')}delete b.dataset.busy},1600)}},
-  follow:()=>{if(!S.connected)return connectModal();const h=b.dataset.h,on=!S.following.has(h);toggleRel('follow',h,on);if(PUB[h]&&!PUB[h].pending)PUB[h].followers=Math.max(0,(PUB[h].followers||0)+(on?1:-1));delete FL['followers:'+h];delete FL['following:'+S.me];render()},
+  follow:()=>{if(!S.connected)return connectModal();const h=b.dataset.h,on=!S.following.has(h);if(!on)UB[h]=null;else if(pushState()!=='denied')setTimeout(()=>{if(S.following.has(h)&&!UB[h])toast(`Tap 🔔 on @${h}’s profile to get their calls as pop-ups`)},600);toggleRel('follow',h,on);if(PUB[h]&&!PUB[h].pending)PUB[h].followers=Math.max(0,(PUB[h].followers||0)+(on?1:-1));delete FL['followers:'+h];delete FL['following:'+S.me];render()},
   ranks:()=>ranksModal(b.dataset.h),
   track:()=>{if(!S.connected&&realAuth())return connectModal();const t=b.dataset.t,on=!S.watch.has(t);on?S.watch.add(t):S.watch.delete(t);bg('/api/social',{action:'watch',key:t,on});
    toast(on?`$${symOf(t)} added to your watchlist`:`$${symOf(t)} removed from your watchlist`);

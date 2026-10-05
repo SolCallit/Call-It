@@ -2042,3 +2042,12 @@ tr.mine td{background:color-mix(in srgb,var(--hi) 10%,transparent)}
 .bellb.on{color:#F5C542;background:color-mix(in srgb,#F5C542 16%,transparent)}
 @media (max-width:560px){.alform{grid-template-columns:1fr 1fr}.alform input:first-child{grid-column:span 2}}
 .alhero .grow{flex:1;min-width:0}
+/* profile 🔔 */
+.bellb{position:relative}
+.bellb .bdot{position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:#F5C542}
+.ubopts{display:flex;flex-direction:column;gap:8px}
+.ubopt{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:14px;border-radius:14px;border:1px solid var(--line);background:none;color:var(--text);font:inherit;cursor:pointer}
+.ubopt .grow{flex:1;display:flex;flex-direction:column}
+.ubopt.on{border-color:var(--hi);background:color-mix(in srgb,var(--hi) 10%,transparent)}
+.ubrad{width:20px;height:20px;border-radius:50%;border:2px solid var(--line);flex:none}
+.ubopt.on .ubrad{border:6px solid var(--hi)}

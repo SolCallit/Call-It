@@ -32,6 +32,8 @@ export async function POST(req: Request) {
     if (r.error) return json({ error: 'db_write', detail: r.error.message }, 500);
     // Blocking someone also unfollows them.
     if (a === 'block' && b.on) await db.from('follows').delete().match(row);
+    // Unfollowing or blocking also silences that profile's 🔔 (ignore if migration 0008 isn't in yet).
+    if ((a === 'follow' && !b.on) || (a === 'block' && b.on)) await db.from('user_bells').delete().match(row).then(() => {}, () => {});
     if (a === 'follow' && b.on) await notifySocial(db, me, 'follows', { handle: b.handle });
     return json({ ok: true });
   }

@@ -73,3 +73,12 @@ export async function bellsOn(db: SupabaseClient, mint: string): Promise<string[
 }
 
 export const usd = (v: number | null | undefined) => v == null || !isFinite(v) ? '' : v >= 1e9 ? `$${(v / 1e9).toFixed(2)}B` : v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${v.toFixed(v < 1 ? 4 : 2)}`;
+
+/** Profile ids who rang the 🔔 on a handle. level 'calls' = calls only; 'all' = calls, trades and posts. */
+export async function bellersOf(db: SupabaseClient, handle: string, need: 'calls' | 'all'): Promise<string[]> {
+  let q = db.from('user_bells').select('profile_id').eq('target_handle', handle).limit(5000);
+  if (need === 'all') q = q.eq('level', 'all');
+  const { data, error } = await q;
+  if (error) return [];
+  return (data || []).map((r) => r.profile_id as string);
+}

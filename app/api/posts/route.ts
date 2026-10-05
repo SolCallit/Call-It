@@ -131,7 +131,7 @@ export async function POST(req: Request) {
   }
   const { profile_id: _p, ...post } = data as Record<string, unknown>;
   if (body) await notifyMentions(db, me, body, `#/post/${(post as { id: string }).id}`);
-  after(() => onNewCall(db, me, post as { id: string; kind: string; mint?: string | null; token_sym?: string | null; entry_mc?: number | null }).catch(() => {}));
+  after(() => onNewCall(db, me, post as { id: string; kind: string; mint?: string | null; token_sym?: string | null; entry_mc?: number | null; body?: string | null }).catch(() => {}));
   const { data: pr } = await db.from('profiles').select('display_name, avatar_url').eq('id', me.id).maybeSingle();
   return json({ post: { ...post, handle: me.handle, display_name: pr?.display_name ?? null, avatar_url: pr?.avatar_url ?? null, likes: 0, reposts: 0, replies: 0 } });
 }
