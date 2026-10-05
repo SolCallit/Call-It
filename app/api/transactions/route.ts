@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { requireMe, json, isMint, num, str } from '@/lib/db/me';
 import { rpc } from '@/lib/solana/rpc';
 import { liveFeeBps } from '@/lib/fees/model';
+import { onTrade } from '@/lib/alerts/triggers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -77,5 +78,6 @@ export async function POST(req: Request) {
     await db.from('posts').update({ buy_sig: row.signature, buy_usd: row.usd_value || 0 })
       .eq('id', row.call_ref).eq('profile_id', me.id).is('buy_sig', null);
   }
+  if (trade && row.signature) after(() => onTrade(db, me, row as { kind: string; signature: string; in_mint: string | null; out_mint: string | null; usd_value: number | null }).catch(() => {}));
   return json({ ok: true, verified: verified === true });
 }

@@ -1041,7 +1041,7 @@ function vLiveToken(t){const key=t.key,tr=S.watch.has(key),on=calls.filter(k=>k.
  S.ltf=S.ltf||'15m';S.lmode=S.lmode||'mc';
  return `<div class="pad" style="padding-bottom:0"><div style="display:flex;align-items:center;gap:12px">${tokav(key)}<div style="flex:1;min-width:0"><b class="h2">${esc(t.name)}</b>${L.verified?`<span class="vbadge" title="Verified on Jupiter">${ic('check',11)}</span>`:''} <span class="muted">$${esc(t.sym)}</span>
  <div><span class="chain">Solana</span>${t.lp?` <span class="chain lpchip">${esc(t.lp)}</span>`:''} <button class="copyca" data-act="copy" data-v="${esc(t.ca)}">${short(t.ca)} ${ic('copy',13)}</button></div></div>
- <button class="btn sm ${tr?'primary':'ghost'}" data-act="track" data-t="${key}">${ic('star',15,tr)} ${tr?'On watchlist':'Watchlist'}</button></div>
+ ${(()=>{if(S.connected&&!AL.d)alLoad();const bo=BELLS.has(key);return `<button class="ib bellb ${bo?'on':''}" data-act="bell" data-t="${key}" aria-label="${bo?'Edit':'Set'} alerts for $${esc(t.sym)}" title="Alerts">${ic('bell',18)}</button>`})()}<button class="btn sm ${tr?'primary':'ghost'}" data-act="track" data-t="${key}">${ic('star',15,tr)} ${tr?'On watchlist':'Watchlist'}</button></div>
  <div class="lhead"><span class="price num" id="lprice">${S.lmode==='mc'?fmtSmall(mcap(t)):fmtSmall(t.price)}</span><b class="num ${pcls(ch)}" id="lchg">${pctS(ch)} 24h</b><span class="livedot" title="Live">LIVE</span>
  <div class="seg lmode">${[['mc','MC'],['price','Price']].map(([k,l])=>`<button class="${S.lmode===k?'on':''}" data-act="lmode" data-f="${k}">${l}</button>`).join('')}</div></div>
  <div class="seg ltf" role="tablist">${['1m','5m','15m','1h','4h','1d'].map(x=>`<button class="${S.ltf===x?'on':''}" data-act="ltf" data-f="${x}">${x}</button>`).join('')}</div>
@@ -1229,7 +1229,7 @@ async function astSend(text){const q=String(text||'').trim();if(!q||AST.busy)ret
 /* ---------- chrome ---------- */
 const NAV_A=[['home','Home'],['market','Market'],['defi','DeFi'],['callerboard','Callerboard'],['you','You'],['assistant','Assistant']];
 const NAV_B=[['messages','Messages'],['bookmarks','Bookmarks'],['lists','Lists'],['news','News'],['promote','Promote'],['about','About']];
-const TITLES=Object.fromEntries([...NAV_A,...NAV_B,['notifications','Notifications'],['bookmarks','Bookmarks'],['token','Token'],['community','Community'],['post','Post'],['premium','Premium'],['messages','Messages'],['admin','Admin'],['tag','Tag']]);
+const TITLES=Object.fromEntries([...NAV_A,...NAV_B,['notifications','Notifications'],['bookmarks','Bookmarks'],['token','Token'],['community','Community'],['post','Post'],['premium','Premium'],['messages','Messages'],['admin','Admin'],['tag','Tag'],['alerts','Alerts']]);
 P.lists=P.list;P.defi='<circle cx="12" cy="12" r="8.5"/><path d="M8 10h8l-2.5-2.5M16 14H8l2.5 2.5"/>';P.callerboard=P.leaderboard;P.you=P.profile;
 const NAVH={stack:[],cur:location.hash||'#/home',back:false};
 function goBack(){const prev=NAVH.stack.pop();NAVH.back=true;location.hash=prev&&prev!==location.hash?prev:'#/home'}
@@ -1273,7 +1273,7 @@ function render(){if(isPhone())document.body.classList.add('collapsed');const [,
  else if(r==='token'){const t=T[p];if(t&&tradable(t)&&p!==S.swap.from){S.swap.from=S.swap.from===p?S.swap.from:(S.swap.from===S.swap.to||!T[S.swap.from]?'SOL':S.swap.from);S.swap.to=p}html=vToken(p)}
  else html=({market:vMarket,trenches:vMarket,defi:vDefi,you:()=>{adminPing();return (S.admin?`<div class="pad" style="padding-bottom:0"><a class="btn sm primary" href="#/admin">${ic('leaderboard',15)} Admin panel</a></div>`:'')+vYou()},profile:()=>vProfile(p),callerboard:vLeaders,admin:vAdmin,promote:vPromote,about:vAbout,
   messages:()=>vMessages(p),lists:()=>vLists(p),
-  news:vNews,premium:vPremium,notifications:vNotifs,assistant:vAssistant,bookmarks:vBookmarks,tag:()=>vTag(p)}[r]||vHome)();
+  news:vNews,premium:vPremium,notifications:vNotifs,assistant:vAssistant,bookmarks:vBookmarks,tag:()=>vTag(p),alerts:vAlerts}[r]||vHome)();
  if(LCHART){LCHART();LCHART=null}
  $('#view').innerHTML=html;$('#rail').innerHTML=rail();chrome(r);renderSwaps();skin($('#view'));syncLanding();mountLiveChart();
  if(r==='post'){wireAttach($('#rbox'),RDRAFT,()=>drawRMedia());if(S.focusReply){S.focusReply=false;setTimeout(()=>{const i=$('#rin');i&&i.focus()},60)}}}
@@ -1359,6 +1359,55 @@ function ogKeys(list){const g={},og=new Set();list.forEach(t=>{const k=tickOf(t)
   const dated=a.filter(t=>bornOf(t)!=null);if(!dated.length)return;const pool=dated.some(legit)?dated.filter(legit):dated;
   og.add(pool.sort((x,y)=>bornOf(x)-bornOf(y))[0].key)});return og}
 const ageTag=t=>{const b=bornOf(t);return b==null?'':`<span class="sage" title="Launched ${new Date(b).toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'})}">${ageStr(Math.max(0,(Date.now()-b)/36e5))}</span>`};
+/* ---------- Push alerts: wallets, token bells, callers you follow, call milestones ---------- */
+const AL={d:null,err:null,busy:0,sub:null};
+function pushState(){if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window))return /iPhone|iPad/.test(navigator.userAgent)&&!matchMedia('(display-mode: standalone)').matches?'ios':'no';
+ if(Notification.permission==='denied')return 'denied';return AL.sub?'on':'off'}
+function alSync(){if(!('serviceWorker' in navigator)||!('PushManager' in window))return Promise.resolve();return navigator.serviceWorker.ready.then(r=>r.pushManager.getSubscription()).then(s=>{AL.sub=s}).catch(()=>{})}
+alSync();
+const b64u=s=>{const p='='.repeat((4-s.length%4)%4),b=atob((s+p).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from([...b].map(c=>c.charCodeAt(0)))};
+async function pushOn(){if(!S.connected)return connectModal(()=>pushOn());const st=pushState();
+ if(st==='ios')return toast('On iPhone: tap Share → Add to Home Screen, then open Callit from there');if(st==='no')return toast('This browser can’t show alerts');
+ if(st==='denied')return toast('Alerts are blocked. Allow notifications for this site in your browser settings');
+ const perm=await Notification.requestPermission();if(perm!=='granted')return toast('Alerts not allowed');
+ try{const j=await fetch('/api/push/subscribe').then(r=>r.json());if(!j.key)return toast('Alerts aren’t set up on the server yet');
+  const reg=await navigator.serviceWorker.ready;const sub=(await reg.pushManager.getSubscription())||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(j.key)});
+  await API('/api/push/subscribe',{body:sub.toJSON()});AL.sub=sub;toast('Alerts on for this device');alLoad(1)}catch(e){toast(e.message||'Couldn’t turn on alerts')}}
+async function pushOff(){try{const s=AL.sub;if(s){await API('/api/push/subscribe',{method:'DELETE',body:{endpoint:s.endpoint}}).catch(()=>{});await s.unsubscribe()}AL.sub=null;toast('Alerts off for this device')}catch(_){}if(currentRoute()==='alerts')render()}
+function alLoad(force){if(!SYNC()||AL.busy||(!force&&AL.d))return;AL.busy=1;API('/api/alerts').then(j=>{AL.d=j;AL.err=null;BELLS=new Set((j.bells||[]).map(b=>b.mint))}).catch(e=>{AL.err=e.message}).finally(()=>{AL.busy=0;if(['alerts','token'].includes(currentRoute())&&!document.querySelector('#modal .modal'))render()})}
+let BELLS=new Set();
+function vAlerts(){if(!S.connected)return `<div class="empty"><b class="h2">Sign in for alerts</b><p>Track wallets, bell tokens and get pinged when callers you follow move.</p><button class="btn primary" data-act="connect">Sign in</button></div>`;
+ alLoad();const st=pushState(),d=AL.d||(SYNC()?null:{prefs:null,bells:[],wallets:[]}),P=(d&&d.prefs)||{follows:true,bells:true,wallets:true,milestones:true,quiet:false};
+ const dev={on:['Alerts are on for this device','You’ll get pop-ups even when Callit is closed.','Turn off','pushoff'],off:['Turn on alerts','Pop-ups on this device, even when Callit is closed.','Turn on','pushon'],
+  denied:['Alerts are blocked','Allow notifications for this site in your browser settings, then come back.','',''],ios:['Add Callit to your Home Screen','On iPhone, alerts work once Callit is installed: tap Share → Add to Home Screen, then open it from there.','',''],
+  no:['This browser can’t show alerts','Try Chrome, Edge or Brave, or the installed app.','','']}[st];
+ const tg=(k,l,h)=>`<label class="altg"><span class="grow"><b>${l}</b><span class="hint">${h}</span></span><input type="checkbox" class="sw" data-alp="${k}" ${P[k]?'checked':''}></label>`;
+ return `<div class="pad">
+ <div class="alhero ${st==='on'?'on':''}"><span class="albell">${ic('bell',22)}</span><div class="grow"><b>${dev[0]}</b><p class="hint">${dev[1]}</p></div>${dev[2]?`<button class="btn ${st==='on'?'ghost':'primary'}" data-act="${dev[3]}">${dev[2]}</button>`:''}</div>
+ ${d&&d.push===false?`<p class="rdnote" style="margin-top:10px"><b>Push isn’t configured on the server yet.</b> Alerts still land in Notifications.</p>`:''}
+ ${AL.err?`<p class="rdnote" style="margin-top:10px">${esc(AL.err)}</p>`:''}
+ <h3 class="alh">What to alert me about</h3><div class="card altgs">
+ ${tg('follows','Callers you follow','Their new calls, buys and sells on Callit')}
+ ${tg('wallets','Tracked wallets','Any Solana wallet you add below, every buy and sell')}
+ ${tg('bells','Token bells','Price moves and new calls on tokens you 🔔')}
+ ${tg('milestones','Call milestones','When your calls, or calls by people you follow, hit 2x, 5x, 10x…')}
+ ${tg('quiet','Quiet mode','Pause every alert')}</div>
+ <h3 class="alh">Tracked wallets <span class="hint">${d?d.wallets.length:0}/30</span></h3>
+ <div class="card"><div class="alform"><input id="alw" placeholder="Wallet address" autocomplete="off" spellcheck="false"><input id="all" placeholder="Name (optional)" maxlength="30"><button class="btn primary" data-act="aladd">Track</button></div>
+ <div class="list">${d?d.wallets.map(w=>`<div class="li"><span class="tokav alwav">${ic('wallet',16)}</span><div class="grow"><b>${esc(w.label||short(w.address))}</b><div class="hint">${short(w.address)} · <a class="lnk" href="https://solscan.io/account/${esc(w.address)}" target="_blank" rel="noopener">Solscan</a></div></div><button class="btn sm ghost" data-act="aldel" data-f="${esc(w.address)}">Remove</button></div>`).join('')||'<p class="hint" style="margin:10px 0 0">Paste any wallet: a KOL, a whale, a dev. You’ll get a pop-up on every buy and sell.</p>':rskel(2)}</div></div>
+ <h3 class="alh">Token bells <span class="hint">${d?d.bells.length:0}/50</span></h3>
+ <div class="card"><div class="list">${d?d.bells.map(b=>`<div class="li"><a class="grow" href="#/token/${esc(b.mint)}" style="display:flex;align-items:center;gap:10px">${T[b.mint]?tokav(b.mint):''}<span><b>$${esc(b.sym||short(b.mint))}</b><div class="hint">Alert at ±${+b.pct}% · new calls</div></span></a><button class="btn sm ghost" data-act="belldel" data-f="${esc(b.mint)}">Remove</button></div>`).join('')||'<p class="hint" style="margin:0">Open any token and tap 🔔 to get alerts on it.</p>':rskel(2)}</div></div>
+ </div>`}
+function bellModal(mint){const t=T[mint];if(!t)return;if(!S.connected)return connectModal(()=>bellModal(mint));const on=BELLS.has(mint);
+ modal(`🔔 $${esc(t.sym)} alerts`,'Get a pop-up when the price moves this much, plus every new call on it.',`<div class="bellopts">${[10,20,50,100].map(p=>`<button class="btn ${p===20?'primary':'ghost'}" data-bellpct="${p}">±${p}%</button>`).join('')}</div>
+  ${on?`<button class="btn ghost block" style="margin-top:12px" data-bellpct="0">Turn off alerts for $${esc(t.sym)}</button>`:''}${pushState()!=='on'?`<p class="hint" style="margin-top:12px">Pop-ups are off on this device. <a class="lnk" href="#/alerts" data-act="close">Turn them on</a></p>`:''}`,
+  m=>m.addEventListener('click',e=>{const b=e.target.closest('[data-bellpct]');if(!b)return;const pct=+b.dataset.bellpct;b.disabled=true;
+   (pct?API('/api/alerts/bell',{body:{mint,sym:t.sym,pct,price:t.price}}):API('/api/alerts/bell?mint='+encodeURIComponent(mint),{method:'DELETE'}))
+    .then(()=>{pct?BELLS.add(mint):BELLS.delete(mint);closeModal();toast(pct?`🔔 On: $${t.sym} at ±${pct}%`:`Alerts off for $${t.sym}`);if(pct&&pushState()==='off')setTimeout(()=>pushOn(),400);AL.d=null;render()})
+    .catch(er=>{b.disabled=false;toast(er.message)})}))}
+document.addEventListener('change',e=>{const k=e.target&&e.target.dataset&&e.target.dataset.alp;if(!k)return;const v=e.target.checked;
+ API('/api/alerts',{method:'PUT',body:{[k]:v}}).then(()=>{if(AL.d)AL.d.prefs[k]=v}).catch(er=>{e.target.checked=!v;toast(er.message)})});
+navigator.serviceWorker&&navigator.serviceWorker.addEventListener('message',e=>{if(e.data&&e.data.go)location.hash=e.data.go});
 /* Recent searches: tokens and callers you opened from Search, newest first, kept on this device. */
 function recentGet(){try{const v=JSON.parse(localStorage.getItem('callit.recent')||'[]');return Array.isArray(v)?v:[]}catch(_){return []}}
 function recentAdd(x){const id=y=>y.t==='tok'?'t:'+y.k:'u:'+y.h,l=[x,...recentGet().filter(y=>id(y)!==id(x))].slice(0,12);try{localStorage.setItem('callit.recent',JSON.stringify(l))}catch(_){}}
@@ -1435,7 +1484,7 @@ function nrow(n){const [lab,icn]=NKIND[n.k];
 function notifsModal(){modal('Notifications',unreadN()?`${unreadN()} new`:'You\'re all caught up',`<div class="nlist">${NOTIFS.slice(0,5).map(nrow).join('')}</div>
  <a class="btn primary block" href="#/notifications" style="margin-top:14px">View all notifications</a>`)}
 function vNotifs(){const f=S.nt||'all',list=NOTIFS.filter(n=>f==='all'||(f==='social'?SOCIALK.has(n.k):n.k===f));
- return `<div class="tabs" role="tablist">${[['all','All'],['social','Social'],['calls','Calls'],['earn','Earnings'],['alerts','Alerts']].map(([k,l])=>`<button class="${f===k?'on':''}" data-act="nt" data-f="${k}">${l}${k==='all'&&unreadN()?` <span class="ncount">${unreadN()}</span>`:''}</button>`).join('')}</div>
+ return `<a class="alertcta" href="#/alerts">${ic('bell',18)}<span class="grow"><b>${pushState()==='on'?'Alerts are on':'Get alerts when the app is closed'}</b><span class="hint">${pushState()==='on'?'Wallet tracking, token bells, caller moves':'Track wallets, bell tokens, follow callers'}</span></span>${ic('back',16)}</a><div class="tabs" role="tablist">${[['all','All'],['social','Social'],['calls','Calls'],['earn','Earnings'],['alerts','Alerts']].map(([k,l])=>`<button class="${f===k?'on':''}" data-act="nt" data-f="${k}">${l}${k==='all'&&unreadN()?` <span class="ncount">${unreadN()}</span>`:''}</button>`).join('')}</div>
  ${unreadN()?`<div class="fline"><span>${unreadN()} unread</span><button data-act="nall">Mark all as read</button></div>`:''}
  <div class="nlist full">${list.map(nrow).join('')||'<div class="empty"><b>Nothing here yet</b></div>'}</div>`}
 function settingsModal(){const th=document.documentElement.dataset.theme||'system',col=document.body.classList.contains('collapsed');
@@ -2019,6 +2068,11 @@ document.addEventListener('click',e=>{
   if(e.target===b||b.tagName!=='DIV'){closeModal()}return}
  const act={
   rmt:()=>{S.rmt=b.dataset.f;const rl=$('#rail');if(rl)rl.innerHTML=rail()},rmgo:()=>{S.mt='trenches';S.tt=b.dataset.f},
+  pushon:()=>pushOn(),pushoff:()=>pushOff(),bell:()=>bellModal(b.dataset.t),
+  aladd:()=>{const a=$('#alw'),l=$('#all');const v=(a.value||'').trim();if(!isMintStr(v))return toast('Paste a valid Solana wallet address');b.disabled=true;
+   API('/api/alerts/wallets',{body:{address:v,label:l.value}}).then(j=>{toast(j.live?'Tracking. You’ll get a pop-up on every swap':'Saved. Live tracking starts once Helius is set up');if(pushState()==='off')setTimeout(()=>pushOn(),400);AL.d=null;alLoad(1)}).catch(e=>toast(e.message)).finally(()=>{b.disabled=false})},
+  aldel:()=>API('/api/alerts/wallets?address='+encodeURIComponent(b.dataset.f),{method:'DELETE'}).then(()=>{AL.d=null;alLoad(1)}).catch(e=>toast(e.message)),
+  belldel:()=>API('/api/alerts/bell?mint='+encodeURIComponent(b.dataset.f),{method:'DELETE'}).then(()=>{BELLS.delete(b.dataset.f);AL.d=null;alLoad(1)}).catch(e=>toast(e.message)),
   pidx:()=>{S.pidx=+b.dataset.f;const [,,p]=location.hash.split('/'),el=$('#lpair');if(el&&T[p])el.innerHTML=pairCard(T[p])},ptf:()=>{S.ptf=b.dataset.f;const [,,p]=location.hash.split('/'),el=$('#lpair');if(el&&T[p])el.innerHTML=pairCard(T[p])},
   tagpost:()=>{const tg=b.dataset.f;composeModal(S.cat==='perps'?'meme':S.cat);setTimeout(()=>{const ta=$('#modal textarea');if(!ta)return;ta.value=(ta.value?ta.value.trimEnd()+' ':'')+'#'+tg+' ';ta.dispatchEvent(new Event('input',{bubbles:true}));ta.focus()},80)},
   newcall:()=>composeModal(b.dataset.t?'meme':(b.dataset.k||(currentRoute()==='home'?S.cat:'meme')),{pre:b.dataset.t}),

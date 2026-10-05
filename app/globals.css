@@ -2015,3 +2015,30 @@ tr.mine td{background:color-mix(in srgb,var(--hi) 10%,transparent)}
 .alinks{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .srec{color:var(--muted);opacity:.6}
 @media (max-width:520px){.pflow{grid-template-columns:96px 1fr}.pgrid b{font-size:14px}}
+
+/* ---------- alerts ---------- */
+.alertcta{display:flex;align-items:center;gap:12px;margin:12px 16px 4px;padding:12px 14px;border-radius:16px;border:1px solid var(--line);background:linear-gradient(150deg,color-mix(in srgb,var(--hi) 12%,var(--bg2)),var(--bg2));color:var(--text);text-decoration:none}
+.alertcta .grow{flex:1;display:flex;flex-direction:column}
+.alertcta>svg:last-child{transform:rotate(180deg);color:var(--muted)}
+.alhero{display:flex;align-items:center;gap:14px;padding:16px;border-radius:20px;border:1px solid var(--line);background:var(--bg2)}
+.alhero.on{background:linear-gradient(150deg,color-mix(in srgb,var(--up) 14%,var(--bg2)),var(--bg2))}
+.alhero p{margin:2px 0 0}
+.albell{width:46px;height:46px;border-radius:14px;flex:none;display:grid;place-items:center;background:color-mix(in srgb,var(--hi) 16%,transparent);color:var(--hi)}
+.alhero.on .albell{background:color-mix(in srgb,var(--up) 18%,transparent);color:var(--up)}
+.alh{display:flex;align-items:baseline;gap:8px;margin:22px 0 8px;font-size:16px}
+.altgs{padding:4px 14px}
+.altg{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line);cursor:pointer}
+.altg:first-child{border-top:0}
+.altg .grow{flex:1;display:flex;flex-direction:column;min-width:0}
+.sw{appearance:none;-webkit-appearance:none;width:44px;height:26px;border-radius:999px;background:var(--line);position:relative;flex:none;cursor:pointer;transition:background .2s}
+.sw::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .2s var(--spring)}
+.sw:checked{background:var(--up)}.sw:checked::after{transform:translateX(18px)}
+.sw:focus-visible{outline:2px solid var(--hi);outline-offset:2px}
+.alform{display:grid;grid-template-columns:1fr 130px auto;gap:8px;margin-bottom:6px}
+.alform input{min-width:0;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:inherit;font-size:14px}
+.alwav{display:grid;place-items:center;color:var(--hi);background:color-mix(in srgb,var(--hi) 12%,var(--bg2))}
+.bellopts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.bellb{margin-right:6px}
+.bellb.on{color:#F5C542;background:color-mix(in srgb,#F5C542 16%,transparent)}
+@media (max-width:560px){.alform{grid-template-columns:1fr 1fr}.alform input:first-child{grid-column:span 2}}
+.alhero .grow{flex:1;min-width:0}
