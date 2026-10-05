@@ -2039,3 +2039,18 @@ tr.mine td{background:color-mix(in srgb,var(--hi) 10%,transparent)}
 /* No accidental pull-to-refresh (full reload) while a sheet or the trade panel is open */
 html:has(#modal .modal),html:has(#sheet.open),body:has(#modal .modal),body:has(#sheet.open){overscroll-behavior-y:none}
 .modal,#sheet .sh{overscroll-behavior:contain}
+
+/* ---------- Tray: collapsible groups + Premium pinned under Search ---------- */
+button.grp{display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:0;border-top:1px solid var(--line);font:inherit;font-size:13px;color:var(--muted);text-align:left;cursor:pointer;border-radius:0}
+button.grp.first{border-top:0}
+button.grp:hover{color:var(--text)}
+button.grp:focus-visible{outline:2px solid var(--hi);outline-offset:2px;border-radius:8px}
+.gchev{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;transition:transform .25s var(--spring),background .2s}
+button.grp:hover .gchev{background:var(--hover)}
+button.grp[aria-expanded="false"] .gchev{transform:rotate(-90deg)}
+.nav.shut{display:none}
+#navP .navprem{margin:12px 4px 2px}
+body.collapsed .gchev{display:none}
+body.collapsed .nav.shut{display:block}
+body.collapsed #navP .navprem{padding:10px;justify-content:center;margin:10px 0 2px}
+.premcta{border-color:color-mix(in srgb,var(--hi) 50%,var(--line));color:var(--hi)}
