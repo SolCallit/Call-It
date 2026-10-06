@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireMe, json } from '@/lib/db/me';
-import { pushReady } from '@/lib/push/send';
+import { pushReady, pushIssue } from '@/lib/push/send';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -20,7 +20,7 @@ export async function GET(req: Request) {
   if (p.error && /alert_prefs/.test(p.error.message)) return json({ error: 'Run migration 0007 in Supabase first.' }, 503);
   return json({
     prefs: p.data || { follows: true, bells: true, wallets: true, milestones: true, quiet: false },
-    bells: b.data || [], wallets: w.data || [], devices: d.count || 0, push: pushReady(),
+    bells: b.data || [], wallets: w.data || [], devices: d.count || 0, push: pushReady(), pushIssue: pushIssue(),
   });
 }
 

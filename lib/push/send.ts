@@ -6,12 +6,19 @@ export type Alert = { title: string; body: string; link: string; tag?: string; i
 export type Pref = 'follows' | 'bells' | 'wallets' | 'milestones';
 
 let ready: boolean | null = null;
+/** What's wrong with the push setup, in plain words, or null when it's fine. */
+export function pushIssue(): string | null {
+  const pub = (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '').trim(), priv = (process.env.VAPID_PRIVATE_KEY || '').trim();
+  if (!pub && !priv) return 'NEXT_PUBLIC_VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY are missing in Vercel.';
+  if (!pub) return 'NEXT_PUBLIC_VAPID_PUBLIC_KEY is missing in Vercel.';
+  if (!priv) return 'VAPID_PRIVATE_KEY is missing in Vercel (check the exact name and that Production is ticked).';
+  try { webpush.setVapidDetails(process.env.VAPID_SUBJECT || 'mailto:alerts@callit.app', pub, priv); }
+  catch (e) { return `The VAPID keys don’t match or have extra characters: ${(e as Error).message}`; }
+  return null;
+}
 export function pushReady(): boolean {
   if (ready !== null) return ready;
-  const pub = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY, priv = process.env.VAPID_PRIVATE_KEY;
-  if (!pub || !priv) return (ready = false);
-  webpush.setVapidDetails(process.env.VAPID_SUBJECT || 'mailto:alerts@callit.app', pub, priv);
-  return (ready = true);
+  return (ready = pushIssue() === null);
 }
 
 const HOURLY_CAP = 40;

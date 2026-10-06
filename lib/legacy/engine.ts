@@ -1062,10 +1062,10 @@ const PTF=[['m5','5M'],['h1','1H'],['h6','6H'],['h24','24H']];
 const agoLong=ms=>{const m=Math.max(0,(Date.now()-ms)/6e4),d=Math.floor(m/1440),h=Math.floor(m%1440/60);return d?`${d}d ${h}h ago`:h?`${h}h ${Math.floor(m%60)}m ago`:`${Math.max(1,Math.floor(m))}m ago`};
 const fmtPool=v=>v==null?'—':v>=1e9?(v/1e9).toFixed(2)+'B':v>=1e6?(v/1e6).toFixed(2)+'M':v>=1e3?Math.round(v).toLocaleString():(+v.toPrecision(4)).toLocaleString();
 function sbar(a,b){const t=a+b,x=t?a/t*100:50;return `<div class="psbar"><i class="b" style="width:${x}%"></i><i class="s" style="width:${100-x}%"></i></div>`}
-function pairCard(t){const P=PAIRS[t.key];if(!P||!P.d){loadPairs(t.key);return P&&P.err?'':`<div class="card pcard" aria-busy="true"><div class="nrow c nskel"><span class="grow"><i></i><i></i></span></div></div>`}
+function pairCard(t){const P=PAIRS[t.key];if(!P||!P.d){loadPairs(t.key);return P&&P.err?'':`<div class="card pxcard" aria-busy="true"><div class="nrow c nskel"><span class="grow"><i></i><i></i></span></div></div>`}
  const list=P.d.pairs||[];if(!list.length)return '';const i=Math.min(S.pidx|0,list.length-1),x=list[i],tf=S.ptf||'h24',tx=x.txns[tf]||{buys:0,sells:0},fl=t.L&&t.L.flow&&(tf==='m5'||tf==='h1')?t.L.flow[tf]:null;
  const baseUsd=x.liq.base!=null&&x.priceUsd?x.liq.base*x.priceUsd:null,quoteUsd=x.liq.usd!=null&&baseUsd!=null?Math.max(0,x.liq.usd-baseUsd):null;
- return `<div class="card pcard">${P.d.header&&i===0?`<div class="phead" style="background-image:url('${esc(P.d.header)}')" role="img" aria-label="${esc(t.name)} banner"></div>`:''}
+ return `<div class="card pxcard">${P.d.header&&i===0?`<div class="pxbanner" style="background-image:url('${esc(P.d.header)}')" role="img" aria-label="${esc(t.name)} banner"></div>`:''}
  <div class="ptop"><div><b class="ppair">${esc(x.base.sym)} <span class="muted">/</span> ${esc(x.quote.sym)}</b><div class="hint">Solana › ${esc(x.dex)}${x.via?` <span class="muted">via</span> ${esc(x.via)}`:''}</div></div><a class="lnk" href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">DexScreener ↗</a></div>
  ${list.length>1?`<div class="pchips" role="tablist" aria-label="Pairs">${list.map((y,j)=>`<button role="tab" aria-selected="${j===i}" class="${j===i?'on':''}" data-act="pidx" data-f="${j}">${esc(y.quote.sym)} · ${esc(y.dex)}<span class="num">${fmtUsd(y.liq.usd)}</span></button>`).join('')}</div>`:''}
  <div class="pgrid g2"><div><span>Price USD</span><b class="num">${x.priceUsd!=null?fmtSmall(x.priceUsd):'—'}</b></div><div><span>Price</span><b class="num">${x.priceNative!=null?fmtSmall(x.priceNative).replace('$','')+' '+esc(x.quote.sym):'—'}</b></div></div>
@@ -1393,10 +1393,10 @@ function vAlerts(){if(!S.connected)return `<div class="empty"><b class="h2">Sign
  const dev={on:['Alerts are on for this device','You’ll get pop-ups even when Callit is closed.','Turn off','pushoff'],off:['Turn on alerts','Pop-ups on this device, even when Callit is closed.','Turn on','pushon'],
   denied:['Alerts are blocked','Allow notifications for this site in your browser settings, then come back.','',''],ios:['Add Callit to your Home Screen','On iPhone, alerts work once Callit is installed: tap Share → Add to Home Screen, then open it from there.','',''],
   no:['This browser can’t show alerts','Try Chrome, Edge or Brave, or the installed app.','','']}[st];
- const tg=(k,l,h)=>`<label class="altg"><span class="grow"><b>${l}</b><span class="hint">${h}</span></span><input type="checkbox" class="sw" data-alp="${k}" ${P[k]?'checked':''}></label>`;
+ const tg=(k,l,h)=>`<label class="altg"><span class="grow"><b>${l}</b><span class="hint">${h}</span></span><input type="checkbox" class="alsw" data-alp="${k}" ${P[k]?'checked':''}></label>`;
  return `<div class="pad">
  <div class="alhero ${st==='on'?'on':''}"><span class="albell">${ic('bell',22)}</span><div class="grow"><b>${dev[0]}</b><p class="hint">${dev[1]}</p></div>${dev[2]?`<button class="btn ${st==='on'?'ghost':'primary'}" data-act="${dev[3]}">${dev[2]}</button>`:''}</div>
- ${d&&d.push===false?`<p class="rdnote" style="margin-top:10px"><b>Push isn’t configured on the server yet.</b> Alerts still land in Notifications.</p>`:''}
+ ${d&&d.push===false?`<p class="rdnote" style="margin-top:10px"><b>Push isn’t configured on the server yet.</b> ${esc(d.pushIssue||'')} Redeploy after fixing. Alerts still land in Notifications meanwhile.</p>`:''}
  ${AL.err?`<p class="rdnote" style="margin-top:10px">${esc(AL.err)}</p>`:''}
  <h3 class="alh">What to alert me about</h3><div class="card altgs">
  ${tg('follows','Profiles you 🔔','Calls, buys, sells and posts from profiles where you rang the bell')}
