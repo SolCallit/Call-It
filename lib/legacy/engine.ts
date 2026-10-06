@@ -679,8 +679,10 @@ function adPost(a){return `<article class="post">
  <p class="ptext">${esc(a.text)}</p>
  <div class="adcard" data-act="adclick" data-id="${a.id}">${adMedia(a)}<div class="adfoot"><div><b>${esc(a.title)}</b><span>${esc(a.sub)}</span></div><button class="btn sm primary" data-act="adclick" data-id="${a.id}">${esc(a.cta)}</button></div></div>
  <div class="pnote">Promoted. Not a call and not counted in rankings.</div></div></article>`}
-function withAds(list){let out='',n=0;list.forEach((k,i)=>{out+=post(k);if((i+1)%AD_EVERY===0&&i<list.length-1)out+=adPost(ADS[(S.adRot+n++)%ADS.length])});return out}
-function adBoard(){const a=ADS[S.board%ADS.length];
+/* Ads are paused until real advertisers come in. The Promote page stays so people know it exists. Flip to true to bring the ad board and in-feed ads back. */
+const ADS_ON=false;
+function withAds(list){if(!ADS_ON)return list.map(post).join('');let out='',n=0;list.forEach((k,i)=>{out+=post(k);if((i+1)%AD_EVERY===0&&i<list.length-1)out+=adPost(ADS[(S.adRot+n++)%ADS.length])});return out}
+function adBoard(){if(!ADS_ON)return '';const a=ADS[S.board%ADS.length];
  return `<div class="card adboard" id="adboard"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3 style="margin:0">Ad board</h3><span class="adlbl">Promoted</span></div>
  <div class="adslide adcard" data-act="adclick" data-id="${a.id}">${adMedia(a)}<div class="adfoot"><div><b>${esc(a.brand)}</b><span>${esc(a.sub)}</span></div><button class="btn sm primary" data-act="adclick" data-id="${a.id}">${esc(a.cta)}</button></div></div>
  <div class="dots">${ADS.map((_,i)=>`<button class="${i===S.board%ADS.length?'on':''}" data-act="adgo" data-f="${i}" aria-label="Show ad ${i+1}"></button>`).join('')}</div></div>`}
