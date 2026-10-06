@@ -1,12 +1,13 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { heliusKey } from '@/lib/solana/rpc';
 
 /**
  * Keeps ONE Helius webhook watching every tracked wallet. Called whenever someone adds/removes a wallet.
  * Needs HELIUS_API_KEY and HELIUS_WEBHOOK_SECRET. The webhook id is remembered in app_kv.
  */
 export async function syncHeliusWebhook(db: SupabaseClient, origin: string): Promise<{ ok: boolean; detail?: string }> {
-  const key = process.env.HELIUS_API_KEY, secret = process.env.HELIUS_WEBHOOK_SECRET;
+  const key = heliusKey(), secret = (process.env.HELIUS_WEBHOOK_SECRET || '').trim();
   if (!key || !secret) return { ok: false, detail: 'HELIUS_API_KEY / HELIUS_WEBHOOK_SECRET not set' };
   const { data: rows } = await db.from('tracked_wallets').select('address').limit(100_000);
   const addrs = [...new Set((rows || []).map((r) => r.address as string))];

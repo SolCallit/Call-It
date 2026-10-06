@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { alertUsers, bellersOf, bellsOn, usd } from '@/lib/push/send';
 import { jupMany } from '@/lib/market/sources';
 
-const QUOTES = new Set(['So11111111111111111111111111111111111111112', 'EPjFWJ5gWW2DnzSp1pThfP1QZBrpdKvR1MzVg1uu5ihx', 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB']);
+const QUOTES = new Set(['So11111111111111111111111111111111111111112', 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB']);
 
 /** A new call: tell followers, and anyone with a 🔔 on the token. */
 export async function onNewCall(db: SupabaseClient, me: { id: string; handle: string }, post: { id: string; kind: string; mint?: string | null; token_sym?: string | null; entry_mc?: number | null; body?: string | null }) {

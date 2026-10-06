@@ -7,7 +7,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const SOL = 'So11111111111111111111111111111111111111112';
-const USDC = 'EPjFWJ5gWW2DnzSp1pThfP1QZBrpdKvR1MzVg1uu5ihx';
+const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 const TRADES = ['buy', 'sell', 'swap'];
 
 type Tx = {

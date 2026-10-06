@@ -63,23 +63,28 @@ export async function getOrder(p: OrderParams): Promise<JupiterOrder> {
   if (p.priorityFeeLamports || p.jitoTipLamports) qs.set("broadcastFeeType", "maxCap");
 
   // Referral fees: only attached when BOTH are configured (Jupiter requires the pair).
-  const referralAccount = process.env.JUPITER_REFERRAL_ACCOUNT;
-  const referralFee = process.env.JUPITER_REFERRAL_FEE_BPS;
-  if (referralAccount && referralFee) {
-    qs.set("referralAccount", referralAccount);
-    qs.set("referralFee", referralFee); // 50–255 bps
-  }
+  const referralAccount = (process.env.JUPITER_REFERRAL_ACCOUNT || '').trim();
+  const referralFee = (process.env.JUPITER_REFERRAL_FEE_BPS || '').trim();
+  const withFee = !!referralAccount && /^\d+$/.test(referralFee);
 
-  const res = await fetch(`${JUP_BASE}/order?${qs}`, {
-    headers: authHeaders(),
-    cache: "no-store",
-  });
+  const call = async (fee: boolean) => {
+    const q = new URLSearchParams(qs);
+    if (fee) { q.set('referralAccount', referralAccount); q.set('referralFee', referralFee); }
+    const res = await fetch(`${JUP_BASE}/order?${q}`, { headers: authHeaders(), cache: 'no-store' });
+    const data = (await res.json().catch(() => ({}))) as JupiterOrder & { error?: string };
+    return { ok: res.ok, status: res.status, data };
+  };
 
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data?.error ?? `Jupiter /order failed (${res.status})`);
+  let r = await call(withFee);
+  // A misconfigured referral (account not initialised, no fee token account for this mint, bad bps)
+  // must never block trading: retry once without the fee and log why.
+  if (withFee && (!r.ok || !r.data.transaction)) {
+    console.warn('[jupiter] order with referral failed, retrying without fee:', r.status, r.data?.error || r.data?.errorMessage);
+    const plain = await call(false);
+    if (plain.ok && plain.data.transaction) r = plain;
   }
-  return data as JupiterOrder;
+  if (!r.ok) throw new Error(r.data?.error ?? `Jupiter /order failed (${r.status})`);
+  return r.data as JupiterOrder;
 }
 
 export async function executeOrder(

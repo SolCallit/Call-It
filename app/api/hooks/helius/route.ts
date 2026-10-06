@@ -7,7 +7,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const WSOL = 'So11111111111111111111111111111111111111112';
-const QUOTE: Record<string, string> = { [WSOL]: 'SOL', EPjFWJ5gWW2DnzSp1pThfP1QZBrpdKvR1MzVg1uu5ihx: 'USDC', Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB: 'USDT' };
+const QUOTE: Record<string, string> = { [WSOL]: 'SOL', EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v: 'USDC', Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB: 'USDT' };
 
 type Tx = {
   signature: string; type?: string; source?: string; feePayer?: string;
@@ -37,7 +37,7 @@ function readSwap(tx: Tx, w: string) {
 
 /** POST from Helius (enhanced SWAP webhook): turn tracked wallets' swaps into push alerts. */
 export async function POST(req: Request) {
-  const secret = process.env.HELIUS_WEBHOOK_SECRET;
+  const secret = (process.env.HELIUS_WEBHOOK_SECRET || '').trim();
   if (!secret || req.headers.get('authorization') !== secret) return json({ error: 'unauthorized' }, 401);
   const db = supabaseAdmin();
   if (!db) return json({ ok: false });

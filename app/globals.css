@@ -2051,3 +2051,6 @@ tr.mine td{background:color-mix(in srgb,var(--hi) 10%,transparent)}
 .ubopt.on{border-color:var(--hi);background:color-mix(in srgb,var(--hi) 10%,transparent)}
 .ubrad{width:20px;height:20px;border-radius:50%;border:2px solid var(--line);flex:none}
 .ubopt.on .ubrad{border:6px solid var(--hi)}
+/* Premium pill on your own profile */
+.premp{color:var(--hi);border-color:color-mix(in srgb,var(--hi) 45%,var(--line))}
+.premp.on{color:#fff;background:linear-gradient(135deg,var(--hi),color-mix(in srgb,var(--hi) 60%,#9B7BFF));border-color:transparent}

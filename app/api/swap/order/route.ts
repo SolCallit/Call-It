@@ -80,6 +80,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (e) {
     console.error("[swap/order]", e);
-    return NextResponse.json({ error: "Failed to get quote" }, { status: 502 });
+    const msg = e instanceof Error && e.message && !/^Jupiter \/order failed/.test(e.message) ? e.message : "Couldn't get a price right now. Try again in a moment.";
+    return NextResponse.json({ error: msg }, { status: 502 });
   }
 }
