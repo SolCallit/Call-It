@@ -1371,7 +1371,7 @@ function callerCard(){const top=ranked().slice(0,5);
   :`<p class="hint" style="margin:10px 0">No ranked callers yet. Make a call and take #1.</p><button class="btn primary block" data-act="newcall">Make a call</button>`}</div></div>`}
 /* ---------- Desktop Home board (pump.fun-style): the feed plus side-by-side panels.
    Each panel scrolls on its own and can be removed; removed panels come back from “Add panel”. ---------- */
-const BP={market:['Market','market','#/market'],calls:['Hot calls','promote','#/callerboard'],callers:['Callerboard','callerboard','#/callerboard'],news:['Latest news','news','#/news'],trending:['Trending','up','#/market']};
+const BP={market:['Market','market','#/market'],calls:['Hot calls','promote','#/callerboard'],callers:['Callerboard','callerboard','#/callerboard'],news:['Latest news','news','#/news'],trending:['Trending','up','#/market'],watch:['Watchlist','star','#/home']};
 const BP_DEF=['market','calls','callers'];
 const bpGet=()=>{try{const v=JSON.parse(localStorage.getItem('callit.board')||'null');return Array.isArray(v)?v.filter(k=>BP[k]):BP_DEF.slice()}catch(_){return BP_DEF.slice()}};
 const bpSet=v=>{try{localStorage.setItem('callit.board',JSON.stringify(v))}catch(_){}};
@@ -1391,6 +1391,8 @@ function bpBody(k){
    :bpEmpty('No ranked callers yet. Make a call and take #1.')+`<button class="btn primary block" data-act="newcall">Make a call</button>`}
  if(k==='news'){const N=NEWS.recent;loadNews('recent');const L=((N.d&&N.d.items)||[]).slice(0,30);
   return L.length?`<div class="list">${L.map(x=>{const ext=!/^#\//.test(x.url);return `<a class="li rnews" href="${esc(x.url)}"${ext?' target="_blank" rel="noopener noreferrer nofollow"':''}>${pbadge(x.platform,x.url)}<div class="grow"><b>${esc(x.title)}</b><div class="hint">${esc(x.source)} · ${agoMs(x.at)}</div></div></a>`}).join('')}</div>`:N.err?bpEmpty('News is unavailable right now.'):rskel(6)}
+ if(k==='watch'){watchFill();const L=[...S.watch].map(x=>T[x]).filter(t=>t&&!t.base&&t.sym);
+  return L.length?`<div class="list">${L.map(t=>{const c=chgOf(t,'1h');return `<a class="li" href="#/token/${t.key}">${tokav(t.key)}<div class="grow"><b>$${esc(t.sym)}</b><div class="hint">${esc(t.name||'')}</div></div><div class="r num"><b>${fmtUsd(mcap(t))}</b>${c!=null?`<div class="hint ${c>=0?'up':'down'}">${fmtPct(c)}</div>`:''}</div></a>`}).join('')}</div>`:bpEmpty('Star a token to keep an eye on it here.')}
  if(k==='trending'){const lv=(LIVE.feeds['movers:1h']||[]).map(x=>T[x]).filter(t=>t&&t.price&&!NOT_MEME.has(String(t.sym).toUpperCase()));if(!lv.length&&!LIVE.err['movers:1h'])loadFeed('movers:1h');
   const tr=lv.filter(t=>t.live).sort((a,b)=>b.chg-a.chg).slice(0,30);
   return tr.length?`<div class="list">${tr.map(t=>`<a class="li" href="#/token/${t.key}">${tokav(t.key)}<div class="grow"><b>$${esc(t.sym)}</b><div class="hint">${(n=>n+(n===1?' call':' calls'))(calls.filter(c=>c.t===t.key).length)}</div></div><div class="r num"><b>${fmtUsd(mcap(t))}</b><div class="hint ${t.chg>=0?'up':'down'}">${fmtPct(t.chg)}</div></div></a>`).join('')}</div>`:rskel(8)}
@@ -1404,16 +1406,18 @@ function bpApplyFeed(){document.body.style.setProperty('--feedw',(bpW.feed||600)
 bpApplyFeed();
 const bpStyle=k=>bpW[k]?` style="flex:0 0 ${bpW[k]}px;max-width:none"`:'';
 const bpRz=(k,l)=>`<div class="bprz" data-rz="${k}" role="separator" aria-orientation="vertical" aria-label="Resize ${l}" title="Drag to resize · double-click to reset" tabindex="0"></div>`;
-/* Display size: 80% by default on computers (phones stay at 100%). */
-const ZOOMS=[70,80,90,100,110];
-const zoomGet=()=>{let z=null;try{z=+localStorage.getItem('callit.zoom')}catch(_){}return ZOOMS.includes(z)?z:80};
+/* Display size: 90% by default on computers (phones stay at 100%). */
+const ZOOMS=[80,85,90,93,95,100,110];
+const zoomGet=()=>{let z=null;try{z=+localStorage.getItem('callit.zoom')}catch(_){}return ZOOMS.includes(z)?z:90};
 const zoomOn=()=>matchMedia('(min-width:900px) and (pointer:fine)').matches;
 function zoomApply(){const z=zoomOn()?zoomGet()/100:1;document.body.style.zoom=z===1?'':String(z);document.documentElement.style.setProperty('--z',String(z))}
 zoomApply();addEventListener('resize',zoomApply);
 const curZoom=()=>parseFloat(document.body.style.zoom)||1;
-function board(){const on=bpGet(),off=Object.keys(BP).filter(k=>!on.includes(k));
- return bpRz('feed','feed')+on.map(k=>{const [l,icn,href]=BP[k];return `<section class="bp" data-p="${k}" aria-label="${l}"${bpStyle(k)}><header class="bph"><button class="ib bpgrip" draggable="true" data-grip="${k}" aria-label="Drag to move ${l}" title="Drag to move">${ic('grip',16)}</button><span class="bpic">${ic(icn,17)}</span><h3>${l}</h3><a class="lnk bpopen" href="${href}">Open</a><button class="ib bpdel" data-act="bpdel" data-f="${k}" aria-label="Remove ${l} panel" title="Remove panel">${ic('trash',16)}</button></header><div class="bpb" data-p="${k}">${bpBody(k)}</div>${bpRz(k,l)}</section>`}).join('')
-  +`<div class="bpadd">${off.length?`<button class="ib bpaddb" data-act="bpadd" aria-label="Add panel" title="Add panel">${ic('plus',20)}</button>`:''}</div>`}
+let BPMENU=null;
+const bpMenu=k=>`<div class="bpmenu" role="menu" aria-label="Change panel">${Object.keys(BP).map(x=>`<button role="menuitemradio" aria-checked="${x===k}" class="${x===k?'on':''}" data-act="bppick" data-f="${k}" data-to="${x}">${ic(BP[x][1],15)}<span>${BP[x][0]}</span>${x===k?ic('check',14):''}</button>`).join('')}</div>`;
+function board(){const on=bpGet();
+ return bpRz('feed','feed')+on.map(k=>{const [l,icn,href]=BP[k];return `<section class="bp" data-p="${k}" aria-label="${l}"${bpStyle(k)}><header class="bph"><button class="ib bpgrip" draggable="true" data-grip="${k}" aria-label="Drag to move ${l}" title="Drag to move">${ic('grip',16)}</button><span class="bpic">${ic(icn,17)}</span><button class="bpttl" data-act="bpmenu" data-f="${k}" aria-haspopup="menu" aria-expanded="${BPMENU===k}"><h3>${l}</h3>${ic('down',14)}</button>${BPMENU===k?bpMenu(k):''}<a class="lnk bpopen" href="${href}">Open</a><button class="ib bpdel" data-act="bpdel" data-f="${k}" aria-label="Remove ${l} panel" title="Remove panel">${ic('trash',16)}</button></header><div class="bpb" data-p="${k}">${bpBody(k)}</div>${bpRz(k,l)}</section>`}).join('')
+}
 function bpAddModal(){const off=Object.keys(BP).filter(k=>!bpGet().includes(k));if(!off.length)return;
  modal('Add a panel','Panels sit beside your feed and scroll on their own.',`<div class="bpopts">${off.map(k=>`<button class="bpopt" data-bp="${k}"><span class="bpic">${ic(BP[k][1],18)}</span><b>${BP[k][0]}</b><span class="hint">Add</span></button>`).join('')}</div>`,
   m=>m.addEventListener('click',e=>{const o=e.target.closest('[data-bp]');if(!o)return;const v=bpGet();v.push(o.dataset.bp);bpSet(v);closeModal();drawRail()}))}
@@ -1432,6 +1436,9 @@ document.addEventListener('keydown',e=>{const h=e.target.closest&&e.target.close
  const k=h.dataset.rz,col=k==='feed'?$('#view'):h.closest('.bp'),w=Math.round(col.getBoundingClientRect().width/curZoom())+(e.key==='ArrowRight'?24:-24);
  bpW[k]=Math.min(BPMAX,Math.max(k==='feed'?BPMIN.feed:BPMIN.panel,w));bpWSave();bpApplyFeed();if(k!=='feed')drawRail();setTimeout(()=>{const n=document.querySelector(`.bprz[data-rz="${k}"]`);n&&n.focus()})});
 /* Reorder: drag a panel by its grip onto another panel. */
+/* Close the panel switcher on outside click or Escape. */
+document.addEventListener('pointerdown',e=>{if(BPMENU&&!(e.target.closest&&e.target.closest('.bpmenu,.bpttl'))){BPMENU=null;drawRail()}});
+document.addEventListener('keydown',e=>{if(BPMENU&&e.key==='Escape'){BPMENU=null;drawRail()}});
 let BPDRAG=null;
 document.addEventListener('dragstart',e=>{const g=e.target.closest&&e.target.closest('[data-grip]');if(!g)return;BPDRAG=g.dataset.grip;e.dataTransfer.effectAllowed='move';try{e.dataTransfer.setData('text/plain',BPDRAG)}catch(_){}const p=g.closest('.bp');p&&p.classList.add('bpmoving')});
 document.addEventListener('dragover',e=>{if(!BPDRAG)return;const p=e.target.closest&&e.target.closest('.bp');if(!p)return;e.preventDefault();document.querySelectorAll('.bp.bpover').forEach(x=>x!==p&&x.classList.remove('bpover'));if(p.dataset.p!==BPDRAG)p.classList.add('bpover')});
@@ -1882,6 +1889,7 @@ function settingsModal(){const th=document.documentElement.dataset.theme||'syste
  modal('Settings','',`<div class="field"><label>Theme</label><div class="seg">${[['system','System'],['dark','Navy'],['light','White']].map(([k,l])=>`<button class="${th===k?'on':''}" data-act="settheme" data-f="${k}">${l}</button>`).join('')}</div></div>
  <div class="field"><label>App</label><button class="btn ghost block" data-act="install">${ic('down',16)} Install Callit on this device</button></div>
  ${zoomOn()?`<div class="field"><label>Display size</label><div class="seg">${ZOOMS.map(z=>`<button class="${zoomGet()===z?'on':''}" data-act="setzoom" data-f="${z}">${z}%</button>`).join('')}</div></div>`:''}
+ ${zoomOn()?`<div class="field"><label>Home panels</label><button class="btn ghost block" data-act="bpreset">Reset panels to default</button></div>`:''}
  <div class="field"><label>Sidebar</label><div class="seg"><button class="${col?'':'on'}" data-act="setside" data-f="open">Expanded</button><button class="${col?'on':''}" data-act="setside" data-f="closed">Icons only</button></div></div>`)}
 function withdrawModal(){if(!S.connected)return connectModal(()=>withdrawModal());const real=REALW();
  const held=Object.keys(S.bal).filter(k=>S.bal[k]>0&&T[k]).sort((a,b)=>usd(b,S.bal[b])-usd(a,S.bal[a]));
@@ -2580,7 +2588,11 @@ document.addEventListener('click',e=>{
   nf:()=>{S.nf=b.dataset.f;render()},newsx:()=>{location.hash='#/news'},
   ntab:()=>{S.ntab=b.dataset.f;render()},
   setzoom:()=>{try{localStorage.setItem('callit.zoom',b.dataset.f)}catch(_){}zoomApply();closeModal();settingsModal()},
-  bpdel:()=>{const k=b.dataset.f;bpSet(bpGet().filter(x=>x!==k));drawRail();toast(`${BP[k][0]} removed. Add it back with +`)},bpadd:()=>bpAddModal(),
+  bpdel:()=>{const k=b.dataset.f;bpSet(bpGet().filter(x=>x!==k));BPMENU=null;drawRail();toast(`${BP[k][0]} removed. Bring panels back in Settings`)},
+  bpmenu:()=>{BPMENU=BPMENU===b.dataset.f?null:b.dataset.f;drawRail()},
+  bppick:()=>{const from=b.dataset.f,to=b.dataset.to,v=bpGet(),i=v.indexOf(from),j=v.indexOf(to);if(i<0||from===to){BPMENU=null;return drawRail()}
+   if(j>=0){v[j]=from}v[i]=to;const w=bpW[from];if(w!=null){bpW[to]=w;delete bpW[from];bpWSave()}bpSet(v);BPMENU=null;drawRail()},
+  bpreset:()=>{bpSet(BP_DEF.slice());Object.keys(bpW).forEach(k=>delete bpW[k]);bpWSave();bpApplyFeed();closeModal();drawRail();toast('Panels reset')},
   pushtest:()=>pushTest(b),
   bubtog:()=>{const c=b.closest('.hmcard'),o=!c.classList.contains('open');c.classList.toggle('open',o);b.setAttribute('aria-expanded',o);const bd=c.querySelector('.hmbody');bd.hidden=!o;try{localStorage.setItem('callit.bubopen',o?'1':'0')}catch(_){}if(o){const w=c.querySelector('#bubwrap');if(w&&BUBT)w.innerHTML=bubbles(BUBT)}},
   ncat:()=>{const f=b.dataset.f;if(f==='*'){lsPut('callit.ncat',null);return render()}const cur=lsSet('callit.ncat')||new Set();cur.has(f)?cur.delete(f):cur.add(f);lsPut('callit.ncat',cur.size===NCATS.length?null:cur);render()},
