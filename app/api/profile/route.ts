@@ -75,7 +75,22 @@ export async function GET(req: Request) {
     const { data } = await db.from('profiles').select('id').eq('handle', h).maybeSingle();
     return NextResponse.json({ available: !data, reason: data ? 'Taken' : undefined }, { headers: { 'cache-control': 'no-store' } });
   }
+  // wallets=<a,b,c>: which of these wallets belong to Callit callers (holders list, wallet tracker).
+  const wl = (sp.get('wallets') || '').split(',').map((x) => x.trim()).filter((x) => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(x)).slice(0, 100);
+  if (wl.length) {
+    if (!db) return NextResponse.json({ map: {} });
+    const { data } = await db.from('profiles').select('handle, display_name, avatar_url, wallet_address').in('wallet_address', wl);
+    const map: Record<string, { handle: string; display_name: string | null; avatar_url: string | null }> = {};
+    (data || []).forEach((p) => { map[p.wallet_address as string] = { handle: p.handle, display_name: p.display_name, avatar_url: p.avatar_url }; });
+    return NextResponse.json({ map }, { headers: { 'cache-control': 'public, s-maxage=60, stale-while-revalidate=300' } });
+  }
   const q = sp.get('q');
+  // A pasted wallet address finds the caller who owns it.
+  if (q !== null && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(q.trim())) {
+    if (!db) return NextResponse.json({ profiles: [] });
+    const { data } = await db.from('profiles').select('handle, display_name, avatar_url').eq('wallet_address', q.trim()).limit(1);
+    return NextResponse.json({ profiles: (data || []).map((p) => ({ ...p, byWallet: true })) }, { headers: { 'cache-control': 'public, s-maxage=30' } });
+  }
   if (q !== null) {
     // Caller search: username or display name. Only letters, numbers, _ and spaces get through, so the filter can't be broken out of.
     const term = q.trim().replace(/^@/, '').replace(/[^A-Za-z0-9_ ]/g, '').slice(0, 30);

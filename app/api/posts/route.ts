@@ -41,6 +41,10 @@ export async function GET(req: Request) {
   // tag=<word>: posts containing #word (case-insensitive)
   const tag = (sp.get('tag') || '').replace(/^#/, '');
   if (/^[A-Za-z0-9_]{1,40}$/.test(tag)) q = q.ilike('body', `%#${tag.replace(/_/g, '\\_')}%`);
+  // q=<text>: search calls and posts by ticker, token name or text. Only safe characters reach the filter.
+  const term = (sp.get('q') || '').replace(/^[$#@]/, '').replace(/[^A-Za-z0-9 _-]/g, '').trim().slice(0, 40);
+  if (term.length >= 2) { const like = `"%${term}%"`; q = q.or(`token_sym.ilike.${like},token_name.ilike.${like},body.ilike.${like}`); }
+  if (sp.get('calls') === '1') q = q.eq('kind', 'meme');
   // quote_of=<post id>: posts quoting that post
   const quoteOf = sp.get('quote_of') || '';
   if (/^([0-9a-f-]{36}|welcome)$/i.test(quoteOf)) q = q.eq('quote_ref', quoteOf);

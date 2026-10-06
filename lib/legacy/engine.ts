@@ -274,7 +274,7 @@ function mergePosts(rows){const ids=new Set(calls.map(k=>String(k.id))),add=[],m
  if(miss.size)fetchTokens([...miss].slice(0,50)).then(l=>{l.forEach(regLive);render()}).catch(()=>{});
  return add.length}
 let PBUSY=0;
-function loadPosts(){if(PBUSY)return;PBUSY=1;API('/api/posts?limit=60').then(j=>{if(mergePosts(j.posts||[])&&['home','profile','lists'].includes(currentRoute()))render()}).catch(()=>{}).finally(()=>{PBUSY=0})}
+function loadPosts(){if(PBUSY)return;PBUSY=1;API('/api/posts?limit=60').then(j=>{if(mergePosts(j.posts||[])&&['home','profile','lists','callerboard'].includes(currentRoute()))render()}).catch(()=>{}).finally(()=>{PBUSY=0})}
 function loadMe(){if(!SYNC())return;API('/api/me').then(j=>{
   S.following=new Set(j.following||[]);S.muted=new Set(j.muted||[]);S.blocked=new Set(j.blocked||[]);S.lists=j.lists||[];S.followers=j.followers||0;
   if(j.watchlist&&j.watchlist.length)S.watch=new Set(j.watchlist);
@@ -1073,7 +1073,7 @@ function bubbles(t){const R=t._risk,hs=R&&R.holders;if(!hs||!hs.length)return `<
  <div class="blegend"><span class="bundle">Bundle</span><span class="dev">Creator</span><span class="pool">Pool</span><span>Holder</span></div>`}
 const RISKB={};
 function loadRisk(mint){const t=T[mint];if(!t||!isMintStr(mint)||RISKB[mint]||(t._riskAt&&Date.now()-t._riskAt<6e4))return;RISKB[mint]=1;t._riskAt=Date.now();
- fetch('/api/market/risk/'+mint).then(r=>r.ok?r.json():null).then(j=>{if(!j)return;t._risk=j;const l=$('.sfcard .sflist');if(l&&currentRoute()==='token')l.innerHTML=liveSafety(t)+taxRows(t);const b=$('#bubwrap');if(b)b.innerHTML=bubbles(t)}).catch(()=>{}).finally(()=>{RISKB[mint]=0})};
+ fetch('/api/market/risk/'+mint).then(r=>r.ok?r.json():null).then(j=>{if(!j)return;t._risk=j;const l=$('.sfcard .sflist');if(l&&currentRoute()==='token')l.innerHTML=liveSafety(t)+taxRows(t);const b=$('#lholders');if(b&&currentRoute()==='token')b.innerHTML=holdersPanel(t)}).catch(()=>{}).finally(()=>{RISKB[mint]=0})};
 function liveSafety(t){const a=(t.L&&t.L.audit)||{},L=t.L||{};
  const row=(label,ok,val)=>`<div class="sf ${ok==null?'unk':ok?'ok':'bad'}"><span class="sfi">${ok==null?'?':ok?ic('check',14):'!'}</span><span class="grow">${label}</span><b>${val}</b></div>`;
  return `${a.sus?`<div class="sfwarn">${ic('bell',16)} Jupiter flags this token as suspicious. Be very careful.</div>`:''}
@@ -1092,7 +1092,7 @@ document.addEventListener('toggle',e=>{const d=e.target;if(d&&d.matches&&d.match
 function liveLinks(t){const so=(t.L&&t.L.socials)||{},a=(u,l,i)=>u&&/^https?:\/\//.test(u)?`<a class="lk" href="${esc(u)}" target="_blank" rel="noopener noreferrer">${ic(i,15)}${l}</a>`:'';
  return a(so.x,'X','xlogo')+a(so.web,'Website','globe')+a(so.tg,'Telegram','people')+a(`https://dexscreener.com/solana/${t.pool||t.key}`,'DexScreener','market')+a(`https://solscan.io/token/${t.key}`,'Solscan','search')+`<button class="lk" data-act="xsearch" data-k="${esc(t.key)}">${ic('xlogo',13)}Search on X</button>`}
 function vLiveToken(t){const key=t.key,tr=S.watch.has(key),on=calls.filter(k=>k.t===key),L=t.L||{},ch=(L.chg||{}).h24;
- S.ltf=S.ltf||'15m';S.lmode=S.lmode||'mc';if(!S.lsrc){try{S.lsrc=localStorage.getItem('callit.lsrc')||'dex'}catch(_){S.lsrc='dex'}}
+ S.ltf=S.ltf||'15m';S.lmode=S.lmode||'mc';if(!S.ltab){try{S.ltab=localStorage.getItem('callit.ltab')||'calls'}catch(_){S.ltab='calls'}}const lt=LTABS.some(x=>x[0]===S.ltab)?S.ltab:'calls';if(!S.lsrc){try{S.lsrc=localStorage.getItem('callit.lsrc')||'dex'}catch(_){S.lsrc='dex'}}
  return `<div class="pad" style="padding-bottom:0"><div style="display:flex;align-items:center;gap:12px">${tokav(key)}<div style="flex:1;min-width:0"><b class="h2">${esc(t.name)}</b>${L.verified?`<span class="vbadge" title="Verified on Jupiter">${ic('check',11)}</span>`:''} <span class="muted">$${esc(t.sym)}</span>
  <div><span class="chain">Solana</span>${t.lp?` <span class="chain lpchip">${esc(t.lp)}</span>`:''} <button class="copyca" data-act="copy" data-v="${esc(t.ca)}">${short(t.ca)} ${ic('copy',13)}</button></div></div>
  ${(()=>{if(S.connected&&!AL.d)alLoad();const bo=BELLS.has(key);return `<button class="ib bellb ${bo?'on':''}" data-act="bell" data-t="${key}" aria-label="${bo?'Edit':'Set'} alerts for $${esc(t.sym)}" title="Alerts">${ic('bell',18)}</button>`})()}<button class="btn sm ${tr?'primary':'ghost'}" data-act="track" data-t="${key}">${ic('star',15,tr)} ${tr?'On watchlist':'Watchlist'}</button></div>
@@ -1101,13 +1101,36 @@ function vLiveToken(t){const key=t.key,tr=S.watch.has(key),on=calls.filter(k=>k.
  <div class="lsrc"><button class="lnk" data-act="lsrc">${S.lsrc==='callit'?'Use DexScreener chart':'Use Callit chart'}</button></div>
  <div class="seg ltf" role="tablist">${['1m','5m','15m','1h','4h','1d'].map(x=>`<button class="${S.ltf===x?'on':''}" data-act="ltf" data-f="${x}">${x}</button>`).join('')}</div>
  <div class="lchart" id="lchart" data-mint="${key}"><div class="lchart-msg" id="lchartmsg">${t.pool?'Loading chart…':'No trading pool for a chart yet.'}</div></div>
+ <div class="ltabs" role="tablist" aria-label="Token sections">${LTABS.map(([k,l,i])=>`<button role="tab" aria-selected="${lt===k}" class="${lt===k?'on':''}" data-act="ltab" data-f="${k}">${ic(i,15)}<span>${l}</span>${k==='calls'&&on.length?`<b class="num">${on.length}</b>`:''}</button>`).join('')}</div></div>
+ <section class="lpanel" data-lp="calls" ${lt==='calls'?'':'hidden'}><div class="pad" style="padding-bottom:0"><div class="lpcallh"><b class="h2">Calls on $${esc(t.sym)}</b><button class="btn sm primary" data-act="newcall" data-t="${key}">Call it</button></div></div>
+ <div id="feed" style="border-top:1px solid var(--line);margin-top:6px">${on.map(post).join('')||'<div class="empty"><b>No calls yet</b><p>Call it first and your entry gets stamped at the live market cap.</p></div>'}</div></section>
+ <section class="lpanel pad" data-lp="holders" ${lt==='holders'?'':'hidden'}><div id="lholders">${holdersPanel(t)}</div></section>
+ <section class="lpanel pad" data-lp="info" ${lt==='info'?'':'hidden'}>
  <div id="lstats">${liveStats(t)}</div>
  <div class="llinks">${liveLinks(t)}</div>
  <div id="lpair">${pairCard(t)}</div><div id="labout">${aboutCard(t)}</div>
- <div id="lheat">${heatCard(t)}</div>${(sc=>`<details class="card sfcard" data-sf ${(SFOPEN==null?sc.bad:SFOPEN)?'open':''}><summary><h3>Safety check</h3><span class="sfbadge ${!sc.n?'unk':sc.bad?(sc.ok>=sc.n-1&&!(t.L&&t.L.audit&&t.L.audit.sus)?'warn':'bad'):'ok'}">${sc.n?`${sc.ok}/${sc.n} passed`:'No data'}</span><span class="sfchev" aria-hidden="true">${ic('down',18)}</span></summary><div class="sflist">${liveSafety(t)}${taxRows(t)}</div><div class="bubsec"><div class="bubhead"><b>Holder map</b><a class="lnk" href="https://app.bubblemaps.io/sol/token/${esc(t.key)}" target="_blank" rel="noopener">Open in Bubblemaps ↗</a></div><div id="bubwrap">${bubbles(t)}</div></div><p class="hint" style="margin:10px 0 0">From Jupiter's token audit. Not a guarantee. Always size your bets.</p></details>`)(sfScore(t))}
- ${key===SOL_MINT||key===USDC_MINT?`<div class="card"><h3>Swap</h3><div data-swapbox></div></div>`:`<div class="card"><div class="tradeh"><h3>Trade $${esc(t.sym)}</h3><span class="ordbtns"><button class="btn sm ghost" data-act="ord" data-k="${key}" data-f="limit">${ic('up',14)} Limit</button><button class="btn sm ghost" data-act="ord" data-k="${key}" data-f="tpsl">${ic('target',14)} TP / SL</button></span></div><div data-swapbox data-tok="${key}"></div><div id="tokords">${ordersList(key)}</div></div>`}
- <div style="display:flex;justify-content:space-between;align-items:center;margin:22px 0 4px"><b class="h2">Calls on $${esc(t.sym)}</b><button class="btn sm primary" data-act="newcall" data-t="${key}">Call it</button></div></div>
- <div id="feed" style="border-top:1px solid var(--line);margin-top:10px">${on.map(post).join('')||'<div class="empty"><b>No calls yet</b><p>Call it first and your entry gets stamped at the live market cap.</p></div>'}</div>`}
+ <div id="lheat">${heatCard(t)}</div>${(sc=>`<details class="card sfcard" data-sf ${(SFOPEN==null?sc.bad:SFOPEN)?'open':''}><summary><h3>Safety check</h3><span class="sfbadge ${!sc.n?'unk':sc.bad?(sc.ok>=sc.n-1&&!(t.L&&t.L.audit&&t.L.audit.sus)?'warn':'bad'):'ok'}">${sc.n?`${sc.ok}/${sc.n} passed`:'No data'}</span><span class="sfchev" aria-hidden="true">${ic('down',18)}</span></summary><div class="sflist">${liveSafety(t)}${taxRows(t)}</div><p class="hint" style="margin:10px 0 0">From Jupiter's token audit. Not a guarantee. Always size your bets.</p></details>`)(sfScore(t))}</section>
+ <section class="lpanel pad" data-lp="swap" ${lt==='swap'?'':'hidden'}>
+ ${key===SOL_MINT||key===USDC_MINT?`<div class="card"><h3>Swap</h3><div data-swapbox></div></div>`:`<div class="card"><div class="tradeh"><h3>Trade $${esc(t.sym)}</h3><span class="ordbtns"><button class="btn sm ghost" data-act="ord" data-k="${key}" data-f="limit">${ic('up',14)} Limit</button><button class="btn sm ghost" data-act="ord" data-k="${key}" data-f="tpsl">${ic('target',14)} TP / SL</button></span></div><div data-swapbox data-tok="${key}"></div><div id="tokords">${ordersList(key)}</div></div>`}</section>`}
+/* Token page sections. Panels are all rendered and just shown/hidden, so the chart never reloads. */
+const LTABS=[['calls','Calls','promote'],['holders','Holders','profile'],['info','Info','news'],['swap','Swap','swap']];
+/* Top holders, with Callit callers named when a holder wallet belongs to one. */
+const HWAL={},HWQ=new Set();
+function holderCallers(ws){const miss=ws.filter(w=>!(w in HWAL)&&!HWQ.has(w));if(!miss.length)return;miss.forEach(w=>HWQ.add(w));
+ fetch('/api/profile?wallets='+miss.slice(0,100).join(',')).then(r=>r.ok?r.json():{map:{}}).then(j=>{miss.forEach(w=>{HWAL[w]=(j.map||{})[w]||null;const p=HWAL[w];if(p){if(p.avatar_url)AVURL[p.handle]=p.avatar_url;if(p.display_name)DN[p.handle]=p.display_name}})})
+  .catch(()=>{}).finally(()=>{const [,r,p]=location.hash.split('/');const el=$('#lholders');if(el&&r==='token'&&T[p])el.innerHTML=holdersPanel(T[p])})}
+function holdersPanel(t){const R=t._risk,hs=R&&R.holders,a=(t.L&&t.L.audit)||{},mc=mcap(t)||0;
+ if(!R){loadRisk(t.key);return `<div class="card">${rskel(5)}</div>`}
+ const tags={pool:'Pool',dev:'Creator',bundle:'Bundle'},list=(hs||[]).slice(0,25);holderCallers(list.map(h=>h.owner));
+ const sum=`<div class="hsum num"><div><span>Holders</span><b>${t.holders?fmtK(t.holders):'—'}</b></div><div><span>Top 10</span><b class="${a.top10>45?'down':''}">${a.top10!=null?a.top10.toFixed(1)+'%':'—'}</b></div><div><span>Creator</span><b class="${a.dev>15?'down':''}">${a.dev!=null?a.dev.toFixed(1)+'%':'—'}</b></div>${R.bundle&&R.bundle.pct!=null?`<div><span>Bundled</span><b class="${R.bundle.pct>25?'down':''}">${R.bundle.pct.toFixed(1)}%</b></div>`:''}</div>`;
+ if(!list.length)return `<div class="card">${sum}<p class="hint" style="margin:10px 0 0">No holder list for this token yet.</p></div>`;
+ const max=Math.max(...list.map(h=>h.pct));
+ return `<div class="card">${sum}<div class="hlist">${list.map((h,i)=>{const p=HWAL[h.owner],me=h.owner===S.addr;
+  return `<div class="hrw"><span class="hrk num">${i+1}</span>${p?`<a class="hwho" href="#/profile/${esc(p.handle)}">${avatar(p.handle)}<span><b>${esc(p.display_name||p.handle)}</b><small>@${esc(p.handle)} · Callit caller</small></span></a>`
+   :`<a class="hwho" href="https://solscan.io/account/${esc(h.owner)}" target="_blank" rel="noopener"><span class="tokav alwav">${ic('wallet',14)}</span><span><b class="num">${me?'You':short(h.owner)}</b>${h.tag?`<small class="htag2 ${h.tag}">${tags[h.tag]||h.tag}</small>`:''}</span></a>`}
+   <span class="hpct num"><b>${h.pct<0.01?'<0.01':h.pct.toFixed(2)}%</b><small>${mc?fmtUsd(mc*h.pct/100):''}</small><i style="width:${Math.max(3,h.pct/max*100)}%"></i></span>
+   ${!p&&!me&&h.tag!=='pool'?`<button class="ib sm" data-act="htrack" data-f="${esc(h.owner)}" title="Track this wallet" aria-label="Track ${short(h.owner)}">${ic('bell',15)}</button>`:'<span aria-hidden="true"></span>'}</div>`}).join('')}</div></div>
+ <div class="card"><div class="bubhead"><b>Holder map</b><a class="lnk" href="https://app.bubblemaps.io/sol/token/${esc(t.key)}" target="_blank" rel="noopener">Open in Bubblemaps ↗</a></div><div id="bubwrap">${bubbles(t)}</div></div>`}
 /* Pair info (DexScreener-style) and the coin's lore. Loaded on their own and patched in place, never a full re-render. */
 const PAIRS={};
 function loadPairs(mint,force){const P=PAIRS[mint]||(PAIRS[mint]={});if(P.busy||(!force&&P.at&&Date.now()-P.at<1e4))return;P.busy=1;
@@ -1158,11 +1181,17 @@ function loadCallers(force){const w=S.lb||'30d';if(CBUSY[w]||(!force&&CALLERS[w]
 setInterval(()=>{if(!document.hidden&&currentRoute()==='callerboard')loadCallers(true)},2e4);
 function lbActivity(){const rec=calls.filter(k=>k.srv&&k.kind==='meme'&&k.t&&!k.sponsored).sort((a,b)=>(b.at||0)-(a.at||0)).slice(0,8);
  if(!rec.length)return '';return `<section class="lbfeed" aria-label="Latest calls"><div class="lbfh"><span class="stlive"><i></i>Live</span><b>Latest calls</b></div>${rec.map(k=>{const p=perf(k);return `<a class="lbfi" href="#/post/${k.id}">${avatar(k.c)}<span class="grow"><b>@${esc(k.c)}</b> called <b>$${esc(symOf(k.t))}</b> at ${fmtUsd(k.entry)}<small class="muted"> · ${esc(k.ago)}</small></span><em class="num ${p==null?'muted':p>=0?'up':'down'}">${p==null?'—':pctS(p)}</em></a>`}).join('')}</section>`}
-function vLeaders(){loadCallers();const w=S.lb||'30d',L=ranked(),st=CALLERS[w],podium=L.slice(0,3),me=L.findIndex(c=>c.h===S.me);
+/* Callerboard has two views. Latest calls is just a live feed: it never touches the ranking. */
+function lbToggle(){const v=S.lbv==='latest'?'latest':'rank';return `<div class="pad" style="padding-bottom:0"><div class="seg wide lbtog" role="tablist">${[['rank','Rankings'],['latest','Latest calls']].map(([k,l])=>`<button role="tab" aria-selected="${v===k}" class="${v===k?'on':''}" data-act="lbv" data-f="${k}">${l}</button>`).join('')}</div></div>`}
+function vLatestCalls(){if(SYNC()&&Date.now()-(S.lcAt||0)>2e4){S.lcAt=Date.now();loadPosts()}
+ const L=calls.filter(k=>visible(k)&&!k.sponsored&&(k.kind==='meme'||k.kind==='perps')).sort((a,b)=>(b.at||0)-(a.at||0)).slice(0,40);
+ return lbToggle()+`<div class="pad lbhead"><span class="muted">Every new call as it lands, newest first. Doesn’t affect rankings.</span><span class="stlive"><i></i>Live</span></div>
+ <div id="feed">${L.map(post).join('')||'<div class="empty"><b class="h2">No calls yet</b><p>Be the first.</p><button class="btn primary" data-act="newcall">Make a call</button></div>'}</div>`}
+function vLeaders(){if(S.lbv==='latest')return vLatestCalls();loadCallers();const w=S.lb||'30d',L=ranked(),st=CALLERS[w],podium=L.slice(0,3),me=L.findIndex(c=>c.h===S.me);
  const pod=podium.length?`<div class="podium">${[1,0,2].filter(i=>podium[i]).map(i=>{const c=podium[i];return `<a class="pod p${i+1}" href="#/profile/${esc(c.h)}"><span class="pcrown">${['👑','🥈','🥉'][i]}</span>${avatar(c.h)}<b>${esc(nameOf(c.h))}</b><span class="muted">@${esc(c.h)}</span><span class="pwin num">${c.win}%<small>win</small></span><span class="num ${c.avg>=0?'up':'down'}">${fmtPct(c.avg)} avg</span><span class="pstep">${i+1}</span></a>`}).join('')}</div>`:'';
  const head=`<div class="pad lbhead"><span class="muted">${st?'Ranked by win rate, then average return. Updates live.':'Loading callers…'}</span><div class="seg">${['7d','30d','All time'].map(x=>`<button class="${(S.lb||'30d')===x?'on':''}" data-act="lb" data-f="${x}">${x}</button>`).join('')}</div></div>`;
- if(st&&!L.length)return topCalls()+head+`<div class="empty"><b class="h2">The board is wide open</b><p>No calls in this window yet. Make the first one and take #1.</p><button class="btn primary" data-act="newcall">Make a call</button></div>`+lbActivity();
- return topCalls()+head+pod+lbActivity()+`<div class="tablewrap" style="border-top:1px solid var(--line)"><table><thead><tr><th>Rank</th><th>Caller</th><th>Win rate</th><th>Avg return</th><th>Calls</th><th>Best call</th><th></th></tr></thead><tbody>
+ if(st&&!L.length)return lbToggle()+topCalls()+head+`<div class="empty"><b class="h2">The board is wide open</b><p>No calls in this window yet. Make the first one and take #1.</p><button class="btn primary" data-act="newcall">Make a call</button></div>`+lbActivity();
+ return lbToggle()+topCalls()+head+pod+lbActivity()+`<div class="tablewrap" style="border-top:1px solid var(--line)"><table><thead><tr><th>Rank</th><th>Caller</th><th>Win rate</th><th>Avg return</th><th>Calls</th><th>Best call</th><th></th></tr></thead><tbody>
  ${L.map((c,i)=>`<tr class="${c.h===S.me?'mine':''}" data-go="#/profile/${c.h}"><td class="rkc">${i+1}${rankMove('lbt',c.h,i)}</td><td><div class="person">${avatar(c.h)}${esc(c.h)}</div></td><td class="num">${c.win}%</td><td class="num ${c.avg>=0?'up':'down'}">${fmtPct(c.avg)}</td><td class="num">${c.calls}</td><td class="num ${c.best>=0?'up':'down'}">${fmtPct(c.best)}</td>
  <td>${c.h===S.me?'<span class="muted">You</span>':`<button class="btn sm ${S.following.has(c.h)?'ghost':'primary'}" data-act="follow" data-h="${c.h}">${S.following.has(c.h)?'Following':'Follow'}</button>`}</td></tr>`).join('')}</tbody></table></div>${(()=>{RANKS.lbt={};L.forEach((c,i)=>RANKS.lbt[c.h]=i);return ''})()}
  ${me>=0?`<div class="myrank"><span>Your rank</span><b class="num">#${me+1}</b><span class="muted">${L[me].win}% win · ${L[me].calls} calls</span></div>`:''}
@@ -1547,9 +1576,10 @@ setInterval(()=>{if(document.hidden)return;const r=currentRoute();if(r==='token'
 function recentGet(){try{const v=JSON.parse(localStorage.getItem('callit.recent')||'[]');return Array.isArray(v)?v:[]}catch(_){return []}}
 function recentAdd(x){const id=y=>y.t==='tok'?'t:'+y.k:'u:'+y.h,l=[x,...recentGet().filter(y=>id(y)!==id(x))].slice(0,12);try{localStorage.setItem('callit.recent',JSON.stringify(l))}catch(_){}}
 function recentClear(kind){try{localStorage.setItem('callit.recent',JSON.stringify(recentGet().filter(y=>y.t!==kind)))}catch(_){}}
-function searchModal(){S.stf=TF_OK.includes(S.stf)?S.stf:'1h';S.sk=S.sk==='callers'?'callers':'tokens';
- const ph=()=>S.sk==='callers'?'Search callers by @handle or name':'Search a token, ticker or paste a CA';
- const kbar=()=>`<div class="kseg tgl skind" style="--i:${S.sk==='callers'?1:0};--n:2;grid-template-columns:repeat(2,1fr)" role="tablist" aria-label="What are you searching for?">${[['tokens','Tokens','market'],['callers','Callers','profile']].map(([k,l,i])=>`<button type="button" role="tab" aria-selected="${S.sk===k}" class="${S.sk===k?'on':''}" data-sk="${k}">${ic(i,15)}<span>${l}</span></button>`).join('')}</div>`;
+const SK=[['tokens','Coins','market'],['callers','Callers','profile'],['calls','Calls','promote'],['trends','Trends','news']];
+function searchModal(){S.stf=TF_OK.includes(S.stf)?S.stf:'1h';S.sk=SK.some(x=>x[0]===S.sk)?S.sk:'tokens';
+ const ph=()=>({callers:'@handle, name or wallet address',calls:'A ticker, token name or words in a call',trends:'Search what’s trending: solana, ETF…',tokens:'Search a token, ticker or paste a CA'})[S.sk];
+ const kbar=()=>`<div class="kseg tgl skind" style="--i:${SK.findIndex(x=>x[0]===S.sk)};--n:4;grid-template-columns:repeat(4,1fr)" role="tablist" aria-label="What are you searching for?">${SK.map(([k,l,i])=>`<button type="button" role="tab" aria-selected="${S.sk===k}" class="${S.sk===k?'on':''}" data-sk="${k}">${ic(i,15)}<span>${l}</span></button>`).join('')}</div>`;
  modal('Search','',`${kbar()}<div class="tsearch">${ic('search',18)}<input id="sq" placeholder="${ph()}" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search"></div><div class="list" id="sres" style="margin-top:6px"></div>`,
  m=>{const box=$('#sres',m),inp=$('#sq',m),qv=()=>inp.value.trim().replace(/^[$@]/,'');
   const trow2=(t,tf,og)=>{const v=chgOf(t,tf),isOg=og&&og.has(t.key);return `<a class="li srow${isOg?' isog':''}" href="#/token/${t.key}" data-act="close">${tokav(t.key)}<div class="grow"><b>${esc(t.name)}</b>${t.L&&t.L.verified?`<span class="vbadge" title="Verified on Jupiter">${ic('check',10)}</span>`:''}${isOg?'<span class="ogtag" title="The first token launched with this ticker">OG</span>':''}<div class="hint num">$${esc(t.sym)}${ageTag(t)} · ${fmtSmall(mcap(t))} MC${t.vol?` · V ${fmtSmall(t.vol)}`:''}</div></div><b class="num ${pcls(v)}">${pctS(v)}</b><button class="wstar${S.watch.has(t.key)?' on':''}" data-act="track" data-t="${esc(t.key)}" aria-pressed="${S.watch.has(t.key)}" aria-label="Watchlist" title="Watchlist">${ic('star',17,S.watch.has(t.key))}</button></a>`};
@@ -1577,13 +1607,30 @@ function searchModal(){S.stf=TF_OK.includes(S.stf)?S.stf:'1h';S.sk=S.sk==='calle
    return `<div class="shead"><span class="tsec" style="margin:0">Recent</span><button type="button" class="lnk" data-sclear="${kind}">Clear</button></div>`+R.map(x=>kind==='tok'
     ?`<a class="li srow" href="#/token/${esc(x.k)}" data-act="close">${T[x.k]?tokav(x.k):`<span class="tokav">${esc(String(x.sym||'?').slice(0,3))}</span>`}<div class="grow"><b>${esc(x.name||x.sym)}</b><div class="hint">$${esc(x.sym)}${T[x.k]&&T[x.k].price?` · ${fmtUsd(mcap(T[x.k]))} MC`:''}</div></div><span class="srec" aria-hidden="true">${ic('search',14)}</span></a>`
     :`<a class="li" href="#/profile/${esc(x.h)}" data-act="close">${avatar(x.h)}<div class="grow"><b>${esc(nameOf(x.h))}</b><div class="hint">@${esc(x.h)}</div></div><span class="srec" aria-hidden="true">${ic('search',14)}</span></a>`).join('')};
+  const crow=k=>{const n=k.kind==='meme'&&T[k.t]?nums(k):null;return `<a class="li srow" href="#/post/${esc(k.id)}" data-act="close">${k.kind==='meme'&&k.t?tokav(k.t):avatar(k.c)}<div class="grow"><b>${k.kind==='meme'?`$${esc(symOf(k.t))} · `:''}@${esc(k.c)}</b><div class="hint">${k.kind==='meme'?`Called at ${fmtUsd(k.entry)} MC · `:''}${esc(String(k.thesis||'').slice(0,70))}</div></div>${n?`<b class="num ${n.up?'up':'down'}">${fmtPct(n.p)}</b>`:`<span class="hint">${k.ago||''}</span>`}</a>`};
+  const drawCalls=q=>{const ql=q.toLowerCase().replace(/^[$#]/,'');clearTimeout(SUT);
+   const local=calls.filter(k=>visible(k)&&k.kind!=='random'&&(!ql||(symOf(k.t||'')+' '+((T[k.t]||{}).name||'')+' '+k.thesis+' '+k.c).toLowerCase().includes(ql)));
+   box.innerHTML=`<div class="tsec">${q?'Calls':'Latest calls'}</div><div id="scl">${local.slice(0,15).map(crow).join('')||(q.length>=2&&SYNC()?'':`<p class="hint" style="padding:8px 4px">${q?`No calls match “${esc(q)}”.`:'No calls yet.'}</p>`)}</div>${q.length>=2&&SYNC()?'<p class="hint" style="margin:8px 4px" id="sbusy">Searching all calls…</p>':''}`;
+   if(q.length<2||!SYNC())return;
+   SUT=setTimeout(()=>API('/api/posts?limit=30&calls=1&q='+encodeURIComponent(q)).then(j=>{if(qv()!==q||S.sk!=='calls')return;mergePosts(j.posts||[]);const ids=new Set((j.posts||[]).map(p=>String(p.id)));
+    const all=calls.filter(k=>visible(k)&&k.kind!=='random'&&(ids.has(String(k.id))||local.includes(k))).slice(0,25),el=$('#scl',m),bz=$('#sbusy',m);if(bz)bz.remove();
+    if(el)el.innerHTML=all.map(crow).join('')||`<p class="hint" style="padding:8px 4px">No calls match “${esc(q)}”.</p>`}).catch(()=>{const bz=$('#sbusy',m);if(bz)bz.textContent='Call search is unavailable right now.'}),250)};
+  const drawTrends=q=>{loadNews('trending');loadNews('recent');const t=q.replace(/^#/,'');
+   const L=newsList('trending',q).concat(q?newsList('recent',q):[]).slice(0,25);
+   box.innerHTML=(t&&/^[A-Za-z0-9_]{2,40}$/.test(t)?`<a class="li srow" href="#/tag/${esc(t.toLowerCase())}" data-act="close"><span class="tagic sm">#</span><div class="grow"><b>#${esc(t)}</b><div class="hint">Posts on Callit with this tag</div></div></a>`:'')
+    +`<div class="tsec">${q?'Trending and news':'Trending now'}</div>`+(!NEWS.trending.d?rskel(4):L.length?L.map(x=>nItem(x).replace('class="nitem"','class="nitem sm"')).join(''):`<p class="hint" style="padding:8px 4px">Nothing trending matches “${esc(q)}”.</p>`)
+    +`<a class="lnk" href="#/news" data-act="close" style="display:block;padding:10px 4px">Open News</a>`};
+  box.addEventListener('newsready',()=>{if(S.sk==='trends')draw()});
   const draw=()=>{const q=qv(),ql=q.toLowerCase();clearTimeout(SRT);
    if(S.sk==='callers'){if(!q){box.innerHTML=recent('usr')+`<div class="tsec">Top callers</div>`+ranked().slice(0,8).map(prow).join('');return}return drawCallers(q)}
+   if(S.sk==='calls')return drawCalls(q);if(S.sk==='trends')return drawTrends(q);
    if(!q){box.innerHTML=recent('tok')+trending();return}
    const local=Object.values(T).filter(t=>t.live&&t.price&&(String(t.sym).toLowerCase().startsWith(ql)||t.name.toLowerCase().includes(ql)||t.key===q)).sort((a,b)=>(b.vol||0)-(a.vol||0)).slice(0,5);
    const og0=ogKeys(local);
    box.innerHTML=`<div id="slive">${local.length?`<div class="tsec">Tokens</div>${rank(local,og0).map(t=>trow2(t,'24h',og0)).join('')}`:''}${q.length>=2?'<p class="hint" style="margin:8px 4px" id="sbusy">Searching live tokens…</p>':''}</div>`+(q.length<2&&!local.length?'<p class="hint" style="padding:8px 4px">Keep typing: a ticker, a name or a contract address.</p>':'');
    if(q.length<2)return;
+   if(isMintStr(q))fetch('/api/profile?q='+encodeURIComponent(q)).then(r=>r.ok?r.json():{profiles:[]}).then(j=>{const p=(j.profiles||[])[0];if(!p||qv()!==q||S.sk!=='tokens')return;if(p.avatar_url)AVURL[p.handle]=p.avatar_url;if(p.display_name)DN[p.handle]=p.display_name;if(!C[p.handle])C[p.handle]={h:p.handle,win:0,avg:0,calls:0,best:0,followers:0,real:1};
+    box.insertAdjacentHTML('afterbegin',`<div class="tsec">Wallet belongs to</div>${prow(C[p.handle])}`)}).catch(()=>{});
    SRT=setTimeout(()=>searchTokens(q).then(res=>{const el=$('#slive',m);if(!el||qv()!==q||S.sk!=='tokens')return;
     const rows=res.map(regLive).filter(Boolean),seen=new Set(),all=[...rows,...local].filter(t=>!seen.has(t.key)&&seen.add(t.key));
     const og=ogKeys(all),top=rank(all,og).slice(0,12),copies=top.filter(t=>!og.has(t.key)&&[...og].some(k=>T[k]&&tickOf(T[k])===tickOf(t))).length;
@@ -1853,9 +1900,43 @@ function newsRow(n,compact){const go=n.post?`#/post/${n.post}`:n.sym?`#/token/${
  return `<${go?`a href="${go}"`:'button data-act="newsx"'} class="nrow${compact?' c':''}">${n.sym?tokav(n.sym):`<span class="tokav nwire">${ic('news',18)}</span>`}<span class="grow"><span class="ntag ${n.kind}">${n.kind==='chain'?'On-chain':'Crypto'}</span><b>${esc(n.title)}</b><span class="hint">${esc(n.src)} · ${ago2(n.min)}</span></span></${go?'a':'button'}>`}
 function newsCard(){const live=newsItems().filter(n=>n.kind==='chain').slice(0,5);if(!LIVE.feeds['movers:1h']&&!LIVE.err['movers:1h'])loadFeed('movers:1h');
  return `<div class="card newscard"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><h3 style="margin:0">Trending now</h3><a class="lnk" href="#/news">See all</a></div>${live.length?live.map(n=>newsRow(n,1)).join(''):Array.from({length:4},()=>'<div class="nrow c nskel" aria-hidden="true"><span class="tokav"></span><span class="grow"><i></i><i></i></span></div>').join('')+'<p class="sr-only" role="status">Loading market moves</p>'}</div>`}
-function vNews(){const f=S.nf||'all',list=newsItems().filter(n=>f==='all'||n.kind===f);
- return `<div class="tabs" role="tablist">${[['all','All'],['chain','On-chain'],['crypto','Crypto']].map(([k,l])=>`<button class="${f===k?'on':''}" data-act="nf" data-f="${k}">${l}</button>`).join('')}</div>
- <div>${list.map(n=>newsRow(n)).join('')}</div><p class="hint pad">On-chain items come from token and call activity. Crypto headlines are samples until the news feed is connected.</p>`}
+/* ---------- News: Recent (crypto + tech headlines) and Trending (social platforms + Callit) ---------- */
+const NEWS={recent:{},trending:{}};
+const NPLAT={x:['X','#E7E9EA'],reddit:['Reddit','#FF4500'],youtube:['YouTube','#FF0033'],bluesky:['Bluesky','#1185FE'],hackernews:['Hacker News','#FF6600'],coingecko:['CoinGecko','#8DC63F'],google:['Google','#4285F4'],callit:['Callit','#4DA8FF'],news:['News','#8FA6BA']};
+function loadNews(tab,force){const N=NEWS[tab];if(N.busy||(!force&&N.at&&Date.now()-N.at<3e5))return;N.busy=1;
+ fetch('/api/news?tab='+tab).then(r=>r.json()).then(j=>{N.d=j;N.err=j.error||null}).catch(()=>{N.err='News is unavailable right now.'}).finally(()=>{N.busy=0;N.at=Date.now();if(currentRoute()==='news'&&!document.querySelector('#modal .modal'))render();const sr=$('#sres');if(sr&&S.sk==='trends')sr.dispatchEvent(new Event('newsready'))})}
+/* Callit's own trending: most-called tokens and the most engaged posts in the last day. */
+function callitTrends(){const now=Date.now(),out=[],day=calls.filter(k=>visible(k)&&k.at&&now-k.at<864e5);
+ const by={};day.filter(k=>k.kind==='meme'&&k.t).forEach(k=>{(by[k.t]=by[k.t]||[]).push(k)});
+ Object.entries(by).sort((a,b)=>b[1].length-a[1].length).slice(0,5).forEach(([t,ks])=>{const n=nums(ks[0]);out.push({id:'cl:t:'+t,title:`$${symOf(t)} has ${ks.length} call${ks.length>1?'s':''} on Callit today${n?` · ${fmtPct(n.p)} since the first`:''}`,url:'#/token/'+t,source:'Callit',platform:'callit',kind:'social',at:Math.max(...ks.map(k=>k.at)),score:ks.length*25,sym:t})});
+ day.map(k=>({k,e:(k.likes||0)+(k.reposts||0)*2+(k.replies||0)*2+(k.quotes||0)*3})).filter(x=>x.e>0).sort((a,b)=>b.e-a.e).slice(0,6).forEach(({k,e})=>out.push({id:'cl:p:'+k.id,title:(k.kind==='meme'?`@${k.c} called $${symOf(k.t)}: `:`@${k.c}: `)+String(k.thesis||'').slice(0,140),url:'#/post/'+k.id,source:'@'+k.c,platform:'callit',kind:'social',at:k.at,score:e,sym:k.kind==='meme'?k.t:null}));
+ return out}
+const nsrcGet=()=>{try{const v=JSON.parse(localStorage.getItem('callit.nsrc')||'null');return Array.isArray(v)?new Set(v):null}catch(_){return null}};
+const nsrcSet=v=>{try{localStorage.setItem('callit.nsrc',JSON.stringify(v?[...v]:null))}catch(_){}};
+function newsList(tab,q){const N=NEWS[tab];let L=((N.d&&N.d.items)||[]).slice();
+ if(tab==='trending'){L=callitTrends().concat(L);const on=nsrcGet();if(on)L=L.filter(x=>on.has(x.platform))}
+ else if(S.nk&&S.nk!=='all')L=L.filter(x=>x.kind===S.nk);
+ if(q){const t=q.toLowerCase().replace(/^[#$@]/,'');L=L.filter(x=>(x.title+' '+x.source+' '+(x.summary||'')).toLowerCase().includes(t))}
+ return L}
+const favi=u=>{try{const h=new URL(u).hostname.replace(/^www\./,'');return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(h)}&sz=64`}catch(_){return ''}};
+const pbadge=(p,u)=>{const [l,c]=NPLAT[p]||NPLAT.news;if(p==='news'&&u&&favi(u))return `<span class="pbadge fav" style="--pc:${c}"><img src="${esc(favi(u))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()"><i>${esc(l[0])}</i></span>`;return p==='x'?`<span class="pbadge" style="--pc:${c}">${ic('xlogo',13)}</span>`:`<span class="pbadge" style="--pc:${c}">${esc(l[0])}</span>`};
+const agoMs=at=>{const m=Math.max(0,(Date.now()-at)/6e4);return m<1?'now':m<60?Math.round(m)+'m':m<1440?Math.round(m/60)+'h':Math.round(m/1440)+'d'};
+function nItem(x){const ext=!/^#\//.test(x.url),pl=(NPLAT[x.platform]||NPLAT.news)[0];
+ return `<a class="nitem" href="${esc(x.url)}"${ext?' target="_blank" rel="noopener noreferrer nofollow"':''}>${x.sym&&T[x.sym]?tokav(x.sym):pbadge(x.platform,x.url)}
+ <span class="grow"><b>${esc(x.title)}</b><span class="hint">${esc(x.source)}${x.platform!=='news'&&x.source!==pl?` · ${esc(pl)}`:''} · ${agoMs(x.at)}${x.score?` · ${fmtK(x.score)} ${x.platform==='hackernews'?'pts':x.platform==='callit'?'heat':'likes'}`:''}${x.comments?` · ${fmtK(x.comments)} comments`:''}</span>
+ ${ext?`<span class="nopen">Open on ${esc(x.platform==='news'?x.source:pl)} ↗</span>`:''}</span>${x.image&&/^https:/.test(x.image)?`<img class="nthumb" src="${esc(x.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:''}</a>`}
+function vNews(){const tab=S.ntab==='trending'?'trending':'recent',N=NEWS[tab];loadNews(tab);const q=S.nq||'',L=newsList(tab,q);
+ const srcs=(N.d&&N.d.sources)||[],on=nsrcGet();
+ const plats=['callit','x','reddit','youtube','bluesky','hackernews','coingecko','google'];
+ const okP=new Set(srcs.filter(x=>x.ok).map(x=>x.platform).concat(['callit']));
+ const chips=tab==='trending'?`<div class="nchips">${plats.map(p=>{const sel=!on||on.has(p),dead=N.d&&!okP.has(p);return `<button class="nchip${sel?' on':''}${dead?' dead':''}" data-act="nsrc" data-f="${p}" title="${dead?'Not connected yet':''}">${pbadge(p)}${esc(NPLAT[p][0])}${dead?'<small>off</small>':''}</button>`}).join('')}${on?`<button class="lnk" data-act="nsrc" data-f="*">Show all</button>`:''}</div>`
+  :`<div class="nchips">${[['all','All'],['crypto','Crypto'],['tech','Tech']].map(([k,l])=>`<button class="nchip${(S.nk||'all')===k?' on':''}" data-act="nk" data-f="${k}">${l}</button>`).join('')}</div>`;
+ return `<div class="tabs" role="tablist">${[['recent','Recent'],['trending','Trending']].map(([k,l])=>`<button role="tab" aria-selected="${tab===k}" class="${tab===k?'on':''}" data-act="ntab" data-f="${k}">${l}</button>`).join('')}</div>
+ <div class="pad nhead"><div class="tsearch">${ic('search',16)}<input id="nq" value="${esc(q)}" placeholder="Search ${tab==='trending'?'trends':'news'}: solana, ETF, a ticker…" autocomplete="off" enterkeyhint="search"></div>${chips}</div>
+ <div class="nlist">${!N.d?rskel(6):L.length?L.slice(0,80).map(nItem).join(''):`<div class="empty"><b>${q?`Nothing matches “${esc(q)}”`:'Nothing here right now'}</b><p>${q?'Try another word.':'Check back in a few minutes.'}</p></div>`}</div>
+ <p class="hint pad">${tab==='trending'?'What people are talking about across social platforms, plus what’s hot on Callit. Tap any item to open the original post.':'Latest crypto and tech headlines. Tap a headline to read it at the source.'}${N.d&&N.d.at?` Updated ${agoMs(N.d.at)==='now'?'just now':agoMs(N.d.at)+' ago'}.`:''}</p>`}
+setInterval(()=>{if(!document.hidden&&currentRoute()==='news')loadNews(S.ntab==='trending'?'trending':'recent')},6e4);
+document.addEventListener('input',e=>{if(e.target.id!=='nq')return;S.nq=e.target.value;clearTimeout(e.target._t);e.target._t=setTimeout(()=>{const el=$('.nlist');if(el){const tab=S.ntab==='trending'?'trending':'recent',L=newsList(tab,S.nq);el.innerHTML=L.length?L.slice(0,80).map(nItem).join(''):`<div class="empty"><b>Nothing matches “${esc(S.nq)}”</b><p>Try another word.</p></div>`}},150)});
 
 /* ---------- premium ---------- */
 const PLANS={monthly:{usd:8,label:'Monthly',per:'/month',days:30},yearly:{usd:80,label:'Yearly',per:'/year',days:365,save:'2 months free'}};
@@ -2213,6 +2294,9 @@ document.addEventListener('click',e=>{
   aldel:()=>(closeModal(),API('/api/alerts/wallets?address='+encodeURIComponent(b.dataset.f),{method:'DELETE'}).then(()=>{AL.d=null;alLoad(1)}).catch(e=>toast(e.message))),
   belldel:()=>API('/api/alerts/bell?mint='+encodeURIComponent(b.dataset.f),{method:'DELETE'}).then(()=>{BELLS.delete(b.dataset.f);AL.d=null;alLoad(1)}).catch(e=>toast(e.message)),
   wtab:()=>{S.wtab=b.dataset.f;render()},wbopen:()=>walletSheet(b.dataset.f),
+  lbv:()=>{S.lbv=b.dataset.f;render();scrollTo({top:0})},
+  ltab:()=>{S.ltab=b.dataset.f;try{localStorage.setItem('callit.ltab',S.ltab)}catch(_){}document.querySelectorAll('.ltabs [data-act="ltab"]').forEach(x=>{const on=x.dataset.f===S.ltab;x.classList.toggle('on',on);x.setAttribute('aria-selected',on)});document.querySelectorAll('.lpanel').forEach(p=>p.hidden=p.dataset.lp!==S.ltab);const [,,p]=location.hash.split('/');if(S.ltab==='holders'&&T[p]){const el=$('#lholders');if(el)el.innerHTML=holdersPanel(T[p])}},
+  htrack:()=>{if(!S.connected)return connectModal();const a=b.dataset.f;API('/api/alerts/wallets',{body:{address:a,label:''}}).then(j=>{toast(j.live?'Tracking. You’ll get a pop-up on every swap':'Wallet saved to your tracker');AL.d=null}).catch(e=>toast(e.message))},
   ord:()=>{const k=tokPath(b.dataset.k);closeModal();setTimeout(()=>orderModal(k,b.dataset.f||'tpsl'),60)},
   ordcancel:()=>{const id=b.dataset.f;realTx('Cancel order',step=>cancelOrder(S.addr,id,step),ok=>{if(ok){toast('Order cancelled. Funds are back in your wallet');ORD.list=(ORD.list||[]).filter(o=>o.id!==id);loadOrders(1)}})},
   pidx:()=>{S.pidx=+b.dataset.f;const [,,p]=location.hash.split('/'),el=$('#lpair');if(el&&T[p])el.innerHTML=pairCard(T[p])},ptf:()=>{S.ptf=b.dataset.f;const [,,p]=location.hash.split('/'),el=$('#lpair');if(el&&T[p])el.innerHTML=pairCard(T[p])},
@@ -2235,7 +2319,9 @@ document.addEventListener('click',e=>{
    modal('Confirm upgrade','',`<div class="list"><div class="li"><span class="grow">Plan</span><b>${P.label}</b></div><div class="li"><span class="grow">You pay</span><b class="num">${via==='SOL'?amt.toFixed(3):amt} ${via}</b></div><div class="li"><span class="grow">Renews</span><b>${new Date(Date.now()+P.days*864e5).toLocaleDateString()}</b></div></div><button class="btn primary block" id="pgo" style="margin-top:14px">Confirm and pay</button>`,
     m=>$('#pgo',m).onclick=()=>{closeModal();txRun(`Callit Premium · ${P.label}`,()=>{S.bal[via]-=amt;const base=isPrem(S.me)?S.premium.until:Date.now();S.premium={plan:S.plan||'yearly',until:base+P.days*864e5};try{localStorage.setItem('callit.premium',JSON.stringify(S.premium))}catch(_){}
      S.activity.unshift({k:'Sent',d:`${via==='SOL'?amt.toFixed(3):amt} ${via} for Callit Premium`,t:'Just now'});render();toast('Welcome to Premium ✓')})})},
-  nf:()=>{S.nf=b.dataset.f;render()},newsx:()=>toast('Full articles open once the news feed is connected'),stscroll:()=>{const t=$('#'+b.dataset.f);t&&t.scrollBy({left:+b.dataset.d*t.clientWidth*.8,behavior:'smooth'})},
+  nf:()=>{S.nf=b.dataset.f;render()},newsx:()=>{location.hash='#/news'},
+  ntab:()=>{S.ntab=b.dataset.f;render()},nk:()=>{S.nk=b.dataset.f;render()},
+  nsrc:()=>{const f=b.dataset.f;if(f==='*'){nsrcSet(null);return render()}const all=['callit','x','reddit','youtube','bluesky','hackernews','coingecko','google'];const cur=nsrcGet()||new Set(all);cur.has(f)?cur.delete(f):cur.add(f);nsrcSet(cur.size===all.length||!cur.size?null:cur);render()},stscroll:()=>{const t=$('#'+b.dataset.f);t&&t.scrollBy({left:+b.dataset.d*t.clientWidth*.8,behavior:'smooth'})},
   lsign:()=>signIn(b.dataset.f),lwallet:()=>realAuth()?realLogin('wallet',undefined,null):connectModal(null,'in'),
   lemail:()=>{const v=($('#lxemail')||{}).value||'';if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())){$('#lxerr').textContent='Enter a valid email address.';$('#lxemail').focus();return}signIn('Email',null,{email:v.trim()})},
   lexplore:()=>{try{sessionStorage.setItem('callit.explore','1')}catch(_){}location.hash='#/'+b.dataset.f;syncLanding()},
@@ -2297,7 +2383,7 @@ document.addEventListener('click',e=>{
   xgo:()=>{window.open('https://x.com/search?q='+encodeURIComponent(b.dataset.v)+'&f=live','_blank','noopener');closeModal()},
   hmenu:()=>holdSheet(b.dataset.k),
   hshare:()=>{const k=b.dataset.k;closeModal();shareModal(holdCard(k),location.href.split('#')[0]+'#/token/'+encodeURIComponent(k),'callit-pnl-'+symOf(k),`My $${symOf(k)} position on Callit`)},
-  hgo:()=>{const k=b.dataset.k,f=b.dataset.f;closeModal();if(f!=='view'){const w=S.swap;if(f==='sell'){w.from=k;w.to='SOL'}else{w.from='SOL';w.to=k}w.amt=''}location.hash='#/token/'+tokPath(k)},
+  hgo:()=>{const k=b.dataset.k,f=b.dataset.f;closeModal();if(f!=='view'){S.ltab='swap';const w=S.swap;if(f==='sell'){w.from=k;w.to='SOL'}else{w.from='SOL';w.to=k}w.amt=''}location.hash='#/token/'+tokPath(k)},
   shprof:()=>{closeModal();shareProfile(b.dataset.h)},
   cplink:()=>{closeModal();copy(postURL(b.dataset.id),'Link copied')},
   addlist:()=>listsModal(b.dataset.h),
