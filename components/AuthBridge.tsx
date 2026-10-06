@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { usePrivy, useLogin, useLoginWithOAuth } from '@privy-io/react-auth';
-import { useCreateWallet, useSignMessage, useSignTransaction, useWallets } from '@privy-io/react-auth/solana';
+import { useCreateWallet, useExportWallet, useSignMessage, useSignTransaction, useWallets } from '@privy-io/react-auth/solana';
 import type { User } from '@privy-io/react-auth';
 import type { CallitProfile, CallitNotification } from '@/lib/auth/types';
 import { toHandle } from '@/lib/auth/handle';
@@ -51,6 +51,7 @@ export default function AuthBridge() {
   const walletFlow = useRef<WalletSignInHandle>(null);
   const { signTransaction } = useSignTransaction();
   const { signMessage } = useSignMessage();
+  const { exportWallet } = useExportWallet();
 
   // Expose the user's wallet to the engine: real balances, swaps and withdrawals.
   // The engine only ever gets back signed bytes; keys stay in Privy / Phantom / Solflare.
@@ -85,9 +86,15 @@ export default function AuthBridge() {
         const { signature } = await signMessage({ message: new TextEncoder().encode(text), wallet: w });
         return bytesToB64(signature);
       },
+      embedded: authenticated ? wallets.filter((w) => (w as { isPrivyWallet?: boolean }).isPrivyWallet).map((w) => w.address) : [],
+      // Privy shows the private key in its own isolated window; the key never reaches Callit's code.
+      exportKey: async (address) => {
+        if (!authenticated) throw new Error('Sign in first.');
+        await exportWallet(address ? { address } : undefined);
+      },
     };
     window.callitWalletChanged?.();
-  }, [authenticated, wallets, signTransaction, signMessage, getAccessToken]);
+  }, [authenticated, wallets, signTransaction, signMessage, getAccessToken, exportWallet]);
 
   // Expose controls to the legacy engine.
   useEffect(() => {

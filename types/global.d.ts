@@ -29,6 +29,10 @@ declare global {
       token: () => Promise<string | null>;
       signTx: (base64Tx: string, owner?: string) => Promise<string>;
       signMsg: (text: string, owner?: string) => Promise<string>;
+      /** Wallets Privy created for the user (email / Google / X sign-ins). */
+      embedded?: string[];
+      /** Opens Privy's secure export window for an embedded wallet. Callit never sees the key. */
+      exportKey?: (address?: string) => Promise<void>;
     };
     callitWalletChanged?: () => void;
   }
