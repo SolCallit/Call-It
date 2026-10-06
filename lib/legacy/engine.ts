@@ -1549,7 +1549,7 @@ function render(){if(isPhone())document.body.classList.add('collapsed');const [,
   messages:()=>vMessages(p),lists:()=>vLists(p),
   news:vNews,premium:vPremium,notifications:vNotifs,assistant:vAssistant,bookmarks:vBookmarks,tag:()=>vTag(p),alerts:vAlerts,quotes:()=>vQuotes(p)}[r]||vHome)();
  if(LCHART){LCHART();LCHART=null}
- $('#view').innerHTML=html;document.body.classList.toggle('mwide',r!=='home');drawRail();chrome(r);renderSwaps();skin($('#view'));syncLanding();mountLiveChart();
+ $('#view').innerHTML=html;document.body.classList.toggle('mwide',r!=='home');document.body.dataset.route=r;drawRail();chrome(r);renderSwaps();skin($('#view'));syncLanding();mountLiveChart();
  if(r==='post'){wireAttach($('#rbox'),RDRAFT,()=>drawRMedia());if(S.focusReply){S.focusReply=false;setTimeout(()=>{const i=$('#rin');i&&i.focus()},60)}}}
 
 /* ---------- modals ---------- */

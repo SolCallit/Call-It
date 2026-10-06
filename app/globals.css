@@ -2405,3 +2405,24 @@ body.bpdrag iframe{pointer-events:none}
 .cacopy{display:inline-grid;place-items:center;width:22px;height:22px;border:0;border-radius:7px;background:transparent;color:var(--muted);padding:0;margin-left:2px;vertical-align:middle;cursor:pointer;flex:none}
 .cacopy:hover{color:var(--hi);background:color-mix(in srgb,var(--hi) 12%,transparent)}
 .cacopy:active{transform:scale(.9)}
+
+/* ---------- Desktop sizing: keep buttons, toggles and cards proportionate on wide screens ---------- */
+@media (min-width:900px){
+  /* Pages other than Home and Market: a centered content column instead of edge-to-edge stretching */
+  body.mwide:not([data-route=market]):not([data-route=trenches]) .center{width:100%;max-width:1100px;justify-self:center;border-left:1px solid var(--line);border-right:1px solid var(--line)}
+  body.mwide[data-route=token] .center{max-width:1240px}
+  body.mwide[data-route=promote] .center,body.mwide[data-route=about] .center,body.mwide[data-route=premium] .center{max-width:900px}
+  /* Big switch toggles (Trenches/Perps/Predictions, Swap/Stake, Wallet/Profile): compact pill, not full width */
+  .mtabs.tgl{--tw:184px;grid-template-columns:repeat(var(--n),var(--tw));justify-content:start}
+  .mtabs.tgl::before{left:calc(12px + var(--pad) + var(--i) * var(--tw));width:var(--tw)}
+  .mtabs.tgl::after{inset:10px auto 10px 12px;width:calc(var(--n) * var(--tw) + 2 * var(--pad))}
+  .lbtog{max-width:420px}
+  .acts3{max-width:620px}
+  .tabs{max-width:none}
+}
+@media (min-width:900px){
+  /* Token page trade box: a compact panel, not a full-width slab */
+  body[data-route=token] .card:has([data-swapbox]){max-width:620px}
+  .bstabs{max-width:440px}
+  .lpanel .seg.wide,.ltabs{max-width:none}
+}
