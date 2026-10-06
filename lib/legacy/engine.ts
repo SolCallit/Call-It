@@ -8,6 +8,7 @@
  * and its data into /lib. This file shrinks until it's gone.
  */
 import { fetchFeed, fetchToken, fetchTokens, searchTokens, mountChart, fmtSmall } from '@/lib/market/client';
+import { openImageEditor } from '@/lib/media/imageEditor';
 import { walletBalances, swap as jupSwap, withdraw as doWithdraw, toBaseUnits, qrSvg, SOL_MINT, USDC_MINT, placeOrder, listOrders, cancelOrder } from '@/lib/wallet/client';
 
 let booted = false;
@@ -372,7 +373,8 @@ function perpTick(){calls.forEach(k=>{if(!k.perp)return;const n=perpNums(k);if(!
  Object.keys(PERPM).forEach(m=>{const px=perpPx(m);if(px)document.querySelectorAll(`[data-ppx="${m}"]`).forEach(el=>el.textContent=fmtPrice(px))})}
 
 /* ---------- compose: one sheet, three kinds ---------- */
-function kindSeg(cur){return `<div class="kseg tgl" style="--i:${CATS.findIndex(c=>c[0]===cur)};--n:3" role="tablist" aria-label="What are you posting?">${CATS.map(([k,l,i])=>`<button type="button" role="tab" aria-selected="${cur===k}" class="${cur===k?'on':''}${k==='perps'?' klock':''}" data-ck="${k}"${k==='perps'?' aria-disabled="true"':''}>${ic(k==='perps'?'lock':i,15)}<span class="kl">${{meme:'Meme',perps:'Perps',random:'Random'}[k]}</span>${k==='perps'?'<small class="ksoon">Soon</small>':''}</button>`).join('')}</div>
+const POSTK=()=>CATS.filter(c=>c[0]!=='all');
+function kindSeg(cur){return `<div class="kseg tgl" style="--i:${POSTK().findIndex(c=>c[0]===cur)};--n:3" role="tablist" aria-label="What are you posting?">${POSTK().map(([k,l,i])=>`<button type="button" role="tab" aria-selected="${cur===k}" class="${cur===k?'on':''}${k==='perps'?' klock':''}" data-ck="${k}"${k==='perps'?' aria-disabled="true"':''}>${ic(k==='perps'?'lock':i,15)}<span class="kl">${{meme:'Meme',perps:'Perps',random:'Random'}[k]}</span>${k==='perps'?'<small class="ksoon">Soon</small>':''}</button>`).join('')}</div>
  <div class="drow"><button type="button" class="lnk" data-drafts>${ic('draft',15)} Drafts${DRAFTS.length?` <span class="dcount">${DRAFTS.length}</span>`:''}</button><button type="button" class="lnk" data-dsave>Save draft</button></div>`}
 function wireKind(m,cur){m.querySelectorAll('[data-ck]').forEach(b=>b.onclick=()=>{if(b.dataset.ck==='perps')return toast('Perps calls are coming soon');if(b.dataset.ck===cur)return;const d=($('#cx',m)||{}).value||'';
   const go=()=>{S.noDraft=1;composeModal(b.dataset.ck,{draft:d})};slideTo(b)?setTimeout(go,170):go()});
@@ -1770,7 +1772,7 @@ function soonCard(h,p,items){return `<div class="soonx"><div class="sxmark"><spa
 
 /* ---------- attachments ---------- */
 const EMOJI=['🚀','🔥','💎','🙌','📈','📉','🐸','🐳','👀','🤝','💰','⚡','🎯','🧠','😂','🥲','😤','🫡','✅','❌','🟢','🔴','🌕','🐂'];
-function mediaGrid(m,edit){if(!m||!m.length)return '';return `<div class="media n${Math.min(m.length,4)}">${m.map((u,i)=>`<div class="mcell"><img src="${u}" alt="Attached image ${i+1}" loading="lazy">${/^data:image\/gif|\.gif(\?|$)|tenor\.com|giphy\.com/.test(u)?'<span class="gifb">GIF</span>':''}${edit?`<button type="button" class="mrm" data-rmm="${i}" aria-label="Remove image ${i+1}">${ic('x',14)}</button>`:''}</div>`).join('')}</div>`}
+function mediaGrid(m,edit){if(!m||!m.length)return '';return `<div class="media n${Math.min(m.length,4)}">${m.map((u,i)=>`<div class="mcell"><img src="${u}" alt="Attached image ${i+1}" loading="lazy">${/^data:image\/gif|\.gif(\?|$)|tenor\.com|giphy\.com/.test(u)?'<span class="gifb">GIF</span>':''}${edit?`<button type="button" class="mrm" data-rmm="${i}" aria-label="Remove image ${i+1}">${ic('x',14)}</button>${/^data:image\/(?!gif)/.test(u)?`<button type="button" class="medit" data-edm="${i}" aria-label="Edit image ${i+1}">${ic('pen',13)}<span>Edit</span></button>`:''}`:''}</div>`).join('')}</div>`}
 function attachBar(){return `<div class="attbar"><label class="att" title="Photos" aria-label="Add photos">${ic('image',19)}<input type="file" accept="image/png,image/jpeg,image/webp" multiple data-att="img" hidden></label>
  <button type="button" class="att" data-att="gifs" title="GIF" aria-label="Add a GIF"><span class="gift">GIF</span></button><input type="file" accept="image/gif" data-att="gif" hidden>
  <button type="button" class="att" data-att="emoji" title="Emoji" aria-label="Add emoji">${ic('smile',19)}</button><span class="attn hint" data-attn></span></div>`}
@@ -1789,7 +1791,10 @@ function wireAttach(root,st,onChange){if(!root)return;const txt=root.querySelect
  root.querySelectorAll('[data-att="emoji"]').forEach(bt=>bt.onclick=e=>{e.stopPropagation();const old=root.querySelector('.emo');if(old){old.remove();return}
   const pop=document.createElement('div');pop.className='emo';pop.innerHTML=EMOJI.map(x=>`<button type="button">${x}</button>`).join('');bt.closest('.attbar').after(pop);
   pop.onclick=ev=>{const x=ev.target.closest('button');if(!x||!txt)return;const a=txt.selectionStart??txt.value.length,z=txt.selectionEnd??a;txt.value=txt.value.slice(0,a)+x.textContent+txt.value.slice(z);txt.focus();const c=a+x.textContent.length;txt.setSelectionRange(c,c);txt.dispatchEvent(new Event('input',{bubbles:true}))}});
- root.addEventListener('click',e=>{const x=e.target.closest('[data-rmm]');if(x){st.media.splice(+x.dataset.rmm,1);onChange()}})}
+ root.addEventListener('click',e=>{const x=e.target.closest('[data-rmm]');if(x){st.media.splice(+x.dataset.rmm,1);onChange();return}
+  /* Tap Edit (or the photo itself) to crop, draw, write, blur or add emoji. */
+  const ed=e.target.closest('[data-edm]')||(e.target.matches&&e.target.matches('.mcell img')&&e.target.parentElement.querySelector('[data-edm]'));
+  if(ed){e.preventDefault();const i=+ed.dataset.edm;openImageEditor(st.media[i]).then(out=>{if(out){st.media[i]=out;onChange()}}).catch(er=>toast(er.message||'Couldn’t open the editor'))}})}
 document.addEventListener('click',e=>{const p=document.querySelector('.emo');if(p&&!e.target.closest('.emo,[data-att="emoji"]'))p.remove();const g=document.querySelector('.gifp');if(g&&!e.target.closest('.gifp,[data-att="gifs"]'))g.remove()});
 /* Tap any post image to view it full screen. Swipe or use the arrows for the others in the same post. */
 function openViewer(list,at){let i=at;const ov=document.createElement('div');ov.className='lbox';ov.setAttribute('role','dialog');ov.setAttribute('aria-modal','true');ov.setAttribute('aria-label','Image viewer');

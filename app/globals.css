@@ -2100,3 +2100,30 @@ tr.mine td{background:color-mix(in srgb,var(--hi) 10%,transparent)}
 .wwrow{cursor:pointer}
 .wwrow .grow{flex:1;min-width:0}
 .wwrow .r{display:flex;flex-direction:column;align-items:flex-end}
+
+/* ---------- image editor ---------- */
+.mcell .medit{position:absolute;left:8px;bottom:8px;display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border:0;border-radius:999px;background:rgba(0,0,0,.65);color:#fff;font:700 12.5px/1 var(--body);cursor:pointer;backdrop-filter:blur(6px)}
+.mcell img{cursor:pointer}
+.ied{position:fixed;inset:0;z-index:400;display:flex;flex-direction:column;background:#05090D;color:#fff;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+.ied-top{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px}
+.ied-btn{border:0;background:none;color:#fff;font:700 15px var(--body);padding:8px 6px;cursor:pointer}
+.ied-done{background:#fff;color:#05090D;border-radius:999px;padding:9px 18px}
+.ied-ic{width:40px;height:40px;border-radius:50%;border:0;background:rgba(255,255,255,.08);color:#fff;display:grid;place-items:center;cursor:pointer}
+.ied-ic:disabled{opacity:.35}
+.ied-stage{flex:1;min-height:0;display:grid;place-items:center;padding:8px 12px}
+.ied-cv{max-width:100%;max-height:100%;touch-action:none;border-radius:6px;box-shadow:0 10px 40px rgba(0,0,0,.6)}
+.ied-opts{padding:6px 14px 2px;min-height:58px;display:flex;flex-direction:column;gap:8px}
+.ied-row{display:flex;align-items:center;gap:8px;overflow-x:auto;scrollbar-width:none}
+.ied-sw{width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,.25);flex:none;cursor:pointer}
+.ied-sw.on{border-color:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.25)}
+.ied-chip{flex:none;border:1px solid rgba(255,255,255,.2);background:none;color:#fff;font:700 13px var(--body);padding:8px 14px;border-radius:999px;cursor:pointer}
+.ied-chip.on{background:#fff;color:#05090D}
+.ied-apply{margin-left:auto;background:var(--hi,#4DA8FF);border-color:transparent}
+.ied-size{display:flex;align-items:center;gap:10px;font:600 13px var(--body);color:rgba(255,255,255,.75)}
+.ied-size input{flex:1;accent-color:#fff}
+.ied-in{flex:1;min-width:0;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;font:600 15px var(--body)}
+.ied-hint{margin:0;font-size:12.5px;color:rgba(255,255,255,.6)}
+.ied-emo button{flex:none;font-size:26px;background:none;border:0;cursor:pointer;padding:2px}
+.ied-tools{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;padding:8px 10px 12px;border-top:1px solid rgba(255,255,255,.08)}
+.ied-tools button{display:flex;flex-direction:column;align-items:center;gap:4px;border:0;background:none;color:rgba(255,255,255,.6);font:700 11.5px var(--body);padding:8px 0;border-radius:12px;cursor:pointer}
+.ied-tools button.on{color:#fff;background:rgba(255,255,255,.1)}
