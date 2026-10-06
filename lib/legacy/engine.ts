@@ -1460,16 +1460,32 @@ const ageTag=t=>{const b=bornOf(t);return b==null?'':`<span class="sage" title="
 const AL={d:null,err:null,busy:0,sub:null};
 function pushState(){if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window))return /iPhone|iPad/.test(navigator.userAgent)&&!matchMedia('(display-mode: standalone)').matches?'ios':'no';
  if(Notification.permission==='denied')return 'denied';return AL.sub?'on':'off'}
-function alSync(){if(!('serviceWorker' in navigator)||!('PushManager' in window))return Promise.resolve();return navigator.serviceWorker.ready.then(r=>r.pushManager.getSubscription()).then(s=>{AL.sub=s}).catch(()=>{})}
-alSync();
+function alSync(){if(!('serviceWorker' in navigator)||!('PushManager' in window))return Promise.resolve();return navigator.serviceWorker.ready.then(r=>r.pushManager.getSubscription()).then(s=>{AL.sub=s;pushHeal()}).catch(()=>{})}
+alSync();setTimeout(()=>pushHeal(),6000);setTimeout(()=>pushHeal(),25000);
+/* Self-heal once per visit: if this device is subscribed under an old server key, re-subscribe; then (re)save it
+   to the account, so a failed first save or a sign-in on another account never leaves the phone silent. */
+const keyB64=buf=>{if(!buf)return '';const b=new Uint8Array(buf);let x='';b.forEach(c=>x+=String.fromCharCode(c));return btoa(x).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')};
+let HEALED='';
+async function pushHeal(force){try{if(!SYNC()||!('Notification' in window)||Notification.permission!=='granted')return;
+ const who=S.me||'';if(!force&&HEALED===who)return;HEALED=who;
+ const j=await fetch('/api/push/subscribe').then(r=>r.json()).catch(()=>({}));if(!j.key)return;
+ const reg=await navigator.serviceWorker.ready;let sub=await reg.pushManager.getSubscription();
+ if(sub&&keyB64(sub.options&&sub.options.applicationServerKey)&&keyB64(sub.options.applicationServerKey)!==j.key.replace(/=+$/,'')){await sub.unsubscribe().catch(()=>{});sub=null}
+ if(!sub){if(!force&&!AL.sub)return;sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(j.key)})}
+ await API('/api/push/subscribe',{body:sub.toJSON()});AL.sub=sub}catch(e){console.warn('[push] heal',e&&e.message);if(force)throw e}}
+async function pushTest(btn){if(btn){btn.disabled=true;btn.textContent='Sending…'}
+ try{await pushHeal(1);const r=await API('/api/push/test',{body:{}});
+  const why=r.ok?null:r.reason==='server'?`The server isn’t set up for push: ${r.detail}`:r.reason==='no_device'?'This device isn’t saved to your account. Tap “Turn on” above and allow notifications.':r.reason==='db'?`Database error: ${r.detail}. Make sure the alerts migration has been run.`
+   :(r.errors||[]).some(e=>e.status===403)?'This device was subscribed with an old key. It’s been reset: tap “Turn on” again.':`Sending failed${r.errors&&r.errors[0]?` (${r.errors[0].status||'network'} from ${r.errors[0].host})`:''}.`;
+  modal(r.ok?'Test sent':'Test didn’t go through',r.ok?`Sent to ${r.sent} device${r.sent>1?'s':''}.`:'',r.ok?`<p class="hint">You should see “🔔 Callit test” within a few seconds. Nothing showing?</p><ul class="hint" style="padding-left:18px;line-height:1.6;margin:8px 0 0"><li>Android: Settings → Apps → Chrome → Notifications → make sure they’re on, and long-press the Callit notification channel to allow pop-ups.</li><li>Turn off Battery saver / Do Not Disturb, and don’t restrict Chrome’s background battery use.</li><li>Brave: Settings → Privacy → turn on “Use Google services for push messaging”.</li><li>iPhone: alerts only work from the Home Screen app (Share → Add to Home Screen).</li></ul>`:`<p class="hint">${esc(why)}</p>`)}
+ catch(e){toast(e.message||'Couldn’t send a test')}finally{if(btn){btn.disabled=false;btn.textContent='Send test notification'}if(currentRoute()==='alerts'&&!document.querySelector('#modal .modal'))render()}}
 const b64u=s=>{const p='='.repeat((4-s.length%4)%4),b=atob((s+p).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from([...b].map(c=>c.charCodeAt(0)))};
 async function pushOn(){if(!S.connected)return connectModal(()=>pushOn());const st=pushState();
  if(st==='ios')return toast('On iPhone: tap Share → Add to Home Screen, then open Callit from there');if(st==='no')return toast('This browser can’t show alerts');
  if(st==='denied')return toast('Alerts are blocked. Allow notifications for this site in your browser settings');
  const perm=await Notification.requestPermission();if(perm!=='granted')return toast('Alerts not allowed');
  try{const j=await fetch('/api/push/subscribe').then(r=>r.json());if(!j.key)return toast('Alerts aren’t set up on the server yet');
-  const reg=await navigator.serviceWorker.ready;const sub=(await reg.pushManager.getSubscription())||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(j.key)});
-  await API('/api/push/subscribe',{body:sub.toJSON()});AL.sub=sub;toast('Alerts on for this device');alLoad(1)}catch(e){toast(e.message||'Couldn’t turn on alerts')}}
+  AL.sub=AL.sub||{};await pushHeal(1);if(!AL.sub||!AL.sub.endpoint)throw new Error('Couldn’t register this device');toast('Alerts on for this device');alLoad(1)}catch(e){if(AL.sub&&!AL.sub.endpoint)AL.sub=null;toast(e.message||'Couldn’t turn on alerts')}if(currentRoute()==='alerts')render()}
 async function pushOff(){try{const s=AL.sub;if(s){await API('/api/push/subscribe',{method:'DELETE',body:{endpoint:s.endpoint}}).catch(()=>{});await s.unsubscribe()}AL.sub=null;toast('Alerts off for this device')}catch(_){}if(currentRoute()==='alerts')render()}
 function alLoad(force){if(!SYNC()||AL.busy||(!force&&AL.d))return;AL.busy=1;API('/api/alerts').then(j=>{AL.d=j;AL.err=null;BELLS=new Set((j.bells||[]).map(b=>b.mint))}).catch(e=>{AL.err=e.message}).finally(()=>{AL.busy=0;if(['alerts','token'].includes(currentRoute())||(currentRoute()==='home'&&S.tab==='watchlist'))if(!document.querySelector('#modal .modal'))render()})}
 let BELLS=new Set();
@@ -1485,7 +1501,7 @@ function ubellModal(h){if(!S.connected)return connectModal();const cur=UB[h]||'o
     toast(lv==='off'?`Notifications off for @${h}`:lv==='calls'?`🔔 You’ll get @${h}’s calls`:`🔔 You’ll get everything from @${h}`);
     if(lv!=='off'&&pushState()==='off')setTimeout(()=>pushOn(),400);const el=document.querySelector(`[data-act="ubell"][data-h="${CSS.escape(h)}"]`);if(el)el.outerHTML=ubellBtn(h)})
    .catch(er=>{m.querySelectorAll('[data-ub]').forEach(x=>x.disabled=false);toast(er.message)})}))}
-function vAlerts(){if(!S.connected)return `<div class="empty"><b class="h2">Sign in for alerts</b><p>Track wallets, bell tokens and get pinged when callers you follow move.</p><button class="btn primary" data-act="connect">Sign in</button></div>`;
+function vAlerts(){pushHeal();if(!S.connected)return `<div class="empty"><b class="h2">Sign in for alerts</b><p>Track wallets, bell tokens and get pinged when callers you follow move.</p><button class="btn primary" data-act="connect">Sign in</button></div>`;
  alLoad();const st=pushState(),d=AL.d||(SYNC()?null:{prefs:null,bells:[],wallets:[]}),P=(d&&d.prefs)||{follows:true,bells:true,wallets:true,milestones:true,quiet:false};
  const dev={on:['Alerts are on for this device','You’ll get pop-ups even when Callit is closed.','Turn off','pushoff'],off:['Turn on alerts','Pop-ups on this device, even when Callit is closed.','Turn on','pushon'],
   denied:['Alerts are blocked','Allow notifications for this site in your browser settings, then come back.','',''],ios:['Add Callit to your Home Screen','On iPhone, alerts work once Callit is installed: tap Share → Add to Home Screen, then open it from there.','',''],
@@ -1493,6 +1509,7 @@ function vAlerts(){if(!S.connected)return `<div class="empty"><b class="h2">Sign
  const tg=(k,l,h)=>`<label class="altg"><span class="grow"><b>${l}</b><span class="hint">${h}</span></span><input type="checkbox" class="alsw" data-alp="${k}" ${P[k]?'checked':''}></label>`;
  return `<div class="pad">
  <div class="alhero ${st==='on'?'on':''}"><span class="albell">${ic('bell',22)}</span><div class="grow"><b>${dev[0]}</b><p class="hint">${dev[1]}</p></div>${dev[2]?`<button class="btn ${st==='on'?'ghost':'primary'}" data-act="${dev[3]}">${dev[2]}</button>`:''}</div>
+ ${st==='on'?`<button class="btn ghost sm" style="margin-top:10px" data-act="pushtest">Send test notification</button>`:''}
  ${d&&d.push===false?`<p class="rdnote" style="margin-top:10px"><b>Push isn’t configured on the server yet.</b> ${esc(d.pushIssue||'')} Redeploy after fixing. Alerts still land in Notifications meanwhile.</p>`:''}
  ${AL.err?`<p class="rdnote" style="margin-top:10px">${esc(AL.err)}</p>`:''}
  <h3 class="alh">What to alert me about</h3><div class="card altgs">
@@ -2372,6 +2389,7 @@ document.addEventListener('click',e=>{
      S.activity.unshift({k:'Sent',d:`${via==='SOL'?amt.toFixed(3):amt} ${via} for Callit Premium`,t:'Just now'});render();toast('Welcome to Premium ✓')})})},
   nf:()=>{S.nf=b.dataset.f;render()},newsx:()=>{location.hash='#/news'},
   ntab:()=>{S.ntab=b.dataset.f;render()},
+  pushtest:()=>pushTest(b),
   bubtog:()=>{const c=b.closest('.hmcard'),o=!c.classList.contains('open');c.classList.toggle('open',o);b.setAttribute('aria-expanded',o);const bd=c.querySelector('.hmbody');bd.hidden=!o;try{localStorage.setItem('callit.bubopen',o?'1':'0')}catch(_){}if(o){const w=c.querySelector('#bubwrap');if(w&&BUBT)w.innerHTML=bubbles(BUBT)}},
   ncat:()=>{const f=b.dataset.f;if(f==='*'){lsPut('callit.ncat',null);return render()}const cur=lsSet('callit.ncat')||new Set();cur.has(f)?cur.delete(f):cur.add(f);lsPut('callit.ncat',cur.size===NCATS.length?null:cur);render()},
   cimp:()=>{S.cimp=b.dataset.f;try{localStorage.setItem('callit.cimp',S.cimp)}catch(_){}render()},

@@ -1,6 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Me } from '@/lib/db/me';
+import { pushTo } from '@/lib/push/send';
 
 type Kind = 'follows' | 'likes' | 'reposts' | 'replies' | 'mentions' | 'quotes';
 
@@ -44,7 +45,18 @@ export async function notifySocial(
       body: snippet ? (snippet.length > 120 ? snippet.slice(0, 117) + '…' : snippet) : null,
       link: opts.link || (kind === 'follows' ? `#/profile/${actor.handle}` : null),
     });
-    if (error && error.code !== '23505') console.warn('[notify]', kind, error.message);
+    if (error) { if (error.code !== '23505') console.warn('[notify]', kind, error.message); return; }
+
+    // Phone pop-up too, unless they switched on quiet mode. Likes/reposts on the same post replace each other.
+    const { data: pref } = await db.from('alert_prefs').select('quiet').eq('profile_id', profileId).maybeSingle();
+    if (pref?.quiet) return;
+    const link = opts.link || (kind === 'follows' ? `#/profile/${actor.handle}` : '#/notifications');
+    await pushTo(db, [profileId], {
+      title: `${who} ${COPY[kind]}`.slice(0, 140),
+      body: snippet ? (snippet.length > 120 ? snippet.slice(0, 117) + '…' : snippet) : kind === 'follows' ? `@${actor.handle}` : '',
+      link,
+      tag: kind === 'likes' || kind === 'reposts' ? `${kind}:${link}` : undefined,
+    }, `${kind}:${actor.handle}:${Date.now()}`);
   } catch (e) {
     console.warn('[notify] failed', kind, (e as Error).message);
   }

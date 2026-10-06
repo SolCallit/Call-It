@@ -23,6 +23,37 @@ export function pushReady(): boolean {
 
 const HOURLY_CAP = 40;
 
+export type PushResult = { sent: number; failed: number; removed: number; errors: { status: number | null; msg: string; host: string }[] };
+
+/**
+ * Low-level: delivers one alert to every saved device of these users. Expired devices (404/410)
+ * and devices subscribed under a different VAPID key (403) are removed so they can re-subscribe.
+ * Never throws.
+ */
+export async function pushTo(db: SupabaseClient, ids: string[], a: Alert, tag?: string): Promise<PushResult> {
+  const out: PushResult = { sent: 0, failed: 0, removed: 0, errors: [] };
+  if (!ids.length || !pushReady()) return out;
+  try {
+    const { data: subs } = await db.from('push_subs').select('endpoint, p256dh, auth').in('profile_id', ids);
+    const payload = JSON.stringify({ title: a.title, body: a.body, link: a.link, tag: a.tag || tag || 'callit', icon: a.icon || '/icon-192.png' });
+    const dead: string[] = [];
+    await Promise.all((subs || []).map((s) =>
+      webpush.sendNotification({ endpoint: s.endpoint as string, keys: { p256dh: s.p256dh as string, auth: s.auth as string } }, payload, { TTL: 3600, urgency: 'high' })
+        .then(() => { out.sent++; })
+        .catch((e: { statusCode?: number; body?: string; message?: string }) => {
+          out.failed++;
+          let host = ''; try { host = new URL(s.endpoint as string).host; } catch { /* */ }
+          out.errors.push({ status: e?.statusCode ?? null, msg: String(e?.body || e?.message || 'unknown').slice(0, 200), host });
+          if (e?.statusCode === 404 || e?.statusCode === 410 || e?.statusCode === 403) dead.push(s.endpoint as string);
+        })));
+    if (dead.length) { await db.from('push_subs').delete().in('endpoint', dead); out.removed = dead.length; }
+    if (out.failed) console.warn('[push] failures', JSON.stringify(out.errors.slice(0, 5)));
+  } catch (e) {
+    console.warn('[push] pushTo failed', (e as Error).message);
+  }
+  return out;
+}
+
 /**
  * Sends one alert to many users: respects their prefs and quiet mode, dedupes on `key`,
  * caps each user at 40 pushes an hour, also drops it in their in-app notifications.
@@ -52,14 +83,7 @@ export async function alertUsers(db: SupabaseClient, ids: string[], pref: Pref, 
 
     await db.from('notifications').insert(ok.map((profile_id) => ({ profile_id, kind: 'alerts', title: a.title.slice(0, 140), body: a.body.slice(0, 400), link: a.link })));
 
-    if (!pushReady()) return ok.length;
-    const { data: subs } = await db.from('push_subs').select('endpoint, p256dh, auth').in('profile_id', ok);
-    const payload = JSON.stringify({ title: a.title, body: a.body, link: a.link, tag: a.tag || key, icon: a.icon || '/icon-192.png' });
-    const dead: string[] = [];
-    await Promise.all((subs || []).map((s) =>
-      webpush.sendNotification({ endpoint: s.endpoint as string, keys: { p256dh: s.p256dh as string, auth: s.auth as string } }, payload, { TTL: 3600, urgency: 'high' })
-        .catch((e: { statusCode?: number }) => { if (e?.statusCode === 404 || e?.statusCode === 410) dead.push(s.endpoint as string); })));
-    if (dead.length) await db.from('push_subs').delete().in('endpoint', dead);
+    await pushTo(db, ok, a, key);
     return ok.length;
   } catch (e) {
     console.warn('[push] alertUsers failed', (e as Error).message);
