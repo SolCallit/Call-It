@@ -600,6 +600,8 @@ function swapSettings(){const P0=[0,.5,1,3],st={slip:S.slip||0,speed:SWS.speed,m
   $('#ssave',m).onclick=()=>{const tip=parseFloat($('#stip',m).value),er=$('#sserr',m);if(!(st.slip>=0&&st.slip<=50)){er.textContent='Slippage can be at most 50%.';return}if(st.mev&&!(tip>=1e-4&&tip<=.1)){er.textContent='Tip must be between 0.0001 and 0.1 SOL.';return}
    S.slip=st.slip;Object.assign(SWS,{slip:st.slip,speed:st.speed,mev:st.mev,tip:st.mev?String(tip):SWS.tip});saveSWS();closeModal();renderSwaps();toast('Swap settings saved')}})}
 function realSwap(from,to,amt,desc,done,opt={}){let base;try{base=baseOf(from,amt)}catch(e){toast(e.message);done&&done(false);return}
+ /* Buying a new token opens a token account (~0.002 SOL rent) plus network fees. Spending SOL right down to zero makes the swap fail on-chain. */
+ if(from==='SOL'&&S.balAt){const b=S.bal.SOL||0,room=Math.max(0,b-0.004);if(+amt>room){toast(room>0?`Keep ~0.004 SOL for network fees. You can spend up to ${+room.toFixed(4)} SOL`:'Not enough SOL. Deposit a little more to cover the buy and network fees');done&&done(false);return}}
  realTx(desc,step=>jupSwap({inputMint:mintOf(from),outputMint:mintOf(to),amount:base,taker:S.addr,slippageBps:S.slip?Math.round(S.slip*100):undefined,...swFees()},step).then(r=>{
   const od=decOf(to),got=r.outAmount&&od!=null?Number(r.outAmount)/10**od:null;
   const kind=from==='SOL'?'buy':to==='SOL'?'sell':'swap',pf=T[from]&&T[from].price;
