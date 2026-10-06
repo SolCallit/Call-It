@@ -988,7 +988,8 @@ function trow(t){const H=heatOf(t),FX=fxOf(t,H),x=trenchStats(t),m=mcap(t),y=t.a
  <div class="tr num">${D.spark?spark(t):''}<div>${D.pro?`<span class="k">V</span> ${fmtUsd(t.vol).replace(/\.\d+([KMB])/,'$1')} `:''}<span class="k">MC</span> <b class="${mcCls(m)}${fl}" data-tmc="${t.key}">${fmtUsd(m)}</b></div>
  ${D.pro?`<div>${x.fees==null?`<span class="k">B/S</span> ${Math.round(x.buys*100)}%`:`<span class="k">F</span> ${ic('solglyph',12)} ${x.fees.toFixed(2)}`}</div><div class="bs"><i style="flex:${x.buys}"></i><i style="flex:${1-x.buys}"></i></div><div><span class="k">TX</span> ${fmtK(x.tx)}</div>`:`<div class="${pcls(cv)}">${pctS(cv)} <small class="muted">${tf}</small></div>`}</div></a>`}
 const skelRows=()=>Array.from({length:8},()=>`<div class="trow skel" aria-hidden="true"><span class="tav"><span class="tokav"></span></span><div class="tmid"><i></i><i></i></div><div class="tr"><i></i></div></div>`).join('')+'<p class="sr-only" role="status">Loading live tokens</p>';
-function aiBar(f){const on=!!f.ai,[e,l]=AIM[f.ai||'balanced'];
+/* AI Auto lives in the Filters sheet; the bar only shows while it's on, so people can see it and switch it off. */
+function aiBar(f){const on=!!f.ai,[e,l]=AIM[f.ai||'balanced'];if(!on)return '';
  return `<div class="aibar${on?' on':''}"><button type="button" class="aiq" data-act="aiq" aria-pressed="${on}"><span class="aiqi">🎯</span><span><b>AI Auto${on?` · ${l}`:''}</b><small>${on?'Showing the best entries right now, best first':'Let Callit filter for you. One tap.'}</small></span><i class="aisw"></i></button>${on?`<button type="button" class="lnk" data-act="fsopen" data-tab="auto">Change</button>`:''}</div>`}
 function vTrenches(){const on=TS.feeds.filter(f=>f[1]).map(f=>f[0]);if(S.tt!=='watch'&&!on.includes(S.tt))S.tt=on[0]||'watch';
  const f=filOf(S.tt);S.rowTf=f.tf||'1h';S.aiMode=f.ai||'';const raw=feedRows(S.tt,f),rows=aiSort(heatApply(raw),f.ai),n=activeCount(f);
