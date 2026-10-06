@@ -2395,3 +2395,9 @@ body.bpdrag iframe{pointer-events:none}
 @media (min-width:900px) and (pointer:fine){
   body.mwide .center{zoom:.9}
 }
+/* AI Auto on: small chip beside the timeframe */
+.aitog{display:inline-flex;align-items:center;margin-left:8px;border-radius:999px;border:1px solid color-mix(in srgb,var(--hi) 45%,var(--line));background:color-mix(in srgb,var(--hi) 12%,transparent);height:26px;overflow:hidden;flex:none}
+.aitog>button{border:0;background:none;color:var(--text);font:600 12px var(--body);display:inline-flex;align-items:center;gap:4px;padding:0 4px 0 9px;height:100%;cursor:pointer}
+.aitog>button span{color:var(--muted);font-weight:500}
+.aitog .aix{padding:0 8px 0 4px;color:var(--muted)}
+.aitog .aix:hover{color:var(--text)}
