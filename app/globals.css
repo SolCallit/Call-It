@@ -2485,3 +2485,11 @@ body.bpdrag iframe{pointer-events:none}
 .doclinks span{color:var(--muted)}
 .railfoot .legal a{color:var(--muted);font-size:13px;margin-right:10px}
 .railfoot .legal a:hover{color:var(--text)}
+/* About: safety FAQ */
+.faq{display:flex;flex-direction:column;gap:8px}
+.faq details{border:1px solid var(--line);border-radius:14px;background:var(--bg2);overflow:hidden}
+.faq summary{cursor:pointer;list-style:none;padding:12px 14px;font-weight:700;display:flex;justify-content:space-between;gap:10px}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:'+';color:var(--muted);font-weight:800}
+.faq details[open] summary::after{content:'–'}
+.faq details p{margin:0;padding:0 14px 14px;color:var(--muted);line-height:1.55}
