@@ -2,6 +2,7 @@
 // Server-only Jupiter Swap V2 client (Meta-Aggregator: /order + /execute).
 // Never import this from a "use client" file — it reads the secret API key.
 import "server-only";
+import { errText } from "@/lib/errors";
 
 const JUP_BASE = "https://api.jup.ag/swap/v2";
 
@@ -83,7 +84,7 @@ export async function getOrder(p: OrderParams): Promise<JupiterOrder> {
     const plain = await call(false);
     if (plain.ok && plain.data.transaction) r = plain;
   }
-  if (!r.ok) throw new Error(r.data?.error ?? `Jupiter /order failed (${r.status})`);
+  if (!r.ok) throw new Error(errText(r.data?.error ?? r.data) || `Jupiter /order failed (${r.status})`);
   return r.data as JupiterOrder;
 }
 
@@ -100,7 +101,7 @@ export async function executeOrder(
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(data?.error ?? `Jupiter /execute failed (${res.status})`);
+    throw new Error(errText(data?.error ?? data) || `Jupiter /execute failed (${res.status})`);
   }
   return data as JupiterExecuteResult;
 }

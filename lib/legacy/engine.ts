@@ -9,7 +9,8 @@
  */
 import { fetchFeed, fetchToken, fetchTokens, searchTokens, mountChart, fmtSmall } from '@/lib/market/client';
 import { openImageEditor } from '@/lib/media/imageEditor';
-import { walletBalances, swap as jupSwap, withdraw as doWithdraw, toBaseUnits, qrSvg, SOL_MINT, USDC_MINT, placeOrder, listOrders, cancelOrder } from '@/lib/wallet/client';
+import { walletBalances, swap as jupSwap, withdraw as doWithdraw, toBaseUnits, qrSvg, SOL_MINT, USDC_MINT, placeOrder, listOrders, cancelOrder, reportTxError } from '@/lib/wallet/client';
+import { friendlyError, isUserCancel } from '@/lib/errors';
 
 let booted = false;
 
@@ -574,7 +575,7 @@ function xcardImage(d,fname,mode,url,text){const W=1200,H=630,c=document.createE
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2200)}
 function fakeSig(){const a='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';let s='';for(let i=0;i<88;i++)s+=a[Math.floor(Math.random()*a.length)];return s}
 function txRun(desc,apply,opt={}){const el=$('#txt'),sig=fakeSig();let step=0;
- const draw=(st,msg)=>{el.className='txt show '+st;el.innerHTML=`<span class="txi">${st==='ok'?ic('check',18):st==='bad'?ic('x',18):'<i class="spin"></i>'}</span><div class="grow"><b>${esc(desc)}</b><span class="hint">${msg}</span></div>${st==='ok'?`<button class="lnk" data-act="copy" data-v="${sig}">Copy tx</button>`:st==='bad'?'<button class="lnk" id="txretry">Retry</button>':''}<button class="ib" id="txx" aria-label="Dismiss">${ic('x',16)}</button>`;
+ const draw=(st,msg)=>{el.className='txt show '+st;el.innerHTML=`<span class="txi">${st==='ok'?ic('check',18):st==='bad'?ic('x',18):'<i class="spin"></i>'}</span><div class="grow"><b>${esc(desc)}</b><span class="hint">${msg}</span></div>${st==='ok'?`<button class="lnk" data-act="copy" data-v="${sig}">Copy tx</button>`:st==='bad'&&!/Not enough|cancelled|isn.t connected|Sign in again/.test(msg)?'<button class="lnk" id="txretry">Retry</button>':''}<button class="ib" id="txx" aria-label="Dismiss">${ic('x',16)}</button>`;
   $('#txx').onclick=()=>el.classList.remove('show');const r=$('#txretry');if(r)r.onclick=()=>txRun(desc,apply,opt)};
  clearTimeout(el._h);draw('wait','Approve in your wallet…');
  setTimeout(()=>{if(!navigator.onLine){draw('bad','You’re offline. Nothing was sent.');return}draw('wait','Sending to Solana…');
@@ -602,11 +603,11 @@ function loadBalances(){if(!REALW()||BALBUSY)return;BALBUSY=1;const who=S.addr;
   if(changed)balRender()}).catch(e=>console.warn('[callit] balances',e)).finally(()=>{BALBUSY=0})}
 /* Same toast as txRun, driven by a real transaction. run(step) resolves to the signature. */
 function realTx(desc,run,done){const el=$('#txt');let sig='';
- const draw=(st,msg)=>{el.className='txt show '+st;el.innerHTML=`<span class="txi">${st==='ok'?ic('check',18):st==='bad'?ic('x',18):'<i class="spin"></i>'}</span><div class="grow"><b>${esc(desc)}</b><span class="hint">${esc(msg)}</span></div>${st==='ok'&&sig?`<a class="lnk" href="https://solscan.io/tx/${sig}" target="_blank" rel="noopener noreferrer">View</a>`:st==='bad'?'<button class="lnk" id="txretry">Retry</button>':''}<button class="ib" id="txx" aria-label="Dismiss">${ic('x',16)}</button>`;
+ const draw=(st,msg)=>{el.className='txt show '+st;el.innerHTML=`<span class="txi">${st==='ok'?ic('check',18):st==='bad'?ic('x',18):'<i class="spin"></i>'}</span><div class="grow"><b>${esc(desc)}</b><span class="hint">${esc(msg)}</span></div>${st==='ok'&&sig?`<a class="lnk" href="https://solscan.io/tx/${sig}" target="_blank" rel="noopener noreferrer">View</a>`:st==='bad'&&!/Not enough|cancelled|isn.t connected|Sign in again/.test(msg)?'<button class="lnk" id="txretry">Retry</button>':''}<button class="ib" id="txx" aria-label="Dismiss">${ic('x',16)}</button>`;
   $('#txx').onclick=()=>el.classList.remove('show');const r=$('#txretry');if(r)r.onclick=()=>realTx(desc,run,done)};
  clearTimeout(el._h);draw('wait','Preparing…');
  run(m=>draw('wait',m)).then(s=>{sig=s||'';draw('ok',sig?`Confirmed · ${sig.slice(0,4)}…${sig.slice(-4)}`:'Done');el._h=setTimeout(()=>el.classList.remove('show'),9000);done&&done(true);loadBalances();setTimeout(loadBalances,5000)})
-  .catch(e=>{const m=String(e&&e.message||e);draw('bad',/reject|denied|cancel|declin|closed/i.test(m)?'You cancelled it. Nothing was sent.':m.slice(0,160));done&&done(false)})}
+  .catch(e=>{const m=e&&e.name==='TxError'?e.message:friendlyError(e);if(!isUserCancel(e))reportTxError(/^withdraw/i.test(desc)?'withdraw':'swap',e,S.addr);draw('bad',isUserCancel(e)?'You cancelled it. Nothing was sent.':m);done&&done(false)})}
 /* Swap settings, saved on this device. Speed = priority fee cap; front-running protection = Jito tip. */
 const SPEED={auto:0,fast:1e5,turbo:1e6,ultra:5e6};
 const SWS=(()=>{const d={slip:0,speed:'auto',mev:false,tip:'0.001'};try{return {...d,...JSON.parse(localStorage.getItem('callit.swapset')||'{}')}}catch(_){return d}})();if(SWS.slip)S.slip=SWS.slip;
@@ -849,16 +850,79 @@ function heatBar(all){const cnt={};all.forEach(t=>{const k=heatOf(t).k;cnt[k]=(c
 function heatApply(rows){if(!rows)return rows;let r=rows;if(HEATF.hide)r=r.filter(t=>heatOf(t).k!=='danger');
  if(HEATF.k==='called')r=r.filter(t=>backers(t)).sort((a,b)=>backers(b)-backers(a)||heatOf(b).s-heatOf(a).s);
  else if(HEATF.k)r=r.filter(t=>heatOf(t).k===HEATF.k).sort((a,b)=>heatOf(b).s-heatOf(a).s);return r}
+/* ---------- AI Auto: one tap for people who don't want to tune filters. Ranks tokens by their odds of
+   being a good entry: hard safety gates first (a rug can't be a win), then real demand, healthy
+   liquidity, room to run, bought-in callers, and it marks tops so users don't buy someone's exit. ---------- */
+const AIM={balanced:['🎯','Balanced','Safety and upside together. Start here.',50],safe:['🛡️','Safe plays','Clean holders, real liquidity, steady buyers. Fewer picks, fewer rugs.',58],early:['🌱','Early gems','Newer and riskier. For small bets on big upside.',45]};
+const AIG={safe:{top:25,dev:8,bun:15,liq:8e3,ageMin:15,ageMax:43200},balanced:{top:35,dev:12,bun:25,liq:3e3,ageMin:3,ageMax:10080},early:{top:45,dev:15,bun:30,liq:1500,ageMin:0,ageMax:180}};
+const AIW={balanced:{S:.28,D:.22,T:.15,F:.10,K:.10,R:.08,Q:.07},safe:{S:.38,D:.18,T:.10,F:.08,K:.10,R:.06,Q:.10},early:{S:.20,D:.28,T:.18,F:.12,K:.10,R:.10,Q:.02}};
+const c01=v=>Math.max(0,Math.min(1,v));
+const aiGrade=s=>s>=80?['strong','Strong']:s>=65?['good','Good']:s>=50?['watch','Watch']:['weak','Weak'];
+function aiOf(t,mode){if(!t||!t.live||!AIM[mode])return null;
+ const L=t.L||{},a=L.audit||{},c=L.chg||{},x=trenchStats(t),H=heatOf(t),m=mcap(t)||0,liq=t.liq||0,ageM=(t.ageH||0)*60,G=AIG[mode];
+ const bun=t._risk&&t._risk.bundle&&t._risk.bundle.pct!=null?t._risk.bundle.pct:null,onCurve=isLaunch(t)&&bond(t)<100;
+ let gate=null;
+ if(H.k==='danger')gate='Flagged dangerous (bundles, dev dumping or whale-heavy)';
+ else if(a.mintOff===false)gate='Dev can still mint more tokens';
+ else if(a.freezeOff===false)gate='Dev can freeze your tokens';
+ else if(x.top!=null&&x.top>G.top)gate=`Top 10 wallets own ${x.top}%`;
+ else if(x.dev!=null&&x.dev>G.dev)gate=`Dev still holds ${x.dev}%`;
+ else if(bun!=null&&bun>G.bun)gate=`${Math.round(bun)}% was bundled at launch`;
+ else if(liq<G.liq)gate='Too little liquidity to sell out cleanly';
+ else if(ageM<G.ageMin)gate='Too new to judge yet';
+ else if(ageM>G.ageMax)gate='Outside this mode’s age window';
+ else if(mode==='safe'&&(a.mintOff==null||a.freezeOff==null))gate='Safety not verified yet';
+ const why=[],warn=[];
+ // S: safety
+ let S=.45;if(a.mintOff&&a.freezeOff){S+=.2;why.push([9,'Mint & freeze revoked'])}else if(a.mintOff==null)warn.push('Safety still checking');
+ if(x.top!=null){S+=x.top<=15?.18:x.top<=25?.1:x.top>35?-.15:0;if(x.top<=20)why.push([7,`Top 10 hold ${x.top}%`])}
+ if(x.dev!=null){S+=x.dev<=3?.1:x.dev>10?-.12:0;if(x.dev<=1)why.push([5,'Dev holds ~0%'])}
+ if(bun!=null)S+=bun<=10?.07:bun>20?-.12:0;S=c01(S);
+ // D: real demand (buy pressure, new holders, unique traders)
+ const bp=H.bp,hg=H.hg||0,tr=L.traders24||0;
+ const D=c01((bp!=null?c01((bp-.45)/.35)*.5:.2)+c01(hg/4)*.3+c01(Math.log10(tr+1)/3)*.2);
+ if(bp!=null&&bp>=.6)why.push([8,`${Math.round(bp*100)}% buys`]);if(hg>=1)why.push([7,`+${hg.toFixed(1)} holders/min`]);
+ // T: trend, and don't chase tops
+ const m5=H.m5,h1=c.h1;let T=.5;
+ if(m5!=null)T+=m5>=3&&m5<=40?.25:m5<-10?-.25:0;
+ if(h1!=null)T+=h1>=5&&h1<=200?.2:h1<-30?-.2:0;
+ if(h1!=null&&h1>250&&(m5||0)<0){T-=.45;warn.push(`Pulling back after +${Math.round(h1)}% this hour`)}
+ else if(m5!=null&&m5>60){T-=.3;warn.push('Going vertical. Wait for a dip')}
+ else if(H.k==='second')why.push([6,'Reclaimed with new buyers']);
+ T=c01(T);
+ // F: turnover (volume vs market cap)
+ const turn=m?(t.vol||0)/m:0,F=turn<.1?.2:turn<.3?.5:turn<=6?1:.6;if(turn>8)warn.push('Volume looks wash-traded');
+ // K: Callit callers with real money in
+ const bk=calls.filter(k=>k.t===t.key&&k.buy>0&&!k.sponsored),best=Math.max(0,...bk.map(k=>(C[k.c]&&C[k.c].calls>=3?C[k.c].win:0)));
+ const nB=new Set(bk.map(k=>k.c)).size,K=c01(nB*.25+(best>=60?.5:best>=40?.25:0));
+ if(nB)why.push([best>=60?10:6,`${nB} caller${nB>1?'s':''} bought in${best>=60?` (best ${best}% win)`:''}`]);
+ // R: room to run
+ const R=m<15e3?.55:m<=1.5e6?1:m<=1e7?.65:.35;if(m>=15e3&&m<=5e5)why.push([4,'Early market cap']);
+ // Q: liquidity health (bonding curves can always be sold into)
+ const lr=m?liq/m:0,Q=onCurve?.8:lr>=.15?1:lr>=.06?.6:.15;if(!onCurve&&lr<.06)warn.push('Thin liquidity for its size');
+ const W=AIW[mode],s=Math.round(100*(W.S*S+W.D*D+W.T*T+W.F*F+W.K*K+W.R*R+W.Q*Q));
+ return {s,gate,why:why.sort((p,q)=>q[0]-p[0]).map(w=>w[1]),warn,grade:aiGrade(s)}}
+const aiPass=(t,mode)=>{const A=aiOf(t,mode);return !!A&&!A.gate&&A.s>=AIM[mode][3]};
+const aiSort=(rows,mode)=>rows&&mode&&AIM[mode]?[...rows].sort((p,q)=>(aiOf(q,mode)||{s:0}).s-(aiOf(p,mode)||{s:0}).s):rows;
+const aiChip=(t,mode)=>{const A=mode&&aiOf(t,mode);if(!A)return '';const [g]=A.grade;
+ return `<span class="aiS g-${g}" title="AI Auto ${A.s}/100. ${esc([...A.why.slice(0,3),...A.warn].join(' · '))}">🎯 ${A.s}</span>`};
+const aiWhy=(t,mode)=>{const A=mode&&aiOf(t,mode);if(!A)return '';const w=A.warn[0];
+ return `<div class="aiwhy">${A.why.slice(0,2).map(x=>`<span>✓ ${esc(x)}</span>`).join('')}${w?`<span class="warn">! ${esc(w)}</span>`:''}</div>`};
+/* Token page: what AI Auto thinks of this token, in plain words. */
+function aiCard(t){const A=aiOf(t,'balanced');if(!A)return '';const [g,gl]=A.grade;
+ return `<div class="aicard g-${A.gate?'weak':g}"><div class="aihead"><b>🎯 AI Auto</b>${A.gate?`<span class="aipill">Skipped</span>`:`<span class="aipill">${gl} · ${A.s}/100</span>`}</div>
+ ${A.gate?`<p class="hint">AI Auto leaves this out: ${esc(A.gate)}.</p>`:''}
+ <div class="aiwhy">${A.why.slice(0,4).map(x=>`<span>✓ ${esc(x)}</span>`).join('')}${A.warn.map(x=>`<span class="warn">! ${esc(x)}</span>`).join('')}</div></div>`}
 function heatCard(t){if(!t.live)return '';const h=heatOf(t),[e,l,d]=HEAT[h.k],n=backers(t),pc=v=>v==null?'—':pctS(v);
  return `<section class="card heatcard h-${h.k}" aria-label="Heat"><div class="hcrow"><span class="hcbig">${e}</span><div class="grow"><b>${l}</b><div class="hint">${d}</div></div><div class="hcs num" title="Heat score">${h.s}<small>/100</small></div></div>
  <div class="hcbar"><i style="width:${h.s}%"></i></div>
  <div class="hcgrid num"><span><small>1m</small>${pc(h.m1)}</span><span><small>5m</small>${pc(h.m5)}</span><span><small>Buy pressure</small>${h.bp==null?'—':Math.round(h.bp*100)+'%'}</span><span><small>Holders/min</small>${h.hg?(h.hg>0?'+':'')+h.hg.toFixed(1):'—'}</span></div>
- ${n?`<p class="hcback">📣 ${n} Callit caller${n>1?'s':''} bought in. <a href="#/token/${esc(t.key)}" data-act="none">See calls below</a></p>`:''}</section>`}
+ ${n?`<p class="hcback">📣 ${n} Callit caller${n>1?'s':''} bought in. <a href="#/token/${esc(t.key)}" data-act="none">See calls below</a></p>`:''}${aiCard(t)}</section>`}
 /* ---------- trenches: feeds, filters, display ---------- */
 const LPDOM={Pump:'pump.fun',Bonk:'bonk.fun',Believe:'believe.app',Moonshot:'moonshot.com',Launchlab:'raydium.io',Bags:'bags.fm','Jup Studio':'jup.ag',Meteora:'meteora.ag',Boop:'boop.fun'};
 /* Little badge on each token: the launchpad it came from (pump.fun, Bonk, Meteora...), Solana otherwise. */
 const lpBadge=t=>{const L=lpOf(t),d=L&&LPDOM[L];return d?`<i class="chainb lpb" title="Launched on ${esc(L)}"><b>${esc(L[0])}</b><img src="https://www.google.com/s2/favicons?domain=${d}&sz=64" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()"></i>`:`<i class="chainb">${ic('solglyph',11)}</i>`};
-const LPS=[['Pump','#4ADE80'],['Bonk','#F59E0B'],['Believe','#22C55E'],['Moonshot','#C084FC'],['Launchlab','#38BDF8'],['Bags','#10B981'],['Jup Studio','#FB923C']];
+const LPS=[['Pump','#4ADE80'],['Bonk','#F59E0B'],['Meteora','#F472B6'],['Bags','#10B981'],['Believe','#22C55E'],['Launchlab','#38BDF8'],['Jup Studio','#FB923C'],['Moonshot','#C084FC'],['Boop','#60A5FA']];
 const CHAINS=[['Solana','#9d7bff',1],['Base','#3B82F6',0],['BSC','#F0B90B',0],['Ethereum','#8EA2FF',0],['Arbitrum','#60A5FA',0]];
 const FEEDS={movers:['Movers','Biggest price momentum right now'],new:['New','Fresh launches, newest first'],called:['Called','Tokens our callers are on, most calls first','Only on Callit'],
  crowded:['Crowded','Most holders first'],almost:['Almost bonded','60 to 99% through the bonding curve'],grad:['Migrated','Bonded and migrated to a DEX, newest first'],og:['OG','The established Solana memecoins, biggest first']};
@@ -868,12 +932,12 @@ const isLaunch=t=>!t.live||!!t.lp;
 const bond=t=>t.live&&!t.lp?100:Math.min(100,mcap(t)/69e3*100);
 const lpOf=t=>t.live?t.lp:(t.lp||(t.lp=LPS[t.seed%LPS.length][0]));
 const callsOn=t=>calls.filter(k=>k.t===t.key&&!k.sponsored);
-const defFil=()=>({chains:['Solana'],lps:LPS.map(l=>l[0]),inc:'',exc:'',bmin:'',bmax:'',mcMin:'',mcMax:'',volMin:'',hMin:'',ageMax:0,top:100,dev:100,snip:100,ins:100,x:0,web:0,comm:0,called:0,topc:0,bought:0,tf:'1h',chgMin:''});
+const defFil=()=>({chains:['Solana'],lps:LPS.map(l=>l[0]),inc:'',exc:'',bmin:'',bmax:'',mcMin:'',mcMax:'',volMin:'',hMin:'',ageMax:0,top:100,dev:100,snip:100,ins:100,x:0,web:0,comm:0,called:0,topc:0,bought:0,tf:'1h',chgMin:'',ai:''});
 const defDisp=()=>({pro:1,spark:0,heat:1,compact:0});
 const defFeeds=()=>[['new',1],['almost',1],['grad',1],['movers',1],['called',1],['og',1],['crowded',0]];
 const TS=(()=>{let v={};try{v=JSON.parse(localStorage.getItem('callit.trenches')||'{}')}catch(_){}
  let feeds=Array.isArray(v.feeds)&&v.fv===2?v.feeds.filter(f=>FEEDS[f[0]]):defFeeds();defFeeds().forEach(d=>{if(!feeds.some(f=>f[0]===d[0]))feeds.push(d)});
- return {fv:2,disp:{...defDisp(),...(v.disp||{})},feeds,fil:v.fil||{}}})();
+ return {fv:2,disp:{...defDisp(),...(v.disp||{})},feeds,fil:v.fil||{},aiLast:AIM[v.aiLast]?v.aiLast:''}})();
 const saveTS=()=>{try{localStorage.setItem('callit.trenches',JSON.stringify(TS))}catch(_){}};
 const filOf=k=>({...defFil(),...(TS.fil[k]||{})});
 const parseAmt=v=>{v=String(v||'').trim().toUpperCase().replace(/[$,\s]/g,'');if(!v)return null;const n=parseFloat(v);if(isNaN(n))return null;return n*(v.endsWith('B')?1e9:v.endsWith('M')?1e6:v.endsWith('K')?1e3:1)};
@@ -889,6 +953,7 @@ function match(t,f){const x=trenchStats(t),m=mcap(t),b=bond(t),nm=(t.name+' '+t.
  if(x.top>f.top||x.dev>f.dev||x.snip>f.snip||x.ins>f.ins)return false;
  const soc=t.soc||'';if(f.x&&!soc.includes('x')||f.web&&!soc.includes('w')||f.comm&&!soc.includes('c'))return false;
  if(f.called&&!cs.length)return false;if(f.topc&&!cs.some(k=>(rankOf(k.c)||99)<=3))return false;if(f.bought&&!cs.some(k=>k.buy))return false;
+ if(f.ai&&!aiPass(t,f.ai))return false;
  return true}
 function activeCount(f){const d=defFil();let c=0;for(const k in d){if(k==='tf')continue;const a=Array.isArray(d[k])?[...d[k]].sort().join():d[k],b=Array.isArray(f[k])?[...f[k]].sort().join():f[k];if(String(a)!==String(b))c++}return c}
 function feedRows(k,f){
@@ -916,19 +981,21 @@ function heat(t){const cs=callsOn(t);if(!cs.length)return '';const who=[...new S
 function trow(t){const H=heatOf(t),FX=fxOf(t,H),x=trenchStats(t),m=mcap(t),y=t.ageH<1,red=(v,lim)=>v==null?'muted':v>lim?'down':'up',pv=v=>v==null?'—':v+'%',D=TS.disp,b=bond(t),tf=S.rowTf||'1h',cv=chgOf(t,tf),fl=t._pm&&t._pm!==m?(m>t._pm?' fl-up':' fl-dn'):'';t._pm=m;
  const soc=(t.soc||'').split('').map(c=>({x:ic('xlogo',15),w:ic('globe',15),c:ic('people',15)})[c]).join('');
  return `<a class="trow${D.compact?' compact':''}${D.pro?'':' lite'}${FX.cls}" href="#/token/${t.key}">${FX.tag}<span class="tav ${t.chg>=0?'ok':'bad'}" style="--b:${b.toFixed(0)}%">${tokav(t.key)}${lpBadge(t)}</span>
- <div class="tmid"><div class="tname"><b>${esc(t.name)}</b>${heatChip(t,H)}${backChip(t)}<button class="wstar${S.watch.has(t.key)?' on':''}" data-act="track" data-t="${esc(t.key)}" aria-pressed="${S.watch.has(t.key)}" aria-label="${S.watch.has(t.key)?'Remove from':'Add to'} watchlist" title="Watchlist">${ic('star',15,S.watch.has(t.key))}</button></div>
- <div class="tsub"><span>${esc(t.sym)}</span><span class="${y?'my':'up'}">${ic('sprout',13)}${ageStr(t.ageH)}</span><span class="soc">${soc}</span></div>${D.heat?heat(t):''}</div>
+ <div class="tmid"><div class="tname"><b>${esc(t.name)}</b>${aiChip(t,S.aiMode)}${heatChip(t,H)}${backChip(t)}<button class="wstar${S.watch.has(t.key)?' on':''}" data-act="track" data-t="${esc(t.key)}" aria-pressed="${S.watch.has(t.key)}" aria-label="${S.watch.has(t.key)?'Remove from':'Add to'} watchlist" title="Watchlist">${ic('star',15,S.watch.has(t.key))}</button></div>
+ <div class="tsub"><span>${esc(t.sym)}</span><span class="${y?'my':'up'}">${ic('sprout',13)}${ageStr(t.ageH)}</span><span class="soc">${soc}</span></div>${S.aiMode?aiWhy(t,S.aiMode):''}${D.heat?heat(t):''}</div>
  ${D.pro?`<div class="tst num"><span class="up" title="Holders">${ic('profile',13)}${fmtK(t.holders)}</span><span class="${red(x.top,10)}" title="Top 10 holders">${ic('target',13)}${pv(x.top)}</span><span class="${red(x.dev,10)}" title="Dev holding">${ic('stake',13)}${pv(x.dev)}</span>${x.snip==null?'':`<span class="${red(x.snip,5)}" title="Snipers">${ic('sniper',13)}${pv(x.snip)}</span>`}${x.ins==null?'':`<span class="${red(x.ins,15)}" title="Insiders">${ic('crown',13)}${pv(x.ins)}</span>`}<em class="tchg ${pcls(cv)}" title="Price change, ${tf}">${pctS(cv)}<small>${tf}</small></em></div>`:''}
  <div class="tr num">${D.spark?spark(t):''}<div>${D.pro?`<span class="k">V</span> ${fmtUsd(t.vol).replace(/\.\d+([KMB])/,'$1')} `:''}<span class="k">MC</span> <b class="${mcCls(m)}${fl}" data-tmc="${t.key}">${fmtUsd(m)}</b></div>
  ${D.pro?`<div>${x.fees==null?`<span class="k">B/S</span> ${Math.round(x.buys*100)}%`:`<span class="k">F</span> ${ic('solglyph',12)} ${x.fees.toFixed(2)}`}</div><div class="bs"><i style="flex:${x.buys}"></i><i style="flex:${1-x.buys}"></i></div><div><span class="k">TX</span> ${fmtK(x.tx)}</div>`:`<div class="${pcls(cv)}">${pctS(cv)} <small class="muted">${tf}</small></div>`}</div></a>`}
 const skelRows=()=>Array.from({length:8},()=>`<div class="trow skel" aria-hidden="true"><span class="tav"><span class="tokav"></span></span><div class="tmid"><i></i><i></i></div><div class="tr"><i></i></div></div>`).join('')+'<p class="sr-only" role="status">Loading live tokens</p>';
+function aiBar(f){const on=!!f.ai,[e,l]=AIM[f.ai||'balanced'];
+ return `<div class="aibar${on?' on':''}"><button type="button" class="aiq" data-act="aiq" aria-pressed="${on}"><span class="aiqi">🎯</span><span><b>AI Auto${on?` · ${l}`:''}</b><small>${on?'Showing the best entries right now, best first':'Let Callit filter for you. One tap.'}</small></span><i class="aisw"></i></button>${on?`<button type="button" class="lnk" data-act="fsopen" data-tab="auto">Change</button>`:''}</div>`}
 function vTrenches(){const on=TS.feeds.filter(f=>f[1]).map(f=>f[0]);if(S.tt!=='watch'&&!on.includes(S.tt))S.tt=on[0]||'watch';
- const f=filOf(S.tt);S.rowTf=f.tf||'1h';const raw=feedRows(S.tt,f),rows=heatApply(raw),n=activeCount(f);
+ const f=filOf(S.tt);S.rowTf=f.tf||'1h';S.aiMode=f.ai||'';const raw=feedRows(S.tt,f),rows=aiSort(heatApply(raw),f.ai),n=activeCount(f);
  const tab=(k,l)=>`<button role="tab" aria-selected="${S.tt===k}" class="${S.tt===k?'on':''}" data-act="tt" data-f="${k}">${l}</button>`;
  return `<div class="ttabs"><div class="tscroll" role="tablist">${tab('watch',ic('star',18,S.tt==='watch'))}${on.map(k=>tab(k,FEEDS[k][0])).join('')}</div>
  <span class="ttools"><button class="ib" data-act="fsopen" aria-label="Filters${n?`, ${n} active`:''}">${ic('filter',20)}${n?`<span class="fbadge">${n}</span>`:''}</button><button class="ib" data-act="dsopen" aria-label="Display settings">${ic('gear',20)}</button></span></div>
  <div class="tfbar"><span class="tflive"><i></i>Live</span><span class="muted tflbl">${S.tt==='movers'?'Top gainers':'% change'}</span><div class="seg tfseg" role="tablist" aria-label="Timeframe">${TF_OK.map(x=>`<button role="tab" aria-selected="${S.rowTf===x}" class="${S.rowTf===x?'on':''}" data-act="ttf" data-f="${x}">${x}</button>`).join('')}</div></div>
- ${raw&&raw.length?heatBar(raw):''}
+ ${aiBar(f)}${raw&&raw.length?heatBar(raw):''}
  ${n?`<div class="fline"><span>${n} filter${n>1?'s':''} on ${S.tt==='watch'?'Watchlist':FEEDS[S.tt][0]}</span><button data-act="fsclear1">Clear</button></div>`:''}
  <div>${rows===null?((lfIds(S.tt,f)||[]).some(id=>LIVE.err[id])?`<div class="empty"><b class="h2">Live data is taking a break</b><p>We couldn't reach the market feed. It usually comes back in a few seconds.</p><button class="btn primary" data-act="lretry">Try again</button></div>`:skelRows()):rows.map(trow).join('')||`<div class="empty"><b class="h2">${S.tt==='watch'?'No watchlist tokens yet':HEATF.k?'No '+(HEATF.k==='called'?'caller-backed':HEAT[HEATF.k][1].toLowerCase())+' tokens right now':'Nothing matches'}</b><p>${S.tt==='watch'?'Open any token and tap Watchlist to pin it here.':'Loosen the filters or try another feed.'}</p>${n?'<button class="btn primary" data-act="fsclear1">Clear filters</button>':''}</div>`}</div>
  <p class="hint pad">Degen zone. New tokens are high risk. Row icons: holders, top 10, dev, snipers, insiders. The ring around each token fills as it moves through its bonding curve.</p>`}
@@ -979,13 +1046,14 @@ function vAdmin(){if(!ADM.data&&!ADM.err)loadAdmin();
  const users=`<table><thead><tr><th>User</th><th>Wallet</th><th>Joined</th><th>Calls</th><th>Trades</th></tr></thead><tbody>${(d.users||[]).map(u=>`<tr><td><div class="person">${u.avatar_url?`<img class="av" src="${esc(u.avatar_url)}" alt="">`:''}${who(u.handle)}</div></td><td class="num muted">${u.wallet_address?esc(short(u.wallet_address)):'—'}</td><td>${agoT(u.created_at)}</td><td class="num">${u.calls||0}</td><td class="num">${u.trades||0}</td></tr>`).join('')}</tbody></table>`;
  const txs=`<table><thead><tr><th>When</th><th>User</th><th>Trade</th><th>USD</th><th>Tx</th></tr></thead><tbody>${(d.txs||[]).map(x=>`<tr><td>${agoT(x.created_at)}</td><td>${who(x.handle)}</td><td><span class="akind ${esc(x.kind)}">${esc(x.kind)}</span> ${esc(x.label||'')}</td><td class="num">${x.usd_value!=null?fmtUsd(+x.usd_value):'—'}</td><td>${sol(x.signature)}${x.verified?' ✓':''}</td></tr>`).join('')}</tbody></table>`;
  const posts=`<table><thead><tr><th>When</th><th>User</th><th>Post</th><th>Entry</th><th>Buy</th></tr></thead><tbody>${(d.posts||[]).map(p=>`<tr data-go="#/post/${esc(p.id)}"><td>${agoT(p.created_at)}</td><td>${who(p.handle)}</td><td>${p.kind==='meme'?`<b>$${esc(p.token_sym||'?')}</b> `:''}<span class="muted">${esc((p.body||'').slice(0,80))}</span></td><td class="num">${p.entry_mc?fmtUsd(+p.entry_mc):'—'}</td><td class="num">${+p.buy_usd?fmtUsd(+p.buy_usd):'—'}</td></tr>`).join('')}</tbody></table>`;
+ const errs=d.errors==null?`<div class="rdnote"><b>Run migration 0007</b> in Supabase to start logging failed withdrawals and swaps.</div>`:!d.errors.length?`<div class="empty"><p>No failed transactions logged. </p></div>`:`<div class="tablewrap"><table><thead><tr><th>When</th><th>User</th><th>Action</th><th>Step</th><th>Reason</th></tr></thead><tbody>${d.errors.map(x=>`<tr title="${esc(JSON.stringify(x.raw||{}).slice(0,1500))}\n\n${esc(x.user_agent||'')}"><td>${agoT(x.created_at)}</td><td>${who(x.handle)}${x.wallet?`<div class="hint">${esc(short(x.wallet))}</div>`:''}</td><td><span class="akind">${esc(x.action)}</span></td><td>${esc(x.stage||'')}</td><td style="max-width:420px;white-space:normal">${esc(x.message||'')}</td></tr>`).join('')}</tbody></table></div><p class="hint" style="margin-top:8px">Hover (or long-press) a row for the raw error and browser.</p>`;
  return `<div class="pad adm"><div class="ahead"><h1 class="h2">Admin</h1><span class="stlive"><i></i>Live · every 15s</span></div>
  <div class="agrid">${stat('Users',fmtK(s.users||0),`+${s.users24h||0} today · +${s.users7d||0} this week`)}${stat('Calls & posts',fmtK(s.posts||0),`+${s.posts24h||0} today`)}${stat('Trades today',fmtK(s.txs24h||0),'')}${stat('Volume today',fmtUsd(s.vol24h||0),'')}</div>
- <div class="seg wide" role="tablist" style="margin:14px 0">${tab('radar','Radar')}${tab('overview','New users')}${tab('trades','Trades')}${tab('calls','Calls & posts')}</div>
- ${ADM.tab==='radar'?vRadar():`<div class="tablewrap">${ADM.tab==='trades'?txs:ADM.tab==='calls'?posts:users}</div>`}</div>`}
+ <div class="seg wide" role="tablist" style="margin:14px 0">${tab('radar','Radar')}${tab('overview','New users')}${tab('trades','Trades')}${tab('calls','Calls & posts')}${tab('errors','Tx errors'+(d.errors&&d.errors.length?' '+d.errors.length:''))}</div>
+ ${ADM.tab==='radar'?vRadar():ADM.tab==='errors'?errs:`<div class="tablewrap">${ADM.tab==='trades'?txs:ADM.tab==='calls'?posts:users}</div>`}</div>`}
 /* ---------- bottom sheet ---------- */
 let SH=null;
-function openSheet(kind){SH={kind,tab:'source',d:kind==='f'?JSON.parse(JSON.stringify(filOf(S.tt))):null};
+function openSheet(kind,tab){SH={kind,tab:tab||'auto',d:kind==='f'?JSON.parse(JSON.stringify(filOf(S.tt))):null};
  $('#sheet').innerHTML=`<div class="sh-scrim" data-act="shclose"></div><div class="sh" role="dialog" aria-modal="true" aria-label="${kind==='f'?'Filters':'Display settings'}"><div class="sh-grab"></div><div id="shin"></div></div>`;
  drawSheet();requestAnimationFrame(()=>$('#sheet').classList.add('open'))}
 function closeSheet(){const s=$('#sheet');if(!s.innerHTML)return;s.classList.remove('open');SH=null;setTimeout(()=>{if(!SH)s.innerHTML=''},220)}
@@ -995,10 +1063,19 @@ function drawSheet(){const el=$('#shin');if(!el||!SH)return;const body=el.queryS
 function fsCount(){const r=feedRows(S.tt,SH.d);return r?r.length:-1}
 const fsBtn=n=>n<0?'Loading…':n?`Show ${n} token${n>1?'s':''}`:'No tokens match';
 function filterSheet(){const d=SH.d,T2=SH.tab,feed=S.tt==='watch'?'Watchlist':FEEDS[S.tt][0];
- const tabs=[['source','Source'],['metrics','Metrics'],['safety','Safety'],['social','Social']];
+ const tabs=[['auto','🎯 AI Auto'],['source','Source'],['metrics','Metrics'],['safety','Safety'],['social','Social']];
  const chip=(grp,v,col,on,soon)=>`<button class="chip${on?' on':''}" style="--c:${col}" data-act="fschip" data-g="${grp}" data-v="${v}" ${soon?'disabled':''}><i></i>${v}${soon?'<small>soon</small>':''}</button>`;
  const rng2=(lbl,a,b,pa,pb,hint)=>`<div class="fgrp"><div class="fh"><b>${lbl}</b>${hint?`<span>${hint}</span>`:''}</div><div class="pair"><input class="input num" data-fk="${a}" value="${esc(d[a])}" placeholder="${pa}" inputmode="decimal"><span>to</span>${b?`<input class="input num" data-fk="${b}" value="${esc(d[b])}" placeholder="${pb}" inputmode="decimal">`:'<span class="muted">no cap</span>'}</div></div>`;
  let h='';
+ if(T2==='auto'){h=`<div class="fgrp"><div class="fh"><b>Let Callit filter for you</b><span>Pick a style. It overrides nothing else you set.</span></div>
+  <div class="aimodes"><button class="rcard${!d.ai?' on':''}" data-act="fsai" data-v=""><b>Off</b><span>I'll set my own filters.</span></button>${Object.entries(AIM).map(([k,[e,l,sub]])=>`<button class="rcard${d.ai===k?' on':''}" data-act="fsai" data-v="${k}"><b>${e} ${l}</b><span>${sub}</span></button>`).join('')}</div></div>
+  <div class="fgrp"><div class="fh"><b>What it checks</b></div><ul class="aichecks">
+  <li><b>Skips rugs first.</b> Mint or freeze still on, whale-heavy top 10, dev holding a lot, bundled launches, flagged dangerous.</li>
+  <li><b>Real demand.</b> Buy pressure, new holders per minute, unique traders.</li>
+  <li><b>Exit room.</b> Enough liquidity to sell, and market cap with room to grow.</li>
+  <li><b>Doesn't chase tops.</b> Marks tokens going vertical or pulling back after a pump so you don't buy someone's exit.</li>
+  <li><b>Callers with skin in the game.</b> Boosts tokens bought by Callit callers with a strong win rate.</li></ul>
+  <p class="hint">Every row gets a score out of 100 and the reasons behind it.</p></div>`}
  if(T2==='source'){const allLp=d.lps.length===LPS.length;
   h=`<div class="fgrp"><div class="fh"><b>Chains</b></div><div class="chips">${CHAINS.map(([c,col,live])=>chip('chains',c,col,d.chains.includes(c),!live)).join('')}</div></div>
   <div class="fgrp"><div class="fh"><b>Launchpads</b><button class="lnk" data-act="fslpall">${allLp?'Clear all':'Select all'}</button></div><div class="chips">${LPS.map(([l,col])=>chip('lps',l,col,d.lps.includes(l))).join('')}</div></div>
@@ -1057,7 +1134,7 @@ function vTokenLoading(mint){const e=LIVE.tokErr[mint];
  return `<div class="pad lskel" aria-busy="true"><div class="lsk-h"><span class="tokav"></span><div><i></i><i></i></div></div><i class="lsk-p"></i><div class="lchart"><div class="lchart-msg">Loading token…</div></div><div class="stats num">${'<div><span>&nbsp;</span><b>&nbsp;</b></div>'.repeat(5)}</div></div>`}
 function liveStats(t){const L=t.L||{},c=L.chg||{},bs=(L.buys24||0)+(L.sells24||0);
  return `<div class="stats num"><div><span>Market cap</span><b>${fmtSmall(mcap(t))}</b></div><div><span>Price</span><b>${fmtSmall(t.price)}</b></div><div><span>Liquidity</span><b>${t.liq?fmtSmall(t.liq):'—'}</b></div><div><span>24h volume</span><b>${t.vol?fmtSmall(t.vol):'—'}</b></div><div><span>Holders</span><b>${t.holders?t.holders.toLocaleString():'—'}</b></div><div><span>Age</span><b>${esc(t.age)}</b></div></div>
- <div class="lchg num">${[['5m',c.m5],['1h',c.h1],['6h',c.h6],['24h',c.h24]].map(([k,v])=>`<span><i>${k}</i><b class="${pcls(v)}">${pctS(v)}</b></span>`).join('')}</div>
+ <div class="lchg num">${[['5m',c.m5,5],['1h',c.h1,60],['6h',c.h6,360],['24h',c.h24,1440]].map(([k,v,mins])=>[k,(t.ageH||0)*60<mins*.9&&k!=='5m'?null:v]).map(([k,v])=>`<span><i>${k}</i><b class="${pcls(v)}">${pctS(v)}</b></span>`).join('')}</div>
  ${bs?`<div class="lbs num"><b class="up">${fmtK(L.buys24||0)} buys</b><div class="bs"><i style="flex:${L.buys24||0}"></i><i style="flex:${L.sells24||0}"></i></div><b class="down">${fmtK(L.sells24||0)} sells</b>${L.traders24?`<span class="muted">· ${fmtK(L.traders24)} traders</span>`:''}</div>`:''}`}
 /* Token-2022 transfer tax (from on-chain mint extensions) and the launchpad it came from. */
 const taxRows=t=>{const x=t.L&&t.L.tax,row=(label,ok,val)=>`<div class="sf ${ok==null?'unk':ok?'ok':'bad'}"><span class="sfi">${ok==null?'?':ok?ic('check',14):'!'}</span><span class="grow">${label}</span><b>${val}</b></div>`;
@@ -1093,12 +1170,16 @@ document.addEventListener('toggle',e=>{const d=e.target;if(d&&d.matches&&d.match
 document.addEventListener('toggle',e=>{const d=e.target;if(d&&d.matches&&d.matches('[data-sf]')){SFOPEN=d.open;try{localStorage.setItem('callit.sfOpen',d.open?'1':'0')}catch(_){}}},true);
 function liveLinks(t){const so=(t.L&&t.L.socials)||{},a=(u,l,i)=>u&&/^https?:\/\//.test(u)?`<a class="lk" href="${esc(u)}" target="_blank" rel="noopener noreferrer">${ic(i,15)}${l}</a>`:'';
  return a(so.x,'X','xlogo')+a(so.web,'Website','globe')+a(so.tg,'Telegram','people')+a(`https://dexscreener.com/solana/${t.pool||t.key}`,'DexScreener','market')+a(`https://solscan.io/token/${t.key}`,'Solscan','search')+`<button class="lk" data-act="xsearch" data-k="${esc(t.key)}">${ic('xlogo',13)}Search on X</button>`}
+/* What a meme is paired with. SOL is the default, so only show it when it's something else (USDC, a stock token, another meme). */
+const QUOTES={'So11111111111111111111111111111111111111112':'SOL','EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v':'USDC','Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB':'USDT','USD1ttGY1N17NEEHLmELoaybftRBUSErhqYiQzvEmuB':'USD1'};
+function pairChip(t){const q=t.L&&t.L.quote;if(!q||!q.mint||QUOTES[q.mint]==='SOL')return '';const sym=QUOTES[q.mint]||q.sym||'?',stock=/x$/.test(sym)&&sym.length<=6&&!QUOTES[q.mint];
+ return ` <a class="chain pairchip${stock?' stock':''}" href="#/token/${esc(q.mint)}" title="Trades against ${esc(sym)}. Buys route through ${esc(sym)} automatically.">${stock?'📈 ':''}Paired · ${esc(sym)}</a>`}
 function vLiveToken(t){const key=t.key,tr=S.watch.has(key),on=calls.filter(k=>k.t===key),L=t.L||{},ch=(L.chg||{}).h24;
- S.ltf=S.ltf||'15m';S.lmode=S.lmode||'mc';if(!S.ltab){try{S.ltab=localStorage.getItem('callit.ltab')||'calls'}catch(_){S.ltab='calls'}}const lt=LTABS.some(x=>x[0]===S.ltab)?S.ltab:'calls';if(!S.lsrc){try{S.lsrc=localStorage.getItem('callit.lsrc')||'dex'}catch(_){S.lsrc='dex'}}
+ S.ltf=S.ltf&&S.ltfUser?S.ltf:((t.ageH||0)<.5?'1m':'15m');S.lmode=S.lmode||'mc';if(!S.ltab){try{S.ltab=localStorage.getItem('callit.ltab')||'calls'}catch(_){S.ltab='calls'}}const lt=LTABS.some(x=>x[0]===S.ltab)?S.ltab:'calls';if(!S.lsrc){try{S.lsrc=localStorage.getItem('callit.lsrc')||'dex'}catch(_){S.lsrc='dex'}}
  return `<div class="pad" style="padding-bottom:0"><div style="display:flex;align-items:center;gap:12px">${tokav(key)}<div style="flex:1;min-width:0"><b class="h2">${esc(t.name)}</b>${L.verified?`<span class="vbadge" title="Verified on Jupiter">${ic('check',11)}</span>`:''} <span class="muted">$${esc(t.sym)}</span>
- <div><span class="chain">Solana</span>${t.lp?` <span class="chain lpchip">${esc(t.lp)}</span>`:''} <button class="copyca" data-act="copy" data-v="${esc(t.ca)}">${short(t.ca)} ${ic('copy',13)}</button></div></div>
+ <div><span class="chain">Solana</span>${t.lp?` <span class="chain lpchip">${esc(t.lp)}</span>`:''}${pairChip(t)} <button class="copyca" data-act="copy" data-v="${esc(t.ca)}">${short(t.ca)} ${ic('copy',13)}</button></div></div>
  ${(()=>{if(S.connected&&!AL.d)alLoad();const bo=BELLS.has(key);return `<button class="ib bellb ${bo?'on':''}" data-act="bell" data-t="${key}" aria-label="${bo?'Edit':'Set'} alerts for $${esc(t.sym)}" title="Alerts">${ic('bell',18)}</button>`})()}<button class="btn sm ${tr?'primary':'ghost'}" data-act="track" data-t="${key}">${ic('star',15,tr)} ${tr?'On watchlist':'Watchlist'}</button></div>
- <div class="lhead"><span class="price num" id="lprice">${S.lmode==='mc'?fmtSmall(mcap(t)):fmtSmall(t.price)}</span><b class="num ${pcls(ch)}" id="lchg">${pctS(ch)} 24h</b><span class="livedot" title="Live">LIVE</span>
+ <div class="lhead"><span class="price num" id="lprice">${S.lmode==='mc'?fmtSmall(mcap(t)):fmtSmall(t.price)}</span><b class="num ${pcls(ch)}" id="lchg">${pctS(ch)} 24h</b><span class="livetag" title="Live"><i></i>LIVE</span>
  <div class="seg lmode">${[['mc','MC'],['price','Price']].map(([k,l])=>`<button class="${S.lmode===k?'on':''}" data-act="lmode" data-f="${k}">${l}</button>`).join('')}</div></div>
  <div class="lsrc"><button class="lnk" data-act="lsrc">${S.lsrc==='callit'?'Use DexScreener chart':'Use Callit chart'}</button></div>
  <div class="seg ltf" role="tablist">${['1m','5m','15m','1h','4h','1d'].map(x=>`<button class="${S.ltf===x?'on':''}" data-act="ltf" data-f="${x}">${x}</button>`).join('')}</div>
@@ -1273,6 +1354,10 @@ function vAbout(){return `<div class="prose"><div style="margin-bottom:18px">${s
 /* Right rail changes with the page: Home leads with a live Market card, Market leads with the Callerboard. */
 const ageS=t=>{const h=t&&t.ageH;if(h==null||!isFinite(h))return '';const m=h*60;return m<1?'now':m<60?Math.round(m)+'m':h<24?Math.round(h)+'h':Math.round(h/24)+'d'};
 const rskel=n=>Array.from({length:n},()=>'<div class="nrow c nskel" aria-hidden="true"><span class="tokav"></span><span class="grow"><i></i><i></i></span></div>').join('');
+/* Home rail (desktop + tablet landscape): latest headlines from the News feed, crypto first. */
+function railNews(){const N=NEWS.recent;loadNews('recent');const all=(N.d&&N.d.items)||[],cr=all.filter(x=>x.kind==='crypto'),L=(cr.length>=3?cr:all).slice(0,5);
+ const row=x=>{const ext=!/^#\//.test(x.url);return `<a class="li rnews" href="${esc(x.url)}"${ext?' target="_blank" rel="noopener noreferrer nofollow"':''}>${x.sym&&T[x.sym]?tokav(x.sym):pbadge(x.platform,x.url)}<div class="grow"><b>${esc(x.title)}</b><div class="hint">${esc(x.source)} · ${agoMs(x.at)}</div></div></a>`};
+ return `<div class="card"><div class="rcardh"><h3>Latest news</h3><a class="lnk" href="#/news">News</a></div><div class="list">${L.length?L.map(row).join(''):N.err&&!all.length?`<p class="hint" style="margin:6px 0">News is unavailable right now.</p>`:Array.from({length:4},()=>'<div class="nrow c nskel" aria-hidden="true"><span class="tokav"></span><span class="grow"><i></i><i></i></span></div>').join('')}</div></div>`}
 function marketCard(){const k=['new','almost','grad'].includes(S.rmt)?S.rmt:'new',L={new:'New',almost:'Bonding',grad:'Migrated'};
  const rows=feedRows(k,defFil()),list=(rows||[]).filter(t=>t&&t.sym).slice(0,5);
  const sub=t=>k==='almost'?`<span class="rbond"><i style="width:${Math.round(bond(t))}%"></i></span>${Math.round(bond(t))}%`:k==='new'?`${ageS(t)||'new'} old`:`Migrated ${ageS(t)} ago`;
@@ -1283,7 +1368,7 @@ function callerCard(){const top=ranked().slice(0,5);
  return `<div class="card"><div class="rcardh"><h3>Callerboard</h3><a class="lnk" href="#/callerboard">See all</a></div>
  <div class="list">${top.length?top.map((c,i)=>`<div class="li"><span class="rrank">${i+1}</span>${avatar(c.h)}<div class="grow"><a class="pname" href="#/profile/${c.h}">${esc(DN[c.h]||c.h)}</a><div class="hint">${c.win}% win · ${c.calls} call${c.calls===1?'':'s'}${c.avg?` · <span class="${c.avg>=0?'up':'down'}">${fmtPct(c.avg)}</span> avg`:''}</div></div>${c.h===S.me?'':`<button class="btn sm ${S.following.has(c.h)?'ghost':'primary'}" data-act="follow" data-h="${c.h}">${S.following.has(c.h)?'Following':'Follow'}</button>`}</div>`).join('')
   :`<p class="hint" style="margin:10px 0">No ranked callers yet. Make a call and take #1.</p><button class="btn primary block" data-act="newcall">Make a call</button>`}</div></div>`}
-function rail(){const r=currentRoute();return (r==='market'?callerCard()+railRest(1)+adBoard():r==='home'?adBoard()+marketCard()+railRest():adBoard()+railRest())+`<div class="railfoot">${socials('sm')}<div class="legal" style="justify-content:flex-start"><button data-act="doc" data-f="terms">Terms</button><button data-act="doc" data-f="privacy">Privacy</button><span>© ${new Date().getFullYear()} Callit</span></div></div>`}
+function rail(){const r=currentRoute();return (r==='market'?callerCard()+railRest(1)+adBoard():r==='home'?adBoard()+marketCard()+railNews()+railRest():adBoard()+railRest())+`<div class="railfoot">${socials('sm')}<div class="legal" style="justify-content:flex-start"><button data-act="doc" data-f="terms">Terms</button><button data-act="doc" data-f="privacy">Privacy</button><span>© ${new Date().getFullYear()} Callit</span></div></div>`}
 function railRest(noCallers){const lv=(LIVE.feeds['movers:1h']||[]).map(k=>T[k]).filter(t=>t&&t.price&&!NOT_MEME.has(String(t.sym).toUpperCase()));
  const trend=lv.filter(t=>t.live).sort((a,b)=>b.chg-a.chg).slice(0,5);if(!lv.length&&!LIVE.err['movers:1h'])loadFeed('movers:1h');
  return `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">Trending</h3><a class="lnk" href="#/market">Market</a></div><div class="list">${trend.length?'':Array.from({length:4},()=>'<div class="nrow c nskel" aria-hidden="true"><span class="tokav"></span><span class="grow"><i></i><i></i></span></div>').join('')}${trend.map(t=>`<a class="li" href="#/token/${t.key}">${tokav(t.key)}<div class="grow"><b>$${t.sym}</b><div class="hint">${(n=>n+(n===1?' call':' calls'))(calls.filter(k=>k.t===t.key).length)}</div></div><div class="r num"><b>${fmtUsd(mcap(t))}</b><div class="hint ${t.chg>=0?'up':'down'}">${fmtPct(t.chg)}</div></div></a>`).join('')}</div></div>
@@ -1321,8 +1406,15 @@ const TITLES=Object.fromEntries([...NAV_A,...NAV_B,['notifications','Notificatio
 P.lists=P.list;P.defi='<circle cx="12" cy="12" r="8.5"/><path d="M8 10h8l-2.5-2.5M16 14H8l2.5 2.5"/>';P.callerboard=P.leaderboard;P.you=P.profile;
 const NAVH={stack:[],cur:location.hash||'#/home',back:false};
 function goBack(){const prev=NAVH.stack.pop();NAVH.back=true;location.hash=prev&&prev!==location.hash?prev:'#/home'}
+const NAVC=(()=>{try{return JSON.parse(localStorage.getItem('callit.navc')||'{}')}catch(_){return {}}})();
 function chrome(route){const link=([k,l])=>`<a href="#/${k}" class="${route===k?'on':''}" title="${l}">${k==='notifications'?`<span class="nbadge">${ic('bell')}${unreadN()?`<i>${unreadN()}</i>`:''}</span>`:ic(k)}<span class="lbl">${l}</span></a>`;
- $('#navA').innerHTML=NAV_A.map(link).join('');$('#navB').innerHTML=NAV_B.map(link).join('')+`<a href="#/premium" class="navprem${route==='premium'?' on':''}${isPrem(S.me)?' active':''}" title="Premium">${ic('verified',20)}<span class="lbl">Premium</span></a>`;
+ $('#navA').innerHTML=NAV_A.map(link).join('');$('#navB').innerHTML=NAV_B.map(link).join('');
+ // Premium sits at the top of the tray (under Search) so it's never scrolled out of view on short laptop screens.
+ $('#navP').innerHTML=`<a href="#/premium" class="navprem${route==='premium'?' on':''}${isPrem(S.me)?' active':''}" title="Premium">${ic('verified',20)}<span class="lbl">${isPrem(S.me)?'Premium':'Get Premium'}</span></a>`;
+ // Collapsible tray groups, remembered on this device.
+ ['A','B'].forEach(g=>{const shut=!!NAVC[g],btn=document.querySelector(`[data-act="navgrp"][data-f="${g}"]`),nav=$('#nav'+g);
+  if(nav)nav.classList.toggle('shut',shut);
+  if(btn){btn.setAttribute('aria-expanded',String(!shut));if(!btn.querySelector('.gchev'))btn.insertAdjacentHTML('beforeend',`<span class="gchev" aria-hidden="true">${ic('down',15)}</span>`)}});
  $('#acct').innerHTML=S.connected?`<div class="acctrow"><a class="acct" href="#/you" title="You">${avatar(S.me)}<span class="lbl" style="min-width:0"><b style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(nameOf(S.me))}</b><span class="hint num">@${esc(S.me)}</span></span></a><button class="ib logout" data-act="logout" aria-label="Log out" title="Log out">${ic('logout',19)}</button></div>`
   :`<button class="btn primary connect" data-act="connect" title="Connect wallet">${ic('wallet',20)}<span class="lbl">Connect wallet</span></button>`;
  $('#pill').innerHTML=`<button class="btn sm swp srch" data-act="search" aria-label="Search">${ic('search',15)}<span>Search</span></button><button class="btn primary sm dep" data-act="deposit">${ic('down',15)}<span>Deposit</span></button>
@@ -1374,6 +1466,14 @@ function render(){if(isPhone())document.body.classList.add('collapsed');const [,
  if(r==='post'){wireAttach($('#rbox'),RDRAFT,()=>drawRMedia());if(S.focusReply){S.focusReply=false;setTimeout(()=>{const i=$('#rin');i&&i.focus()},60)}}}
 
 /* ---------- modals ---------- */
+/* Keyboard: iOS Safari and in-app browsers ignore interactive-widget, so track the visual viewport
+   and lift bottom sheets above the keyboard (--kb) with a height that fits what's left (--vvh). */
+(()=>{if(typeof window==='undefined'||!window.visualViewport)return;const vv=window.visualViewport,de=document.documentElement;
+ const set=()=>{const kb=Math.max(0,Math.round(window.innerHeight-vv.height-vv.offsetTop));de.style.setProperty('--kb',(kb>60?kb:0)+'px');de.style.setProperty('--vvh',Math.round(vv.height)+'px');de.classList.toggle('kb-open',kb>60)};
+ vv.addEventListener('resize',set);vv.addEventListener('scroll',set);set();
+ // Keep whatever you're typing in view inside a sheet.
+ document.addEventListener('focusin',e=>{const el=e.target;if(!el||!el.matches||!el.matches('textarea,input:not([type=range]):not([type=checkbox])')||!el.closest('.modal,.sh'))return;
+  setTimeout(()=>{try{el.scrollIntoView({block:'center',behavior:'smooth'})}catch(_){}},280)})})();
 function modal(title,sub,body,onMount){$('#modal').innerHTML=`<div class="scrim" data-act="close"><div class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="mhead"><div><h2>${title}</h2>${sub?`<p class="sub">${sub}</p>`:''}</div><button class="ib" data-act="close" aria-label="Close">${ic('x',18)}</button></div>${body}</div></div>`;
  onMount&&onMount($('#modal .modal'));skin($('#modal'));const f=$('#modal input,#modal textarea');f&&f.focus()}
 function skin(root){(root||document).querySelectorAll('select.input:not([data-skinned])').forEach(sel=>{sel.dataset.skinned=1;sel.hidden=true;
@@ -1453,10 +1553,21 @@ let SRT=0,STR=0,SUT=0;
 const tickOf=t=>String(t.sym||'').toUpperCase().replace(/^\$/,'').trim();
 const bornOf=t=>{const d=t&&t.L&&t.L.createdAt;const v=d?Date.parse(d):NaN;return isNaN(v)?null:v};
 const legit=t=>!!(t.L&&t.L.verified)||OGSET.has(t.key);
-function ogKeys(list){const g={},og=new Set();list.forEach(t=>{const k=tickOf(t);if(k)(g[k]=g[k]||[]).push(t)});
- Object.values(g).forEach(a=>{a.forEach(t=>{if(OGSET.has(t.key))og.add(t.key)});if(a.length<2||a.some(t=>og.has(t.key)))return;
-  const dated=a.filter(t=>bornOf(t)!=null);if(!dated.length)return;const pool=dated.some(legit)?dated.filter(legit):dated;
-  og.add(pool.sort((x,y)=>bornOf(x)-bornOf(y))[0].key)});return og}
+/* Clusters: same ticker OR same name (ignoring case, spaces, symbols) are one narrative, so
+   "SpaceXSI $SPCX", "SpaceXSI $SXSI" and "spacexsi" get ONE OG between them, not one each. */
+const normK=v=>String(v||'').toLowerCase().replace(/^\$/,'').replace(/[^a-z0-9]/g,'');
+function clusters(list){const par={},f=x=>par[x]===x?x:(par[x]=f(par[x])),u=(a,b)=>{par[a]=par[a]||a;par[b]=par[b]||b;par[f(a)]=f(b)};
+ list.forEach(t=>{const a=normK(t.sym),b=normK(t.name);if(a)u(a,a);if(b)u(b,b);if(a&&b)u(a,b)});
+ const g={};list.forEach(t=>{const k=normK(t.sym)||normK(t.name);if(!k)return;const r=f(k);(g[r]=g[r]||[]).push(t)});return Object.values(g)}
+function ogKeys(list){const og=new Set(),run=new Set();og.run=run;og.of={};
+ clusters(list).forEach(a=>{a.forEach(t=>{og.of[t.key]=a});
+  // OG: a known OG meme wins; else the oldest legit (verified) copy; else the oldest copy.
+  const known=a.filter(t=>OGSET.has(t.key));
+  if(known.length)known.forEach(t=>og.add(t.key));
+  else if(a.length>=2){const dated=a.filter(t=>bornOf(t)!=null);if(dated.length){const pool=dated.some(legit)?dated.filter(legit):dated;og.add(pool.sort((x,y)=>bornOf(x)-bornOf(y))[0].key)}}
+  // Runner: the copy with the biggest market cap, if it's actually running.
+  if(a.length>=2){const top=[...a].sort((x,y)=>(mcap(y)||0)-(mcap(x)||0))[0];if(top&&(mcap(top)||0)>=2e4)run.add(top.key)}});
+ return og}
 const ageTag=t=>{const b=bornOf(t);return b==null?'':`<span class="sage" title="Launched ${new Date(b).toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'})}">${ageStr(Math.max(0,(Date.now()-b)/36e5))}</span>`};
 /* ---------- Push alerts: wallets, token bells, callers you follow, call milestones ---------- */
 const AL={d:null,err:null,busy:0,sub:null};
@@ -1609,10 +1720,11 @@ function searchModal(){S.stf=TF_OK.includes(S.stf)?S.stf:'1h';S.sk=SK.some(x=>x[
  const kbar=()=>`<div class="kseg tgl skind" style="--i:${SK.findIndex(x=>x[0]===S.sk)};--n:4;grid-template-columns:repeat(4,1fr)" role="tablist" aria-label="What are you searching for?">${SK.map(([k,l,i])=>`<button type="button" role="tab" aria-selected="${S.sk===k}" class="${S.sk===k?'on':''}" data-sk="${k}">${ic(i,15)}<span>${l}</span></button>`).join('')}</div>`;
  modal('Search','',`${kbar()}<div class="tsearch">${ic('search',18)}<input id="sq" placeholder="${ph()}" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search"></div><div class="list" id="sres" style="margin-top:6px"></div>`,
  m=>{const box=$('#sres',m),inp=$('#sq',m),qv=()=>inp.value.trim().replace(/^[$@]/,'');
-  const trow2=(t,tf,og)=>{const v=chgOf(t,tf),isOg=og&&og.has(t.key);return `<a class="li srow${isOg?' isog':''}" href="#/token/${t.key}" data-act="close">${tokav(t.key)}<div class="grow"><b>${esc(t.name)}</b>${t.L&&t.L.verified?`<span class="vbadge" title="Verified on Jupiter">${ic('check',10)}</span>`:''}${isOg?'<span class="ogtag" title="The first token launched with this ticker">OG</span>':''}<div class="hint num">$${esc(t.sym)}${ageTag(t)} · ${fmtSmall(mcap(t))} MC${t.vol?` · V ${fmtSmall(t.vol)}`:''}</div></div><b class="num ${pcls(v)}">${pctS(v)}</b><button class="wstar${S.watch.has(t.key)?' on':''}" data-act="track" data-t="${esc(t.key)}" aria-pressed="${S.watch.has(t.key)}" aria-label="Watchlist" title="Watchlist">${ic('star',17,S.watch.has(t.key))}</button></a>`};
+  const trow2=(t,tf,og)=>{const v=chgOf(t,tf),isOg=og&&og.has(t.key);return `<a class="li srow${isOg?' isog':''}${og&&og.run&&og.run.has(t.key)?' isrun':''}" href="#/token/${t.key}" data-act="close">${tokav(t.key)}<div class="grow"><b>${esc(t.name)}</b>${t.L&&t.L.verified?`<span class="vbadge" title="Verified on Jupiter">${ic('check',10)}</span>`:''}${isOg?'<span class="ogtag" title="The first token launched with this name or ticker">OG</span>':''}${og&&og.run&&og.run.has(t.key)?'<span class="runtag" title="Biggest market cap of every token with this name"><i class="rkt" aria-hidden="true">🚀</i>Runner</span>':''}<div class="hint num">$${esc(t.sym)}${ageTag(t)} · ${fmtSmall(mcap(t))} MC${t.vol?` · V ${fmtSmall(t.vol)}`:''}</div></div><b class="num ${pcls(v)}">${pctS(v)}</b><button class="wstar${S.watch.has(t.key)?' on':''}" data-act="track" data-t="${esc(t.key)}" aria-pressed="${S.watch.has(t.key)}" aria-label="Watchlist" title="Watchlist">${ic('star',17,S.watch.has(t.key))}</button></a>`};
   const prow=c=>`<a class="li" href="#/profile/${c.h}" data-act="close">${avatar(c.h)}<div class="grow"><b>${esc(nameOf(c.h))}</b><div class="hint">@${esc(c.h)}${c.calls?` · ${c.calls} calls, ${c.win}% win rate`:''}</div></div>${rankOf(c.h)?`<span class="rk">#${rankOf(c.h)}</span>`:''}</a>`;
   /* Legit and OG first, then by volume. */
-  const rank=(list,og)=>list.sort((a,b)=>((og.has(b.key)?2:0)+(legit(b)?1:0))-((og.has(a.key)?2:0)+(legit(a)?1:0))||(b.vol||0)-(a.vol||0));
+  /* Runner first, then OG, then legit, then biggest market cap. */
+  const rank=(list,og)=>list.sort((a,b)=>((og.run&&og.run.has(b.key)?4:0)+(og.has(b.key)?2:0)+(legit(b)?1:0))-((og.run&&og.run.has(a.key)?4:0)+(og.has(a.key)?2:0)+(legit(a)?1:0))||(mcap(b)||0)-(mcap(a)||0));
   const loadTrend=force=>{const id='movers:'+S.stf;if(LIVE.busy[id]||(!force&&LIVE.feeds[id]))return;LIVE.busy[id]=1;
    fetchFeed('movers',S.stf).then(l=>{LIVE.feeds[id]=l.map(regLive).filter(Boolean).map(t=>t.key);LIVE.err[id]=0;LIVE.at[id]=Date.now()}).catch(()=>{LIVE.err[id]=1}).finally(()=>{LIVE.busy[id]=0;if(box.isConnected&&!qv()&&S.sk==='tokens')draw()})};
   const trending=()=>{const id='movers:'+S.stf,ks=LIVE.feeds[id];
@@ -1660,8 +1772,8 @@ function searchModal(){S.stf=TF_OK.includes(S.stf)?S.stf:'1h';S.sk=SK.some(x=>x[
     box.insertAdjacentHTML('afterbegin',`<div class="tsec">Wallet belongs to</div>${prow(C[p.handle])}`)}).catch(()=>{});
    SRT=setTimeout(()=>searchTokens(q).then(res=>{const el=$('#slive',m);if(!el||qv()!==q||S.sk!=='tokens')return;
     const rows=res.map(regLive).filter(Boolean),seen=new Set(),all=[...rows,...local].filter(t=>!seen.has(t.key)&&seen.add(t.key));
-    const og=ogKeys(all),top=rank(all,og).slice(0,12),copies=top.filter(t=>!og.has(t.key)&&[...og].some(k=>T[k]&&tickOf(T[k])===tickOf(t))).length;
-    el.innerHTML=top.length?`<div class="tsec">Tokens</div>${copies?`<p class="hint sognote">${ic('target',13)} ${copies} cop${copies>1?'ies':'y'} share a ticker with an OG. Check the contract before you buy.</p>`:''}${top.map(t=>trow2(t,'24h',og)).join('')}`:(isMintStr(q)?`<a class="li" href="#/token/${q}" data-act="close"><div class="grow"><b>Open ${short(q)}</b><div class="hint">Look up this contract address</div></div></a>`:`<p class="hint" style="padding:8px 4px">No live token matches “${esc(q)}”.</p>`)})
+    const og=ogKeys(all),top=rank(all,og).slice(0,12),copies=top.filter(t=>!og.has(t.key)&&(og.of[t.key]||[]).some(x=>og.has(x.key))).length;
+    el.innerHTML=top.length?`<div class="tsec">Tokens</div>${copies?`<p class="hint sognote">${ic('target',13)} ${copies} cop${copies>1?'ies':'y'} of an OG in here. Check the contract before you buy.</p>`:''}${top.map(t=>trow2(t,'24h',og)).join('')}`:(isMintStr(q)?`<a class="li" href="#/token/${q}" data-act="close"><div class="grow"><b>Open ${short(q)}</b><div class="hint">Look up this contract address</div></div></a>`:`<p class="hint" style="padding:8px 4px">No live token matches “${esc(q)}”.</p>`)})
     .catch(()=>{const b=$('#sbusy',m);if(b)b.textContent='Live search is unavailable right now.'}),250)};
   m.addEventListener('click',e=>{const cl=e.target.closest('[data-sclear]');if(cl){e.preventDefault();recentClear(cl.dataset.sclear);draw();return}
    const hit=e.target.closest('#sres a.li[href]');if(hit){const h=hit.getAttribute('href');let mm;
@@ -1671,7 +1783,7 @@ function searchModal(){S.stf=TF_OK.includes(S.stf)?S.stf:'1h';S.sk=SK.some(x=>x[
    const t=e.target.closest('[data-stf]');if(t){e.preventDefault();S.stf=t.dataset.stf;draw();return}
    if(e.target.closest('[data-sretry]')){LIVE.err['movers:'+S.stf]=0;draw()}});
   inp.addEventListener('input',draw);
-  inp.addEventListener('keydown',e=>{if(e.key==='Enter'){const f=box.querySelector('a.li');if(f){e.preventDefault();location.hash=f.getAttribute('href');closeModal()}}});
+  inp.addEventListener('keydown',e=>{if(e.key==='Enter'){const f=box.querySelector('#slive a.li')||box.querySelector('a.li');if(f){e.preventDefault();const h=f.getAttribute('href');if(h.startsWith('#/token/')){const t=T[decodeURIComponent(h.slice(8))];if(t)recentAdd({t:'tok',k:t.key,sym:t.sym,name:t.name})}location.hash=h;closeModal()}}});
   clearInterval(STR);STR=setInterval(()=>{if(!box.isConnected)return clearInterval(STR);if(!document.hidden&&!qv()&&S.sk==='tokens')loadTrend(true)},10000);
   draw();setTimeout(()=>inp.focus(),40)})}
 const NOTIFS=[];
@@ -1931,7 +2043,7 @@ function newsCard(){const live=newsItems().filter(n=>n.kind==='chain').slice(0,5
 const NEWS={recent:{},trending:{},calendar:{}};
 const NPLAT={x:['X','#E7E9EA'],reddit:['Reddit','#FF4500'],youtube:['YouTube','#FF0033'],bluesky:['Bluesky','#1185FE'],hackernews:['Hacker News','#FF6600'],coingecko:['CoinGecko','#8DC63F'],google:['Google','#4285F4'],callit:['Callit','#4DA8FF'],news:['News','#8FA6BA']};
 function loadNews(tab,force){const N=NEWS[tab];if(N.busy||(!force&&N.at&&Date.now()-N.at<3e5))return;N.busy=1;
- fetch('/api/news?tab='+tab).then(r=>r.json()).then(j=>{N.d=j;N.err=j.error||null}).catch(()=>{N.err='News is unavailable right now.'}).finally(()=>{N.busy=0;N.at=Date.now();if(currentRoute()==='news'&&!document.querySelector('#modal .modal'))render();const sr=$('#sres');if(sr&&S.sk==='trends')sr.dispatchEvent(new Event('newsready'))})}
+ fetch('/api/news?tab='+tab).then(r=>r.json()).then(j=>{N.d=j;N.err=j.error||null}).catch(()=>{N.err='News is unavailable right now.'}).finally(()=>{N.busy=0;N.at=Date.now();if(currentRoute()==='news'&&!document.querySelector('#modal .modal'))render();else if(tab==='recent'&&currentRoute()==='home'){const rl=$('#rail');if(rl)rl.innerHTML=rail()}const sr=$('#sres');if(sr&&S.sk==='trends')sr.dispatchEvent(new Event('newsready'))})}
 /* Callit's own trending: most-called tokens and the most engaged posts in the last day. */
 function callitTrends(){const now=Date.now(),out=[],day=calls.filter(k=>visible(k)&&k.at&&now-k.at<864e5);
  const by={};day.filter(k=>k.kind==='meme'&&k.t).forEach(k=>{(by[k.t]=by[k.t]||[]).push(k)});
@@ -2331,7 +2443,11 @@ window.callitApplySession=(p,o={})=>{
  if(realAuth()&&S.addr!==prevAddr){S.bal={SOL:0};S.activity=[];S.balAt=0;for(const k in RAW)delete RAW[k];S.swap.amt=''}
  C[S.me]=C[S.me]||{h:S.me,win:0,avg:0,calls:0,best:0,followers:0};
  PROF={...PROF,name:p.display_name??PROF.name??'',bio:p.bio??PROF.bio??'',web:p.website??PROF.web??'',x:p.x_handle??PROF.x??'',avatar:p.avatar_url||PROF.avatar,banner:p.banner_url||PROF.banner};saveProf();
- closeModal();render();loadBalances();if(realAuth()){loadMe();loadPosts()}
+ // Only close the sign-in sheet. Session re-syncs (token refresh, embedded wallet arriving a moment
+ // after load) used to close whatever was open, which is why the Buy sheet kept snapping shut.
+ const om=document.querySelector('#modal .modal'),lab=om&&om.getAttribute('aria-label')||'';
+ if(om&&/^(Sign in to Callit|Welcome back|Create your Callit account)$/.test(lab))closeModal();
+ render();loadBalances();if(realAuth()){loadMe();loadPosts()}
  if(first){toast(o.isNew?'Welcome to Callit. Your wallet is ready':'Signed in');const n=pendingNext;pendingNext=null;if(n)n();else if(o.isNew)maybeOnboard()}};
 window.callitAuthChanged=()=>syncLanding();
 window.callitWalletChanged=()=>{if(REALW())loadBalances()};
@@ -2372,6 +2488,7 @@ document.addEventListener('click',e=>{
   pidx:()=>{S.pidx=+b.dataset.f;const [,,p]=location.hash.split('/'),el=$('#lpair');if(el&&T[p])el.innerHTML=pairCard(T[p])},ptf:()=>{S.ptf=b.dataset.f;const [,,p]=location.hash.split('/'),el=$('#lpair');if(el&&T[p])el.innerHTML=pairCard(T[p])},
   tagpost:()=>{const tg=b.dataset.f;composeModal(S.cat==='perps'?'meme':S.cat);setTimeout(()=>{const ta=$('#modal textarea');if(!ta)return;ta.value=(ta.value?ta.value.trimEnd()+' ':'')+'#'+tg+' ';ta.dispatchEvent(new Event('input',{bubbles:true}));ta.focus()},80)},
   newcall:()=>composeModal(b.dataset.t?'meme':(b.dataset.k||(currentRoute()==='home'?S.cat:'meme')),{pre:b.dataset.t}),
+  navgrp:()=>{const g=b.dataset.f;NAVC[g]=!NAVC[g];try{localStorage.setItem('callit.navc',JSON.stringify(NAVC))}catch(_){}chrome(currentRoute())},
   install:()=>installApp(),instclose:()=>{try{localStorage.setItem('callit.installDismissed','1')}catch(_){}const x=$('#instbar');x&&x.remove()},
   dmsend:()=>{const i=$('#msgin'),v=i&&i.value.trim();if(!v)return;DMS[b.dataset.f].push(['me',v,'now']);render();const m=$('#msgs');m&&m.lastElementChild&&m.lastElementChild.scrollIntoView({block:'end'});setTimeout(()=>{const n=$('#msgin');n&&n.focus()},50)},
   dmnew:()=>{if(!S.connected)return connectModal();modal('New message','Pick a caller',`<div class="list">${ranked().map(c=>`<a class="li" href="#/messages/${c.h}" data-act="close">${avatar(c.h)}<div class="grow"><b>${c.h}</b><div class="hint">${c.win}% win rate</div></div></a>`).join('')}</div>`)},
@@ -2419,7 +2536,7 @@ document.addEventListener('click',e=>{
   viewav:()=>viewPhoto(b.dataset.h),
   collapse:()=>{document.body.classList.toggle('collapsed');syncTray()},
   tt:()=>{if(S.tt===b.dataset.f)return scrollTo({top:0,behavior:'smooth'});S.tt=b.dataset.f;render();scrollTo({top:0})},
-  fsopen:()=>openSheet('f'),dsopen:()=>openSheet('d'),shclose:()=>closeSheet(),
+  fsopen:()=>openSheet('f',b.dataset.tab),dsopen:()=>openSheet('d'),shclose:()=>closeSheet(),
   fstab:()=>{SH.tab=b.dataset.v;drawSheet()},
   fschip:()=>{const a=SH.d[b.dataset.g],v=b.dataset.v,i=a.indexOf(v);i<0?a.push(v):a.splice(i,1);drawSheet()},
   fslpall:()=>{SH.d.lps=SH.d.lps.length===LPS.length?[]:LPS.map(l=>l[0]);drawSheet()},
@@ -2427,9 +2544,11 @@ document.addEventListener('click',e=>{
   fstf:()=>{SH.d.tf=b.dataset.v;drawSheet()},
   ttf:()=>{TS.fil[S.tt]={...filOf(S.tt),tf:b.dataset.f};saveTS();render()},
   fsrisk:()=>{Object.assign(SH.d,RISK[b.dataset.v][2]);drawSheet()},
+  fsai:()=>{SH.d.ai=b.dataset.v;drawSheet()},
+  aiq:()=>{const k=S.tt,cur=filOf(k);TS.fil[k]={...(TS.fil[k]||{}),ai:cur.ai?'':(TS.aiLast||'balanced')};if(cur.ai)TS.aiLast=cur.ai;saveTS();render()},
   fsflag:()=>{const k=b.dataset.v;SH.d[k]=SH.d[k]?0:1;drawSheet()},
   fsclear:()=>{SH.d=defFil();drawSheet()},
-  fsapply:()=>{TS.fil[S.tt]=SH.d;saveTS();closeSheet();render()},
+  fsapply:()=>{TS.fil[S.tt]=SH.d;if(SH.d.ai)TS.aiLast=SH.d.ai;saveTS();closeSheet();render()},
   fsclear1:()=>{delete TS.fil[S.tt];saveTS();render()},
   dsopt:()=>{const k=b.dataset.v;TS.disp[k]=TS.disp[k]?0:1;saveTS();drawSheet();render()},
   dsfeed:()=>{const f=TS.feeds.find(x=>x[0]===b.dataset.v);if(f[1]&&TS.feeds.filter(x=>x[1]).length===1)return toast('Keep at least one feed on');f[1]=f[1]?0:1;
@@ -2476,7 +2595,7 @@ document.addEventListener('click',e=>{
    if(b.closest('#modal')||b.closest('.pbar')||b.closest('.trow')){document.querySelectorAll(`[data-act="track"][data-t="${CSS.escape(t)}"]`).forEach(x=>{if(x.classList.contains('wrm'))return;x.classList.toggle('on',on);x.setAttribute('aria-pressed',on);const sv=x.querySelector('svg');if(sv)sv.setAttribute('fill',on?'currentColor':'none')});return}
    render()},
   withdraw:()=>withdrawModal(),send:()=>withdrawModal(),receive:()=>depositModal(),deposit:()=>depositModal(),
-  ltf:()=>{S.ltf=b.dataset.f;render()},lsrc:()=>{S.lsrc=S.lsrc==='callit'?'dex':'callit';try{localStorage.setItem('callit.lsrc',S.lsrc)}catch(_){}render()},lmode:()=>{S.lmode=b.dataset.f;render()},lretry:()=>{(lfIds(S.tt,filOf(S.tt))||[]).forEach(id=>{LIVE.err[id]=0;loadFeed(id)});render()},ltokretry:()=>{LIVE.tokErr[b.dataset.t]=0;render()},
+  ltf:()=>{S.ltf=b.dataset.f;S.ltfUser=1;render()},lsrc:()=>{S.lsrc=S.lsrc==='callit'?'dex':'callit';try{localStorage.setItem('callit.lsrc',S.lsrc)}catch(_){}render()},lmode:()=>{S.lmode=b.dataset.f;render()},lretry:()=>{(lfIds(S.tt,filOf(S.tt))||[]).forEach(id=>{LIVE.err[id]=0;loadFeed(id)});render()},ltokretry:()=>{LIVE.tokErr[b.dataset.t]=0;render()},
   tside:()=>{const w=S.swap,t=b.dataset.t;if(b.dataset.f==='sell'){w.from=t;w.to='SOL'}else{w.from='SOL';w.to=t}w.amt='';renderSwaps()},
   flip:()=>{const w=S.swap;[w.from,w.to]=[w.to,w.from];w.amt='';renderSwaps()},
   doswap:()=>{const w=S.swap,x=parseFloat(w.amt),out=usd(w.from,x)*.995/T[w.to].price,imp=impact(w.to,usd(w.from,x));

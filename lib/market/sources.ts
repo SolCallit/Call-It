@@ -32,6 +32,8 @@ export type LiveToken = {
   socials: { x: string | null; web: string | null; tg: string | null };
   launchpad: string | null;
   decimals: number | null;
+  /** What the token trades against in its main pool (SOL, USDC, a stock token, another meme...). */
+  quote?: { mint: string; sym: string } | null;
   /** Buy/sell volume (USD) and counts over 5m and 1h, for Heat. */
   flow?: { m5: Flow | null; h1: Flow | null } | null;
 };
@@ -117,9 +119,43 @@ export async function jupList(feed: Feed, interval: '5m' | '1h' | '6h' | '24h' =
   const path =
     feed === 'new' ? '/tokens/v2/recent'
     : `/tokens/v2/${feed === 'movers' ? 'toptrending' : feed === 'traded' ? 'toptraded' : 'toporganicscore'}/${interval}?limit=${limit}`;
-  const data = await getJSON<JupToken[]>(JUP + path, feed === 'new' ? 5 : 6, jupHeaders());
-  if (Array.isArray(data) && data.length) return data.filter((j) => j && j.id).map(fromJup);
-  return dsList(feed); // Jupiter unavailable (no key / rate limit): fall back to DexScreener
+  const [data, extra] = await Promise.all([
+    getJSON<JupToken[]>(JUP + path, feed === 'new' ? 5 : 6, jupHeaders()),
+    feed === 'new' ? gtNewLaunches() : Promise.resolve([] as LiveToken[]),
+  ]);
+  if (Array.isArray(data) && data.length) {
+    const out = data.filter((j) => j && j.id).map(fromJup);
+    const seen = new Set(out.map((t) => t.mint));
+    for (const t of extra) if (!seen.has(t.mint)) { seen.add(t.mint); out.push(t); }
+    return out;
+  }
+  return extra.length ? extra : dsList(feed); // Jupiter unavailable (no key / rate limit): fall back to DexScreener
+}
+
+/**
+ * New pools on every Solana DEX/launchpad from GeckoTerminal (Meteora DBC, LaunchLab, Moonshot,
+ * Raydium, Orca...). pump.fun already streams in live through PumpPortal, so it's skipped here to
+ * give the other launchpads room in the New feed.
+ */
+type GtPool = { attributes?: { address?: string; pool_created_at?: string }; relationships?: { base_token?: { data?: { id?: string } }; quote_token?: { data?: { id?: string } }; dex?: { data?: { id?: string } } } };
+const GT_LP: [RegExp, string][] = [[/dbc|dynamic-bonding|meteora/, 'meteora'], [/launchlab|raydium-launch/, 'launchlab'], [/moonshot/, 'moonshot'], [/boop/, 'boop'], [/bonk/, 'bonk']];
+async function gtNewLaunches(): Promise<LiveToken[]> {
+  const pages = await Promise.all([1, 2].map((p) => getJSON<{ data?: GtPool[] }>(`${GT}/networks/solana/new_pools?page=${p}`, 15)));
+  const pools = pages.flatMap((d) => d?.data || []);
+  const meta = new Map<string, { dex: string; quote: string | null }>();
+  for (const p of pools) {
+    const dex = p.relationships?.dex?.data?.id || '';
+    const mint = (p.relationships?.base_token?.data?.id || '').replace(/^solana_/, '');
+    if (!isMint(mint) || /pump/.test(dex) || meta.has(mint)) continue;
+    meta.set(mint, { dex, quote: (p.relationships?.quote_token?.data?.id || '').replace(/^solana_/, '') || null });
+  }
+  if (!meta.size) return [];
+  const toks = await jupMany([...meta.keys()].slice(0, 40));
+  return toks.map((t) => {
+    const m = meta.get(t.mint);
+    const lp = t.launchpad || (m ? GT_LP.find(([re]) => re.test(m.dex))?.[1] ?? null : null);
+    return { ...t, launchpad: lp, dex: t.dex || m?.dex || null };
+  });
 }
 
 /** Fallback lists from DexScreener: newest token profiles, or most-boosted tokens. */
@@ -171,6 +207,7 @@ type DsPair = {
   liquidity?: { usd?: number }; volume?: { h24?: number }; priceChange?: { m5?: number; h1?: number; h6?: number; h24?: number };
   txns?: { h24?: { buys?: number; sells?: number } };
   baseToken: { address: string; name: string; symbol: string };
+  quoteToken?: { address: string; name?: string; symbol: string };
   info?: { imageUrl?: string; websites?: { url: string }[]; socials?: { type: string; url: string }[] };
 };
 
@@ -216,6 +253,7 @@ export function withPair(t: LiveToken | null, pairs: DsPair[]): LiveToken | null
     ...live,
     pool: best.pairAddress,
     dex: best.dexId,
+    quote: best.quoteToken?.address ? { mint: best.quoteToken.address, sym: (best.quoteToken.symbol || '').slice(0, 16) } : null,
     icon: base.icon || best.info?.imageUrl || null,
     socials: {
       x: base.socials.x || soc('twitter'),

@@ -40,7 +40,7 @@ export async function POST(req: Request) {
   } catch (e) {
     const msg = e instanceof RpcError ? e.message : String(e);
     console.error('[wallet/send]', msg);
-    return NextResponse.json({ error: friendly(msg) }, { status: 422 });
+    return NextResponse.json({ error: friendly(msg), detail: msg.slice(0, 400) }, { status: 422 });
   }
 
   for (let i = 0; i < 20; i++) {
@@ -48,7 +48,7 @@ export async function POST(req: Request) {
     try {
       const st = await rpc<{ value: ({ confirmationStatus?: string; err: unknown } | null)[] }>('getSignatureStatuses', [[signature]]);
       const s = st.value?.[0];
-      if (s?.err) return NextResponse.json({ signature, status: 'failed', error: 'The transaction failed on-chain.' }, { status: 422 });
+      if (s?.err) return NextResponse.json({ signature, status: 'failed', error: 'The transaction failed on-chain. Nothing was sent.', detail: s.err }, { status: 422 });
       if (s && (s.confirmationStatus === 'confirmed' || s.confirmationStatus === 'finalized')) {
         return NextResponse.json({ signature, status: 'confirmed' });
       }

@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyPrivyToken } from "@/lib/auth/privy-server";
 import { executeOrder } from "@/lib/jupiter";
+import { errText } from "@/lib/errors";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -52,11 +53,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       status: result.status,
       signature: result.signature ?? null,
-      error: result.status === "Success" ? null : friendly(String(result.error ?? ""), result.code),
+      error: result.status === "Success" ? null : friendly(errText(result.error), result.code),
       code: result.code,
     });
   } catch (e) {
     console.error("[swap/execute]", e);
-    return NextResponse.json({ error: "Failed to execute swap" }, { status: 502 });
+    return NextResponse.json({ error: "Jupiter couldn't send the swap. Try again.", detail: e instanceof Error ? e.message : String(e) }, { status: 502 });
   }
 }

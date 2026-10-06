@@ -2214,3 +2214,111 @@ tr.mine td{background:color-mix(in srgb,var(--hi) 10%,transparent)}
 .hmcard.open .hmwarn{display:none}
 .hmbody{margin-top:10px}
 @media (prefers-reduced-motion:reduce){.hmchev,.hmchev svg{transition:none}}
+/* ---------- AI Auto ---------- */
+.aibar{display:flex;align-items:center;gap:10px;padding:8px 12px 2px}
+.aiq{flex:1;min-width:0;display:flex;align-items:center;gap:10px;text-align:left;font:inherit;color:var(--text);cursor:pointer;
+  background:var(--bg2);border:1.5px solid var(--line);border-radius:999px;padding:7px 8px 7px 8px;box-shadow:var(--raise-sm);
+  transition:translate .3s var(--spring),border-color .2s,background .2s}
+.aiq:hover{translate:0 -1px}.aiq:active{translate:0 1px}
+.aiq>span:nth-child(2){flex:1;min-width:0;display:flex;flex-direction:column}
+.aiq b{font-size:14px;line-height:1.2}.aiq small{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.aiqi{width:32px;height:32px;flex:none;display:grid;place-items:center;border-radius:50%;background:var(--bg);font-size:17px}
+.aisw{flex:none;width:40px;height:24px;border-radius:999px;background:var(--line);position:relative;transition:background .2s}
+.aisw::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.35);transition:translate .3s var(--spring)}
+.aibar.on .aiq{border-color:color-mix(in srgb,var(--up) 55%,var(--line));background:color-mix(in srgb,var(--up) 10%,var(--bg2))}
+.aibar.on .aisw{background:var(--up)}.aibar.on .aisw::after{translate:16px 0}
+.aiS{display:inline-flex;align-items:center;gap:3px;flex:none;font-size:10.5px;font-weight:800;line-height:1;padding:3px 7px;border-radius:999px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.aiS.g-strong{background:color-mix(in srgb,var(--up) 22%,transparent);color:var(--up)}
+.aiS.g-good{background:color-mix(in srgb,var(--up) 12%,transparent);color:var(--up)}
+.aiS.g-watch{background:color-mix(in srgb,#F5A524 16%,transparent);color:#E39A1F}
+.aiS.g-weak{background:var(--bg2);color:var(--muted)}
+.aiwhy{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:3px;font-size:11.5px;color:var(--up);min-width:0}
+.aiwhy span{white-space:nowrap}.aiwhy .warn{color:#E39A1F}
+.aimodes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.aimodes .rcard{display:flex;flex-direction:column;gap:2px;cursor:pointer;font:inherit;color:var(--text)}
+.aimodes .rcard span{font-size:12.5px;color:var(--muted)}
+.aimodes .rcard.on{border-color:var(--up);background:color-mix(in srgb,var(--up) 10%,var(--bg2))}
+.aichecks{margin:0;padding-left:18px;display:grid;gap:6px;font-size:13.5px;color:var(--muted)}.aichecks b{color:var(--text)}
+.aicard{margin-top:12px;padding:10px 12px;border-radius:14px;background:var(--bg);border:1px solid var(--line)}
+.aicard .aihead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}
+.aipill{font-size:12px;font-weight:800;padding:3px 9px;border-radius:999px;background:var(--bg2)}
+.aicard.g-strong .aipill,.aicard.g-good .aipill{color:var(--up);background:color-mix(in srgb,var(--up) 14%,transparent)}
+.aicard.g-watch .aipill{color:#E39A1F}.aicard.g-weak .aipill{color:var(--down)}
+.aicard .aiwhy{font-size:12.5px;gap:4px 12px}
+@media (prefers-reduced-motion:reduce){.aiq,.aisw::after{transition:none}}
+
+/* ---------- Keyboard-aware sheets: sheets ride above the on-screen keyboard ---------- */
+@media (max-width:700px){
+ .scrim:has(.modal){bottom:var(--kb,0px);transition:bottom .18s ease-out}
+ .scrim:has(.modal) .modal{max-height:min(92dvh,calc(var(--vvh,100dvh) - env(safe-area-inset-top,0px) - 10px))}
+ .kb-open .scrim:has(.modal) .modal{padding-bottom:12px;min-height:0}
+ /* While typing, the composer header gets compact so the text box gets the room */
+ .kb-open .modal .sub{display:none}
+ .kb-open .modal h2{font-size:18px}
+ #sheet .sh{bottom:var(--kb,0px);max-height:min(88vh,calc(var(--vvh,100dvh) - env(safe-area-inset-top,0px) - 10px))}
+}
+
+/* ---------- Runner badge: the biggest copy of a name. One launch when results land, then a quiet idle ---------- */
+.runtag{display:inline-flex;align-items:center;gap:3px;margin-left:6px;padding:1px 8px 1px 5px;border-radius:999px;font:900 10.5px/1.5 var(--body);
+  color:#2A0A00;background:linear-gradient(135deg,#FFC66B,#FF6A2B);box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 2px 0 #B8461A,0 4px 12px -3px rgba(255,106,43,.6);vertical-align:2px;position:relative;overflow:visible}
+.runtag .rkt{display:inline-block;font-style:normal;font-size:12px;line-height:1;transform-origin:50% 60%;
+  animation:rktLaunch 1.15s cubic-bezier(.25,.8,.2,1) .15s both,rktIdle 1.8s ease-in-out 1.4s infinite}
+.runtag .rkt::after{content:"";position:absolute;left:3px;bottom:2px;width:6px;height:6px;border-radius:50%;
+  background:radial-gradient(circle,#FFF3B0 0,#FF9A3D 55%,transparent 70%);opacity:0;animation:rktFlame 1.15s ease-out .15s both}
+.isrun{background:linear-gradient(90deg,color-mix(in srgb,#FF6A2B 12%,transparent),transparent 70%)}
+@keyframes rktLaunch{0%{transform:translate(-6px,10px) rotate(0) scale(.5);opacity:0}
+  35%{transform:translate(-2px,2px) rotate(0) scale(1);opacity:1}
+  65%{transform:translate(5px,-12px) scale(1.1);opacity:1}
+  66%{transform:translate(-5px,10px) scale(.7);opacity:0}
+  100%{transform:translate(0,0) scale(1);opacity:1}}
+@keyframes rktFlame{0%,30%{opacity:0}40%,60%{opacity:1;transform:scale(1.6)}66%,100%{opacity:0}}
+@keyframes rktIdle{0%,100%{transform:translateY(0)}50%{transform:translateY(-1.5px) rotate(-4deg)}}
+@media (prefers-reduced-motion:reduce){.runtag .rkt,.runtag .rkt::after{animation:none}}
+
+/* Token page: LIVE tag (dot beside the text, never on top of it) and the pair chip */
+.livetag{display:inline-flex;align-items:center;gap:5px;flex:none;font:800 10.5px/1 var(--body);letter-spacing:.08em;color:var(--up);white-space:nowrap}
+.livetag i{flex:none;width:7px;height:7px;border-radius:50%;background:var(--up);animation:lvpulse 1.6s ease-out infinite}
+.pairchip{text-decoration:none;color:var(--text);border:1px solid color-mix(in srgb,var(--hi) 45%,var(--line))}
+.pairchip.stock{border-color:color-mix(in srgb,var(--up) 55%,var(--line));color:var(--up)}
+@media (prefers-reduced-motion:reduce){.livetag i{animation:none}}
+
+/* Recent searches: chips with the token's icon, tap to reopen, × to remove */
+.rchips{display:flex;flex-wrap:wrap;gap:8px;margin:6px 4px 10px}
+.rchip{display:inline-flex;align-items:center;gap:7px;max-width:100%;padding:4px 6px 4px 4px;border-radius:999px;background:var(--bg2);border:1px solid var(--line);color:var(--text);text-decoration:none;font-size:13.5px;box-shadow:var(--raise-sm);transition:translate .3s var(--spring),border-color .2s}
+.rchip:hover{translate:0 -1px;border-color:var(--hi)}.rchip:active{translate:0 1px}
+.rchip b{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px}
+.rav{width:24px;height:24px;flex:none;border-radius:50%;overflow:hidden;background:var(--hover);display:grid;place-items:center}
+.rav img{width:100%;height:100%;object-fit:cover}.rav i{font-style:normal;font-weight:800;font-size:11px;color:var(--muted)}
+.rdel{display:grid;place-items:center;width:20px;height:20px;border-radius:50%;color:var(--muted);cursor:pointer}
+.rdel:hover{background:var(--hover);color:var(--text)}
+
+/* No accidental pull-to-refresh (full reload) while a sheet or the trade panel is open */
+html:has(#modal .modal),html:has(#sheet.open),body:has(#modal .modal),body:has(#sheet.open){overscroll-behavior-y:none}
+.modal,#sheet .sh{overscroll-behavior:contain}
+
+/* ---------- Tray: collapsible groups + Premium pinned under Search ---------- */
+button.grp{display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:0;border-top:1px solid var(--line);font:inherit;font-size:13px;color:var(--muted);text-align:left;cursor:pointer;border-radius:0}
+button.grp.first{border-top:0}
+button.grp:hover{color:var(--text)}
+button.grp:focus-visible{outline:2px solid var(--hi);outline-offset:2px;border-radius:8px}
+.gchev{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;transition:transform .25s var(--spring),background .2s}
+button.grp:hover .gchev{background:var(--hover)}
+button.grp[aria-expanded="false"] .gchev{transform:rotate(-90deg)}
+.nav.shut{display:none}
+#navP .navprem{margin:12px 4px 2px}
+body.collapsed .gchev{display:none}
+body.collapsed .nav.shut{display:block}
+body.collapsed #navP .navprem{padding:10px;justify-content:center;margin:10px 0 2px}
+.premcta{border-color:color-mix(in srgb,var(--hi) 50%,var(--line));color:var(--hi)}
+
+/* Home rail: Latest news rows (two-line clamp so long headlines don't stretch the rail) */
+.rnews .grow b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:13.5px;line-height:1.3;font-weight:700}
+.rnews .pbadge{flex:none}
+
+/* Tray: slim scrollbar on hover so it's obvious the menu scrolls on short laptop screens */
+@media (min-width:1024px),(orientation:landscape) and (min-width:768px){
+ .sb{scrollbar-width:thin;scrollbar-color:transparent transparent}
+ .sb:hover{scrollbar-color:var(--line) transparent}
+ .sb::-webkit-scrollbar{width:6px}.sb::-webkit-scrollbar-thumb{background:transparent;border-radius:6px}
+ .sb:hover::-webkit-scrollbar-thumb{background:var(--line)}
+}
