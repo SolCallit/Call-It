@@ -1375,7 +1375,7 @@ const BP={market:['Market','market','#/market'],calls:['Hot calls','promote','#/
 const BP_DEF=['market','calls','callers'];
 const bpGet=()=>{try{const v=JSON.parse(localStorage.getItem('callit.board')||'null');return Array.isArray(v)?v.filter(k=>BP[k]):BP_DEF.slice()}catch(_){return BP_DEF.slice()}};
 const bpSet=v=>{try{localStorage.setItem('callit.board',JSON.stringify(v))}catch(_){}};
-const boardOn=()=>!['market','trenches'].includes(currentRoute())&&matchMedia('(min-width:1100px)').matches;
+const boardOn=()=>currentRoute()==='home'&&matchMedia('(min-width:1100px)').matches;
 const bpEmpty=t=>`<p class="hint" style="margin:14px 4px">${t}</p>`;
 function bpBody(k){
  if(k==='market'){const m=['new','almost','grad'].includes(S.rmt)?S.rmt:'new',L={new:'New',almost:'Bonding',grad:'Migrated'};
@@ -1542,7 +1542,7 @@ function render(){if(isPhone())document.body.classList.add('collapsed');const [,
   messages:()=>vMessages(p),lists:()=>vLists(p),
   news:vNews,premium:vPremium,notifications:vNotifs,assistant:vAssistant,bookmarks:vBookmarks,tag:()=>vTag(p),alerts:vAlerts,quotes:()=>vQuotes(p)}[r]||vHome)();
  if(LCHART){LCHART();LCHART=null}
- $('#view').innerHTML=html;document.body.classList.toggle('mwide',r==='market'||r==='trenches');drawRail();chrome(r);renderSwaps();skin($('#view'));syncLanding();mountLiveChart();
+ $('#view').innerHTML=html;document.body.classList.toggle('mwide',r!=='home');drawRail();chrome(r);renderSwaps();skin($('#view'));syncLanding();mountLiveChart();
  if(r==='post'){wireAttach($('#rbox'),RDRAFT,()=>drawRMedia());if(S.focusReply){S.focusReply=false;setTimeout(()=>{const i=$('#rin');i&&i.focus()},60)}}}
 
 /* ---------- modals ---------- */

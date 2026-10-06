@@ -2391,3 +2391,7 @@ body.bpdrag iframe{pointer-events:none}
 .bpmenu button.on{background:color-mix(in srgb,var(--hi) 14%,transparent)}
 .bpmenu button svg{color:var(--muted)}.bpmenu button.on svg{color:var(--hi)}
 .bpb .railfoot{margin-top:22px;padding-top:14px;border-top:1px solid var(--line)}
+/* Pages other than Home: full width, and slightly smaller type so they match Home's density */
+@media (min-width:900px) and (pointer:fine){
+  body.mwide .center{zoom:.9}
+}
