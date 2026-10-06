@@ -2426,3 +2426,31 @@ body.bpdrag iframe{pointer-events:none}
   .bstabs{max-width:440px}
   .lpanel .seg.wide,.ltabs{max-width:none}
 }
+
+/* ---------- Profile: compact balance/PnL card + stats (all screen sizes) ---------- */
+.ytd{padding:10px 12px 8px;border-radius:14px;margin-top:12px}
+.ytdtop b{font-size:17px}
+.ytdtop small{font-size:11.5px}
+.ytdtop .hint{font-size:11.5px}
+.ytdwrap{position:relative;margin-top:6px}
+.ytdline{height:40px;margin-top:0}
+.ytddot{position:absolute;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:var(--c);box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 25%,transparent);pointer-events:none}
+.ytdfoot{margin-top:4px;font-size:10.5px}
+.pstats.p6{margin:10px 0;border-radius:12px}
+.pstats.p6 div{padding:8px 10px}
+.pstats.p6 span{font-size:11.5px}
+.pstats.p6 b{font-size:15px}
+.pdash .pstats.p6{margin-bottom:12px}
+/* Wider screens: balance card and stats sit side by side */
+@media (min-width:700px){
+  .pdash:has(.ytd){display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:10px;align-items:stretch;margin:12px 0}
+  .pdash:has(.ytd) .ytd{margin:0;display:flex;flex-direction:column;justify-content:space-between}
+  .pdash:has(.ytd) .pstats.p6{margin:0}
+  .pdash:has(.ytd) .pstats.p6 div{display:flex;flex-direction:column;justify-content:center}
+}
+@media (max-width:520px){
+  .pstats.p6 div{padding:7px 8px}
+  .pstats.p6 b{font-size:14px}
+  .ytdtop b{font-size:16px}
+  .ytdline{height:34px}
+}
