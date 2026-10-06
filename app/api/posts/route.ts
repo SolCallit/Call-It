@@ -41,14 +41,17 @@ export async function GET(req: Request) {
   // tag=<word>: posts containing #word (case-insensitive)
   const tag = (sp.get('tag') || '').replace(/^#/, '');
   if (/^[A-Za-z0-9_]{1,40}$/.test(tag)) q = q.ilike('body', `%#${tag.replace(/_/g, '\\_')}%`);
+  // quote_of=<post id>: posts quoting that post
+  const quoteOf = sp.get('quote_of') || '';
+  if (/^([0-9a-f-]{36}|welcome)$/i.test(quoteOf)) q = q.eq('quote_ref', quoteOf);
 
   const { data, error } = await q;
   if (error) return json({ error: 'db_read', detail: error.message }, 500);
   const rows = (data || []) as Row[];
   const rowIds = rows.map((r) => r.id);
 
-  const counts: Record<string, { likes: number; reposts: number; replies: number }> = {};
-  rowIds.forEach((id) => (counts[id] = { likes: 0, reposts: 0, replies: 0 }));
+  const counts: Record<string, { likes: number; reposts: number; replies: number; quotes: number }> = {};
+  rowIds.forEach((id) => (counts[id] = { likes: 0, reposts: 0, replies: 0, quotes: 0 }));
   if (rowIds.length) {
     const [re, rp] = await Promise.all([
       db.from('post_reactions').select('post_ref, kind').in('post_ref', rowIds),
@@ -59,6 +62,9 @@ export async function GET(req: Request) {
       if (c) x.kind === 'like' ? c.likes++ : c.reposts++;
     });
     (rp.data || []).forEach((x: { post_ref: string }) => counts[x.post_ref] && counts[x.post_ref].replies++);
+    // Quote counts (ignored until migration 0009 adds quote_ref).
+    const qs = await db.from('posts').select('quote_ref').in('quote_ref', rowIds).is('deleted_at', null);
+    if (!qs.error) (qs.data || []).forEach((x: { quote_ref: string }) => counts[x.quote_ref] && counts[x.quote_ref].quotes++);
   }
 
   const me = await maybeMe(req);

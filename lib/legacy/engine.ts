@@ -159,13 +159,14 @@ function regLive(x){if(!x||!x.mint)return null;const o=T[x.mint]||{},price=x.pri
   pool:x.pool||o.pool||null,lp:LPNAME(x.launchpad)||(/pump$/.test(x.mint)?'Pump':/bonk$/.test(x.mint)?'Bonk':null),
   soc:(x.socials.x?'x':'')+(x.socials.web?'w':'')+(x.socials.tg?'c':''),L:{...(o.L||{}),...x,pool:x.pool||(o.L&&o.L.pool)||null}});
  if(x.holders){const n=Date.now(),hh=(o._hh||[]).filter(p=>n-p[0]<3e5);if(!hh.length||n-hh[hh.length-1][0]>5e3)hh.push([n,x.holders]);o._hh=hh}
- if(price){const n=Date.now(),h=(o._ph||[]).filter(p=>n-p[0]<9e4);if(!h.length||n-h[h.length-1][0]>1500)h.push([n,price]);o._ph=h}
+ if(price){const n=Date.now(),h=(o._ph||[]).filter(p=>n-p[0]<3.7e5);if(!h.length||n-h[h.length-1][0]>1500)h.push([n,price]);o._ph=h}
  if(o.icon&&!o._pre){o._pre=1;try{const im=new Image();im.decoding='async';im.src=cdnIcon(o.icon)}catch(_){}}
  delete o._x;T[x.mint]=o;return o}
 /* Engine feeds -> live lists. almost/grad are built from the newest + trending lists. */
 /* Timeframes for % change: drives Movers ranking, row % and the min-change filter. */
 const TF_OK=['1m','5m','1h','6h','24h'],TFK={'1m':'m1','5m':'m5','1h':'h1','6h':'h6','24h':'h24'};
 /* 1m change isn't in the data feeds, so it comes from the live prices we've seen in the last ~75s. */
+const chg5mLive=t=>{const h=t&&t._ph;if(!h||h.length<2)return null;const z=h[h.length-1],b=h.find(p=>z[0]-p[0]<=3e5);return !b||z[0]-b[0]<2.4e5||!b[1]?null:(z[1]/b[1]-1)*100};
 const chg1m=t=>{const h=t&&t._ph;if(!h||h.length<2)return null;const z=h[h.length-1],b=h.find(p=>z[0]-p[0]<=75e3);return !b||z[0]-b[0]<2e4||!b[1]?null:(z[1]/b[1]-1)*100};
 const chgOf=(t,tf)=>{if(!t)return null;if(tf==='1m')return chg1m(t);const c=t.L&&t.L.chg,v=c?c[TFK[tf]||'h24']:null;return v!=null?v:(!t.live||tf==='24h'?t.chg:null)};
 const byChg=tf=>(a,b)=>{const x=chgOf(a,tf),y=chgOf(b,tf);return (y==null?-1e9:y)-(x==null?-1e9:x)};
@@ -226,7 +227,7 @@ try{S.notifyOn=JSON.parse(localStorage.getItem('callit.notify')||'{}')||{}}catch
  * Real sessions save everything to the user's account: posts, likes, reposts, replies,
  * follows, mutes, blocks, lists, watchlist, transactions and media. The UI updates
  * instantly; the server write happens in the background. */
-Object.assign(S,{cat:(()=>{try{const v=localStorage.getItem('callit.cat');return ['meme','perps','random'].includes(v)?v:'meme'}catch(_){return 'meme'}})(),
+Object.assign(S,{cat:(()=>{try{const v=localStorage.getItem('callit.cat');return ['all','meme','perps','random'].includes(v)?v:'all'}catch(_){return 'meme'}})(),
  muted:new Set(),blocked:new Set(),lists:[],followers:null,
  bm:(()=>{try{return new Set(JSON.parse(localStorage.getItem('callit.bm')||'[]'))}catch(_){return new Set()}})()});
 const saveBm=()=>{try{localStorage.setItem('callit.bm',JSON.stringify([...S.bm]))}catch(_){}};
@@ -261,7 +262,7 @@ function who(h){const n=nameOf(h);return `<a class="pwho" href="#/profile/${esc(
 /* server rows -> feed items */
 function fromRow(r){if(!r||!r.handle)return null;if(r.avatar_url)AVURL[r.handle]=r.avatar_url;if(r.display_name)DN[r.handle]=r.display_name;
  if(!C[r.handle])C[r.handle]={h:r.handle,win:0,avg:0,calls:0,best:0,followers:0,real:1};
- const k={id:r.id,srv:1,c:r.handle,kind:r.kind,thesis:r.body||'',media:r.media||[],likes:r.likes||0,reposts:r.reposts||0,replies:r.replies||0,views:Math.max(1,(r.likes||0)*9+(r.replies||0)*14),liked:!!r.liked,reposted:!!r.reposted,horizon:r.horizon||null,quote:r.quote_ref||null};
+ const k={id:r.id,srv:1,c:r.handle,kind:r.kind,thesis:r.body||'',media:r.media||[],likes:r.likes||0,reposts:r.reposts||0,replies:r.replies||0,views:Math.max(1,(r.likes||0)*9+(r.replies||0)*14),liked:!!r.liked,reposted:!!r.reposted,horizon:r.horizon||null,quote:r.quote_ref||null,quotes:+r.quotes||0};
  if(r.kind==='meme'){Object.assign(k,{t:r.mint,entry:+r.entry_mc,target:r.target_mc?+r.target_mc:null,buy:+r.buy_usd||0,snap:{sym:r.token_sym,name:r.token_name}})}
  if(r.kind==='perps')k.perp={m:r.perp_market,side:r.perp_side,lev:+r.perp_leverage,entry:+r.perp_entry,target:r.perp_target?+r.perp_target:null,stop:r.perp_stop?+r.perp_stop:null};
  return liveAgo(k,Date.parse(r.created_at))}
@@ -313,13 +314,14 @@ function loadPub(h){if(PUB[h]||!SYNC()&&!realAuth())return;PUB[h]={pending:1};
 function pubP(h){const p=PUB[h];return p&&!p.pending?{name:p.display_name||'',bio:p.bio||'',web:p.website||'',x:p.x_handle||''}:{}}
 
 /* ---------- Meme / Perps / Random ---------- */
-const CATS=[['meme','Memes','trenches'],['perps','Perps','market'],['random','Random','smile']];
+const CATS=[['all','All','home'],['meme','Memes','trenches'],['perps','Perps','market'],['random','Random','smile']];
 function catOf(k){return k.kind||'meme'}
 function visible(k){return !S.muted.has(k.c)&&!S.blocked.has(k.c)}
 function catBar(){const i=CATS.findIndex(c=>c[0]===S.cat);return `<div class="cats tgl${S.cat==='perps'?' perps-on':''}" style="--i:${i};--n:${CATS.length}" role="tablist" aria-label="Feed type">${CATS.map(([k,l,i])=>`<button role="tab" aria-selected="${S.cat===k}" class="${S.cat===k?'on':''}" data-act="cat" data-f="${k}">${ic(i,15)}<span>${l}</span></button>`).join('')}</div>`}
 function catEmpty(){const E={meme:['No calls yet','Call a token you believe in. Your entry is stamped at the live market cap.','Make a call'],
  perps:['No perps calls yet','Call a long or short on SOL, BTC or ETH. Callit tracks the ROE live.','Call a perp'],
- random:['Nothing here yet','Not every post needs a chart. Share what you’re seeing, thinking or building.','Write a post']}[S.cat];
+ random:['Nothing here yet','Not every post needs a chart. Share what you’re seeing, thinking or building.','Write a post'],
+ all:['Nothing here yet','Calls, perps and posts from everyone, all in one feed.','Make a call']}[S.cat];
  return `<div class="empty"><span class="eic">${ic(CATS.find(c=>c[0]===S.cat)[2],26)}</span><b class="h2">${E[0]}</b><p>${E[1]}</p><button class="btn primary" data-act="newcall" data-k="${S.cat}">${E[2]}</button></div>`}
 
 const PERPM={SOL:{mint:'So11111111111111111111111111111111111111112',name:'Solana',c:'#9d7bff'},BTC:{mint:'3NZ9JMVBmGAqocybic2c7LQCJScmgsAZ6vQqTDzcqmJh',name:'Bitcoin',c:'#F7931A'},ETH:{mint:'7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs',name:'Ethereum',c:'#8EA2FF'}};
@@ -378,7 +380,7 @@ function wireKind(m,cur){m.querySelectorAll('[data-ck]').forEach(b=>b.onclick=()
  if(ds)ds.onclick=()=>{const tx=($('#cx',m)||{}).value||'',tk=($('#ct',m)||{}).value||'';if(!addDraft(cur,tx,tk))return toast('Write something first');S.noDraft=1;closeModal();toast('Saved to drafts')};
  if(dl)dl.onclick=()=>{const tx=($('#cx',m)||{}).value||'',tk=($('#ct',m)||{}).value||'';if(addDraft(cur,tx,tk))toast('Current post saved to drafts');S.noDraft=1;draftsModal()}}
 function composeModal(kind,o={}){if(kind==='perps'){toast('Perps calls are coming soon');kind='meme'}if(!S.connected)return connectModal(()=>composeModal(kind,o));if(kind==='random')return randomModal(o);return callModal(o.pre,o.draft)}
-function afterPost(k,msg){calls.forEach(x=>x.fresh=false);calls.unshift(k);S.cat=catOf(k);try{localStorage.setItem('callit.cat',S.cat)}catch(_){}S.tab='foryou';S.noDraft=1;closeModal();
+function afterPost(k,msg){calls.forEach(x=>x.fresh=false);calls.unshift(k);if(S.cat!=='all')S.cat=catOf(k);try{localStorage.setItem('callit.cat',S.cat)}catch(_){}S.tab='foryou';S.noDraft=1;closeModal();
  if(location.hash!=='#/home')location.hash='#/home';else render();if(msg)toast(msg);scrollTo({top:0})}
 function perpModal(o={}){let mk='SOL',side='long',lev=10,hz='7 days';const CD={media:[]};
  modal('Make a call','Call a long or short. Entry is stamped at the live price when you post.',`${kindSeg('perps')}
@@ -433,8 +435,21 @@ function quoteCard(id,inComposer){if(!id)return '';const q=calls.find(x=>String(
  return `<div class="qcard"${inComposer?'':` data-go="#/post/${esc(q.id)}" role="link" tabindex="0"`}><div class="qhead">${avatar(q.c)}<b>${esc(nameOf(q.c))}</b><span class="hint">@${esc(q.c)}${q.ago?' · '+esc(q.ago):''}</span></div>
   ${q.kind==='meme'&&q.t?`<div class="qcall">${tokav(q.t)}<span class="grow"><b>Called $${esc(sym)}</b><span class="hint">at ${fmtUsd(q.entry)} MC</span></span>${n?`<b class="num ${n.up?'up':'down'}">${fmtPct(n.p)}</b>`:''}</div>`:''}
   ${q.thesis?`<p class="qtext">${esc(String(q.thesis).slice(0,180))}${String(q.thesis).length>180?'…':''}</p>`:''}</div>`}
+function doRepost(id){const k=calls.find(x=>x.id==id)||(id==='welcome'?BOTPOST:null);if(!k)return;const b2=document.querySelector(`[data-act="repost"][data-id="${CSS.escape(String(k.id))}"]`);k.reposted=!k.reposted;bg('/api/posts/react',{ref:String(k.id),kind:'repost',on:k.reposted});k.reposts+=k.reposted?1:-1;document.querySelectorAll(`[data-act="repost"][data-id="${CSS.escape(String(k.id))}"]`).forEach(x=>{x.classList.toggle('reposted',k.reposted);const sp=x.querySelector('span');if(sp)sp.textContent=k.reposts||''});void b2;toast(k.reposted?'Reposted':'Repost removed')}
+/* Hold the repost button for 2s to get Repost / Quote / View quotes. A normal tap still reposts instantly. */
+const quotesOf=id=>{const k=calls.find(x=>String(x.id)===String(id));const local=calls.filter(x=>String(x.quote)===String(id)).length;return Math.max(local,k&&k.quotes||0)};
+let RPH=null;
+document.addEventListener('pointerdown',e=>{const b=e.target.closest&&e.target.closest('[data-act="repost"]');if(!b)return;clearTimeout(RPH);b.classList.add('holding');
+ RPH=setTimeout(()=>{b.classList.remove('holding');b._heldAt=Date.now();if(navigator.vibrate)try{navigator.vibrate(15)}catch(_){}if(!S.connected)return connectModal();repostSheet(b.dataset.id)},2000)});
+['pointerup','pointercancel','pointerleave'].forEach(ev=>document.addEventListener(ev,e=>{const b=e.target.closest&&e.target.closest('[data-act="repost"]');clearTimeout(RPH);document.querySelectorAll('[data-act="repost"].holding').forEach(x=>x.classList.remove('holding'));void b},true));
+document.addEventListener('contextmenu',e=>{if(e.target.closest&&e.target.closest('[data-act="repost"]'))e.preventDefault()});
+const QQ={};
+function vQuotes(id){id=decodeURIComponent(String(id||''));if(!id)return vHome();
+ if(SYNC()&&!QQ[id]){QQ[id]='busy';API('/api/posts?limit=60&quote_of='+encodeURIComponent(id)).then(j=>{mergePosts(j.posts||[]);QQ[id]='ok'}).catch(()=>{QQ[id]='err'}).finally(()=>{if(currentRoute()==='quotes')render()})}
+ const list=calls.filter(k=>visible(k)&&String(k.quote)===id);
+ return `<div class="pad"><div class="hint" style="margin-bottom:6px">Quotes of</div>${quoteCard(id)}</div><div id="feed">${list.map(post).join('')||(QQ[id]==='busy'?'<div class="post pskel" aria-hidden="true"><span class="av md"></span><div><i></i><i></i><i></i><b></b></div></div>':'<div class="empty"><b>No quotes yet</b><p>Hold the repost button on a post for 2 seconds and pick Quote.</p></div>')}</div>`}
 function repostSheet(id){const k=calls.find(x=>String(x.id)===String(id))||(String(id)==='welcome'?BOTPOST:null);if(!k)return;
- aSheet('Repost',``,`<div class="asgroup">${arow(`data-act="rpdo" data-id="${esc(k.id)}"`,'repost',k.reposted?'Undo repost':'Repost',k.reposted?'Remove it from your profile':'Share it to your followers as is')}${arow(`data-act="rpq" data-id="${esc(k.id)}"`,'pen','Quote','Add your take on top')}</div>`)}
+ aSheet('Repost',``,`<div class="asgroup">${arow(`data-act="rpdo" data-id="${esc(k.id)}"`,'repost',k.reposted?'Undo repost':'Repost',k.reposted?'Remove it from your profile':'Share it to your followers as is')}${arow(`data-act="rpq" data-id="${esc(k.id)}"`,'pen','Quote','Add your take on top')}${quotesOf(k.id)?arow(`data-act="rpv" data-id="${esc(k.id)}"`,'messages',`View quotes (${quotesOf(k.id)})`,'See what people said about it'):''}</div>`)}
 /* ---------- ⋯ menu: share profile, add to list, mute, block ---------- */
 function moreSheet(h,k){const me=h===S.me,mu=S.muted.has(h),bl=S.blocked.has(h),inL=S.lists.filter(l=>l.members.includes(h)).length,c=C[h]||{},pub=PUB[h]&&!PUB[h].pending?PUB[h]:null;
  const row=(act,icn,label,sub,cls='')=>`<button class="asrow ${cls}" data-act="${act}" data-h="${esc(h)}"${k?` data-id="${k.id}"`:''}><span class="asic">${ic(icn,19)}</span><span class="grow"><b>${label}</b>${sub?`<small>${sub}</small>`:''}</span>${cls.includes('chev')?ic('chev',16):''}</button>`;
@@ -709,7 +724,7 @@ document.addEventListener('focusout',e=>{const box=e.target.closest&&e.target.cl
 
 /* ---------- views ---------- */
 function homeTabs(){return catBar()+`<div class="tabs" role="tablist">${[['foryou','For you'],['following','Following'],['community','Community'],['watchlist','Watchlist']].map(([k,l])=>`<button role="tab" aria-selected="${S.tab===k}" class="${S.tab===k?'on':''}" data-act="tab" data-f="${k}">${l}</button>`).join('')}</div>`}
-function vHome(){let list=calls.filter(k=>visible(k)&&catOf(k)===S.cat),empty=catEmpty();
+function vHome(){let list=calls.filter(k=>visible(k)&&(S.cat==='all'||catOf(k)===S.cat)),empty=catEmpty();
  if(S.cat==='perps'&&S.tab!=='community')return homeTabs()+perpsLocked();
  if(S.tab==='community')return homeTabs()+vCommunity();
  if(S.live==='wait')return homeTabs()+`<div id="feed" aria-busy="true">${Array.from({length:4},()=>`<div class="post pskel" aria-hidden="true"><span class="av md"></span><div><i></i><i></i><i></i><b></b></div></div>`).join('')}<p class="sr-only" role="status">Loading live calls</p></div>`;
@@ -719,7 +734,7 @@ function vHome(){let list=calls.filter(k=>visible(k)&&catOf(k)===S.cat),empty=ca
  if(S.tab==='watchlist')return homeTabs()+vWatch();
  return `${homeTabs()}
  <div class="newpill" id="newpill">${S.queued.length&&S.tab==='foryou'?newPill():''}</div>
- ${S.tab==='foryou'&&S.cat==='meme'?topTrades():''}
+ ${S.tab==='foryou'&&(S.cat==='meme'||S.cat==='all')?topTrades():''}
  ${S.tab==='foryou'?pinnedPost():''}
  <div id="feed">${(S.tab==='foryou'?withAds(list):list.map(post).join(''))||empty}</div>`}
 /* Watchlist: just the token, price, volume and market cap, with Buy / Sell that open the real trade sheet. */
@@ -730,7 +745,31 @@ function wrow(t){const key=t.key,h=S.bal[key]||0,ch=chgOf(t,'24h'),can=tradable(
  return `<div class="wrow" data-go="#/token/${esc(key)}">${tokav(key)}<div class="wname"><b>${esc(t.name||t.sym)}</b><span class="hint">$${esc(t.sym)}${ch!=null?` · <span class="${pcls(ch)}">${pctS(ch)}</span>`:''}</span></div>
  <div class="wnums num"><div><span>Price</span><b data-wpx="${esc(key)}">${t.price?fmtSmall(t.price):'—'}</b></div><div><span>Vol</span><b>${t.vol?fmtSmall(t.vol):'—'}</b></div><div><span>MC</span><b data-wmc="${esc(key)}">${t.price?fmtSmall(mcap(t)):'—'}</b></div></div>
  <div class="wbtns">${can?`<button class="btn primary sm" data-act="qbuy" data-t="${esc(key)}">Buy</button><button class="btn sm sellq${h>0?'':' dim'}" data-act="${h>0?'qsell':'nosell'}" data-t="${esc(key)}">Sell</button>`:''}<button class="ib sm wrm" data-act="track" data-t="${esc(key)}" aria-label="Remove $${esc(t.sym)} from watchlist" title="Remove">${ic('star',17,true)}</button></div></div>`}
-function vWatch(){watchFill();const keys=[...S.watch],rows=keys.map(k=>T[k]).filter(t=>t&&!t.base),wait=keys.filter(k=>!T[k]&&isMintStr(k)).length;
+/* Watchlist has two sides: tokens you star, and outside wallets you track (same list as Alerts). */
+const WB={};
+function wbLoad(a){const w=WB[a];if(w&&(w.busy||Date.now()-w.at<6e4))return;WB[a]={...(w||{}),busy:1};
+ walletBalances(a).then(r=>{const miss=r.tokens.map(x=>x.mint).filter(m=>!T[keyOfMint(m)]);WB[a]={r,at:Date.now()};
+  return miss.length?fetchTokens(miss.slice(0,50)).then(l=>l.forEach(regLive)).catch(()=>{}):null}).catch(()=>{WB[a]={err:1,at:Date.now()}})
+  .finally(()=>{if(WB[a])WB[a].busy=0;if(S.tab==='watchlist'&&S.wtab==='wallets'&&currentRoute()==='home'&&!document.querySelector('#modal .modal'))render()})}
+function wbHold(a){const r=WB[a]&&WB[a].r;if(!r)return null;const rows=[['SOL',r.sol]].concat(r.tokens.map(x=>[keyOfMint(x.mint),x.ui])).map(([k,amt])=>({k,amt,usd:T[k]&&T[k].price?amt*T[k].price:0})).filter(x=>x.amt>0).sort((a,b)=>b.usd-a.usd);
+ return {rows,tot:rows.reduce((s,x)=>s+x.usd,0)}}
+function vWatchWallets(){if(!S.connected)return `<div class="empty"><b class="h2">Track any wallet</b><p>Sign in to follow KOLs, whales and devs and get a pop-up on every buy and sell.</p><button class="btn primary" data-act="connect">Sign in</button></div>`;
+ alLoad();const L=(AL.d&&AL.d.wallets)||(!SYNC()||AL.err?[]:null);if(L&&SYNC())L.forEach(w=>wbLoad(w.address));
+ return `<div class="pad wwal"><div class="alform"><input id="alw" placeholder="Paste a wallet address" autocomplete="off" spellcheck="false"><input id="all" placeholder="Name (optional)" maxlength="30"><button class="btn primary" data-act="aladd">Track</button></div>
+ ${AL.err?`<p class="rdnote">${esc(AL.err)}</p>`:''}${!L?rskel(3):!L.length?`<div class="empty" style="padding:24px 8px"><b>No wallets tracked yet</b><p>Paste a KOL, whale or dev wallet. You'll see what they hold here and get a pop-up on every swap.</p></div>`
+ :`<div class="list">${L.map(w=>{const h=wbHold(w.address),top=h?h.rows.filter(x=>x.k!=='SOL'&&x.k!=='USDC').slice(0,3):[];
+  return `<div class="li wwrow" data-act="wbopen" data-f="${esc(w.address)}" role="button" tabindex="0"><span class="tokav alwav">${ic('wallet',16)}</span><div class="grow"><b>${esc(w.label||short(w.address))}</b><div class="hint">${short(w.address)}${top.length?' · '+top.map(x=>'$'+esc(symOf(x.k))).join(' '):''}</div></div>
+  <div class="r num"><b>${h?fmtUsd(h.tot):WB[w.address]&&WB[w.address].err?'—':'…'}</b><div class="hint">${h?fmtAmt(h.rows.find(x=>x.k==='SOL')?.amt||0)+' SOL':''}</div></div></div>`}).join('')}</div>`}
+ <p class="hint" style="margin-top:12px">Pop-ups for these wallets are in <a class="lnk" href="#/alerts">Alerts</a>.</p></div>`}
+function walletSheet(a){const w=((AL.d&&AL.d.wallets)||[]).find(x=>x.address===a)||{address:a},h=wbHold(a);
+ aSheet(esc(w.label||short(a)),`<div class="ashead"><span class="tokav alwav">${ic('wallet',16)}</span><span class="grow"><b>${esc(w.label||short(a))}</b><small class="num">${short(a)}${h?' · '+fmtUsd(h.tot):''}</small></span></div>`,
+  `<div class="asgroup">${h&&h.rows.length?h.rows.slice(0,12).map(x=>`<a class="asrow" href="#/token/${esc(tokPath(x.k))}" data-act="close">${T[x.k]?tokav(x.k):''}<span class="grow"><b>${esc(T[x.k]?T[x.k].name:short(x.k))}</b><small class="num">${fmtAmt(x.amt)} ${esc(symOf(x.k))}</small></span><b class="num">${x.usd?fmtUsd(x.usd):''}</b></a>`).join(''):'<p class="hint" style="padding:12px">Loading holdings…</p>'}</div>
+  <div class="asgroup">${arow(`data-act="copy" data-v="${esc(a)}"`,'copy','Copy address','')}${arow(`data-act="aldel" data-f="${esc(a)}"`,'x','Stop tracking','')}</div>
+  <div class="asgroup"><a class="asrow" href="https://solscan.io/account/${esc(a)}" target="_blank" rel="noopener"><span class="asic">${ic('search',19)}</span><span class="grow"><b>Open on Solscan</b></span></a></div>`)}
+function vWatch(){const wt=S.wtab==='wallets'?'wallets':'tokens';
+ const seg=`<div class="pad" style="padding-bottom:0"><div class="seg wide wtog" role="tablist">${[['tokens','Tokens'],['wallets','Wallets']].map(([k,l])=>`<button role="tab" aria-selected="${wt===k}" class="${wt===k?'on':''}" data-act="wtab" data-f="${k}">${l}</button>`).join('')}</div></div>`;
+ return seg+(wt==='wallets'?vWatchWallets():vWatchTokens())}
+function vWatchTokens(){watchFill();const keys=[...S.watch],rows=keys.map(k=>T[k]).filter(t=>t&&!t.base),wait=keys.filter(k=>!T[k]&&isMintStr(k)).length;
  if(!keys.length)return `<div class="empty"><b class="h2">Your watchlist is empty</b><p>Tap the star on any token in the Market, Search or on a call and it shows up here with live price, volume and market cap.</p><a class="btn primary" href="#/market">Browse the market</a></div>`;
  return `<div class="wlist">${rows.map(wrow).join('')}${wait?`<div class="wrow skel" aria-hidden="true"><span class="tokav"></span><div class="wname"><i></i><i></i></div></div>`.repeat(Math.min(wait,3)):''}</div>
  <p class="hint pad">Prices update live. Buy and Sell swap through Jupiter from your own wallet.</p>`}
@@ -772,7 +811,7 @@ const clp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const holderGrowth=t=>{const h=t&&t._hh;if(!h||h.length<2)return 0;const z=h[h.length-1],b=h[0],mins=(z[0]-b[0])/6e4;return mins<.5?0:(z[1]-b[1])/mins};
 const flowOf=(L,k)=>{const f=L&&L.flow&&L.flow[k];return f&&(f.bv+f.sv)>0?f:null};
 function heatOf(t){if(!t||!t.live)return {k:'steady',s:0};const L=t.L||{},a=L.audit||{},c=L.chg||{},f5=flowOf(L,'m5'),f1=flowOf(L,'h1');
- const m1=chg1m(t),m5=c.m5,h1=c.h1,h6=c.h6,h24=c.h24,fl=f5||f1,bp=fl?fl.bv/(fl.bv+fl.sv):null,vol5=f5?f5.bv+f5.sv:null,hg=holderGrowth(t),ageM=(t.ageH||0)*60;
+ const m1=chg1m(t),m5=chg5mLive(t)??c.m5,h1=c.h1,h6=c.h6,h24=c.h24,fl=f5||f1,dsx=(()=>{const P=PAIRS[t.key];if(!P||!P.d||Date.now()-P.at>3e4)return null;const x=(P.d.pairs||[])[0],tx=x&&x.txns&&x.txns.m5;return tx&&tx.buys+tx.sells>=4?tx.buys/(tx.buys+tx.sells):null})(),bp=dsx!=null?dsx:fl?fl.bv/(fl.bv+fl.sv):null,vol5=f5?f5.bv+f5.sv:null,hg=holderGrowth(t),ageM=(t.ageH||0)*60;
  const bun=t._risk&&t._risk.bundle&&t._risk.bundle.pct!=null?t._risk.bundle.pct:null;
  const danger=!!a.sus||(a.top10!=null&&a.top10>45)||(a.dev!=null&&a.dev>15)||(bun!=null&&bun>25)||(m5!=null&&m5<-35);
  const s=Math.round(clp(50+clp((m5||0)*1.2,-30,35)+clp((m1||0)*2,-15,20)+(bp!=null?(bp-.5)*60:0)+clp(hg*3,-10,15)+(vol5?Math.min(10,Math.log10(vol5+1)*2.5):0)-(danger?25:0),0,100));
@@ -1063,7 +1102,7 @@ function vLiveToken(t){const key=t.key,tr=S.watch.has(key),on=calls.filter(k=>k.
  <div id="lstats">${liveStats(t)}</div>
  <div class="llinks">${liveLinks(t)}</div>
  <div id="lpair">${pairCard(t)}</div><div id="labout">${aboutCard(t)}</div>
- ${heatCard(t)}${(sc=>`<details class="card sfcard" data-sf ${(SFOPEN==null?sc.bad:SFOPEN)?'open':''}><summary><h3>Safety check</h3><span class="sfbadge ${!sc.n?'unk':sc.bad?(sc.ok>=sc.n-1&&!(t.L&&t.L.audit&&t.L.audit.sus)?'warn':'bad'):'ok'}">${sc.n?`${sc.ok}/${sc.n} passed`:'No data'}</span><span class="sfchev" aria-hidden="true">${ic('down',18)}</span></summary><div class="sflist">${liveSafety(t)}${taxRows(t)}</div><div class="bubsec"><div class="bubhead"><b>Holder map</b><a class="lnk" href="https://app.bubblemaps.io/sol/token/${esc(t.key)}" target="_blank" rel="noopener">Open in Bubblemaps ↗</a></div><div id="bubwrap">${bubbles(t)}</div></div><p class="hint" style="margin:10px 0 0">From Jupiter's token audit. Not a guarantee. Always size your bets.</p></details>`)(sfScore(t))}
+ <div id="lheat">${heatCard(t)}</div>${(sc=>`<details class="card sfcard" data-sf ${(SFOPEN==null?sc.bad:SFOPEN)?'open':''}><summary><h3>Safety check</h3><span class="sfbadge ${!sc.n?'unk':sc.bad?(sc.ok>=sc.n-1&&!(t.L&&t.L.audit&&t.L.audit.sus)?'warn':'bad'):'ok'}">${sc.n?`${sc.ok}/${sc.n} passed`:'No data'}</span><span class="sfchev" aria-hidden="true">${ic('down',18)}</span></summary><div class="sflist">${liveSafety(t)}${taxRows(t)}</div><div class="bubsec"><div class="bubhead"><b>Holder map</b><a class="lnk" href="https://app.bubblemaps.io/sol/token/${esc(t.key)}" target="_blank" rel="noopener">Open in Bubblemaps ↗</a></div><div id="bubwrap">${bubbles(t)}</div></div><p class="hint" style="margin:10px 0 0">From Jupiter's token audit. Not a guarantee. Always size your bets.</p></details>`)(sfScore(t))}
  ${key===SOL_MINT||key===USDC_MINT?`<div class="card"><h3>Swap</h3><div data-swapbox></div></div>`:`<div class="card"><div class="tradeh"><h3>Trade $${esc(t.sym)}</h3><span class="ordbtns"><button class="btn sm ghost" data-act="ord" data-k="${key}" data-f="limit">${ic('up',14)} Limit</button><button class="btn sm ghost" data-act="ord" data-k="${key}" data-f="tpsl">${ic('target',14)} TP / SL</button></span></div><div data-swapbox data-tok="${key}"></div><div id="tokords">${ordersList(key)}</div></div>`}
  <div style="display:flex;justify-content:space-between;align-items:center;margin:22px 0 4px"><b class="h2">Calls on $${esc(t.sym)}</b><button class="btn sm primary" data-act="newcall" data-t="${key}">Call it</button></div></div>
  <div id="feed" style="border-top:1px solid var(--line);margin-top:10px">${on.map(post).join('')||'<div class="empty"><b>No calls yet</b><p>Call it first and your entry gets stamped at the live market cap.</p></div>'}</div>`}
@@ -1095,7 +1134,7 @@ setInterval(()=>{if(document.hidden)return;const [,r,p]=location.hash.split('/')
 /* Light refresh of a live token page without touching the chart. */
 function liveTick(t){const pr=$('#lprice'),cg=$('#lchg'),st=$('#lstats');if(!pr)return;const ch=((t.L||{}).chg||{}).h24;
  const dir=t._lp?Math.sign(t.price-t._lp):0;t._lp=t.price;if(LCHART&&LCHART.tick&&S.lsrc==='callit')LCHART.tick(t.price);
- flashSet(pr,S.lmode==='mc'?fmtSmall(mcap(t)):fmtSmall(t.price),dir);cg.className='num '+pcls(ch);cg.textContent=pctS(ch)+' 24h';st.innerHTML=liveStats(t);renderSwapsSoft()}
+ flashSet(pr,S.lmode==='mc'?fmtSmall(mcap(t)):fmtSmall(t.price),dir);cg.className='num '+pcls(ch);cg.textContent=pctS(ch)+' 24h';st.innerHTML=liveStats(t);const lh=$('#lheat');if(lh)lh.innerHTML=heatCard(t);renderSwapsSoft()}
 function vToken(sym){const t=T[sym];if(!t)return isMintStr(sym)?(loadLiveToken(sym),vTokenLoading(sym)):vHome();if(t.live)return vLiveToken(t);const on=calls.filter(k=>k.t===sym),tr=S.watch.has(sym);
  const head=`<div class="pad" style="padding-bottom:0"><div style="display:flex;align-items:center;gap:12px">${tokav(t.key)}<div style="flex:1;min-width:0"><b class="h2">${esc(t.name)}</b> <span class="muted">$${t.sym}</span><div><span class="chain">${t.chain}</span> <button class="copyca" data-act="copy" data-v="${esc(t.ca)}">${short(t.ca)} ${ic('copy',13)}</button></div></div>
  <button class="btn sm ${tr?'primary':'ghost'}" data-act="track" data-t="${sym}">${ic('star',15,tr)} ${tr?'On watchlist':'Watchlist'}</button></div>`;
@@ -1237,7 +1276,7 @@ async function astSend(text){const q=String(text||'').trim();if(!q||AST.busy)ret
 /* ---------- chrome ---------- */
 const NAV_A=[['home','Home'],['market','Market'],['defi','DeFi'],['callerboard','Callerboard'],['you','You'],['assistant','Assistant']];
 const NAV_B=[['messages','Messages'],['bookmarks','Bookmarks'],['lists','Lists'],['news','News'],['promote','Promote'],['about','About']];
-const TITLES=Object.fromEntries([...NAV_A,...NAV_B,['notifications','Notifications'],['bookmarks','Bookmarks'],['token','Token'],['community','Community'],['post','Post'],['premium','Premium'],['messages','Messages'],['admin','Admin'],['tag','Tag'],['alerts','Alerts'],['profile','Profile']]);
+const TITLES=Object.fromEntries([...NAV_A,...NAV_B,['notifications','Notifications'],['bookmarks','Bookmarks'],['token','Token'],['community','Community'],['post','Post'],['premium','Premium'],['messages','Messages'],['admin','Admin'],['tag','Tag'],['alerts','Alerts'],['profile','Profile'],['quotes','Quotes']]);
 P.lists=P.list;P.defi='<circle cx="12" cy="12" r="8.5"/><path d="M8 10h8l-2.5-2.5M16 14H8l2.5 2.5"/>';P.callerboard=P.leaderboard;P.you=P.profile;
 const NAVH={stack:[],cur:location.hash||'#/home',back:false};
 function goBack(){const prev=NAVH.stack.pop();NAVH.back=true;location.hash=prev&&prev!==location.hash?prev:'#/home'}
@@ -1288,7 +1327,7 @@ function render(){if(isPhone())document.body.classList.add('collapsed');const [,
  else if(r==='token'){const t=T[p];if(t&&tradable(t)&&p!==S.swap.from){S.swap.from=S.swap.from===p?S.swap.from:(S.swap.from===S.swap.to||!T[S.swap.from]?'SOL':S.swap.from);S.swap.to=p}html=vToken(p)}
  else html=({market:vMarket,trenches:vMarket,defi:vDefi,you:()=>{adminPing();return (S.admin?`<div class="pad" style="padding-bottom:0"><a class="btn sm primary" href="#/admin">${ic('leaderboard',15)} Admin panel</a></div>`:'')+vYou()},profile:()=>vProfile(p),callerboard:vLeaders,admin:vAdmin,promote:vPromote,about:vAbout,
   messages:()=>vMessages(p),lists:()=>vLists(p),
-  news:vNews,premium:vPremium,notifications:vNotifs,assistant:vAssistant,bookmarks:vBookmarks,tag:()=>vTag(p),alerts:vAlerts}[r]||vHome)();
+  news:vNews,premium:vPremium,notifications:vNotifs,assistant:vAssistant,bookmarks:vBookmarks,tag:()=>vTag(p),alerts:vAlerts,quotes:()=>vQuotes(p)}[r]||vHome)();
  if(LCHART){LCHART();LCHART=null}
  $('#view').innerHTML=html;$('#rail').innerHTML=rail();chrome(r);renderSwaps();skin($('#view'));syncLanding();mountLiveChart();
  if(r==='post'){wireAttach($('#rbox'),RDRAFT,()=>drawRMedia());if(S.focusReply){S.focusReply=false;setTimeout(()=>{const i=$('#rin');i&&i.focus()},60)}}}
@@ -1393,7 +1432,7 @@ async function pushOn(){if(!S.connected)return connectModal(()=>pushOn());const 
   const reg=await navigator.serviceWorker.ready;const sub=(await reg.pushManager.getSubscription())||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(j.key)});
   await API('/api/push/subscribe',{body:sub.toJSON()});AL.sub=sub;toast('Alerts on for this device');alLoad(1)}catch(e){toast(e.message||'Couldn’t turn on alerts')}}
 async function pushOff(){try{const s=AL.sub;if(s){await API('/api/push/subscribe',{method:'DELETE',body:{endpoint:s.endpoint}}).catch(()=>{});await s.unsubscribe()}AL.sub=null;toast('Alerts off for this device')}catch(_){}if(currentRoute()==='alerts')render()}
-function alLoad(force){if(!SYNC()||AL.busy||(!force&&AL.d))return;AL.busy=1;API('/api/alerts').then(j=>{AL.d=j;AL.err=null;BELLS=new Set((j.bells||[]).map(b=>b.mint))}).catch(e=>{AL.err=e.message}).finally(()=>{AL.busy=0;if(['alerts','token'].includes(currentRoute())&&!document.querySelector('#modal .modal'))render()})}
+function alLoad(force){if(!SYNC()||AL.busy||(!force&&AL.d))return;AL.busy=1;API('/api/alerts').then(j=>{AL.d=j;AL.err=null;BELLS=new Set((j.bells||[]).map(b=>b.mint))}).catch(e=>{AL.err=e.message}).finally(()=>{AL.busy=0;if(['alerts','token'].includes(currentRoute())||(currentRoute()==='home'&&S.tab==='watchlist'))if(!document.querySelector('#modal .modal'))render()})}
 let BELLS=new Set();
 /* X-style 🔔 on a profile: following alone sends no pop-ups; ringing the bell does. */
 const UB={};
@@ -2166,8 +2205,9 @@ document.addEventListener('click',e=>{
   ubell:()=>ubellModal(b.dataset.h),pushon:()=>pushOn(),pushoff:()=>pushOff(),bell:()=>bellModal(b.dataset.t),
   aladd:()=>{const a=$('#alw'),l=$('#all');const v=(a.value||'').trim();if(!isMintStr(v))return toast('Paste a valid Solana wallet address');b.disabled=true;
    API('/api/alerts/wallets',{body:{address:v,label:l.value}}).then(j=>{toast(j.live?'Tracking. You’ll get a pop-up on every swap':'Saved. Live tracking starts once Helius is set up');if(pushState()==='off')setTimeout(()=>pushOn(),400);AL.d=null;alLoad(1)}).catch(e=>toast(e.message)).finally(()=>{b.disabled=false})},
-  aldel:()=>API('/api/alerts/wallets?address='+encodeURIComponent(b.dataset.f),{method:'DELETE'}).then(()=>{AL.d=null;alLoad(1)}).catch(e=>toast(e.message)),
+  aldel:()=>(closeModal(),API('/api/alerts/wallets?address='+encodeURIComponent(b.dataset.f),{method:'DELETE'}).then(()=>{AL.d=null;alLoad(1)}).catch(e=>toast(e.message))),
   belldel:()=>API('/api/alerts/bell?mint='+encodeURIComponent(b.dataset.f),{method:'DELETE'}).then(()=>{BELLS.delete(b.dataset.f);AL.d=null;alLoad(1)}).catch(e=>toast(e.message)),
+  wtab:()=>{S.wtab=b.dataset.f;render()},wbopen:()=>walletSheet(b.dataset.f),
   ord:()=>{const k=tokPath(b.dataset.k);closeModal();setTimeout(()=>orderModal(k,b.dataset.f||'tpsl'),60)},
   ordcancel:()=>{const id=b.dataset.f;realTx('Cancel order',step=>cancelOrder(S.addr,id,step),ok=>{if(ok){toast('Order cancelled. Funds are back in your wallet');ORD.list=(ORD.list||[]).filter(o=>o.id!==id);loadOrders(1)}})},
   pidx:()=>{S.pidx=+b.dataset.f;const [,,p]=location.hash.split('/'),el=$('#lpair');if(el&&T[p])el.innerHTML=pairCard(T[p])},ptf:()=>{S.ptf=b.dataset.f;const [,,p]=location.hash.split('/'),el=$('#lpair');if(el&&T[p])el.innerHTML=pairCard(T[p])},
@@ -2235,9 +2275,10 @@ document.addEventListener('click',e=>{
   tab:()=>{if(S.tab===b.dataset.f)return scrollTo({top:0,behavior:'smooth'});S.tab=b.dataset.f;render();scrollTo({top:0})},tf:()=>{S.tf=b.dataset.f;render()},lb:()=>{S.lb=b.dataset.f;render()},
   pkg:()=>{S.pkg=b.dataset.f;document.querySelectorAll('.pkg').forEach(p=>p.classList.toggle('on',p===b))},
   like:()=>{if(!S.connected)return connectModal();const k=calls.find(x=>x.id==b.dataset.id);k.liked=!k.liked;bg('/api/posts/react',{ref:String(k.id),kind:'like',on:k.liked});k.likes+=k.liked?1:-1;b.classList.toggle('liked',k.liked);b.innerHTML=ic('heart',18,k.liked)+`<span class="num">${k.likes||''}</span>`},
-  repost:()=>{if(!S.connected)return connectModal();repostSheet(b.dataset.id)},
+  repost:()=>{if(Date.now()-(b._heldAt||0)<1500)return;if(!S.connected)return connectModal();doRepost(b.dataset.id)},
+  rpv:()=>{closeModal();location.hash='#/quotes/'+encodeURIComponent(b.dataset.id)},
   rpq:()=>{const id=b.dataset.id;closeModal();setTimeout(()=>randomModal({quote:id}),60)},
-  rpdo:()=>{closeModal();const k=calls.find(x=>x.id==b.dataset.id)||(b.dataset.id==='welcome'?BOTPOST:null);if(!k)return;const b2=document.querySelector(`[data-act="repost"][data-id="${CSS.escape(String(k.id))}"]`);k.reposted=!k.reposted;bg('/api/posts/react',{ref:String(k.id),kind:'repost',on:k.reposted});k.reposts+=k.reposted?1:-1;document.querySelectorAll(`[data-act="repost"][data-id="${CSS.escape(String(k.id))}"]`).forEach(x=>{x.classList.toggle('reposted',k.reposted);const sp=x.querySelector('span');if(sp)sp.textContent=k.reposts||''});void b2;toast(k.reposted?'Reposted':'Repost removed')},
+  rpdo:()=>{closeModal();doRepost(b.dataset.id)},
   reply:()=>{const a=b.closest('[data-go]');if(a&&a.dataset.go.startsWith('#/post/')){S.focusReply=true;location.hash=a.dataset.go}else{const i=$('#rin');i&&i.focus()}},
   rsend:()=>sendReply(b.dataset.id),
   rlike:()=>{if(!S.connected)return connectModal();const x=REPLIES[b.dataset.p][+b.dataset.i];x.liked=!x.liked;x.likes+=x.liked?1:-1;b.classList.toggle('liked',x.liked);b.innerHTML=`${ic('heart',17,x.liked)}<span class="num">${x.likes||''}</span>`},
@@ -2407,7 +2448,7 @@ document.addEventListener('input',e=>{if(e.target.id!=='astin')return;const t=e.
   if(navigator.vibrate&&e.pointerType==='touch')try{navigator.vibrate(8)}catch(_){}
   if(reduce)return;const r=b.getBoundingClientRect(),d=Math.max(r.width,r.height)*2.2,s=document.createElement('span');s.className='rip';
   s.style.cssText=`width:${d}px;height:${d}px;left:${e.clientX-r.left}px;top:${e.clientY-r.top}px`;b.appendChild(s);setTimeout(()=>s.remove(),650)},{passive:true});
- document.addEventListener('click',e=>{const b=e.target.closest('[data-act="like"],[data-act="rlike"],[data-act="repost"],[data-act="rrt"]');if(!b||!b.isConnected)return;
+ document.addEventListener('click',e=>{const b=e.target.closest('[data-act="like"],[data-act="rlike"],[data-act="repost"],[data-act="rrt"]');if(!b||!b.isConnected)return;if(Date.now()-(b._heldAt||0)<1500)return;
   const cls=/like/.test(b.dataset.act)?'pop':'spin';b.classList.remove(cls);void b.offsetWidth;b.classList.add(cls);
   const sv=b.querySelector('svg');if(sv)b.style.setProperty('--bx',(sv.offsetLeft+sv.offsetWidth/2)+'px');setTimeout(()=>b.classList.remove(cls),600)});
  document.addEventListener('click',e=>{const b=e.target.closest('[data-act="follow"]');if(!b)return;const h=b.dataset.h;

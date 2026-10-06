@@ -2087,3 +2087,16 @@ tr.mine td{background:color-mix(in srgb,var(--hi) 10%,transparent)}
 .qcall .tokav{width:30px;height:30px}
 .qcall .grow{flex:1;display:flex;flex-direction:column;min-width:0}
 .qtext{margin:6px 0 0;font-size:14.5px;line-height:1.4;color:var(--text)}
+/* hold-to-open repost menu: a ring fills while you hold */
+[data-act="repost"]{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:manipulation}
+.act.holding{position:relative}
+.act.holding::after{content:'';position:absolute;left:var(--bx,16px);top:50%;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;pointer-events:none;
+  background:conic-gradient(var(--up) calc(var(--hp,0)*1%),transparent 0);-webkit-mask:radial-gradient(circle,transparent 11px,#000 12px);mask:radial-gradient(circle,transparent 11px,#000 12px);animation:rphold 2s linear forwards}
+@property --hp{syntax:'<number>';inherits:false;initial-value:0}
+@keyframes rphold{to{--hp:100}}
+/* watchlist: tokens / wallets */
+.wtog{margin:10px 0 2px}
+.wwal .alform{margin-bottom:10px}
+.wwrow{cursor:pointer}
+.wwrow .grow{flex:1;min-width:0}
+.wwrow .r{display:flex;flex-direction:column;align-items:flex-end}
