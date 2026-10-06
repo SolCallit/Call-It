@@ -59,6 +59,7 @@ const tokav=s=>{const t=T[s],lab=t&&t.sym?t.sym:String(s),ca=t&&(t.ca||t.key),mi
 const symOf=k=>T[k]&&T[k].sym||k;
 
 const P={
+ grip:'<circle cx="9" cy="6" r="1.3"/><circle cx="15" cy="6" r="1.3"/><circle cx="9" cy="12" r="1.3"/><circle cx="15" cy="12" r="1.3"/><circle cx="9" cy="18" r="1.3"/><circle cx="15" cy="18" r="1.3"/>',
  pin:'<path d="M9 3h6l-1 6 3 3v1H7v-1l3-3-1-6z"/><path d="M12 13v8"/>',
  cog:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/>',
  home:'<path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/>',
@@ -1394,14 +1395,48 @@ function bpBody(k){
   const tr=lv.filter(t=>t.live).sort((a,b)=>b.chg-a.chg).slice(0,30);
   return tr.length?`<div class="list">${tr.map(t=>`<a class="li" href="#/token/${t.key}">${tokav(t.key)}<div class="grow"><b>$${esc(t.sym)}</b><div class="hint">${(n=>n+(n===1?' call':' calls'))(calls.filter(c=>c.t===t.key).length)}</div></div><div class="r num"><b>${fmtUsd(mcap(t))}</b><div class="hint ${t.chg>=0?'up':'down'}">${fmtPct(t.chg)}</div></div></a>`).join('')}</div>`:rskel(8)}
  return ''}
+/* Column widths (feed + each panel), dragged on the divider like pump.fun. Saved per device. */
+const BPW_KEY='callit.boardw';
+const bpW=(()=>{try{return JSON.parse(localStorage.getItem(BPW_KEY)||'{}')||{}}catch(_){return {}}})();
+const bpWSave=()=>{try{localStorage.setItem(BPW_KEY,JSON.stringify(bpW))}catch(_){}};
+const BPMIN={feed:420,panel:250},BPMAX=960;
+function bpApplyFeed(){document.body.style.setProperty('--feedw',(bpW.feed||600)+'px')}
+bpApplyFeed();
+const bpStyle=k=>bpW[k]?` style="flex:0 0 ${bpW[k]}px;max-width:none"`:'';
+const bpRz=(k,l)=>`<div class="bprz" data-rz="${k}" role="separator" aria-orientation="vertical" aria-label="Resize ${l}" title="Drag to resize · double-click to reset" tabindex="0"></div>`;
+/* Display size: 80% by default on computers (phones stay at 100%). */
+const ZOOMS=[70,80,90,100,110];
+const zoomGet=()=>{let z=null;try{z=+localStorage.getItem('callit.zoom')}catch(_){}return ZOOMS.includes(z)?z:80};
+const zoomOn=()=>matchMedia('(min-width:900px) and (pointer:fine)').matches;
+function zoomApply(){const z=zoomOn()?zoomGet()/100:1;document.body.style.zoom=z===1?'':String(z);document.documentElement.style.setProperty('--z',String(z))}
+zoomApply();addEventListener('resize',zoomApply);
+const curZoom=()=>parseFloat(document.body.style.zoom)||1;
 function board(){const on=bpGet(),off=Object.keys(BP).filter(k=>!on.includes(k));
- return on.map(k=>{const [l,icn,href]=BP[k];return `<section class="bp" data-p="${k}" aria-label="${l}"><header class="bph"><span class="bpic">${ic(icn,17)}</span><h3>${l}</h3><a class="lnk bpopen" href="${href}">Open</a><button class="ib bpdel" data-act="bpdel" data-f="${k}" aria-label="Remove ${l} panel" title="Remove panel">${ic('trash',16)}</button></header><div class="bpb" data-p="${k}">${bpBody(k)}</div></section>`}).join('')
+ return bpRz('feed','feed')+on.map(k=>{const [l,icn,href]=BP[k];return `<section class="bp" data-p="${k}" aria-label="${l}"${bpStyle(k)}><header class="bph"><button class="ib bpgrip" draggable="true" data-grip="${k}" aria-label="Drag to move ${l}" title="Drag to move">${ic('grip',16)}</button><span class="bpic">${ic(icn,17)}</span><h3>${l}</h3><a class="lnk bpopen" href="${href}">Open</a><button class="ib bpdel" data-act="bpdel" data-f="${k}" aria-label="Remove ${l} panel" title="Remove panel">${ic('trash',16)}</button></header><div class="bpb" data-p="${k}">${bpBody(k)}</div>${bpRz(k,l)}</section>`}).join('')
   +`<div class="bpadd">${off.length?`<button class="ib bpaddb" data-act="bpadd" aria-label="Add panel" title="Add panel">${ic('plus',20)}</button>`:''}</div>`}
 function bpAddModal(){const off=Object.keys(BP).filter(k=>!bpGet().includes(k));if(!off.length)return;
  modal('Add a panel','Panels sit beside your feed and scroll on their own.',`<div class="bpopts">${off.map(k=>`<button class="bpopt" data-bp="${k}"><span class="bpic">${ic(BP[k][1],18)}</span><b>${BP[k][0]}</b><span class="hint">Add</span></button>`).join('')}</div>`,
   m=>m.addEventListener('click',e=>{const o=e.target.closest('[data-bp]');if(!o)return;const v=bpGet();v.push(o.dataset.bp);bpSet(v);closeModal();drawRail()}))}
-function drawRail(){const r=$('#rail');if(!r)return;const keep={};r.querySelectorAll('.bpb').forEach(b=>keep[b.dataset.p]=b.scrollTop);const sl=r.scrollLeft;
+function drawRail(){const r=$('#rail');if(!r||document.body.classList.contains('bpdrag')||BPDRAG)return;const keep={};r.querySelectorAll('.bpb').forEach(b=>keep[b.dataset.p]=b.scrollTop);const sl=r.scrollLeft;
  document.body.classList.toggle('board',boardOn());r.innerHTML=rail();r.scrollLeft=sl;r.querySelectorAll('.bpb').forEach(b=>{if(keep[b.dataset.p])b.scrollTop=keep[b.dataset.p]})}
+/* Resize: drag a divider; double-click resets that column. Arrow keys work too. */
+document.addEventListener('pointerdown',e=>{const h=e.target.closest&&e.target.closest('.bprz');if(!h)return;e.preventDefault();
+ const k=h.dataset.rz,col=k==='feed'?$('#view'):h.closest('.bp');if(!col)return;const x0=e.clientX,w0=col.getBoundingClientRect().width/curZoom(),z=curZoom();
+ document.body.classList.add('bpdrag');h.classList.add('on');
+ const mv=ev=>{const w=Math.round(Math.min(BPMAX,Math.max(k==='feed'?BPMIN.feed:BPMIN.panel,w0+(ev.clientX-x0)/z)));bpW[k]=w;
+  if(k==='feed')bpApplyFeed();else{const c=document.querySelector(`.bp[data-p="${k}"]`);if(c){c.style.flex=`0 0 ${w}px`;c.style.maxWidth='none'}}};
+ const up=()=>{removeEventListener('pointermove',mv);removeEventListener('pointerup',up);document.body.classList.remove('bpdrag');h.classList.remove('on');bpWSave()};
+ addEventListener('pointermove',mv);addEventListener('pointerup',up)});
+document.addEventListener('dblclick',e=>{const h=e.target.closest&&e.target.closest('.bprz');if(!h)return;delete bpW[h.dataset.rz];bpWSave();bpApplyFeed();drawRail()});
+document.addEventListener('keydown',e=>{const h=e.target.closest&&e.target.closest('.bprz');if(!h||!['ArrowLeft','ArrowRight'].includes(e.key))return;e.preventDefault();
+ const k=h.dataset.rz,col=k==='feed'?$('#view'):h.closest('.bp'),w=Math.round(col.getBoundingClientRect().width/curZoom())+(e.key==='ArrowRight'?24:-24);
+ bpW[k]=Math.min(BPMAX,Math.max(k==='feed'?BPMIN.feed:BPMIN.panel,w));bpWSave();bpApplyFeed();if(k!=='feed')drawRail();setTimeout(()=>{const n=document.querySelector(`.bprz[data-rz="${k}"]`);n&&n.focus()})});
+/* Reorder: drag a panel by its grip onto another panel. */
+let BPDRAG=null;
+document.addEventListener('dragstart',e=>{const g=e.target.closest&&e.target.closest('[data-grip]');if(!g)return;BPDRAG=g.dataset.grip;e.dataTransfer.effectAllowed='move';try{e.dataTransfer.setData('text/plain',BPDRAG)}catch(_){}const p=g.closest('.bp');p&&p.classList.add('bpmoving')});
+document.addEventListener('dragover',e=>{if(!BPDRAG)return;const p=e.target.closest&&e.target.closest('.bp');if(!p)return;e.preventDefault();document.querySelectorAll('.bp.bpover').forEach(x=>x!==p&&x.classList.remove('bpover'));if(p.dataset.p!==BPDRAG)p.classList.add('bpover')});
+document.addEventListener('drop',e=>{if(!BPDRAG)return;const p=e.target.closest&&e.target.closest('.bp');e.preventDefault();if(p&&p.dataset.p!==BPDRAG){const v=bpGet().filter(x=>x!==BPDRAG),i=v.indexOf(p.dataset.p),r=p.getBoundingClientRect();v.splice(e.clientX>r.left+r.width/2?i+1:i,0,BPDRAG);bpSet(v)}BPDRAG=null;drawRail()});
+document.addEventListener('dragend',()=>{if(!BPDRAG)return;BPDRAG=null;document.querySelectorAll('.bpmoving,.bpover').forEach(x=>x.classList.remove('bpmoving','bpover'))});
 let BPW=null;addEventListener('resize',()=>{const on=boardOn();if(on!==BPW){BPW=on;drawRail()}});
 function rail(){const r=currentRoute();if(boardOn())return board();return (r==='market'?callerCard()+railRest(1)+adBoard():r==='home'?adBoard()+marketCard()+railNews()+railRest():adBoard()+railRest())+`<div class="railfoot">${socials('sm')}<div class="legal" style="justify-content:flex-start"><button data-act="doc" data-f="terms">Terms</button><button data-act="doc" data-f="privacy">Privacy</button><span>© ${new Date().getFullYear()} Callit</span></div></div>`}
 function railRest(noCallers){const lv=(LIVE.feeds['movers:1h']||[]).map(k=>T[k]).filter(t=>t&&t.price&&!NOT_MEME.has(String(t.sym).toUpperCase()));
@@ -1846,6 +1881,7 @@ function vNotifs(){const f=S.nt||'all',list=NOTIFS.filter(n=>f==='all'||(f==='so
 function settingsModal(){const th=document.documentElement.dataset.theme||'system',col=document.body.classList.contains('collapsed');
  modal('Settings','',`<div class="field"><label>Theme</label><div class="seg">${[['system','System'],['dark','Navy'],['light','White']].map(([k,l])=>`<button class="${th===k?'on':''}" data-act="settheme" data-f="${k}">${l}</button>`).join('')}</div></div>
  <div class="field"><label>App</label><button class="btn ghost block" data-act="install">${ic('down',16)} Install Callit on this device</button></div>
+ ${zoomOn()?`<div class="field"><label>Display size</label><div class="seg">${ZOOMS.map(z=>`<button class="${zoomGet()===z?'on':''}" data-act="setzoom" data-f="${z}">${z}%</button>`).join('')}</div></div>`:''}
  <div class="field"><label>Sidebar</label><div class="seg"><button class="${col?'':'on'}" data-act="setside" data-f="open">Expanded</button><button class="${col?'on':''}" data-act="setside" data-f="closed">Icons only</button></div></div>`)}
 function withdrawModal(){if(!S.connected)return connectModal(()=>withdrawModal());const real=REALW();
  const held=Object.keys(S.bal).filter(k=>S.bal[k]>0&&T[k]).sort((a,b)=>usd(b,S.bal[b])-usd(a,S.bal[a]));
@@ -2543,6 +2579,7 @@ document.addEventListener('click',e=>{
      S.activity.unshift({k:'Sent',d:`${via==='SOL'?amt.toFixed(3):amt} ${via} for Callit Premium`,t:'Just now'});render();toast('Welcome to Premium ✓')})})},
   nf:()=>{S.nf=b.dataset.f;render()},newsx:()=>{location.hash='#/news'},
   ntab:()=>{S.ntab=b.dataset.f;render()},
+  setzoom:()=>{try{localStorage.setItem('callit.zoom',b.dataset.f)}catch(_){}zoomApply();closeModal();settingsModal()},
   bpdel:()=>{const k=b.dataset.f;bpSet(bpGet().filter(x=>x!==k));drawRail();toast(`${BP[k][0]} removed. Add it back with +`)},bpadd:()=>bpAddModal(),
   pushtest:()=>pushTest(b),
   bubtog:()=>{const c=b.closest('.hmcard'),o=!c.classList.contains('open');c.classList.toggle('open',o);b.setAttribute('aria-expanded',o);const bd=c.querySelector('.hmbody');bd.hidden=!o;try{localStorage.setItem('callit.bubopen',o?'1':'0')}catch(_){}if(o){const w=c.querySelector('#bubwrap');if(w&&BUBT)w.innerHTML=bubbles(BUBT)}},
