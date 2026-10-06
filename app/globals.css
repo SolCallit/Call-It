@@ -2390,3 +2390,4 @@ body.bpdrag iframe{pointer-events:none}
 .bpmenu button:hover{background:var(--hover)}
 .bpmenu button.on{background:color-mix(in srgb,var(--hi) 14%,transparent)}
 .bpmenu button svg{color:var(--muted)}.bpmenu button.on svg{color:var(--hi)}
+.bpb .railfoot{margin-top:22px;padding-top:14px;border-top:1px solid var(--line)}

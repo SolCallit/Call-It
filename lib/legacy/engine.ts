@@ -1375,7 +1375,7 @@ const BP={market:['Market','market','#/market'],calls:['Hot calls','promote','#/
 const BP_DEF=['market','calls','callers'];
 const bpGet=()=>{try{const v=JSON.parse(localStorage.getItem('callit.board')||'null');return Array.isArray(v)?v.filter(k=>BP[k]):BP_DEF.slice()}catch(_){return BP_DEF.slice()}};
 const bpSet=v=>{try{localStorage.setItem('callit.board',JSON.stringify(v))}catch(_){}};
-const boardOn=()=>currentRoute()==='home'&&matchMedia('(min-width:1100px)').matches;
+const boardOn=()=>!['market','trenches'].includes(currentRoute())&&matchMedia('(min-width:1100px)').matches;
 const bpEmpty=t=>`<p class="hint" style="margin:14px 4px">${t}</p>`;
 function bpBody(k){
  if(k==='market'){const m=['new','almost','grad'].includes(S.rmt)?S.rmt:'new',L={new:'New',almost:'Bonding',grad:'Migrated'};
@@ -1401,9 +1401,11 @@ function bpBody(k){
 const BPW_KEY='callit.boardw';
 const bpW=(()=>{try{return JSON.parse(localStorage.getItem(BPW_KEY)||'{}')||{}}catch(_){return {}}})();
 const bpWSave=()=>{try{localStorage.setItem(BPW_KEY,JSON.stringify(bpW))}catch(_){}};
-const BPMIN={feed:420,panel:250},BPMAX=960;
-function bpApplyFeed(){document.body.style.setProperty('--feedw',(bpW.feed||600)+'px')}
-bpApplyFeed();
+const BPMIN={feed:420,panel:250},BPMAX=1400;
+/* The content column's width is remembered per page (Home's feed, a token page, DeFi…). */
+const feedKey=()=>{const r=currentRoute();return r==='home'?'feed':'feed:'+r};
+const feedDef=()=>({home:600,token:720,callerboard:680,you:660,profile:660,news:640,admin:900}[currentRoute()]||620);
+function bpApplyFeed(){document.body.style.setProperty('--feedw',(bpW[feedKey()]||feedDef())+'px')}
 const bpStyle=k=>bpW[k]?` style="flex:0 0 ${bpW[k]}px;max-width:none"`:'';
 const bpRz=(k,l)=>`<div class="bprz" data-rz="${k}" role="separator" aria-orientation="vertical" aria-label="Resize ${l}" title="Drag to resize · double-click to reset" tabindex="0"></div>`;
 /* Display size: 90% by default on computers (phones stay at 100%). */
@@ -1416,25 +1418,25 @@ const curZoom=()=>parseFloat(document.body.style.zoom)||1;
 let BPMENU=null;
 const bpMenu=k=>`<div class="bpmenu" role="menu" aria-label="Change panel">${Object.keys(BP).map(x=>`<button role="menuitemradio" aria-checked="${x===k}" class="${x===k?'on':''}" data-act="bppick" data-f="${k}" data-to="${x}">${ic(BP[x][1],15)}<span>${BP[x][0]}</span>${x===k?ic('check',14):''}</button>`).join('')}</div>`;
 function board(){const on=bpGet();
- return bpRz('feed','feed')+on.map(k=>{const [l,icn,href]=BP[k];return `<section class="bp" data-p="${k}" aria-label="${l}"${bpStyle(k)}><header class="bph"><button class="ib bpgrip" draggable="true" data-grip="${k}" aria-label="Drag to move ${l}" title="Drag to move">${ic('grip',16)}</button><span class="bpic">${ic(icn,17)}</span><button class="bpttl" data-act="bpmenu" data-f="${k}" aria-haspopup="menu" aria-expanded="${BPMENU===k}"><h3>${l}</h3>${ic('down',14)}</button>${BPMENU===k?bpMenu(k):''}<a class="lnk bpopen" href="${href}">Open</a><button class="ib bpdel" data-act="bpdel" data-f="${k}" aria-label="Remove ${l} panel" title="Remove panel">${ic('trash',16)}</button></header><div class="bpb" data-p="${k}">${bpBody(k)}</div>${bpRz(k,l)}</section>`}).join('')
+ return bpRz('feed','feed')+on.map(k=>{const [l,icn,href]=BP[k];return `<section class="bp" data-p="${k}" aria-label="${l}"${bpStyle(k)}><header class="bph"><button class="ib bpgrip" draggable="true" data-grip="${k}" aria-label="Drag to move ${l}" title="Drag to move">${ic('grip',16)}</button><span class="bpic">${ic(icn,17)}</span><button class="bpttl" data-act="bpmenu" data-f="${k}" aria-haspopup="menu" aria-expanded="${BPMENU===k}"><h3>${l}</h3>${ic('down',14)}</button>${BPMENU===k?bpMenu(k):''}<a class="lnk bpopen" href="${href}">Open</a><button class="ib bpdel" data-act="bpdel" data-f="${k}" aria-label="Remove ${l} panel" title="Remove panel">${ic('trash',16)}</button></header><div class="bpb" data-p="${k}">${bpBody(k)}${k===on[on.length-1]?railFoot():''}</div>${bpRz(k,l)}</section>`}).join('')
 }
 function bpAddModal(){const off=Object.keys(BP).filter(k=>!bpGet().includes(k));if(!off.length)return;
  modal('Add a panel','Panels sit beside your feed and scroll on their own.',`<div class="bpopts">${off.map(k=>`<button class="bpopt" data-bp="${k}"><span class="bpic">${ic(BP[k][1],18)}</span><b>${BP[k][0]}</b><span class="hint">Add</span></button>`).join('')}</div>`,
   m=>m.addEventListener('click',e=>{const o=e.target.closest('[data-bp]');if(!o)return;const v=bpGet();v.push(o.dataset.bp);bpSet(v);closeModal();drawRail()}))}
 function drawRail(){const r=$('#rail');if(!r||document.body.classList.contains('bpdrag')||BPDRAG)return;const keep={};r.querySelectorAll('.bpb').forEach(b=>keep[b.dataset.p]=b.scrollTop);const sl=r.scrollLeft;
- document.body.classList.toggle('board',boardOn());r.innerHTML=rail();r.scrollLeft=sl;r.querySelectorAll('.bpb').forEach(b=>{if(keep[b.dataset.p])b.scrollTop=keep[b.dataset.p]})}
+ document.body.classList.toggle('board',boardOn());bpApplyFeed();r.innerHTML=rail();r.scrollLeft=sl;r.querySelectorAll('.bpb').forEach(b=>{if(keep[b.dataset.p])b.scrollTop=keep[b.dataset.p]})}
 /* Resize: drag a divider; double-click resets that column. Arrow keys work too. */
 document.addEventListener('pointerdown',e=>{const h=e.target.closest&&e.target.closest('.bprz');if(!h)return;e.preventDefault();
  const k=h.dataset.rz,col=k==='feed'?$('#view'):h.closest('.bp');if(!col)return;const x0=e.clientX,w0=col.getBoundingClientRect().width/curZoom(),z=curZoom();
  document.body.classList.add('bpdrag');h.classList.add('on');
- const mv=ev=>{const w=Math.round(Math.min(BPMAX,Math.max(k==='feed'?BPMIN.feed:BPMIN.panel,w0+(ev.clientX-x0)/z)));bpW[k]=w;
+ const sk=k==='feed'?feedKey():k;const mv=ev=>{const w=Math.round(Math.min(BPMAX,Math.max(k==='feed'?BPMIN.feed:BPMIN.panel,w0+(ev.clientX-x0)/z)));bpW[sk]=w;
   if(k==='feed')bpApplyFeed();else{const c=document.querySelector(`.bp[data-p="${k}"]`);if(c){c.style.flex=`0 0 ${w}px`;c.style.maxWidth='none'}}};
  const up=()=>{removeEventListener('pointermove',mv);removeEventListener('pointerup',up);document.body.classList.remove('bpdrag');h.classList.remove('on');bpWSave()};
  addEventListener('pointermove',mv);addEventListener('pointerup',up)});
-document.addEventListener('dblclick',e=>{const h=e.target.closest&&e.target.closest('.bprz');if(!h)return;delete bpW[h.dataset.rz];bpWSave();bpApplyFeed();drawRail()});
+document.addEventListener('dblclick',e=>{const h=e.target.closest&&e.target.closest('.bprz');if(!h)return;delete bpW[h.dataset.rz==='feed'?feedKey():h.dataset.rz];bpWSave();bpApplyFeed();drawRail()});
 document.addEventListener('keydown',e=>{const h=e.target.closest&&e.target.closest('.bprz');if(!h||!['ArrowLeft','ArrowRight'].includes(e.key))return;e.preventDefault();
  const k=h.dataset.rz,col=k==='feed'?$('#view'):h.closest('.bp'),w=Math.round(col.getBoundingClientRect().width/curZoom())+(e.key==='ArrowRight'?24:-24);
- bpW[k]=Math.min(BPMAX,Math.max(k==='feed'?BPMIN.feed:BPMIN.panel,w));bpWSave();bpApplyFeed();if(k!=='feed')drawRail();setTimeout(()=>{const n=document.querySelector(`.bprz[data-rz="${k}"]`);n&&n.focus()})});
+ bpW[k==='feed'?feedKey():k]=Math.min(BPMAX,Math.max(k==='feed'?BPMIN.feed:BPMIN.panel,w));bpWSave();bpApplyFeed();if(k!=='feed')drawRail();setTimeout(()=>{const n=document.querySelector(`.bprz[data-rz="${k}"]`);n&&n.focus()})});
 /* Reorder: drag a panel by its grip onto another panel. */
 /* Close the panel switcher on outside click or Escape. */
 document.addEventListener('pointerdown',e=>{if(BPMENU&&!(e.target.closest&&e.target.closest('.bpmenu,.bpttl'))){BPMENU=null;drawRail()}});
@@ -1445,7 +1447,8 @@ document.addEventListener('dragover',e=>{if(!BPDRAG)return;const p=e.target.clos
 document.addEventListener('drop',e=>{if(!BPDRAG)return;const p=e.target.closest&&e.target.closest('.bp');e.preventDefault();if(p&&p.dataset.p!==BPDRAG){const v=bpGet().filter(x=>x!==BPDRAG),i=v.indexOf(p.dataset.p),r=p.getBoundingClientRect();v.splice(e.clientX>r.left+r.width/2?i+1:i,0,BPDRAG);bpSet(v)}BPDRAG=null;drawRail()});
 document.addEventListener('dragend',()=>{if(!BPDRAG)return;BPDRAG=null;document.querySelectorAll('.bpmoving,.bpover').forEach(x=>x.classList.remove('bpmoving','bpover'))});
 let BPW=null;addEventListener('resize',()=>{const on=boardOn();if(on!==BPW){BPW=on;drawRail()}});
-function rail(){const r=currentRoute();if(boardOn())return board();return (r==='market'?callerCard()+railRest(1)+adBoard():r==='home'?adBoard()+marketCard()+railNews()+railRest():adBoard()+railRest())+`<div class="railfoot">${socials('sm')}<div class="legal" style="justify-content:flex-start"><button data-act="doc" data-f="terms">Terms</button><button data-act="doc" data-f="privacy">Privacy</button><span>© ${new Date().getFullYear()} Callit</span></div></div>`}
+function rail(){const r=currentRoute();if(boardOn())return board();return (r==='market'?callerCard()+railRest(1)+adBoard():r==='home'?adBoard()+marketCard()+railNews()+railRest():adBoard()+railRest())+railFoot()}
+const railFoot=()=>`<div class="railfoot">${socials('sm')}<div class="legal" style="justify-content:flex-start"><button data-act="doc" data-f="terms">Terms</button><button data-act="doc" data-f="privacy">Privacy</button><span>© ${new Date().getFullYear()} Callit</span></div></div>`;
 function railRest(noCallers){const lv=(LIVE.feeds['movers:1h']||[]).map(k=>T[k]).filter(t=>t&&t.price&&!NOT_MEME.has(String(t.sym).toUpperCase()));
  const trend=lv.filter(t=>t.live).sort((a,b)=>b.chg-a.chg).slice(0,5);if(!lv.length&&!LIVE.err['movers:1h'])loadFeed('movers:1h');
  return `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">Trending</h3><a class="lnk" href="#/market">Market</a></div><div class="list">${trend.length?'':Array.from({length:4},()=>'<div class="nrow c nskel" aria-hidden="true"><span class="tokav"></span><span class="grow"><i></i><i></i></span></div>').join('')}${trend.map(t=>`<a class="li" href="#/token/${t.key}">${tokav(t.key)}<div class="grow"><b>$${t.sym}</b><div class="hint">${(n=>n+(n===1?' call':' calls'))(calls.filter(k=>k.t===t.key).length)}</div></div><div class="r num"><b>${fmtUsd(mcap(t))}</b><div class="hint ${t.chg>=0?'up':'down'}">${fmtPct(t.chg)}</div></div></a>`).join('')}</div></div>
