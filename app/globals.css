@@ -2401,3 +2401,7 @@ body.bpdrag iframe{pointer-events:none}
 .aitog>button span{color:var(--muted);font-weight:500}
 .aitog .aix{padding:0 8px 0 4px;color:var(--muted)}
 .aitog .aix:hover{color:var(--text)}
+/* Copy-CA button in token rows */
+.cacopy{display:inline-grid;place-items:center;width:22px;height:22px;border:0;border-radius:7px;background:transparent;color:var(--muted);padding:0;margin-left:2px;vertical-align:middle;cursor:pointer;flex:none}
+.cacopy:hover{color:var(--hi);background:color-mix(in srgb,var(--hi) 12%,transparent)}
+.cacopy:active{transform:scale(.9)}
