@@ -2201,3 +2201,16 @@ tr.mine td{background:color-mix(in srgb,var(--hi) 10%,transparent)}
 .cnext{margin:4px 14px 10px;padding:10px 12px}
 .cnext>.hint{display:block;margin-bottom:2px}
 .cnext .cevt{border-bottom:0;padding-left:0;padding-right:0}
+
+/* ---------- Holder map (collapsed by default, trypophobia heads-up) ---------- */
+.hmtog{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;color:var(--text);padding:0;text-align:left;cursor:pointer;font:inherit}
+.hmtog .grow{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.hmtog small{color:var(--muted);font-size:12.5px}
+.hmchev{flex:none;display:grid;place-items:center;width:34px;height:34px;border-radius:999px;border:1px solid var(--line);color:var(--text);transition:transform .2s ease,background .2s}
+.hmchev svg{transform:rotate(-90deg);transition:transform .2s ease}
+.hmcard.open .hmchev svg{transform:rotate(90deg)}
+.hmtog:hover .hmchev{background:var(--hover)}
+.hmwarn{margin:10px 0 0;padding:8px 10px;border-radius:10px;font-size:12.5px;line-height:1.45;color:var(--muted);background:color-mix(in srgb,#FF9F43 9%,transparent);border:1px solid color-mix(in srgb,#FF9F43 22%,transparent)}
+.hmcard.open .hmwarn{display:none}
+.hmbody{margin-top:10px}
+@media (prefers-reduced-motion:reduce){.hmchev,.hmchev svg{transition:none}}

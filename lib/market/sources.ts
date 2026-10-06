@@ -195,8 +195,25 @@ export function withPair(t: LiveToken | null, pairs: DsPair[]): LiveToken | null
     audit: { mintOff: null, freezeOff: null, top10: null, dev: null, sus: false },
     socials: { x: null, web: null, tg: null }, launchpad: null, decimals: null,
   };
+  /* DexScreener is near real-time; Jupiter's token index can lag minutes on fresh launches (the header
+     showed $3.4K while the DexScreener chart showed $8.7K). When the pair has a price, its price, market
+     cap and changes win, so the header always matches the chart underneath it. */
+  const dsPrice = num(best.priceUsd);
+  const live: Partial<LiveToken> = dsPrice ? {
+    price: dsPrice,
+    mc: num(best.marketCap) ?? (base.mc && base.price ? (base.mc * dsPrice) / base.price : base.mc),
+    fdv: num(best.fdv) ?? base.fdv,
+    liq: num(best.liquidity?.usd) ?? base.liq,
+    vol24: num(best.volume?.h24) ?? base.vol24,
+    chg: {
+      m5: num(best.priceChange?.m5) ?? base.chg.m5, h1: num(best.priceChange?.h1) ?? base.chg.h1,
+      h6: num(best.priceChange?.h6) ?? base.chg.h6, h24: num(best.priceChange?.h24) ?? base.chg.h24,
+    },
+    buys24: num(best.txns?.h24?.buys) ?? base.buys24, sells24: num(best.txns?.h24?.sells) ?? base.sells24,
+  } : {};
   return {
     ...base,
+    ...live,
     pool: best.pairAddress,
     dex: best.dexId,
     icon: base.icon || best.info?.imageUrl || null,

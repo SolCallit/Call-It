@@ -1130,7 +1130,14 @@ function holdersPanel(t){const R=t._risk,hs=R&&R.holders,a=(t.L&&t.L.audit)||{},
    :`<a class="hwho" href="https://solscan.io/account/${esc(h.owner)}" target="_blank" rel="noopener"><span class="tokav alwav">${ic('wallet',14)}</span><span><b class="num">${me?'You':short(h.owner)}</b>${h.tag?`<small class="htag2 ${h.tag}">${tags[h.tag]||h.tag}</small>`:''}</span></a>`}
    <span class="hpct num"><b>${h.pct<0.01?'<0.01':h.pct.toFixed(2)}%</b><small>${mc?fmtUsd(mc*h.pct/100):''}</small><i style="width:${Math.max(3,h.pct/max*100)}%"></i></span>
    ${!p&&!me&&h.tag!=='pool'?`<button class="ib sm" data-act="htrack" data-f="${esc(h.owner)}" title="Track this wallet" aria-label="Track ${short(h.owner)}">${ic('bell',15)}</button>`:'<span aria-hidden="true"></span>'}</div>`}).join('')}</div></div>
- <div class="card"><div class="bubhead"><b>Holder map</b><a class="lnk" href="https://app.bubblemaps.io/sol/token/${esc(t.key)}" target="_blank" rel="noopener">Open in Bubblemaps ↗</a></div><div id="bubwrap">${bubbles(t)}</div></div>`}
+ ${bubCard(t)}`}
+/* Holder map starts closed: clusters of circles can trigger trypophobia, so people read a heads-up first and choose to open it. */
+const bubOpen=()=>{try{return localStorage.getItem('callit.bubopen')==='1'}catch(_){return false}};
+let BUBT=null;
+function bubCard(t){BUBT=t;const o=bubOpen();
+ return `<div class="card hmcard${o?' open':''}"><button class="hmtog" data-act="bubtog" aria-expanded="${o}" aria-controls="bubbody"><span class="grow"><b>Holder map</b><small>Bubble view of the top holders</small></span><span class="hmchev">${ic('chev',18)}</span></button>
+ <p class="hmwarn">Heads-up: this view shows clusters of circles, which some people find uncomfortable (trypophobia). Tap the arrow to open it, and again to close.</p>
+ <div id="bubbody" class="hmbody"${o?'':' hidden'}><div id="bubwrap">${o?bubbles(t):''}</div><a class="lnk" style="padding:6px 0 0;display:inline-block" href="https://app.bubblemaps.io/sol/token/${esc(t.key)}" target="_blank" rel="noopener">Open in Bubblemaps ↗</a></div></div>`}
 /* Pair info (DexScreener-style) and the coin's lore. Loaded on their own and patched in place, never a full re-render. */
 const PAIRS={};
 function loadPairs(mint,force){const P=PAIRS[mint]||(PAIRS[mint]={});if(P.busy||(!force&&P.at&&Date.now()-P.at<1e4))return;P.busy=1;
@@ -1179,19 +1186,20 @@ function loadCallers(force){const w=S.lb||'30d';if(CBUSY[w]||(!force&&CALLERS[w]
   list.forEach(c=>{if(c.avatar_url)AVURL[c.handle]=c.avatar_url;if(c.display_name)DN[c.handle]=c.display_name;C[c.handle]=Object.assign(C[c.handle]||{},{h:c.handle,win:c.win,avg:c.avg,calls:c.calls,best:c.best,followers:c.followers||0,pnl:c.pnl||0,real:1})});
   if(!same&&currentRoute()==='callerboard'&&!document.querySelector('#modal .modal'))render()}).catch(()=>{CALLERS[w]=CALLERS[w]||{at:Date.now(),list:[],sig:'[]',err:1}}).finally(()=>{CBUSY[w]=0})}
 setInterval(()=>{if(!document.hidden&&currentRoute()==='callerboard')loadCallers(true)},2e4);
-function lbActivity(){const rec=calls.filter(k=>k.srv&&k.kind==='meme'&&k.t&&!k.sponsored).sort((a,b)=>(b.at||0)-(a.at||0)).slice(0,8);
+function lbActivity(n=8){const rec=calls.filter(k=>k.srv&&k.kind==='meme'&&k.t&&!k.sponsored).sort((a,b)=>(b.at||0)-(a.at||0)).slice(0,n);
  if(!rec.length)return '';return `<section class="lbfeed" aria-label="Latest calls"><div class="lbfh"><span class="stlive"><i></i>Live</span><b>Latest calls</b></div>${rec.map(k=>{const p=perf(k);return `<a class="lbfi" href="#/post/${k.id}">${avatar(k.c)}<span class="grow"><b>@${esc(k.c)}</b> called <b>$${esc(symOf(k.t))}</b> at ${fmtUsd(k.entry)}<small class="muted"> · ${esc(k.ago)}</small></span><em class="num ${p==null?'muted':p>=0?'up':'down'}">${p==null?'—':pctS(p)}</em></a>`}).join('')}</section>`}
 /* Callerboard has two views. Latest calls is just a live feed: it never touches the ranking. */
 function lbToggle(){const v=S.lbv==='latest'?'latest':'rank';return `<div class="pad" style="padding-bottom:0"><div class="seg wide lbtog" role="tablist">${[['rank','Rankings'],['latest','Latest calls']].map(([k,l])=>`<button role="tab" aria-selected="${v===k}" class="${v===k?'on':''}" data-act="lbv" data-f="${k}">${l}</button>`).join('')}</div></div>`}
+/* Latest calls: this week's top 10 call cards plus the live list of every new call. Rankings stay on their own tab. */
 function vLatestCalls(){if(SYNC()&&Date.now()-(S.lcAt||0)>2e4){S.lcAt=Date.now();loadPosts()}
- const L=calls.filter(k=>visible(k)&&!k.sponsored&&(k.kind==='meme'||k.kind==='perps')).sort((a,b)=>(b.at||0)-(a.at||0)).slice(0,40);
- return lbToggle()+`<div class="pad lbhead"><span class="muted">Every new call as it lands, newest first. Doesn’t affect rankings.</span><span class="stlive"><i></i>Live</span></div>
- <div id="feed">${L.map(post).join('')||'<div class="empty"><b class="h2">No calls yet</b><p>Be the first.</p><button class="btn primary" data-act="newcall">Make a call</button></div>'}</div>`}
+ const top=topCalls(),act=lbActivity(40);
+ return lbToggle()+top+(act?(top?'':'<div style="height:10px"></div>')+act:'')+(!top&&!act?'<div class="empty"><b class="h2">No calls yet</b><p>Every new call shows up here live. Be the first.</p><button class="btn primary" data-act="newcall">Make a call</button></div>':'')
+ +'<p class="hint pad">Newest first, updated live. Tap a call to open it. This view doesn’t affect rankings.</p>'}
 function vLeaders(){if(S.lbv==='latest')return vLatestCalls();loadCallers();const w=S.lb||'30d',L=ranked(),st=CALLERS[w],podium=L.slice(0,3),me=L.findIndex(c=>c.h===S.me);
  const pod=podium.length?`<div class="podium">${[1,0,2].filter(i=>podium[i]).map(i=>{const c=podium[i];return `<a class="pod p${i+1}" href="#/profile/${esc(c.h)}"><span class="pcrown">${['👑','🥈','🥉'][i]}</span>${avatar(c.h)}<b>${esc(nameOf(c.h))}</b><span class="muted">@${esc(c.h)}</span><span class="pwin num">${c.win}%<small>win</small></span><span class="num ${c.avg>=0?'up':'down'}">${fmtPct(c.avg)} avg</span><span class="pstep">${i+1}</span></a>`}).join('')}</div>`:'';
  const head=`<div class="pad lbhead"><span class="muted">${st?'Ranked by win rate, then average return. Updates live.':'Loading callers…'}</span><div class="seg">${['7d','30d','All time'].map(x=>`<button class="${(S.lb||'30d')===x?'on':''}" data-act="lb" data-f="${x}">${x}</button>`).join('')}</div></div>`;
- if(st&&!L.length)return lbToggle()+topCalls()+head+`<div class="empty"><b class="h2">The board is wide open</b><p>No calls in this window yet. Make the first one and take #1.</p><button class="btn primary" data-act="newcall">Make a call</button></div>`+lbActivity();
- return lbToggle()+topCalls()+head+pod+lbActivity()+`<div class="tablewrap" style="border-top:1px solid var(--line)"><table><thead><tr><th>Rank</th><th>Caller</th><th>Win rate</th><th>Avg return</th><th>Calls</th><th>Best call</th><th></th></tr></thead><tbody>
+ if(st&&!L.length)return lbToggle()+head+`<div class="empty"><b class="h2">The board is wide open</b><p>No calls in this window yet. Make the first one and take #1.</p><button class="btn primary" data-act="newcall">Make a call</button></div>`;
+ return lbToggle()+head+pod+`<div class="tablewrap" style="border-top:1px solid var(--line)"><table><thead><tr><th>Rank</th><th>Caller</th><th>Win rate</th><th>Avg return</th><th>Calls</th><th>Best call</th><th></th></tr></thead><tbody>
  ${L.map((c,i)=>`<tr class="${c.h===S.me?'mine':''}" data-go="#/profile/${c.h}"><td class="rkc">${i+1}${rankMove('lbt',c.h,i)}</td><td><div class="person">${avatar(c.h)}${esc(c.h)}</div></td><td class="num">${c.win}%</td><td class="num ${c.avg>=0?'up':'down'}">${fmtPct(c.avg)}</td><td class="num">${c.calls}</td><td class="num ${c.best>=0?'up':'down'}">${fmtPct(c.best)}</td>
  <td>${c.h===S.me?'<span class="muted">You</span>':`<button class="btn sm ${S.following.has(c.h)?'ghost':'primary'}" data-act="follow" data-h="${c.h}">${S.following.has(c.h)?'Following':'Follow'}</button>`}</td></tr>`).join('')}</tbody></table></div>${(()=>{RANKS.lbt={};L.forEach((c,i)=>RANKS.lbt[c.h]=i);return ''})()}
  ${me>=0?`<div class="myrank"><span>Your rank</span><b class="num">#${me+1}</b><span class="muted">${L[me].win}% win · ${L[me].calls} calls</span></div>`:''}
@@ -2364,6 +2372,7 @@ document.addEventListener('click',e=>{
      S.activity.unshift({k:'Sent',d:`${via==='SOL'?amt.toFixed(3):amt} ${via} for Callit Premium`,t:'Just now'});render();toast('Welcome to Premium ✓')})})},
   nf:()=>{S.nf=b.dataset.f;render()},newsx:()=>{location.hash='#/news'},
   ntab:()=>{S.ntab=b.dataset.f;render()},
+  bubtog:()=>{const c=b.closest('.hmcard'),o=!c.classList.contains('open');c.classList.toggle('open',o);b.setAttribute('aria-expanded',o);const bd=c.querySelector('.hmbody');bd.hidden=!o;try{localStorage.setItem('callit.bubopen',o?'1':'0')}catch(_){}if(o){const w=c.querySelector('#bubwrap');if(w&&BUBT)w.innerHTML=bubbles(BUBT)}},
   ncat:()=>{const f=b.dataset.f;if(f==='*'){lsPut('callit.ncat',null);return render()}const cur=lsSet('callit.ncat')||new Set();cur.has(f)?cur.delete(f):cur.add(f);lsPut('callit.ncat',cur.size===NCATS.length?null:cur);render()},
   cimp:()=>{S.cimp=b.dataset.f;try{localStorage.setItem('callit.cimp',S.cimp)}catch(_){}render()},
   ccur:()=>{const f=b.dataset.f;if(f==='*'){lsPut('callit.ccur',null);return render()}const all=[...new Set(((NEWS.calendar.d&&NEWS.calendar.d.events)||[]).map(e=>e.country))];const cur=lsSet('callit.ccur')||new Set(all);cur.has(f)?cur.delete(f):cur.add(f);lsPut('callit.ccur',cur.size===all.length||!cur.size?null:cur);render()},
