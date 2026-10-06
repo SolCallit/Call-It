@@ -2054,3 +2054,36 @@ tr.mine td{background:color-mix(in srgb,var(--hi) 10%,transparent)}
 /* Premium pill on your own profile */
 .premp{color:var(--hi);border-color:color-mix(in srgb,var(--hi) 45%,var(--line))}
 .premp.on{color:#fff;background:linear-gradient(135deg,var(--hi),color-mix(in srgb,var(--hi) 60%,#9B7BFF));border-color:transparent}
+
+/* ---------- DexScreener chart, orders, auto-sell ---------- */
+.lchart.dsx{height:440px;background:#131722}
+.lchart.dsx iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+@media (max-width:560px){.lchart.dsx{height:380px}}
+.lsrc{display:flex;justify-content:flex-end;margin:-4px 2px 8px;font-size:13px}
+.tradeh{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.tradeh h3{margin:0}
+.ordbtns{display:flex;gap:6px}
+.ordlist{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
+.ordh{display:flex;align-items:baseline;gap:8px;font-weight:800;margin-bottom:4px;flex-wrap:wrap}
+.ordh .hint{font-weight:500}
+.ordrow{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line)}
+.ordrow:first-of-type{border-top:0}
+.ordrow a.grow{flex:1;display:flex;align-items:center;gap:10px;min-width:0;color:var(--text);text-decoration:none}
+.ordrow a.grow>span{display:flex;flex-direction:column;min-width:0}
+.ordrow .tokav{width:34px;height:34px}
+#walords .ordlist{border-top:0;margin-top:18px;padding:12px 14px;border:1px solid var(--line);border-radius:16px}
+.asell{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
+.aslrow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px}
+.pq{color:var(--text);font-weight:800;margin-left:4px}
+.pqn{font-style:normal;color:var(--muted);font-size:13px}
+/* quote posts */
+.qcard{margin:10px 0 4px;padding:10px 12px;border:1px solid var(--line);border-radius:14px;cursor:pointer;background:color-mix(in srgb,var(--bg2) 50%,transparent)}
+.qcard:hover{background:var(--hover)}
+.qmiss{color:var(--muted);font-size:13px;display:flex;align-items:center;gap:6px;cursor:default}
+.qhead{display:flex;align-items:center;gap:6px;min-width:0;font-size:14px}
+.qhead .av{width:22px;height:22px;font-size:9px}
+.qhead .hint{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qcall{display:flex;align-items:center;gap:10px;margin-top:8px}
+.qcall .tokav{width:30px;height:30px}
+.qcall .grow{flex:1;display:flex;flex-direction:column;min-width:0}
+.qtext{margin:6px 0 0;font-size:14.5px;line-height:1.4;color:var(--text)}

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { usePrivy, useLogin, useLoginWithOAuth } from '@privy-io/react-auth';
-import { useCreateWallet, useSignTransaction, useWallets } from '@privy-io/react-auth/solana';
+import { useCreateWallet, useSignMessage, useSignTransaction, useWallets } from '@privy-io/react-auth/solana';
 import type { User } from '@privy-io/react-auth';
 import type { CallitProfile, CallitNotification } from '@/lib/auth/types';
 import { toHandle } from '@/lib/auth/handle';
@@ -50,6 +50,7 @@ export default function AuthBridge() {
   const [resync, setResync] = useState(0);
   const walletFlow = useRef<WalletSignInHandle>(null);
   const { signTransaction } = useSignTransaction();
+  const { signMessage } = useSignMessage();
 
   // Expose the user's wallet to the engine: real balances, swaps and withdrawals.
   // The engine only ever gets back signed bytes; keys stay in Privy / Phantom / Solflare.
@@ -69,9 +70,16 @@ export default function AuthBridge() {
         const { signedTransaction } = await signTransaction({ transaction: b64ToBytes(tx), wallet: w });
         return bytesToB64(signedTransaction);
       },
+      // Signs a plain-text message (Jupiter order login). Returns the signature as base64.
+      signMsg: async (text, owner) => {
+        const w = (owner && wallets.find((x) => x.address === owner)) || wallets[0];
+        if (!authenticated || !w) throw new Error('No wallet connected. Sign in again.');
+        const { signature } = await signMessage({ message: new TextEncoder().encode(text), wallet: w });
+        return bytesToB64(signature);
+      },
     };
     window.callitWalletChanged?.();
-  }, [authenticated, wallets, signTransaction, getAccessToken]);
+  }, [authenticated, wallets, signTransaction, signMessage, getAccessToken]);
 
   // Expose controls to the legacy engine.
   useEffect(() => {

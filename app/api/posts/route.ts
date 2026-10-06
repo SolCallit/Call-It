@@ -94,6 +94,8 @@ export async function POST(req: Request) {
   const media = Array.isArray(b.media) ? b.media.filter(ownMediaUrl).slice(0, 4) : [];
   const horizon = typeof b.horizon === 'string' && HORIZONS.includes(b.horizon) ? b.horizon : '7 days';
   const row: Record<string, unknown> = { profile_id: me.id, kind, body, media };
+  // Quote another post (a call or a regular post) with your own take.
+  if (typeof b.quote_ref === 'string' && /^([0-9a-f-]{36}|welcome)$/i.test(b.quote_ref)) row.quote_ref = b.quote_ref;
 
   if (kind === 'meme') {
     if (!isMint(b.mint)) return json({ error: 'Pick a Solana token to call.' }, 400);
@@ -124,7 +126,9 @@ export async function POST(req: Request) {
 
   if (kind === 'random' && !body && !media.length) return json({ error: 'Write something or add a photo.' }, 400);
 
-  const { data, error } = await db.from('posts').insert(row).select('*').single();
+  let { data, error } = await db.from('posts').insert(row).select('*').single();
+  // Migration 0009 not run yet: post anyway, without the quote.
+  if (error && /quote_ref/.test(error.message)) { delete row.quote_ref; ({ data, error } = await db.from('posts').insert(row).select('*').single()); }
   if (error) {
     if (/daily_post_limit/.test(error.message)) return json({ error: "You've hit today's posting limit. Try again tomorrow." }, 429);
     return json({ error: 'db_write', detail: error.message }, 500);

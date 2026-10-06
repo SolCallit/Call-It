@@ -28,6 +28,7 @@ declare global {
       addresses: string[];
       token: () => Promise<string | null>;
       signTx: (base64Tx: string, owner?: string) => Promise<string>;
+      signMsg: (text: string, owner?: string) => Promise<string>;
     };
     callitWalletChanged?: () => void;
   }

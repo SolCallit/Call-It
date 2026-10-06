@@ -67,7 +67,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ mint: string }
       address: p.pairAddress, url: p.url || `https://dexscreener.com/solana/${p.pairAddress}`,
       dex: DEX[p.dexId] || p.dexId, via: launch && launch !== (DEX[p.dexId] || p.dexId) ? launch : null, labels: p.labels || [],
       base: { sym: (flipped ? p.quoteToken : p.baseToken).symbol, address: mint },
-      quote: { sym: (flipped ? p.baseToken : p.quoteToken).symbol, address: (flipped ? p.baseToken : p.quoteToken).address },
+      quote: { sym: (flipped ? p.baseToken : p.quoteToken).symbol, name: (flipped ? p.baseToken : p.quoteToken).name, address: (flipped ? p.baseToken : p.quoteToken).address },
       priceUsd: n(p.priceUsd), priceNative: flipped ? null : n(p.priceNative),
       liq: { usd: n(p.liquidity?.usd), base: n(flipped ? p.liquidity?.quote : p.liquidity?.base), quote: n(flipped ? p.liquidity?.base : p.liquidity?.quote) },
       fdv: n(p.fdv), mc: n(p.marketCap), createdAt: p.pairCreatedAt || null,

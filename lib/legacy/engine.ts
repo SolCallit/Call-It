@@ -8,7 +8,7 @@
  * and its data into /lib. This file shrinks until it's gone.
  */
 import { fetchFeed, fetchToken, fetchTokens, searchTokens, mountChart, fmtSmall } from '@/lib/market/client';
-import { walletBalances, swap as jupSwap, withdraw as doWithdraw, toBaseUnits, qrSvg, SOL_MINT, USDC_MINT } from '@/lib/wallet/client';
+import { walletBalances, swap as jupSwap, withdraw as doWithdraw, toBaseUnits, qrSvg, SOL_MINT, USDC_MINT, placeOrder, listOrders, cancelOrder } from '@/lib/wallet/client';
 
 let booted = false;
 
@@ -261,7 +261,7 @@ function who(h){const n=nameOf(h);return `<a class="pwho" href="#/profile/${esc(
 /* server rows -> feed items */
 function fromRow(r){if(!r||!r.handle)return null;if(r.avatar_url)AVURL[r.handle]=r.avatar_url;if(r.display_name)DN[r.handle]=r.display_name;
  if(!C[r.handle])C[r.handle]={h:r.handle,win:0,avg:0,calls:0,best:0,followers:0,real:1};
- const k={id:r.id,srv:1,c:r.handle,kind:r.kind,thesis:r.body||'',media:r.media||[],likes:r.likes||0,reposts:r.reposts||0,replies:r.replies||0,views:Math.max(1,(r.likes||0)*9+(r.replies||0)*14),liked:!!r.liked,reposted:!!r.reposted,horizon:r.horizon||null};
+ const k={id:r.id,srv:1,c:r.handle,kind:r.kind,thesis:r.body||'',media:r.media||[],likes:r.likes||0,reposts:r.reposts||0,replies:r.replies||0,views:Math.max(1,(r.likes||0)*9+(r.replies||0)*14),liked:!!r.liked,reposted:!!r.reposted,horizon:r.horizon||null,quote:r.quote_ref||null};
  if(r.kind==='meme'){Object.assign(k,{t:r.mint,entry:+r.entry_mc,target:r.target_mc?+r.target_mc:null,buy:+r.buy_usd||0,snap:{sym:r.token_sym,name:r.token_name}})}
  if(r.kind==='perps')k.perp={m:r.perp_market,side:r.perp_side,lev:+r.perp_leverage,entry:+r.perp_entry,target:r.perp_target?+r.perp_target:null,stop:r.perp_stop?+r.perp_stop:null};
  return liveAgo(k,Date.parse(r.created_at))}
@@ -355,11 +355,11 @@ function perpCard(k){const p=k.perp,n=perpNums(k),L=p.side==='long';
 function postPerp(k){const p=k.perp;if(!p.entry)return '';const n=perpNums(k);
  return `<article class="post${k.fresh?' fresh':''}" data-go="#/post/${k.id}" tabindex="0" aria-label="Perps call by ${esc(k.c)} on ${p.m}">
  <a href="#/profile/${k.c}" aria-label="Open @${esc(k.c)}'s profile" class="pav">${avatar(k.c,'md')}</a><div style="min-width:0">${phead(k)}
- <p class="ptext">${rich(k.thesis)}</p>${mediaGrid(k.media)}${perpCard(k)}<div class="pnote">${perpNote(k,n)}</div>
+ <p class="ptext">${rich(k.thesis)}</p>${mediaGrid(k.media)}${quoteCard(k.quote)}${perpCard(k)}<div class="pnote">${perpNote(k,n)}</div>
  ${pbar(k,`<span class="pright"><span class="mc num" data-ppx="${p.m}" title="${p.m} mark price">${n?fmtPrice(n.px):'—'}</span></span>`)}</div></article>`}
 function postRandom(k){return `<article class="post${k.fresh?' fresh':''}" data-go="#/post/${k.id}" tabindex="0" aria-label="Post by ${esc(k.c)}">
  <a href="#/profile/${k.c}" aria-label="Open @${esc(k.c)}'s profile" class="pav">${avatar(k.c,'md')}</a><div style="min-width:0">${phead(k)}
- ${k.thesis?`<p class="ptext">${rich(k.thesis)}</p>`:''}${mediaGrid(k.media)}${pbar(k)}</div></article>`}
+ ${k.thesis?`<p class="ptext">${rich(k.thesis)}</p>`:''}${mediaGrid(k.media)}${quoteCard(k.quote)}${pbar(k)}</div></article>`}
 function perpPanel(k){if(!k.perp.entry)return '<p class="hint">Loading the live price…</p>';const p=k.perp,n=perpNums(k),L=p.side==='long',cls=n?(n.up?'up':'down'):'';
  const prog=p.target&&n?Math.min(100,Math.max(0,(n.px-p.entry)/(p.target-p.entry)*100)):null;
  return `<div class="tpanel">${perpCard(k)}<div class="tgrid num"><div><span>Entry</span><b>${fmtPrice(p.entry)}</b></div><div><span>Mark price</span><b class="${cls}" data-ppx="${p.m}">${n?fmtPrice(n.px):'—'}</b></div><div><span>Price move</span><b class="${cls}">${n?fmtPct(n.move):'—'}</b></div>
@@ -410,20 +410,31 @@ function perpModal(o={}){let mk='SOL',side='long',lev=10,hz='7 days';const CD={m
    upMedia(CD.media).then(media=>API('/api/posts',{body:{kind:'perps',market:mk,side,leverage:lev,target:tg,stop:st,horizon:hz,body:thesis,media}}))
     .then(r=>afterPost(Object.assign(fromRow({...r.post,handle:S.me}),{fresh:true}),'Perps call posted'))
     .catch(e=>{go.disabled=false;go.textContent='Post perps call';err.textContent=e.message})}})}
-function randomModal(o={}){const CD={media:[]};
- modal('New post','Not every post needs a chart. Share what’s on your mind.',`${kindSeg('random')}
+function randomModal(o={}){const CD={media:[]},qid=o.quote||null;
+ modal(qid?'Quote':'New post',qid?'Add your take. The original shows under your post.':'Not every post needs a chart. Share what’s on your mind.',`${qid?'':kindSeg('random')}
  <div class="field"><div class="composer2" id="cbox"><textarea id="cx" class="input" maxlength="280" style="min-height:130px" placeholder="What’s happening?">${esc(o.draft||'')}</textarea><div id="cmedia"></div>${attachBar()}</div><span class="hint" id="cn">0 / 280</span></div>
- <div class="err" id="cerr"></div><button class="btn primary block" id="cpost" disabled>Post</button>`,
- m=>{wireKind(m,'random');const tx=$('#cx',m),go=$('#cpost',m),check=()=>{$('#cn',m).textContent=tx.value.length+' / 280';go.disabled=!(tx.value.trim()||CD.media.length)};
+ ${qid?quoteCard(qid,1):''}<div class="err" id="cerr"></div><button class="btn primary block" id="cpost" disabled>Post</button>`,
+ m=>{if(!qid)wireKind(m,'random');const tx=$('#cx',m),go=$('#cpost',m),check=()=>{$('#cn',m).textContent=tx.value.length+' / 280';go.disabled=!(tx.value.trim()||CD.media.length||qid)};
   wireAttach($('#cbox',m),CD,()=>{$('#cmedia',m).innerHTML=mediaGrid(CD.media,1);$('#cbox [data-attn]',m).textContent=CD.media.length?CD.media.length+'/4':'';check()});
   tx.addEventListener('input',check);check();setTimeout(()=>tx.focus(),60);
-  go.onclick=()=>{const body=tx.value.trim(),local={c:S.me,kind:'random',thesis:body,media:CD.media.slice(),likes:0,reposts:0,replies:0,views:1,fresh:true};
+  go.onclick=()=>{const body=tx.value.trim(),local={c:S.me,kind:'random',thesis:body,media:CD.media.slice(),likes:0,reposts:0,replies:0,views:1,fresh:true,quote:qid};
    if(!SYNC())return afterPost({...local,id:Date.now(),ago:'now'},'Posted');
    go.disabled=true;go.textContent='Posting…';
-   upMedia(CD.media).then(media=>API('/api/posts',{body:{kind:'random',body,media}}))
-    .then(r=>afterPost(Object.assign(fromRow({...r.post,handle:S.me}),{fresh:true}),'Posted'))
+   upMedia(CD.media).then(media=>API('/api/posts',{body:{kind:'random',body,media,quote_ref:qid?String(qid):undefined}}))
+    .then(r=>afterPost(Object.assign(fromRow({...r.post,handle:S.me}),{fresh:true,quote:r.post.quote_ref||qid}),qid?'Quoted':'Posted'))
     .catch(e=>{go.disabled=false;go.textContent='Post';$('#cerr',m).textContent=e.message})}})}
 
+/* Quoted post shown inside another post (and in the Quote composer). */
+const QF=new Set();
+function quoteCard(id,inComposer){if(!id)return '';const q=calls.find(x=>String(x.id)===String(id))||(String(id)==='welcome'?BOTPOST:null);
+ if(!q){if(SYNC()&&!QF.has(String(id))&&/^[0-9a-f-]{36}$/i.test(String(id))){QF.add(String(id));API('/api/posts?ids='+encodeURIComponent(id)).then(j=>{mergePosts(j.posts||[]);render()}).catch(()=>{})}
+  return `<div class="qcard qmiss">${ic('repost',14)} Quoted post</div>`}
+ const n=q.kind==='meme'&&T[q.t]?nums(q):null,sym=q.kind==='meme'?symOf(q.t):'';
+ return `<div class="qcard"${inComposer?'':` data-go="#/post/${esc(q.id)}" role="link" tabindex="0"`}><div class="qhead">${avatar(q.c)}<b>${esc(nameOf(q.c))}</b><span class="hint">@${esc(q.c)}${q.ago?' · '+esc(q.ago):''}</span></div>
+  ${q.kind==='meme'&&q.t?`<div class="qcall">${tokav(q.t)}<span class="grow"><b>Called $${esc(sym)}</b><span class="hint">at ${fmtUsd(q.entry)} MC</span></span>${n?`<b class="num ${n.up?'up':'down'}">${fmtPct(n.p)}</b>`:''}</div>`:''}
+  ${q.thesis?`<p class="qtext">${esc(String(q.thesis).slice(0,180))}${String(q.thesis).length>180?'…':''}</p>`:''}</div>`}
+function repostSheet(id){const k=calls.find(x=>String(x.id)===String(id))||(String(id)==='welcome'?BOTPOST:null);if(!k)return;
+ aSheet('Repost',``,`<div class="asgroup">${arow(`data-act="rpdo" data-id="${esc(k.id)}"`,'repost',k.reposted?'Undo repost':'Repost',k.reposted?'Remove it from your profile':'Share it to your followers as is')}${arow(`data-act="rpq" data-id="${esc(k.id)}"`,'pen','Quote','Add your take on top')}</div>`)}
 /* ---------- ⋯ menu: share profile, add to list, mute, block ---------- */
 function moreSheet(h,k){const me=h===S.me,mu=S.muted.has(h),bl=S.blocked.has(h),inL=S.lists.filter(l=>l.members.includes(h)).length,c=C[h]||{},pub=PUB[h]&&!PUB[h].pending?PUB[h]:null;
  const row=(act,icn,label,sub,cls='')=>`<button class="asrow ${cls}" data-act="${act}" data-h="${esc(h)}"${k?` data-id="${k.id}"`:''}><span class="asic">${ic(icn,19)}</span><span class="grow"><b>${label}</b>${sub?`<small>${sub}</small>`:''}</span>${cls.includes('chev')?ic('chev',16):''}</button>`;
@@ -605,7 +616,7 @@ function realSwap(from,to,amt,desc,done,opt={}){let base;try{base=baseOf(from,am
  realTx(desc,step=>jupSwap({inputMint:mintOf(from),outputMint:mintOf(to),amount:base,taker:S.addr,slippageBps:S.slip?Math.round(S.slip*100):undefined,...swFees()},step).then(r=>{
   const od=decOf(to),got=r.outAmount&&od!=null?Number(r.outAmount)/10**od:null;
   const kind=from==='SOL'?'buy':to==='SOL'?'sell':'swap',pf=T[from]&&T[from].price;
-  logTx({k:{buy:'Bought',sell:'Sold',swap:'Swapped'}[kind],kind,label:`${fmtAmt(amt)} ${symOf(from)} → ${got!=null?fmtAmt(got)+' ':''}${symOf(to)}`,signature:r.signature,in_mint:mintOf(from),in_amount:amt,out_mint:mintOf(to),out_amount:got,usd_value:pf?amt*pf:null,call_ref:opt.callRef!=null?String(opt.callRef):null});return r.signature}),done)}
+  logTx({k:{buy:'Bought',sell:'Sold',swap:'Swapped'}[kind],kind,label:`${fmtAmt(amt)} ${symOf(from)} → ${got!=null?fmtAmt(got)+' ':''}${symOf(to)}`,signature:r.signature,in_mint:mintOf(from),in_amount:amt,out_mint:mintOf(to),out_amount:got,usd_value:pf?amt*pf:null,call_ref:opt.callRef!=null?String(opt.callRef):null});if(opt.after)setTimeout(()=>{try{opt.after(r)}catch(e){console.warn(e)}},1800);return r.signature}),done)}
 const perf=k=>{const t=T[k.t];return !t||t.prelaunch||!k.entry?null:(mcap(t)/k.entry-1)*100};
 function chart(seed,up,w=600,h=190){const r=rng(seed);let y=up?.25:.75,p=[];for(let i=0;i<72;i++){y+=(r()-.5)*.11+(up?.008:-.008);y=Math.min(.95,Math.max(.05,y));p.push(y)}
  const d=p.map((v,i)=>`${i?'L':'M'}${(i/71*w).toFixed(1)},${(h-v*h).toFixed(1)}`).join('');
@@ -631,7 +642,7 @@ function post(k){if(k.kind==='random')return postRandom(k);if(k.kind==='perps')r
  <a href="#/profile/${k.c}" aria-label="Open @${esc(k.c)}'s profile" class="pav">${avatar(k.c,'md')}</a>
  <div style="min-width:0">
   <div class="phead">${who(k.c)}${r&&!k.sponsored?`<span class="rk">#${r}</span>`:''}${k.sponsored?'<span class="tag">Sponsored</span>':''}${k.c!==S.me?`<button class="fchip${S.following.has(k.c)?' on':''}" data-act="follow" data-h="${k.c}" aria-label="${S.following.has(k.c)?'Following':'Follow'} ${esc(k.c)}">${S.following.has(k.c)?ic('check',12)+'<span>Following</span>':'+<span>Follow</span>'}</button>`:''}<time>${k.ago==='now'?'now':k.ago+' ago'}</time>${k.sponsored?'':moreBtn(k)}</div>
-  <p class="ptext">${rich(k.thesis)}</p>${mediaGrid(k.media)}
+  <p class="ptext">${rich(k.thesis)}</p>${mediaGrid(k.media)}${quoteCard(k.quote)}
   <a class="ccard" href="#/token/${t.key}">${tokav(t.key)}<div class="cn"><b>${esc(t.name)}</b><span>$${t.sym} <span class="chain">${t.chain}</span></span></div>${right}</a>
   ${k.sponsored?`<div class="pnote">Paid promotion by ${esc(k.sponsor)}. Not counted in rankings.</div>`:`<div class="pnote">${k.target?`Target ${fmtUsd(k.target)} within ${esc(k.horizon)} · `:''}${k.buy?`<span class="bk">${ic('check',13)} Bought in</span>`:`<span class="bk no">No buy · earns no fees</span>`}${k.sold?` · <span class="sold">${ic('repost',13)} Caller sold ${k.sold.pct}% · ${k.sold.ago} ago</span>`:''}</div>`}
   <div class="pbar"><div class="icons">
@@ -1040,19 +1051,20 @@ document.addEventListener('toggle',e=>{const d=e.target;if(d&&d.matches&&d.match
 function liveLinks(t){const so=(t.L&&t.L.socials)||{},a=(u,l,i)=>u&&/^https?:\/\//.test(u)?`<a class="lk" href="${esc(u)}" target="_blank" rel="noopener noreferrer">${ic(i,15)}${l}</a>`:'';
  return a(so.x,'X','xlogo')+a(so.web,'Website','globe')+a(so.tg,'Telegram','people')+a(`https://dexscreener.com/solana/${t.pool||t.key}`,'DexScreener','market')+a(`https://solscan.io/token/${t.key}`,'Solscan','search')+`<button class="lk" data-act="xsearch" data-k="${esc(t.key)}">${ic('xlogo',13)}Search on X</button>`}
 function vLiveToken(t){const key=t.key,tr=S.watch.has(key),on=calls.filter(k=>k.t===key),L=t.L||{},ch=(L.chg||{}).h24;
- S.ltf=S.ltf||'15m';S.lmode=S.lmode||'mc';
+ S.ltf=S.ltf||'15m';S.lmode=S.lmode||'mc';if(!S.lsrc){try{S.lsrc=localStorage.getItem('callit.lsrc')||'dex'}catch(_){S.lsrc='dex'}}
  return `<div class="pad" style="padding-bottom:0"><div style="display:flex;align-items:center;gap:12px">${tokav(key)}<div style="flex:1;min-width:0"><b class="h2">${esc(t.name)}</b>${L.verified?`<span class="vbadge" title="Verified on Jupiter">${ic('check',11)}</span>`:''} <span class="muted">$${esc(t.sym)}</span>
  <div><span class="chain">Solana</span>${t.lp?` <span class="chain lpchip">${esc(t.lp)}</span>`:''} <button class="copyca" data-act="copy" data-v="${esc(t.ca)}">${short(t.ca)} ${ic('copy',13)}</button></div></div>
  ${(()=>{if(S.connected&&!AL.d)alLoad();const bo=BELLS.has(key);return `<button class="ib bellb ${bo?'on':''}" data-act="bell" data-t="${key}" aria-label="${bo?'Edit':'Set'} alerts for $${esc(t.sym)}" title="Alerts">${ic('bell',18)}</button>`})()}<button class="btn sm ${tr?'primary':'ghost'}" data-act="track" data-t="${key}">${ic('star',15,tr)} ${tr?'On watchlist':'Watchlist'}</button></div>
  <div class="lhead"><span class="price num" id="lprice">${S.lmode==='mc'?fmtSmall(mcap(t)):fmtSmall(t.price)}</span><b class="num ${pcls(ch)}" id="lchg">${pctS(ch)} 24h</b><span class="livedot" title="Live">LIVE</span>
  <div class="seg lmode">${[['mc','MC'],['price','Price']].map(([k,l])=>`<button class="${S.lmode===k?'on':''}" data-act="lmode" data-f="${k}">${l}</button>`).join('')}</div></div>
+ <div class="lsrc"><button class="lnk" data-act="lsrc">${S.lsrc==='callit'?'Use DexScreener chart':'Use Callit chart'}</button></div>
  <div class="seg ltf" role="tablist">${['1m','5m','15m','1h','4h','1d'].map(x=>`<button class="${S.ltf===x?'on':''}" data-act="ltf" data-f="${x}">${x}</button>`).join('')}</div>
  <div class="lchart" id="lchart" data-mint="${key}"><div class="lchart-msg" id="lchartmsg">${t.pool?'Loading chart…':'No trading pool for a chart yet.'}</div></div>
  <div id="lstats">${liveStats(t)}</div>
  <div class="llinks">${liveLinks(t)}</div>
  <div id="lpair">${pairCard(t)}</div><div id="labout">${aboutCard(t)}</div>
  ${heatCard(t)}${(sc=>`<details class="card sfcard" data-sf ${(SFOPEN==null?sc.bad:SFOPEN)?'open':''}><summary><h3>Safety check</h3><span class="sfbadge ${!sc.n?'unk':sc.bad?(sc.ok>=sc.n-1&&!(t.L&&t.L.audit&&t.L.audit.sus)?'warn':'bad'):'ok'}">${sc.n?`${sc.ok}/${sc.n} passed`:'No data'}</span><span class="sfchev" aria-hidden="true">${ic('down',18)}</span></summary><div class="sflist">${liveSafety(t)}${taxRows(t)}</div><div class="bubsec"><div class="bubhead"><b>Holder map</b><a class="lnk" href="https://app.bubblemaps.io/sol/token/${esc(t.key)}" target="_blank" rel="noopener">Open in Bubblemaps ↗</a></div><div id="bubwrap">${bubbles(t)}</div></div><p class="hint" style="margin:10px 0 0">From Jupiter's token audit. Not a guarantee. Always size your bets.</p></details>`)(sfScore(t))}
- <div class="card"><h3>Trade $${esc(t.sym)}</h3><div data-swapbox data-tok="${key}"></div></div>
+ ${key===SOL_MINT||key===USDC_MINT?`<div class="card"><h3>Swap</h3><div data-swapbox></div></div>`:`<div class="card"><div class="tradeh"><h3>Trade $${esc(t.sym)}</h3><span class="ordbtns"><button class="btn sm ghost" data-act="ord" data-k="${key}" data-f="limit">${ic('up',14)} Limit</button><button class="btn sm ghost" data-act="ord" data-k="${key}" data-f="tpsl">${ic('target',14)} TP / SL</button></span></div><div data-swapbox data-tok="${key}"></div><div id="tokords">${ordersList(key)}</div></div>`}
  <div style="display:flex;justify-content:space-between;align-items:center;margin:22px 0 4px"><b class="h2">Calls on $${esc(t.sym)}</b><button class="btn sm primary" data-act="newcall" data-t="${key}">Call it</button></div></div>
  <div id="feed" style="border-top:1px solid var(--line);margin-top:10px">${on.map(post).join('')||'<div class="empty"><b>No calls yet</b><p>Call it first and your entry gets stamped at the live market cap.</p></div>'}</div>`}
 /* Pair info (DexScreener-style) and the coin's lore. Loaded on their own and patched in place, never a full re-render. */
@@ -1070,16 +1082,10 @@ function pairCard(t){const P=PAIRS[t.key];if(!P||!P.d){loadPairs(t.key);return P
  return `<div class="card pxcard">${P.d.header&&i===0?`<div class="pxbanner" style="background-image:url('${esc(P.d.header)}')" role="img" aria-label="${esc(t.name)} banner"></div>`:''}
  <div class="ptop"><div><b class="ppair">${esc(x.base.sym)} <span class="muted">/</span> ${esc(x.quote.sym)}</b><div class="hint">Solana › ${esc(x.dex)}${x.via?` <span class="muted">via</span> ${esc(x.via)}`:''}</div></div><a class="lnk" href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">DexScreener ↗</a></div>
  ${list.length>1?`<div class="pchips" role="tablist" aria-label="Pairs">${list.map((y,j)=>`<button role="tab" aria-selected="${j===i}" class="${j===i?'on':''}" data-act="pidx" data-f="${j}">${esc(y.quote.sym)} · ${esc(y.dex)}<span class="num">${fmtUsd(y.liq.usd)}</span></button>`).join('')}</div>`:''}
- <div class="pgrid g2"><div><span>Price USD</span><b class="num">${x.priceUsd!=null?fmtSmall(x.priceUsd):'—'}</b></div><div><span>Price</span><b class="num">${x.priceNative!=null?fmtSmall(x.priceNative).replace('$','')+' '+esc(x.quote.sym):'—'}</b></div></div>
- <div class="pgrid g3"><div><span>Liquidity</span><b class="num">${fmtUsd(x.liq.usd)}</b></div><div><span>FDV</span><b class="num">${fmtUsd(x.fdv)}</b></div><div><span>Mkt cap</span><b class="num">${fmtUsd(x.mc??x.fdv)}</b></div></div>
- <div class="ptf" role="tablist">${PTF.map(([k,l])=>{const c=x.chg[k];return `<button role="tab" aria-selected="${tf===k}" class="${tf===k?'on':''}" data-act="ptf" data-f="${k}"><span>${l}</span><b class="num ${c==null?'':c>=0?'up':'down'}">${c==null?'—':fmtPct(c)}</b></button>`}).join('')}</div>
- <div class="pflow"><div class="pfl"><div><span>Txns</span><b class="num">${(tx.buys+tx.sells).toLocaleString()}</b></div><div><span>Volume</span><b class="num">${fmtUsd(x.vol[tf])}</b></div></div>
-  <div class="pfr"><div class="pfrow"><span>Buys <b class="num">${tx.buys.toLocaleString()}</b></span><span>Sells <b class="num">${tx.sells.toLocaleString()}</b></span></div>${sbar(tx.buys,tx.sells)}
-  ${fl?`<div class="pfrow"><span>Buy vol <b class="num">${fmtUsd(fl.bv)}</b></span><span>Sell vol <b class="num">${fmtUsd(fl.sv)}</b></span></div>${sbar(fl.bv,fl.sv)}`:''}</div></div>
  <div class="prows">${x.createdAt?`<div><span>Pair created</span><b>${agoLong(x.createdAt)}</b></div>`:''}
   <div><span>Pooled ${esc(x.base.sym)}</span><b class="num">${fmtPool(x.liq.base)}${baseUsd!=null?` <em>${fmtUsd(baseUsd)}</em>`:''}</b></div>
   <div><span>Pooled ${esc(x.quote.sym)}</span><b class="num">${fmtPool(x.liq.quote)}${quoteUsd!=null?` <em>${fmtUsd(quoteUsd)}</em>`:''}</b></div>
-  <div><span>Pair</span><button class="copyca" data-act="copy" data-v="${esc(x.address)}">${short(x.address)} ${ic('copy',13)}</button></div></div></div>`}
+  <div><span>Paired with <b class="pq">${esc(x.quote.sym)}</b>${x.quote.name&&x.quote.name!==x.quote.sym?` <em class="pqn">${esc(x.quote.name)}</em>`:''}</span><button class="copyca" data-act="copy" data-v="${esc(x.address)}">${short(x.address)} ${ic('copy',13)}</button></div></div></div>`}
 function aboutCard(t){const P=PAIRS[t.key],d=P&&P.d;if(!d||(!d.about&&!(d.links||[]).length))return '';
  const txt=d.about||'',long=txt.length>220;
  return `<div class="card acard"><h3>About $${esc(t.sym)}</h3>${!txt?'':long?`<details class="alore"><summary><p class="ptext asum">${rich(txt.slice(0,220))}…</p><span class="lnk amore"></span></summary><p class="ptext">${rich(txt)}</p></details>`:`<p class="ptext">${rich(txt)}</p>`}
@@ -1088,7 +1094,7 @@ function aboutCard(t){const P=PAIRS[t.key],d=P&&P.d;if(!d||(!d.about&&!(d.links|
 setInterval(()=>{if(document.hidden)return;const [,r,p]=location.hash.split('/');if(r==='token'&&p&&T[p]&&T[p].live)loadPairs(p)},10000);
 /* Light refresh of a live token page without touching the chart. */
 function liveTick(t){const pr=$('#lprice'),cg=$('#lchg'),st=$('#lstats');if(!pr)return;const ch=((t.L||{}).chg||{}).h24;
- const dir=t._lp?Math.sign(t.price-t._lp):0;t._lp=t.price;if(LCHART&&LCHART.tick)LCHART.tick(t.price);
+ const dir=t._lp?Math.sign(t.price-t._lp):0;t._lp=t.price;if(LCHART&&LCHART.tick&&S.lsrc==='callit')LCHART.tick(t.price);
  flashSet(pr,S.lmode==='mc'?fmtSmall(mcap(t)):fmtSmall(t.price),dir);cg.className='num '+pcls(ch);cg.textContent=pctS(ch)+' 24h';st.innerHTML=liveStats(t);renderSwapsSoft()}
 function vToken(sym){const t=T[sym];if(!t)return isMintStr(sym)?(loadLiveToken(sym),vTokenLoading(sym)):vHome();if(t.live)return vLiveToken(t);const on=calls.filter(k=>k.t===sym),tr=S.watch.has(sym);
  const head=`<div class="pad" style="padding-bottom:0"><div style="display:flex;align-items:center;gap:12px">${tokav(t.key)}<div style="flex:1;min-width:0"><b class="h2">${esc(t.name)}</b> <span class="muted">$${t.sym}</span><div><span class="chain">${t.chain}</span> <button class="copyca" data-act="copy" data-v="${esc(t.ca)}">${short(t.ca)} ${ic('copy',13)}</button></div></div>
@@ -1148,7 +1154,7 @@ function vWallet(){if(!S.connected)return `<div class="empty"><b class="h2">No w
  return `<div class="pad">${pboard(rows,tot)}
  <div class="acts2 acts3"><button class="btn primary" data-act="deposit">${ic('down',16)} Deposit</button><button class="btn" data-act="withdraw">${ic('up',16)} Withdraw</button><a class="btn" href="#/swap">${ic('swap',16)} Swap</a></div>
  <div class="list">${(()=>{const B=pnlBook();return rows.map(([k,a])=>{const x=posPnl(k,B);return holdRow(k,a,usd(k,a)||0,x?x.pnl:null,x?x.pct:null,1)}).join('')})()}</div>
- <b class="h2" style="display:block;margin:22px 0 4px">History</b><div class="list">${S.activity.map(a=>`<div class="li"><div class="grow"><b>${esc(a.k)}</b><div class="hint">${esc(a.t)}${a.sig?` · <a class="lnk" href="https://solscan.io/tx/${a.sig}" target="_blank" rel="noopener noreferrer">View</a>`:''}</div></div><div class="r num">${esc(a.d)}</div></div>`).join('')||'<div class="empty" style="padding:18px 8px"><b>No history yet</b><p>Deposits, trades and withdrawals show up here.</p></div>'}</div></div>`}
+ <div id="walords">${ordersList()}</div><b class="h2" style="display:block;margin:22px 0 4px">History</b><div class="list">${S.activity.map(a=>`<div class="li"><div class="grow"><b>${esc(a.k)}</b><div class="hint">${esc(a.t)}${a.sig?` · <a class="lnk" href="https://solscan.io/tx/${a.sig}" target="_blank" rel="noopener noreferrer">View</a>`:''}</div></div><div class="r num">${esc(a.d)}</div></div>`).join('')||'<div class="empty" style="padding:18px 8px"><b>No history yet</b><p>Deposits, trades and withdrawals show up here.</p></div>'}</div></div>`}
 
 let MEAT=0;
 function vProfile(h){if(!h&&S.connected)h=S.me;if(h&&h===S.me&&realAuth()&&Date.now()-MEAT>15000){MEAT=Date.now();setTimeout(loadMe,0)}if(h&&!C[h]&&/^[A-Za-z0-9_]{1,30}$/.test(h)){C[h]={h,win:0,avg:0,calls:0,best:0,followers:0,real:1}}if(h&&h!==S.me&&!PUB[h])loadPub(h);const c=C[h];
@@ -1252,7 +1258,14 @@ function chrome(route){const link=([k,l])=>`<a href="#/${k}" class="${route===k?
 const isPhone=()=>matchMedia('(max-width:760px)').matches;
 function syncTray(){const open=!document.body.classList.contains('collapsed'),b=$('#brand');b.setAttribute('aria-expanded',open);b.setAttribute('aria-label',open?'Close menu':'Open menu')}
 let LCHART=null;
-function mountLiveChart(){const el=$('#lchart');if(!el)return;const t=T[el.dataset.mint];if(!t||!t.pool)return;
+/* DexScreener's chart by default (users know it); Callit's own chart is one tap away. */
+const DSIV={'1m':'1','5m':'5','15m':'15','1h':'60','4h':'240','1d':'1D'};
+function dexChartUrl(mint){const dark=document.documentElement.dataset.theme!=='light'&&!(document.documentElement.dataset.theme!=='dark'&&matchMedia('(prefers-color-scheme: light)').matches);
+ return `https://dexscreener.com/solana/${encodeURIComponent(mint)}?embed=1&loadChartSettings=0&trades=0&tabs=0&info=0&chartLeftToolbar=0&chartDefaultOnMobile=1&chartTheme=${dark?'dark':'light'}&theme=${dark?'dark':'light'}&chartStyle=1&chartType=${S.lmode==='price'?'usd':'marketCap'}&interval=${DSIV[S.ltf]||'15'}`}
+function mountLiveChart(){const el=$('#lchart');if(!el)return;const t=T[el.dataset.mint];if(!t)return;
+ if(S.lsrc!=='callit'&&isMintStr(t.key)){const src=dexChartUrl(t.key),f=el.querySelector('iframe.dsx');if(f&&f.dataset.src===src)return;LCHART=null;
+  el.classList.add('dsx');el.innerHTML=`<iframe class="dsx" data-src="${esc(src)}" src="${esc(src)}" title="$${esc(t.sym)} chart by DexScreener" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allow="clipboard-write"></iframe>`;return}
+ el.classList.remove('dsx');if(!t.pool)return;
  const msg=$('#lchartmsg');
  LCHART=mountChart(el,{pool:t.pool,mint:t.key,tf:S.ltf,factor:S.lmode==='mc'&&t.supply?t.supply:1,
   onState:st=>{if(!msg)return;msg.hidden=st==='ok';msg.textContent=st==='loading'?'Loading chart…':st==='empty'?'No trades in this timeframe yet.':'Chart is unavailable right now.'}})}
@@ -1314,7 +1327,7 @@ function callModal(pre,draft){if(!S.connected)return connectModal(()=>callModal(
  <div class="field"><label>Time window</label><div class="seg wide tw" id="ch" data-v="7 days">${[['24 hours','24h'],['3 days','3d'],['7 days','7d'],['30 days','30d']].map(([v,l])=>`<button type="button" class="${v==='7 days'?'on':''}" data-hz="${v}">${l}</button>`).join('')}</div></div></div>
  <div class="field"><label for="cx">Why this token?</label><div class="composer2" id="cbox"><textarea id="cx" class="input" maxlength="280" placeholder="Your thesis. What do you see that others don't?">${esc(draft||'')}</textarea><div id="cmedia"></div>${attachBar()}</div><span class="hint" id="cn">0 / 280</span></div>
  <div class="err" id="cerr"></div><button class="btn primary block" id="cpost" disabled>Post call</button>`,
- m=>{wireKind(m,'meme');let tok=null,sol='0.25',skip=false;const CD={media:[]};wireAttach($('#cbox',m),CD,()=>{$('#cmedia',m).innerHTML=mediaGrid(CD.media,1);$('#cbox [data-attn]',m).textContent=CD.media.length?CD.media.length+'/4':''});m.querySelectorAll('[data-hz]').forEach(b=>b.onclick=()=>{m.querySelectorAll('[data-hz]').forEach(x=>x.classList.toggle('on',x===b));$('#ch',m).dataset.v=b.dataset.hz});const inp=$('#ct',m),tx=$('#cx',m),post=$('#cpost',m);
+ m=>{wireKind(m,'meme');let tok=null,sol='0.25',skip=false,asell=false,aslp=0;const CD={media:[]};wireAttach($('#cbox',m),CD,()=>{$('#cmedia',m).innerHTML=mediaGrid(CD.media,1);$('#cbox [data-attn]',m).textContent=CD.media.length?CD.media.length+'/4':''});m.querySelectorAll('[data-hz]').forEach(b=>b.onclick=()=>{m.querySelectorAll('[data-hz]').forEach(x=>x.classList.toggle('on',x===b));$('#ch',m).dataset.v=b.dataset.hz});const inp=$('#ct',m),tx=$('#cx',m),post=$('#cpost',m);
   const canBuy=()=>tok&&tradable(tok);
   const buyOn=()=>canBuy()&&!skip;
   const drawBuy=()=>{const el=$('#cbuy',m);if(tok&&tok.prelaunch){el.innerHTML=`<div class="buybox"><b>Buying opens at launch</b><p class="hint" style="margin:4px 0 0">$${tok.sym} launches ${esc(tok.prelaunch)}. You can buy and call it then.</p></div>`;return}
@@ -1324,7 +1337,10 @@ function callModal(pre,draft){if(!S.connected)return connectModal(()=>callModal(
    ${skip?'':`<div class="presets">${['0.1','0.25','0.5','1'].map(v=>`<button type="button" data-sol="${v}" class="${sol===v?'on':''}">${v} SOL</button>`).join('')}</div>
    <label class="solin"><input id="csol" class="num" inputmode="decimal" value="${esc(sol)}" aria-label="SOL to spend"><button type="button" class="mx" id="cmax">Max</button><span class="muted">SOL</span></label>
    <div class="hint num" style="margin-top:8px">${!a?'Enter an amount':tok?`≈ ${fmtUsd(usdV)} · you get ~${fmtAmt(got)} $${tok.sym} · via Jupiter`:`≈ ${fmtUsd(usdV)} · add a token above to see what you get`}</div>`}
+   ${skip?'':`<div class="asell"><label class="skip"><input type="checkbox" id="casell" ${asell?'checked':''}> Auto-sell at my target market cap</label>
+   ${asell?`<div class="aslrow"><span class="hint">Stop loss</span><div class="seg" id="caslp">${[[0,'Off'],[30,'-30%'],[50,'-50%']].map(([v,l])=>`<button type="button" data-aslp="${v}" class="${v===aslp?'on':''}">${l}</button>`).join('')}</div></div><p class="hint" style="margin:6px 0 0">Sells on Jupiter even with Callit closed. Needs a buy of $10+ and a target above.</p>`:''}</div>`}
    <label class="skip"><input type="checkbox" id="cskip" ${skip?'checked':''}> Call without buying (won't earn caller fees)</label></div>`;
+   const ca=$('#casell',el);if(ca)ca.onchange=e=>{asell=e.target.checked;drawBuy()};el.querySelectorAll('[data-aslp]').forEach(b=>b.onclick=()=>{aslp=+b.dataset.aslp;drawBuy()});
    const si=$('#csol',el);if(si)si.addEventListener('input',()=>{sol=si.value.replace(/[^0-9.]/g,'');const pos=si.selectionStart;drawBuy();const n=$('#csol',m);n.focus();try{n.setSelectionRange(pos,pos)}catch(_){}check()});
    el.querySelectorAll('[data-sol]').forEach(b=>b.onclick=()=>{sol=b.dataset.sol;drawBuy();check()});
    const cm=$('#cmax',el);if(cm)cm.onclick=e=>{e.preventDefault();sol=maxOf('SOL');drawBuy();check()};
@@ -1339,11 +1355,12 @@ function callModal(pre,draft){if(!S.connected)return connectModal(()=>callModal(
   inp.addEventListener('input',()=>{find();refreshTok()});tx.addEventListener('input',check);find();refreshTok();
   post.addEventListener('click',()=>{const g=$('#cg',m).value.trim().toUpperCase(),n=parseFloat(g)*(g.endsWith('B')?1e9:g.endsWith('M')?1e6:g.endsWith('K')?1e3:1);
    if(g&&!(n>mcap(tok))){$('#cerr',m).textContent='Target must be above the current market cap of '+fmtUsd(mcap(tok))+'.';return}
+   if(buyOn()&&asell&&!g){$('#cerr',m).textContent='Set a target market cap for auto-sell, or untick it.';return}
    let buy=0;if(buyOn()){const a=parseFloat(sol);if(a>S.bal.SOL){$('#cerr',m).textContent=`You only have ${fmtAmt(S.bal.SOL)} SOL. Lower the amount or deposit more.`;return}
     buy=a*T.SOL.price;if(!REALW()){const got=buy*.995/tok.price;S.bal.SOL-=a;S.bal[tok.key]=(S.bal[tok.key]||0)+got;S.activity.unshift({k:'Bought',d:`${fmtAmt(got)} ${tok.sym} for ${a} SOL`,t:'Just now'})}}
    const solIn=parseFloat(sol),thesis=tx.value.trim(),hz=$('#ch',m).dataset.v,media=CD.media.slice();
    const publish=k=>{C[S.me].calls++;afterPost(k,buy?'':'Call posted');const id=k.id;
-    if(buy)REALW()?realSwap('SOL',tok.key,solIn,`Buy-in for your $${tok.sym} call`,ok=>{if(ok)return;const c=calls.find(x=>x.id===id);if(c){c.buy=0;render()}toast('Buy-in didn\'t go through. Your call is posted without it')},{callRef:id}):txRun(`Buy-in for your $${tok.sym} call`,null,{instantApprove:1})};
+    if(buy)REALW()?realSwap('SOL',tok.key,solIn,`Buy-in for your $${tok.sym} call`,ok=>{if(ok)return;const c=calls.find(x=>x.id===id);if(c){c.buy=0;render()}toast('Buy-in didn\'t go through. Your call is posted without it')},{callRef:id,after:asell&&n>0?r=>autoSellAtTarget(tok.key,r.outAmount,n,aslp):null}):txRun(`Buy-in for your $${tok.sym} call`,null,{instantApprove:1})};
    if(!SYNC()||!isMintStr(tok.key))return publish({id:Date.now(),c:S.me,kind:'meme',t:tok.key,entry:mcap(tok),buy,thesis,media,target:n||null,horizon:hz,ago:'now',likes:0,reposts:0,replies:0,views:1,fresh:true});
    post.disabled=true;post.textContent='Posting…';
    upMedia(media).then(urls=>API('/api/posts',{body:{kind:'meme',mint:tok.key,body:thesis,media:urls,target_mc:n||null,horizon:hz}}))
@@ -1422,6 +1439,69 @@ function bellModal(mint){const t=T[mint];if(!t)return;if(!S.connected)return con
 document.addEventListener('change',e=>{const k=e.target&&e.target.dataset&&e.target.dataset.alp;if(!k)return;const v=e.target.checked;
  API('/api/alerts',{method:'PUT',body:{[k]:v}}).then(()=>{if(AL.d)AL.d.prefs[k]=v}).catch(er=>{e.target.checked=!v;toast(er.message)})});
 navigator.serviceWorker&&navigator.serviceWorker.addEventListener('message',e=>{if(e.data&&e.data.go)location.hash=e.data.go});
+/* ---------- Orders: limit buys, take-profit / stop-loss, trailing stops (Jupiter Trigger v2) ----------
+   They live on Jupiter's keepers, so they fire with Callit closed. Min $10 per order (Jupiter's rule). */
+const tokPath=k=>k==='SOL'?SOL_MINT:k==='USDC'?USDC_MINT:k;
+const ORD={list:null,busy:0,at:0};
+function loadOrders(force){if(!REALW()||!S.addr||ORD.busy||(!force&&Date.now()-ORD.at<15e3))return;ORD.busy=1;
+ listOrders(S.addr,'active').then(l=>{ORD.list=l}).catch(()=>{ORD.list=ORD.list||[]}).finally(()=>{ORD.busy=0;ORD.at=Date.now();
+  const tk=$('#tokords');if(tk){const [,,p]=location.hash.split('/');tk.innerHTML=ordersList(p)}const wo=$('#walords');if(wo)wo.innerHTML=ordersList()})}
+const parseMc=v=>{const g=String(v||'').trim().toUpperCase().replace(/[$,\s]/g,'');const n=parseFloat(g);return isFinite(n)&&n>0?n*(g.endsWith('B')?1e9:g.endsWith('M')?1e6:g.endsWith('K')?1e3:1):0};
+const mcOfPrice=(mint,p)=>{const t=T[mint];return t&&t.price&&p?mcap(t)*p/t.price:0};
+function ordLabel(o){const cash=m=>m===SOL_MINT||m===USDC_MINT,buy=cash(o.inputMint),tok=buy?o.outputMint:o.inputMint;
+ if(o.orderType==='oco')return ['TP / SL',`TP ${fmtUsd(mcOfPrice(tok,o.tpPriceUsd))} · SL ${fmtUsd(mcOfPrice(tok,o.slPriceUsd))} MC`,tok];
+ if(o.trailingBps)return ['Trailing stop',`Sells ${(o.trailingBps/100).toFixed(0)}% below the peak`,tok];
+ const at=`at ${fmtUsd(mcOfPrice(tok,o.triggerPriceUsd))} MC`;
+ return [buy?'Limit buy':o.triggerCondition==='below'?'Stop loss':'Take profit',at,tok]}
+function ordersList(mint){const l=(ORD.list||[]).filter(o=>!mint||o.inputMint===mint||o.outputMint===mint);if(!ORD.list)loadOrders();if(!l.length)return '';
+ return `<div class="ordlist"><div class="ordh">Open orders <span class="hint">run on Jupiter, even with Callit closed</span></div>${l.map(o=>{const [k,d,tok]=ordLabel(o),dec=decOf(o.inputMint==='So11111111111111111111111111111111111111112'?'SOL':o.inputMint),amt=o.remainingInputAmount||o.initialInputAmount,a=amt&&dec!=null?Number(amt)/10**dec:null;
+  return `<div class="ordrow"><a class="grow" href="#/token/${esc(tok)}">${T[tok]?tokav(tok):''}<span><b>${esc(k)}${T[tok]?' · $'+esc(T[tok].sym):''}</b><span class="hint">${esc(d)}${a!=null?` · ${fmtAmt(a)} ${esc(symOf(keyOfMint(o.inputMint)))}`:''}</span></span></a><button class="btn sm ghost" data-act="ordcancel" data-f="${esc(o.id)}">Cancel</button></div>`}).join('')}</div>`}
+function orderModal(key,mode){if(!S.connected)return connectModal(()=>orderModal(key,mode));if(!REALW()&&!window.__ordTest)return toast('Orders need a real wallet. Sign in first');
+ const t=T[key];if(!t||!t.price)return toast('Price not loaded yet. Try again in a second');
+ const mc=mcap(t),held=S.bal[key]||0,sy=esc(t.sym),SP=T.SOL.price||0;let m0=mode,pct=100,exp=7;
+ const tabs=[['limit','Limit buy'],['tpsl','TP / SL'],['trail','Trailing stop']];
+ modal(`Orders · $${sy}`,`Now ${fmtUsd(mc)} MC. Orders run on Jupiter, so they fire even when Callit is closed.`,`<div class="seg wide" id="omode">${tabs.map(([k,l])=>`<button type="button" data-om="${k}" class="${k===m0?'on':''}">${l}</button>`).join('')}</div><div id="obody"></div>
+  <div class="field"><label>Expires in</label><div class="seg wide" id="oexp">${[[1,'1 day'],[7,'7 days'],[30,'30 days']].map(([d,l])=>`<button type="button" data-oexp="${d}" class="${d===exp?'on':''}">${l}</button>`).join('')}</div></div>
+  <div class="err" id="oerr"></div><button class="btn primary block" id="ogo">Place order</button><p class="hint" style="margin-top:8px">Jupiter needs at least $10 per order. Cancel any time to get your funds back.</p>`,
+ m=>{const body=$('#obody',m),err=$('#oerr',m),go=$('#ogo',m);
+  const pctRow=()=>`<div class="field"><label>Amount to sell <span class="hint">· you hold ${fmtAmt(held)} $${sy}</span></label><div class="seg wide" id="opct">${[25,50,100].map(v=>`<button type="button" data-opct="${v}" class="${v===pct?'on':''}">${v}%</button>`).join('')}</div></div>`;
+  const draw=()=>{err.textContent='';
+   body.innerHTML=m0==='limit'?`<div class="field"><label for="oamt">Spend (SOL)</label><input id="oamt" class="input num" inputmode="decimal" placeholder="e.g. 0.1"></div>
+    <div class="field"><label for="omc">Buy when market cap hits</label><input id="omc" class="input num" inputmode="decimal" placeholder="e.g. ${fmtUsd(mc*.7).replace('$','')}"><span class="hint">Below now = buy the dip. Above now = buy the breakout.</span></div>`
+   :m0==='tpsl'?pctRow()+`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="field"><label for="otp">Take profit at MC</label><input id="otp" class="input num" inputmode="decimal" placeholder="e.g. ${fmtUsd(mc*2).replace('$','')}"></div><div class="field"><label for="osl">Stop loss at MC</label><input id="osl" class="input num" inputmode="decimal" placeholder="e.g. ${fmtUsd(mc*.5).replace('$','')}"></div></div><span class="hint">Fill one or both. With both, whichever hits first sells and cancels the other.</span>`
+   :pctRow()+`<div class="field"><label>Sell if it drops this much from its peak</label><div class="seg wide" id="otr">${[10,20,30,50].map(v=>`<button type="button" data-otr="${v}" class="${v===20?'on':''}">${v}%</button>`).join('')}</div></div>`;
+   body.querySelectorAll('[data-opct]').forEach(b=>b.onclick=()=>{pct=+b.dataset.opct;body.querySelectorAll('[data-opct]').forEach(x=>x.classList.toggle('on',x===b))});
+   body.querySelectorAll('[data-otr]').forEach(b=>b.onclick=()=>body.querySelectorAll('[data-otr]').forEach(x=>x.classList.toggle('on',x===b)));
+   go.textContent=m0==='limit'?'Place limit buy':m0==='tpsl'?'Set TP / SL':'Set trailing stop'};
+  m.querySelectorAll('[data-om]').forEach(b=>b.onclick=()=>{m0=b.dataset.om;m.querySelectorAll('[data-om]').forEach(x=>x.classList.toggle('on',x===b));draw()});
+  m.querySelectorAll('[data-oexp]').forEach(b=>b.onclick=()=>{exp=+b.dataset.oexp;m.querySelectorAll('[data-oexp]').forEach(x=>x.classList.toggle('on',x===b))});
+  draw();
+  go.onclick=()=>{err.textContent='';const expiresAt=Date.now()+exp*864e5,pFor=v=>t.price*v/mc;let o,desc;
+   try{
+    if(m0==='limit'){const a=parseFloat($('#oamt',m).value),tg=parseMc($('#omc',m).value);
+     if(!(a>0))throw Error('Enter how much SOL to spend.');if(!tg)throw Error('Enter the market cap to buy at.');
+     if(a*SP<10)throw Error(`That’s ${fmtUsd(a*SP)}. Jupiter needs at least $10 (about ${(10/SP).toFixed(3)} SOL).`);
+     if(a>Math.max(0,(S.bal.SOL||0)-.004))throw Error('Not enough SOL (keep ~0.004 for fees).');
+     o={inputMint:SOL_MINT,outputMint:key,inputAmount:toBaseUnits(String(a),9),triggerMint:key,kind:'single',triggerCondition:tg<mc?'below':'above',triggerPriceUsd:pFor(tg)};
+     desc=`Limit buy $${t.sym} at ${fmtUsd(tg)} MC`}
+    else{const dec=decOf(key);if(dec==null)throw Error('Token details still loading. Try again.');const amt=held*pct/100;
+     if(!(amt>0))throw Error(`You don’t hold any $${t.sym} yet.`);if(amt*t.price<10)throw Error(`That’s ${fmtUsd(amt*t.price)}. Jupiter needs at least $10 per order.`);
+     const base=toBaseUnits(amt.toFixed(Math.min(dec,9)),dec);
+     if(m0==='tpsl'){const tp=parseMc($('#otp',m).value),sl=parseMc($('#osl',m).value);if(!tp&&!sl)throw Error('Set a take-profit or stop-loss market cap.');
+      if(tp&&tp<=mc)throw Error('Take profit must be above the current market cap.');if(sl&&sl>=mc)throw Error('Stop loss must be below the current market cap.');
+      o=tp&&sl?{kind:'oco',tpPriceUsd:pFor(tp),slPriceUsd:pFor(sl)}:{kind:'single',triggerCondition:tp?'above':'below',triggerPriceUsd:pFor(tp||sl)};
+      desc=tp&&sl?`TP ${fmtUsd(tp)} / SL ${fmtUsd(sl)} on $${t.sym}`:tp?`Take profit $${t.sym} at ${fmtUsd(tp)}`:`Stop loss $${t.sym} at ${fmtUsd(sl)}`}
+     else{const tr=+(m.querySelector('[data-otr].on')||{dataset:{otr:20}}).dataset.otr;o={kind:'single',triggerCondition:'below',trailingBps:tr*100};desc=`Trailing stop ${tr}% on $${t.sym}`}
+     Object.assign(o,{inputMint:key,outputMint:SOL_MINT,inputAmount:base,triggerMint:key})}
+   }catch(e){err.textContent=e.message;return}
+   closeModal();realTx(desc,step=>placeOrder({...o,owner:S.addr,expiresAt},step).then(r=>r.signature),ok=>{if(ok){toast('Order placed');loadOrders(1)}})}})}
+/* Auto-sell at the call's target (ticked in the composer). Runs right after the buy-in lands. */
+function autoSellAtTarget(key,outBase,targetMc,slPct){const t=T[key],dec=decOf(key);if(!t||!t.price||!outBase||dec==null)return;
+ const mc=mcap(t),usdV=Number(outBase)/10**dec*t.price;if(usdV<10)return toast(`Auto-sell skipped: Jupiter needs a buy of at least $10 (yours was ${fmtUsd(usdV)})`);
+ const tp=t.price*targetMc/mc,sl=slPct?t.price*(1-slPct/100):null;
+ realTx(`Auto-sell $${t.sym} at ${fmtUsd(targetMc)} MC`,step=>placeOrder({owner:S.addr,inputMint:key,outputMint:SOL_MINT,inputAmount:String(outBase),triggerMint:key,
+  ...(sl?{kind:'oco',tpPriceUsd:tp,slPriceUsd:sl}:{kind:'single',triggerCondition:'above',triggerPriceUsd:tp}),expiresAt:Date.now()+30*864e5},step).then(r=>r.signature),ok=>{if(ok){toast('Auto-sell set at your target');loadOrders(1)}})}
+setInterval(()=>{if(document.hidden)return;const r=currentRoute();if(r==='token'||r==='you')loadOrders()},15000);
 /* Recent searches: tokens and callers you opened from Search, newest first, kept on this device. */
 function recentGet(){try{const v=JSON.parse(localStorage.getItem('callit.recent')||'[]');return Array.isArray(v)?v:[]}catch(_){return []}}
 function recentAdd(x){const id=y=>y.t==='tok'?'t:'+y.k:'u:'+y.h,l=[x,...recentGet().filter(y=>id(y)!==id(x))].slice(0,12);try{localStorage.setItem('callit.recent',JSON.stringify(l))}catch(_){}}
@@ -1598,7 +1678,7 @@ function vRoom(id){const c=COMMS.find(x=>x.id===id);if(!c)return vHome();const h
 function holdingsOf(h){if(h===S.me){const B=pnlBook();return Object.entries(S.bal).filter(([k,v])=>v>0&&T[k]).map(([k,v])=>{const x=posPnl(k,B);return {t:T[k],val:v*T[k].price,amt:v,pnl:x?x.pnl:null,pct:x?x.pct:null,mine:1}})}
  return calls.filter(k=>k.c===h&&k.buy).map(k=>{const n=nums(k);return {t:T[k.t],val:n.pos,pnl:n.pnl}})}
 function holdRow(key,amt,val,pnl,pct,mine){const t=T[key];
- return `<div class="li hrow"><a class="hlink" href="#/token/${esc(key)}">${tokav(key)}<div class="grow"><b>${esc(t.name)}</b><div class="hint num">${amt!=null?fmtAmt(amt)+' '+esc(symOf(key)):'$'+esc(t.sym)}</div></div>
+ return `<div class="li hrow"><a class="hlink" href="#/token/${esc(tokPath(key))}">${tokav(key)}<div class="grow"><b>${esc(t.name)}</b><div class="hint num">${amt!=null?fmtAmt(amt)+' '+esc(symOf(key)):'$'+esc(t.sym)}</div></div>
   <div class="r num"><b>${fmtUsd(val)}</b><div class="hint ${pnl!=null?(pnl>=0?'up':'down'):(t.chg>=0?'up':'down')}">${pnl!=null?money(pnl)+(pct!=null?` (${fmtPct(pct)})`:''):fmtPct(t.chg)}</div></div></a>
   ${mine?`<button class="ib sm hmore" data-act="hmenu" data-k="${esc(key)}" aria-label="Options for ${esc(t.name)}">${ic('more',18)}</button>`:''}</div>`}
 function holdCard(key){const t=T[key],amt=S.bal[key]||0,val=usd(key,amt)||0,x=posPnl(key),sy=symOf(key);
@@ -1610,7 +1690,8 @@ const arow=(attrs,icn,label,sub,cls='')=>`<button class="asrow ${cls}" ${attrs}>
 function holdSheet(key){const t=T[key];if(!t)return;const amt=S.bal[key]||0,x=posPnl(key),sy=esc(symOf(key)),cash=key==='SOL'||key==='USDC';
  aSheet(`Options for ${t.name}`,`<div class="ashead">${tokav(key)}<span class="grow"><b>${esc(t.name)}</b><small class="num">${fmtAmt(amt)} ${sy} · ${fmtUsd(usd(key,amt)||0)}${x?` · <span class="${x.pnl>=0?'up':'down'}">${money(x.pnl)}</span>`:''}</small></span></div>`,
   `<div class="asgroup">${arow(`data-act="hshare" data-k="${esc(key)}"`,'image','Share PnL card','Download or post your position card')}</div>
-  <div class="asgroup">${cash?'':arow(`data-act="hgo" data-k="${esc(key)}" data-f="buy"`,'up','Buy more',`Add to your $${sy}`)+arow(`data-act="hgo" data-k="${esc(key)}" data-f="sell"`,'down','Sell',`Swap $${sy} back to SOL`)}${arow('data-act="withdraw"','share','Withdraw','Send to another wallet')}${arow(`data-act="hgo" data-k="${esc(key)}" data-f="view"`,'market','View token','Chart, safety check and calls')}</div>`)}
+  <div class="asgroup">${cash?'':arow(`data-act="hgo" data-k="${esc(key)}" data-f="buy"`,'up','Buy more',`Add to your $${sy}`)+arow(`data-act="hgo" data-k="${esc(key)}" data-f="sell"`,'down','Sell',`Swap $${sy} back to SOL`)}${arow('data-act="withdraw"','share','Withdraw','Send to another wallet')}</div>
+  ${cash?'':`<div class="asgroup">${arow(`data-act="ord" data-k="${esc(key)}" data-f="tpsl"`,'target','Take profit / Stop loss','Auto-sell when it hits your price, even with the app closed')}${arow(`data-act="ord" data-k="${esc(key)}" data-f="trail"`,'down','Trailing stop','Sell if it drops a set % from its peak')}${arow(`data-act="ord" data-k="${esc(key)}" data-f="limit"`,'up','Limit buy more','Buy automatically at a lower market cap')}`}${arow(`data-act="hgo" data-k="${esc(key)}" data-f="view"`,'market','View token','Chart, safety check and calls')}</div>`)}
 function xSearchSheet(key){const t=T[key];if(!t)return;const ca=t.ca||key,sy=String(t.sym||'').replace(/^\$/,'');
  aSheet('Search on X',`<div class="ashead">${tokav(key)}<span class="grow"><b>Search $${esc(sy)} on X</b><small>See what people are posting right now</small></span></div>`,
   `<div class="asgroup">${isMintStr(ca)?arow(`data-act="xgo" data-v="${esc(ca)}"`,'copy','Contract address (CA)',`<span class="num">${esc(short(ca))}</span> · only this exact token`):''}${arow(`data-act="xgo" data-v="$${esc(sy)}"`,'search','$'+esc(sy),'Every post with the cashtag')}</div>`)}
@@ -1773,7 +1854,7 @@ function vPost(id){const k=calls.find(x=>String(x.id)===String(id));if(!k)return
   :t?`<a class="ccard" href="#/token/${t.key}">${tokav(t.key)}<div class="cn"><b>${esc(t.name)}</b><span>$${t.sym} <span class="chain">${t.chain}</span></span></div><div class="cr"><b>Soon</b><span>Launches ${esc(t.prelaunch)}</span></div></a>`:'';
  return `<article class="fpost"><div class="fhead"><a href="#/profile/${k.c}" aria-label="Open @${esc(k.c)}'s profile">${avatar(k.c,'md')}</a><div class="grow"><div class="phead" style="margin:0"><span class="pname">${esc(nameOf(k.c))}</span>${vbadge(k.c)}${r&&!k.sponsored?`<span class="rk">#${r}</span>`:''}${k.sponsored?'<span class="tag">Sponsored</span>':''}</div><div class="hint">@${esc(k.c)}</div></div>
   ${k.c===S.me?'':`<button class="btn sm ${S.following.has(k.c)?'ghost':'primary'}" data-act="follow" data-h="${k.c}">${S.following.has(k.c)?'Following':'Follow'}</button>`}${k.sponsored?'':moreBtn(k)}</div>
-  <p class="ftext">${rich(k.thesis)}</p>${mediaGrid(k.media)}${trade}
+  <p class="ftext">${rich(k.thesis)}</p>${mediaGrid(k.media)}${quoteCard(k.quote)}${trade}
   ${k.sponsored?`<div class="pnote">Paid promotion by ${esc(k.sponsor)}. Not counted in rankings.</div>`:''}
   <div class="fmeta hint">${k.ago==='now'?'Just now':k.ago+' ago'} · <b>${fmtK(k.views||0)}</b> views</div>
   <div class="fstats"><span><b>${k.replies||0}</b> replies</span><span><b>${k.reposts||0}</b> reposts</span><span><b>${k.likes||0}</b> likes</span></div>
@@ -2087,6 +2168,8 @@ document.addEventListener('click',e=>{
    API('/api/alerts/wallets',{body:{address:v,label:l.value}}).then(j=>{toast(j.live?'Tracking. You’ll get a pop-up on every swap':'Saved. Live tracking starts once Helius is set up');if(pushState()==='off')setTimeout(()=>pushOn(),400);AL.d=null;alLoad(1)}).catch(e=>toast(e.message)).finally(()=>{b.disabled=false})},
   aldel:()=>API('/api/alerts/wallets?address='+encodeURIComponent(b.dataset.f),{method:'DELETE'}).then(()=>{AL.d=null;alLoad(1)}).catch(e=>toast(e.message)),
   belldel:()=>API('/api/alerts/bell?mint='+encodeURIComponent(b.dataset.f),{method:'DELETE'}).then(()=>{BELLS.delete(b.dataset.f);AL.d=null;alLoad(1)}).catch(e=>toast(e.message)),
+  ord:()=>{const k=tokPath(b.dataset.k);closeModal();setTimeout(()=>orderModal(k,b.dataset.f||'tpsl'),60)},
+  ordcancel:()=>{const id=b.dataset.f;realTx('Cancel order',step=>cancelOrder(S.addr,id,step),ok=>{if(ok){toast('Order cancelled. Funds are back in your wallet');ORD.list=(ORD.list||[]).filter(o=>o.id!==id);loadOrders(1)}})},
   pidx:()=>{S.pidx=+b.dataset.f;const [,,p]=location.hash.split('/'),el=$('#lpair');if(el&&T[p])el.innerHTML=pairCard(T[p])},ptf:()=>{S.ptf=b.dataset.f;const [,,p]=location.hash.split('/'),el=$('#lpair');if(el&&T[p])el.innerHTML=pairCard(T[p])},
   tagpost:()=>{const tg=b.dataset.f;composeModal(S.cat==='perps'?'meme':S.cat);setTimeout(()=>{const ta=$('#modal textarea');if(!ta)return;ta.value=(ta.value?ta.value.trimEnd()+' ':'')+'#'+tg+' ';ta.dispatchEvent(new Event('input',{bubbles:true}));ta.focus()},80)},
   newcall:()=>composeModal(b.dataset.t?'meme':(b.dataset.k||(currentRoute()==='home'?S.cat:'meme')),{pre:b.dataset.t}),
@@ -2152,7 +2235,9 @@ document.addEventListener('click',e=>{
   tab:()=>{if(S.tab===b.dataset.f)return scrollTo({top:0,behavior:'smooth'});S.tab=b.dataset.f;render();scrollTo({top:0})},tf:()=>{S.tf=b.dataset.f;render()},lb:()=>{S.lb=b.dataset.f;render()},
   pkg:()=>{S.pkg=b.dataset.f;document.querySelectorAll('.pkg').forEach(p=>p.classList.toggle('on',p===b))},
   like:()=>{if(!S.connected)return connectModal();const k=calls.find(x=>x.id==b.dataset.id);k.liked=!k.liked;bg('/api/posts/react',{ref:String(k.id),kind:'like',on:k.liked});k.likes+=k.liked?1:-1;b.classList.toggle('liked',k.liked);b.innerHTML=ic('heart',18,k.liked)+`<span class="num">${k.likes||''}</span>`},
-  repost:()=>{if(!S.connected)return connectModal();const k=calls.find(x=>x.id==b.dataset.id);k.reposted=!k.reposted;bg('/api/posts/react',{ref:String(k.id),kind:'repost',on:k.reposted});k.reposts+=k.reposted?1:-1;b.classList.toggle('reposted',k.reposted);b.querySelector('span').textContent=k.reposts||'';toast(k.reposted?'Reposted':'Repost removed')},
+  repost:()=>{if(!S.connected)return connectModal();repostSheet(b.dataset.id)},
+  rpq:()=>{const id=b.dataset.id;closeModal();setTimeout(()=>randomModal({quote:id}),60)},
+  rpdo:()=>{closeModal();const k=calls.find(x=>x.id==b.dataset.id)||(b.dataset.id==='welcome'?BOTPOST:null);if(!k)return;const b2=document.querySelector(`[data-act="repost"][data-id="${CSS.escape(String(k.id))}"]`);k.reposted=!k.reposted;bg('/api/posts/react',{ref:String(k.id),kind:'repost',on:k.reposted});k.reposts+=k.reposted?1:-1;document.querySelectorAll(`[data-act="repost"][data-id="${CSS.escape(String(k.id))}"]`).forEach(x=>{x.classList.toggle('reposted',k.reposted);const sp=x.querySelector('span');if(sp)sp.textContent=k.reposts||''});void b2;toast(k.reposted?'Reposted':'Repost removed')},
   reply:()=>{const a=b.closest('[data-go]');if(a&&a.dataset.go.startsWith('#/post/')){S.focusReply=true;location.hash=a.dataset.go}else{const i=$('#rin');i&&i.focus()}},
   rsend:()=>sendReply(b.dataset.id),
   rlike:()=>{if(!S.connected)return connectModal();const x=REPLIES[b.dataset.p][+b.dataset.i];x.liked=!x.liked;x.likes+=x.liked?1:-1;b.classList.toggle('liked',x.liked);b.innerHTML=`${ic('heart',17,x.liked)}<span class="num">${x.likes||''}</span>`},
@@ -2166,7 +2251,7 @@ document.addEventListener('click',e=>{
   xgo:()=>{window.open('https://x.com/search?q='+encodeURIComponent(b.dataset.v)+'&f=live','_blank','noopener');closeModal()},
   hmenu:()=>holdSheet(b.dataset.k),
   hshare:()=>{const k=b.dataset.k;closeModal();shareModal(holdCard(k),location.href.split('#')[0]+'#/token/'+encodeURIComponent(k),'callit-pnl-'+symOf(k),`My $${symOf(k)} position on Callit`)},
-  hgo:()=>{const k=b.dataset.k,f=b.dataset.f;closeModal();if(f!=='view'){const w=S.swap;if(f==='sell'){w.from=k;w.to='SOL'}else{w.from='SOL';w.to=k}w.amt=''}location.hash='#/token/'+k},
+  hgo:()=>{const k=b.dataset.k,f=b.dataset.f;closeModal();if(f!=='view'){const w=S.swap;if(f==='sell'){w.from=k;w.to='SOL'}else{w.from='SOL';w.to=k}w.amt=''}location.hash='#/token/'+tokPath(k)},
   shprof:()=>{closeModal();shareProfile(b.dataset.h)},
   cplink:()=>{closeModal();copy(postURL(b.dataset.id),'Link copied')},
   addlist:()=>listsModal(b.dataset.h),
@@ -2184,7 +2269,7 @@ document.addEventListener('click',e=>{
    if(b.closest('#modal')||b.closest('.pbar')||b.closest('.trow')){document.querySelectorAll(`[data-act="track"][data-t="${CSS.escape(t)}"]`).forEach(x=>{if(x.classList.contains('wrm'))return;x.classList.toggle('on',on);x.setAttribute('aria-pressed',on);const sv=x.querySelector('svg');if(sv)sv.setAttribute('fill',on?'currentColor':'none')});return}
    render()},
   withdraw:()=>withdrawModal(),send:()=>withdrawModal(),receive:()=>depositModal(),deposit:()=>depositModal(),
-  ltf:()=>{S.ltf=b.dataset.f;render()},lmode:()=>{S.lmode=b.dataset.f;render()},lretry:()=>{(lfIds(S.tt,filOf(S.tt))||[]).forEach(id=>{LIVE.err[id]=0;loadFeed(id)});render()},ltokretry:()=>{LIVE.tokErr[b.dataset.t]=0;render()},
+  ltf:()=>{S.ltf=b.dataset.f;render()},lsrc:()=>{S.lsrc=S.lsrc==='callit'?'dex':'callit';try{localStorage.setItem('callit.lsrc',S.lsrc)}catch(_){}render()},lmode:()=>{S.lmode=b.dataset.f;render()},lretry:()=>{(lfIds(S.tt,filOf(S.tt))||[]).forEach(id=>{LIVE.err[id]=0;loadFeed(id)});render()},ltokretry:()=>{LIVE.tokErr[b.dataset.t]=0;render()},
   tside:()=>{const w=S.swap,t=b.dataset.t;if(b.dataset.f==='sell'){w.from=t;w.to='SOL'}else{w.from='SOL';w.to=t}w.amt='';renderSwaps()},
   flip:()=>{const w=S.swap;[w.from,w.to]=[w.to,w.from];w.amt='';renderSwaps()},
   doswap:()=>{const w=S.swap,x=parseFloat(w.amt),out=usd(w.from,x)*.995/T[w.to].price,imp=impact(w.to,usd(w.from,x));
