@@ -204,7 +204,7 @@ function ppPaint(){if(PPR)return;PPR=setTimeout(()=>{PPR=0;if(currentRoute()==='
 setInterval(()=>{if(ppWant())ppConnect();else if(PP)ppClose()},2500);
 function loadFeed(id){if(LIVE.busy[id])return;LIVE.busy[id]=1;const [feed,iv]=id.split(':');
  (feed==='ogset'?fetchTokens(OG_MEMES):fetchFeed(feed,iv||'1h')).then(list=>{let ks=list.map(regLive).filter(Boolean).map(t=>t.key);if(id==='new'){const j=new Set(ks);ks=[...PPKEYS.filter(k=>!j.has(k)&&T[k]&&Date.now()-T[k]._pp<9e5),...ks]}LIVE.feeds[id]=ks;LIVE.err[id]=0})
-  .catch(()=>{LIVE.err[id]=1}).finally(()=>{LIVE.busy[id]=0;LIVE.at[id]=Date.now();if(SH&&SH.kind==='f')drawSheet();else if(currentRoute()==='market'&&!document.querySelector('.sheet.open'))render();else if(['movers:1h','new','movers:5m'].includes(id)&&!document.querySelector('#rail .mbox')){const rl=$('#rail');if(rl)rl.innerHTML=rail();const el=$('#landing');if(el&&!el.hidden){const tk=el.querySelectorAll('.lxtick');if(tk[0])tk[0].outerHTML=lxTicker(lxLive(0),'');if(tk[1])tk[1].outerHTML=lxTicker(lxLive(1),' rev')}}})}
+  .catch(()=>{LIVE.err[id]=1}).finally(()=>{LIVE.busy[id]=0;LIVE.at[id]=Date.now();if(SH&&SH.kind==='f')drawSheet();else if(currentRoute()==='market'&&!document.querySelector('.sheet.open'))render();else if(['movers:1h','new','movers:5m'].includes(id)&&!document.querySelector('#rail .mbox')){drawRail();const el=$('#landing');if(el&&!el.hidden){const tk=el.querySelectorAll('.lxtick');if(tk[0])tk[0].outerHTML=lxTicker(lxLive(0),'');if(tk[1])tk[1].outerHTML=lxTicker(lxLive(1),' rev')}}})}
 function loadLiveToken(mint,quiet){if(LIVE.tokBusy[mint])return;LIVE.tokBusy[mint]=1;
  fetchToken(mint).then(x=>{if(x){regLive(x);LIVE.tokErr[mint]=0;loadRisk(mint)}else LIVE.tokErr[mint]='gone'})
   .catch(()=>{LIVE.tokErr[mint]=LIVE.tokErr[mint]||'err'})
@@ -997,7 +997,7 @@ function vTrenches(){const on=TS.feeds.filter(f=>f[1]).map(f=>f[0]);if(S.tt!=='w
  <div class="tfbar"><span class="tflive"><i></i>Live</span><span class="muted tflbl">${S.tt==='movers'?'Top gainers':'% change'}</span><div class="seg tfseg" role="tablist" aria-label="Timeframe">${TF_OK.map(x=>`<button role="tab" aria-selected="${S.rowTf===x}" class="${S.rowTf===x?'on':''}" data-act="ttf" data-f="${x}">${x}</button>`).join('')}</div></div>
  ${aiBar(f)}${raw&&raw.length?heatBar(raw):''}
  ${n?`<div class="fline"><span>${n} filter${n>1?'s':''} on ${S.tt==='watch'?'Watchlist':FEEDS[S.tt][0]}</span><button data-act="fsclear1">Clear</button></div>`:''}
- <div>${rows===null?((lfIds(S.tt,f)||[]).some(id=>LIVE.err[id])?`<div class="empty"><b class="h2">Live data is taking a break</b><p>We couldn't reach the market feed. It usually comes back in a few seconds.</p><button class="btn primary" data-act="lretry">Try again</button></div>`:skelRows()):rows.map(trow).join('')||`<div class="empty"><b class="h2">${S.tt==='watch'?'No watchlist tokens yet':HEATF.k?'No '+(HEATF.k==='called'?'caller-backed':HEAT[HEATF.k][1].toLowerCase())+' tokens right now':'Nothing matches'}</b><p>${S.tt==='watch'?'Open any token and tap Watchlist to pin it here.':'Loosen the filters or try another feed.'}</p>${n?'<button class="btn primary" data-act="fsclear1">Clear filters</button>':''}</div>`}</div>
+ <div class="tgridw">${rows===null?((lfIds(S.tt,f)||[]).some(id=>LIVE.err[id])?`<div class="empty"><b class="h2">Live data is taking a break</b><p>We couldn't reach the market feed. It usually comes back in a few seconds.</p><button class="btn primary" data-act="lretry">Try again</button></div>`:skelRows()):rows.map(trow).join('')||`<div class="empty"><b class="h2">${S.tt==='watch'?'No watchlist tokens yet':HEATF.k?'No '+(HEATF.k==='called'?'caller-backed':HEAT[HEATF.k][1].toLowerCase())+' tokens right now':'Nothing matches'}</b><p>${S.tt==='watch'?'Open any token and tap Watchlist to pin it here.':'Loosen the filters or try another feed.'}</p>${n?'<button class="btn primary" data-act="fsclear1">Clear filters</button>':''}</div>`}</div>
  <p class="hint pad">Degen zone. New tokens are high risk. Row icons: holders, top 10, dev, snipers, insiders. The ring around each token fills as it moves through its bonding curve.</p>`}
 
 
@@ -1368,7 +1368,42 @@ function callerCard(){const top=ranked().slice(0,5);
  return `<div class="card"><div class="rcardh"><h3>Callerboard</h3><a class="lnk" href="#/callerboard">See all</a></div>
  <div class="list">${top.length?top.map((c,i)=>`<div class="li"><span class="rrank">${i+1}</span>${avatar(c.h)}<div class="grow"><a class="pname" href="#/profile/${c.h}">${esc(DN[c.h]||c.h)}</a><div class="hint">${c.win}% win · ${c.calls} call${c.calls===1?'':'s'}${c.avg?` · <span class="${c.avg>=0?'up':'down'}">${fmtPct(c.avg)}</span> avg`:''}</div></div>${c.h===S.me?'':`<button class="btn sm ${S.following.has(c.h)?'ghost':'primary'}" data-act="follow" data-h="${c.h}">${S.following.has(c.h)?'Following':'Follow'}</button>`}</div>`).join('')
   :`<p class="hint" style="margin:10px 0">No ranked callers yet. Make a call and take #1.</p><button class="btn primary block" data-act="newcall">Make a call</button>`}</div></div>`}
-function rail(){const r=currentRoute();return (r==='market'?callerCard()+railRest(1)+adBoard():r==='home'?adBoard()+marketCard()+railNews()+railRest():adBoard()+railRest())+`<div class="railfoot">${socials('sm')}<div class="legal" style="justify-content:flex-start"><button data-act="doc" data-f="terms">Terms</button><button data-act="doc" data-f="privacy">Privacy</button><span>© ${new Date().getFullYear()} Callit</span></div></div>`}
+/* ---------- Desktop Home board (pump.fun-style): the feed plus side-by-side panels.
+   Each panel scrolls on its own and can be removed; removed panels come back from “Add panel”. ---------- */
+const BP={market:['Market','market','#/market'],calls:['Hot calls','promote','#/callerboard'],callers:['Callerboard','callerboard','#/callerboard'],news:['Latest news','news','#/news'],trending:['Trending','up','#/market']};
+const BP_DEF=['market','calls','callers'];
+const bpGet=()=>{try{const v=JSON.parse(localStorage.getItem('callit.board')||'null');return Array.isArray(v)?v.filter(k=>BP[k]):BP_DEF.slice()}catch(_){return BP_DEF.slice()}};
+const bpSet=v=>{try{localStorage.setItem('callit.board',JSON.stringify(v))}catch(_){}};
+const boardOn=()=>currentRoute()==='home'&&matchMedia('(min-width:1100px)').matches;
+const bpEmpty=t=>`<p class="hint" style="margin:14px 4px">${t}</p>`;
+function bpBody(k){
+ if(k==='market'){const m=['new','almost','grad'].includes(S.rmt)?S.rmt:'new',L={new:'New',almost:'Bonding',grad:'Migrated'};
+  const rows=feedRows(m,defFil()),list=(rows||[]).filter(t=>t&&t.sym).slice(0,40);
+  const sub=t=>m==='almost'?`<span class="rbond"><i style="width:${Math.round(bond(t))}%"></i></span>${Math.round(bond(t))}%`:m==='new'?`${ageS(t)||'new'} old`:`Migrated ${ageS(t)} ago`;
+  return `<div class="rseg bpseg" role="tablist">${Object.entries(L).map(([x,l])=>`<button role="tab" aria-selected="${m===x}" class="${m===x?'on':''}" data-act="rmt" data-f="${x}">${l}</button>`).join('')}</div>
+  <div class="list">${rows===null?rskel(8):list.length?list.map(t=>{const c=chgOf(t,'1h');return `<a class="li" href="#/token/${t.key}">${tokav(t.key)}<div class="grow"><b>$${esc(t.sym)}</b><div class="hint">${sub(t)}</div></div><div class="r num"><b>${fmtUsd(mcap(t))}</b>${c!=null?`<div class="hint ${c>=0?'up':'down'}">${fmtPct(c)}</div>`:''}</div></a>`}).join(''):bpEmpty(`Nothing ${L[m].toLowerCase()} right now.`)}</div>`}
+ if(k==='calls'){const rec=calls.filter(c=>visible(c)&&c.kind==='meme'&&c.t&&!c.sponsored).sort((a,b)=>(b.at||0)-(a.at||0)).slice(0,40);
+  return rec.length?`<div class="list">${rec.map(c=>{const p=perf(c);return `<a class="li bpcall" href="#/post/${c.id}">${avatar(c.c)}<div class="grow"><div><b>@${esc(c.c)}</b> <span class="hint">called</span> <b>$${esc(symOf(c.t))}</b></div><div class="hint">at ${fmtUsd(c.entry)} · ${esc(c.ago||agoMs(c.at||Date.now()))}</div>${c.thesis?`<div class="bpthesis">${esc(String(c.thesis).slice(0,140))}</div>`:''}</div><div class="r num"><b class="${p==null?'muted':p>=0?'up':'down'}">${p==null?'—':pctS(p)}</b></div></a>`}).join('')}</div>`
+   :bpEmpty('No calls yet. Make the first one.')+`<button class="btn primary block" data-act="newcall">Make a call</button>`}
+ if(k==='callers'){const top=ranked().slice(0,40);
+  return top.length?`<div class="list">${top.map((c,i)=>`<div class="li"><span class="rrank">${i+1}</span>${avatar(c.h)}<div class="grow"><a class="pname" href="#/profile/${c.h}">${esc(DN[c.h]||c.h)}</a><div class="hint">${c.win}% win · ${c.calls} call${c.calls===1?'':'s'}${c.avg?` · <span class="${c.avg>=0?'up':'down'}">${fmtPct(c.avg)}</span> avg`:''}</div></div>${c.h===S.me?'':`<button class="btn sm ${S.following.has(c.h)?'ghost':'primary'}" data-act="follow" data-h="${c.h}">${S.following.has(c.h)?'Following':'Follow'}</button>`}</div>`).join('')}</div>`
+   :bpEmpty('No ranked callers yet. Make a call and take #1.')+`<button class="btn primary block" data-act="newcall">Make a call</button>`}
+ if(k==='news'){const N=NEWS.recent;loadNews('recent');const L=((N.d&&N.d.items)||[]).slice(0,30);
+  return L.length?`<div class="list">${L.map(x=>{const ext=!/^#\//.test(x.url);return `<a class="li rnews" href="${esc(x.url)}"${ext?' target="_blank" rel="noopener noreferrer nofollow"':''}>${pbadge(x.platform,x.url)}<div class="grow"><b>${esc(x.title)}</b><div class="hint">${esc(x.source)} · ${agoMs(x.at)}</div></div></a>`}).join('')}</div>`:N.err?bpEmpty('News is unavailable right now.'):rskel(6)}
+ if(k==='trending'){const lv=(LIVE.feeds['movers:1h']||[]).map(x=>T[x]).filter(t=>t&&t.price&&!NOT_MEME.has(String(t.sym).toUpperCase()));if(!lv.length&&!LIVE.err['movers:1h'])loadFeed('movers:1h');
+  const tr=lv.filter(t=>t.live).sort((a,b)=>b.chg-a.chg).slice(0,30);
+  return tr.length?`<div class="list">${tr.map(t=>`<a class="li" href="#/token/${t.key}">${tokav(t.key)}<div class="grow"><b>$${esc(t.sym)}</b><div class="hint">${(n=>n+(n===1?' call':' calls'))(calls.filter(c=>c.t===t.key).length)}</div></div><div class="r num"><b>${fmtUsd(mcap(t))}</b><div class="hint ${t.chg>=0?'up':'down'}">${fmtPct(t.chg)}</div></div></a>`).join('')}</div>`:rskel(8)}
+ return ''}
+function board(){const on=bpGet(),off=Object.keys(BP).filter(k=>!on.includes(k));
+ return on.map(k=>{const [l,icn,href]=BP[k];return `<section class="bp" data-p="${k}" aria-label="${l}"><header class="bph"><span class="bpic">${ic(icn,17)}</span><h3>${l}</h3><a class="lnk bpopen" href="${href}">Open</a><button class="ib bpdel" data-act="bpdel" data-f="${k}" aria-label="Remove ${l} panel" title="Remove panel">${ic('trash',16)}</button></header><div class="bpb" data-p="${k}">${bpBody(k)}</div></section>`}).join('')
+  +`<div class="bpadd">${off.length?`<button class="ib bpaddb" data-act="bpadd" aria-label="Add panel" title="Add panel">${ic('plus',20)}</button>`:''}</div>`}
+function bpAddModal(){const off=Object.keys(BP).filter(k=>!bpGet().includes(k));if(!off.length)return;
+ modal('Add a panel','Panels sit beside your feed and scroll on their own.',`<div class="bpopts">${off.map(k=>`<button class="bpopt" data-bp="${k}"><span class="bpic">${ic(BP[k][1],18)}</span><b>${BP[k][0]}</b><span class="hint">Add</span></button>`).join('')}</div>`,
+  m=>m.addEventListener('click',e=>{const o=e.target.closest('[data-bp]');if(!o)return;const v=bpGet();v.push(o.dataset.bp);bpSet(v);closeModal();drawRail()}))}
+function drawRail(){const r=$('#rail');if(!r)return;const keep={};r.querySelectorAll('.bpb').forEach(b=>keep[b.dataset.p]=b.scrollTop);const sl=r.scrollLeft;
+ document.body.classList.toggle('board',boardOn());r.innerHTML=rail();r.scrollLeft=sl;r.querySelectorAll('.bpb').forEach(b=>{if(keep[b.dataset.p])b.scrollTop=keep[b.dataset.p]})}
+let BPW=null;addEventListener('resize',()=>{const on=boardOn();if(on!==BPW){BPW=on;drawRail()}});
+function rail(){const r=currentRoute();if(boardOn())return board();return (r==='market'?callerCard()+railRest(1)+adBoard():r==='home'?adBoard()+marketCard()+railNews()+railRest():adBoard()+railRest())+`<div class="railfoot">${socials('sm')}<div class="legal" style="justify-content:flex-start"><button data-act="doc" data-f="terms">Terms</button><button data-act="doc" data-f="privacy">Privacy</button><span>© ${new Date().getFullYear()} Callit</span></div></div>`}
 function railRest(noCallers){const lv=(LIVE.feeds['movers:1h']||[]).map(k=>T[k]).filter(t=>t&&t.price&&!NOT_MEME.has(String(t.sym).toUpperCase()));
  const trend=lv.filter(t=>t.live).sort((a,b)=>b.chg-a.chg).slice(0,5);if(!lv.length&&!LIVE.err['movers:1h'])loadFeed('movers:1h');
  return `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">Trending</h3><a class="lnk" href="#/market">Market</a></div><div class="list">${trend.length?'':Array.from({length:4},()=>'<div class="nrow c nskel" aria-hidden="true"><span class="tokav"></span><span class="grow"><i></i><i></i></span></div>').join('')}${trend.map(t=>`<a class="li" href="#/token/${t.key}">${tokav(t.key)}<div class="grow"><b>$${t.sym}</b><div class="hint">${(n=>n+(n===1?' call':' calls'))(calls.filter(k=>k.t===t.key).length)}</div></div><div class="r num"><b>${fmtUsd(mcap(t))}</b><div class="hint ${t.chg>=0?'up':'down'}">${fmtPct(t.chg)}</div></div></a>`).join('')}</div></div>
@@ -1409,7 +1444,7 @@ function goBack(){const prev=NAVH.stack.pop();NAVH.back=true;location.hash=prev&
 const NAVC=(()=>{try{return JSON.parse(localStorage.getItem('callit.navc')||'{}')}catch(_){return {}}})();
 function chrome(route){const link=([k,l])=>`<a href="#/${k}" class="${route===k?'on':''}" title="${l}">${k==='notifications'?`<span class="nbadge">${ic('bell')}${unreadN()?`<i>${unreadN()}</i>`:''}</span>`:ic(k)}<span class="lbl">${l}</span></a>`;
  $('#navA').innerHTML=NAV_A.map(link).join('');$('#navB').innerHTML=NAV_B.map(link).join('');
- // Premium sits at the top of the tray (under Search) so it's never scrolled out of view on short laptop screens.
+ // Premium sits at the bottom of the tray, under Products (the tray scrolls on short screens).
  $('#navP').innerHTML=`<a href="#/premium" class="navprem${route==='premium'?' on':''}${isPrem(S.me)?' active':''}" title="Premium">${ic('verified',20)}<span class="lbl">${isPrem(S.me)?'Premium':'Get Premium'}</span></a>`;
  // Collapsible tray groups, remembered on this device.
  ['A','B'].forEach(g=>{const shut=!!NAVC[g],btn=document.querySelector(`[data-act="navgrp"][data-f="${g}"]`),nav=$('#nav'+g);
@@ -1462,7 +1497,7 @@ function render(){if(isPhone())document.body.classList.add('collapsed');const [,
   messages:()=>vMessages(p),lists:()=>vLists(p),
   news:vNews,premium:vPremium,notifications:vNotifs,assistant:vAssistant,bookmarks:vBookmarks,tag:()=>vTag(p),alerts:vAlerts,quotes:()=>vQuotes(p)}[r]||vHome)();
  if(LCHART){LCHART();LCHART=null}
- $('#view').innerHTML=html;$('#rail').innerHTML=rail();chrome(r);renderSwaps();skin($('#view'));syncLanding();mountLiveChart();
+ $('#view').innerHTML=html;document.body.classList.toggle('mwide',r==='market'||r==='trenches');drawRail();chrome(r);renderSwaps();skin($('#view'));syncLanding();mountLiveChart();
  if(r==='post'){wireAttach($('#rbox'),RDRAFT,()=>drawRMedia());if(S.focusReply){S.focusReply=false;setTimeout(()=>{const i=$('#rin');i&&i.focus()},60)}}}
 
 /* ---------- modals ---------- */
@@ -2043,7 +2078,7 @@ function newsCard(){const live=newsItems().filter(n=>n.kind==='chain').slice(0,5
 const NEWS={recent:{},trending:{},calendar:{}};
 const NPLAT={x:['X','#E7E9EA'],reddit:['Reddit','#FF4500'],youtube:['YouTube','#FF0033'],bluesky:['Bluesky','#1185FE'],hackernews:['Hacker News','#FF6600'],coingecko:['CoinGecko','#8DC63F'],google:['Google','#4285F4'],callit:['Callit','#4DA8FF'],news:['News','#8FA6BA']};
 function loadNews(tab,force){const N=NEWS[tab];if(N.busy||(!force&&N.at&&Date.now()-N.at<3e5))return;N.busy=1;
- fetch('/api/news?tab='+tab).then(r=>r.json()).then(j=>{N.d=j;N.err=j.error||null}).catch(()=>{N.err='News is unavailable right now.'}).finally(()=>{N.busy=0;N.at=Date.now();if(currentRoute()==='news'&&!document.querySelector('#modal .modal'))render();else if(tab==='recent'&&currentRoute()==='home'){const rl=$('#rail');if(rl)rl.innerHTML=rail()}const sr=$('#sres');if(sr&&S.sk==='trends')sr.dispatchEvent(new Event('newsready'))})}
+ fetch('/api/news?tab='+tab).then(r=>r.json()).then(j=>{N.d=j;N.err=j.error||null}).catch(()=>{N.err='News is unavailable right now.'}).finally(()=>{N.busy=0;N.at=Date.now();if(currentRoute()==='news'&&!document.querySelector('#modal .modal'))render();else if(tab==='recent'&&currentRoute()==='home'){drawRail()}const sr=$('#sres');if(sr&&S.sk==='trends')sr.dispatchEvent(new Event('newsready'))})}
 /* Callit's own trending: most-called tokens and the most engaged posts in the last day. */
 function callitTrends(){const now=Date.now(),out=[],day=calls.filter(k=>visible(k)&&k.at&&now-k.at<864e5);
  const by={};day.filter(k=>k.kind==='meme'&&k.t).forEach(k=>{(by[k.t]=by[k.t]||[]).push(k)});
@@ -2473,7 +2508,7 @@ document.addEventListener('click',e=>{
  if(a==='close'){if(e.target.closest('.wstar')){const w=e.target.closest('.wstar');e.preventDefault();const t=w.dataset.t,on=!S.watch.has(t);on?S.watch.add(t):S.watch.delete(t);bg('/api/social',{action:'watch',key:t,on});w.classList.toggle('on',on);w.innerHTML=ic('star',17,on);toast(on?`$${symOf(t)} added to your watchlist`:`$${symOf(t)} removed from your watchlist`);return}
   if(e.target===b||b.tagName!=='DIV'){closeModal()}return}
  const act={
-  rmt:()=>{S.rmt=b.dataset.f;const rl=$('#rail');if(rl)rl.innerHTML=rail()},rmgo:()=>{S.mt='trenches';S.tt=b.dataset.f},
+  rmt:()=>{S.rmt=b.dataset.f;drawRail()},rmgo:()=>{S.mt='trenches';S.tt=b.dataset.f},
   ubell:()=>ubellModal(b.dataset.h),pushon:()=>pushOn(),pushoff:()=>pushOff(),bell:()=>bellModal(b.dataset.t),
   aladd:()=>{const a=$('#alw'),l=$('#all');const v=(a.value||'').trim();if(!isMintStr(v))return toast('Paste a valid Solana wallet address');b.disabled=true;
    API('/api/alerts/wallets',{body:{address:v,label:l.value}}).then(j=>{toast(j.live?'Tracking. You’ll get a pop-up on every swap':'Saved. Live tracking starts once Helius is set up');if(pushState()==='off')setTimeout(()=>pushOn(),400);AL.d=null;alLoad(1)}).catch(e=>toast(e.message)).finally(()=>{b.disabled=false})},
@@ -2508,6 +2543,7 @@ document.addEventListener('click',e=>{
      S.activity.unshift({k:'Sent',d:`${via==='SOL'?amt.toFixed(3):amt} ${via} for Callit Premium`,t:'Just now'});render();toast('Welcome to Premium ✓')})})},
   nf:()=>{S.nf=b.dataset.f;render()},newsx:()=>{location.hash='#/news'},
   ntab:()=>{S.ntab=b.dataset.f;render()},
+  bpdel:()=>{const k=b.dataset.f;bpSet(bpGet().filter(x=>x!==k));drawRail();toast(`${BP[k][0]} removed. Add it back with +`)},bpadd:()=>bpAddModal(),
   pushtest:()=>pushTest(b),
   bubtog:()=>{const c=b.closest('.hmcard'),o=!c.classList.contains('open');c.classList.toggle('open',o);b.setAttribute('aria-expanded',o);const bd=c.querySelector('.hmbody');bd.hidden=!o;try{localStorage.setItem('callit.bubopen',o?'1':'0')}catch(_){}if(o){const w=c.querySelector('#bubwrap');if(w&&BUBT)w.innerHTML=bubbles(BUBT)}},
   ncat:()=>{const f=b.dataset.f;if(f==='*'){lsPut('callit.ncat',null);return render()}const cur=lsSet('callit.ncat')||new Set();cur.has(f)?cur.delete(f):cur.add(f);lsPut('callit.ncat',cur.size===NCATS.length?null:cur);render()},
