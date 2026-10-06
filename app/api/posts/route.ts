@@ -2,7 +2,7 @@ import { NextResponse, after } from 'next/server';
 import { requireMe, maybeMe, dbOrNull, json, isHandle, isMint, num, str, ownMediaUrl } from '@/lib/db/me';
 import { jupMany } from '@/lib/market/sources';
 import { PERP_MARKETS, isPerpMarket } from '@/lib/perps/markets';
-import { notifyMentions } from '@/lib/notify/social';
+import { notifyMentions, notifySocial, postOwner } from '@/lib/notify/social';
 import { onNewCall } from '@/lib/alerts/triggers';
 
 export const runtime = 'nodejs';
@@ -134,16 +134,22 @@ export async function POST(req: Request) {
 
   let { data, error } = await db.from('posts').insert(row).select('*').single();
   // Migration 0009 not run yet: post anyway, without the quote.
-  if (error && /quote_ref/.test(error.message)) { delete row.quote_ref; ({ data, error } = await db.from('posts').insert(row).select('*').single()); }
+  let quoteSaved = !!row.quote_ref;
+  if (error && /quote_ref/.test(error.message)) { delete row.quote_ref; quoteSaved = false; ({ data, error } = await db.from('posts').insert(row).select('*').single()); }
   if (error) {
     if (/daily_post_limit/.test(error.message)) return json({ error: "You've hit today's posting limit. Try again tomorrow." }, 429);
     return json({ error: 'db_write', detail: error.message }, 500);
   }
   const { profile_id: _p, ...post } = data as Record<string, unknown>;
   if (body) await notifyMentions(db, me, body, `#/post/${(post as { id: string }).id}`);
+  // Tell the quoted post's author.
+  if (quoteSaved && typeof b.quote_ref === 'string') {
+    const owner = await postOwner(db, b.quote_ref);
+    if (owner) await notifySocial(db, me, 'quotes', { profileId: owner.profileId }, { link: `#/post/${(post as { id: string }).id}`, snippet: body });
+  }
   after(() => onNewCall(db, me, post as { id: string; kind: string; mint?: string | null; token_sym?: string | null; entry_mc?: number | null; body?: string | null }).catch(() => {}));
   const { data: pr } = await db.from('profiles').select('display_name, avatar_url').eq('id', me.id).maybeSingle();
-  return json({ post: { ...post, handle: me.handle, display_name: pr?.display_name ?? null, avatar_url: pr?.avatar_url ?? null, likes: 0, reposts: 0, replies: 0 } });
+  return json({ quoteSaved: typeof b.quote_ref === 'string' ? quoteSaved : undefined, post: { ...post, handle: me.handle, display_name: pr?.display_name ?? null, avatar_url: pr?.avatar_url ?? null, likes: 0, reposts: 0, replies: 0 } });
 }
 
 /** DELETE /api/posts?id=<uuid> — soft-deletes the caller's own post. */

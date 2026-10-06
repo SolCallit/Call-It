@@ -2,7 +2,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Me } from '@/lib/db/me';
 
-type Kind = 'follows' | 'likes' | 'reposts' | 'replies' | 'mentions';
+type Kind = 'follows' | 'likes' | 'reposts' | 'replies' | 'mentions' | 'quotes';
 
 const COPY: Record<Kind, string> = {
   follows: 'followed you',
@@ -10,6 +10,7 @@ const COPY: Record<Kind, string> = {
   reposts: 'reposted your post',
   replies: 'replied to your post',
   mentions: 'mentioned you',
+  quotes: 'quoted your post',
 };
 
 /**
@@ -37,7 +38,7 @@ export async function notifySocial(
     const snippet = (opts.snippet || '').replace(/\s+/g, ' ').trim();
     const { error } = await db.from('notifications').insert({
       profile_id: profileId,
-      kind,
+      kind: kind === 'quotes' ? 'mentions' : kind, // stored with mentions (same notification bucket)
       actor_handle: actor.handle,
       title: `${who} ${COPY[kind]}`.slice(0, 140),
       body: snippet ? (snippet.length > 120 ? snippet.slice(0, 117) + '…' : snippet) : null,

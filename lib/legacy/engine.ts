@@ -347,7 +347,7 @@ function xacts(k,sz=18){if(k.sponsored)return '';const wk=watchKey(k),w=wk&&S.wa
  return `${wk?`<button class="act wact${w?' on':''}" data-act="track" data-t="${esc(wk)}" aria-pressed="${w}" aria-label="${w?'Remove from':'Add to'} watchlist" title="Watchlist">${ic('star',sz,w)}</button>`:''}<button class="act bmact${bm?' on':''}" data-act="bmark" data-id="${esc(String(k.id))}" aria-pressed="${bm}" aria-label="${bm?'Remove bookmark':'Bookmark'}" title="Bookmark">${ic('bookmark',sz,bm)}</button>`}
 function pbar(k,right=''){return `<div class="pbar"><div class="icons">
  <button class="act" data-act="reply" aria-label="Reply">${ic('reply',18)}<span class="num">${k.replies||''}</span></button>
- <button class="act${k.reposted?' reposted':''}" data-act="repost" data-id="${k.id}" aria-label="Repost">${ic('repost',18)}<span class="num">${k.reposts||''}</span></button>
+ <button class="act${k.reposted?' reposted':''}" data-act="repost" data-id="${k.id}" aria-label="Repost">${ic('repost',18)}<span class="num">${(k.reposts||0)+quotesOf(k.id)||''}</span></button>
  <button class="act${k.liked?' liked':''}" data-act="like" data-id="${k.id}" aria-label="Like">${ic('heart',18,k.liked)}<span class="num">${k.likes||''}</span></button>
  <span class="act views" aria-label="Views">${ic('views',18)}<span class="num">${fmtK(k.views||0)}</span></span>
  ${xacts(k)}<button class="act" data-act="share" data-id="${k.id}" aria-label="Share">${ic('share',18)}</button></div>${right}</div>`}
@@ -423,7 +423,7 @@ function randomModal(o={}){const CD={media:[]},qid=o.quote||null;
    if(!SYNC())return afterPost({...local,id:Date.now(),ago:'now'},'Posted');
    go.disabled=true;go.textContent='Posting…';
    upMedia(CD.media).then(media=>API('/api/posts',{body:{kind:'random',body,media,quote_ref:qid?String(qid):undefined}}))
-    .then(r=>afterPost(Object.assign(fromRow({...r.post,handle:S.me}),{fresh:true,quote:r.post.quote_ref||qid}),qid?'Quoted':'Posted'))
+    .then(r=>{if(qid){const o=calls.find(x=>String(x.id)===String(qid));if(o)o.quotes=(o.quotes||0)+1;if(r.quoteSaved===false)setTimeout(()=>toast('Quote saved as a normal post. Run migration 0009 in Supabase so quotes stick'),2400)}afterPost(Object.assign(fromRow({...r.post,handle:S.me}),{fresh:true,quote:r.post.quote_ref||(r.quoteSaved===false?null:qid)}),qid?'Quoted':'Posted')})
     .catch(e=>{go.disabled=false;go.textContent='Post';$('#cerr',m).textContent=e.message})}})}
 
 /* Quoted post shown inside another post (and in the Quote composer). */
@@ -435,7 +435,7 @@ function quoteCard(id,inComposer){if(!id)return '';const q=calls.find(x=>String(
  return `<div class="qcard"${inComposer?'':` data-go="#/post/${esc(q.id)}" role="link" tabindex="0"`}><div class="qhead">${avatar(q.c)}<b>${esc(nameOf(q.c))}</b><span class="hint">@${esc(q.c)}${q.ago?' · '+esc(q.ago):''}</span></div>
   ${q.kind==='meme'&&q.t?`<div class="qcall">${tokav(q.t)}<span class="grow"><b>Called $${esc(sym)}</b><span class="hint">at ${fmtUsd(q.entry)} MC</span></span>${n?`<b class="num ${n.up?'up':'down'}">${fmtPct(n.p)}</b>`:''}</div>`:''}
   ${q.thesis?`<p class="qtext">${esc(String(q.thesis).slice(0,180))}${String(q.thesis).length>180?'…':''}</p>`:''}</div>`}
-function doRepost(id){const k=calls.find(x=>x.id==id)||(id==='welcome'?BOTPOST:null);if(!k)return;const b2=document.querySelector(`[data-act="repost"][data-id="${CSS.escape(String(k.id))}"]`);k.reposted=!k.reposted;bg('/api/posts/react',{ref:String(k.id),kind:'repost',on:k.reposted});k.reposts+=k.reposted?1:-1;document.querySelectorAll(`[data-act="repost"][data-id="${CSS.escape(String(k.id))}"]`).forEach(x=>{x.classList.toggle('reposted',k.reposted);const sp=x.querySelector('span');if(sp)sp.textContent=k.reposts||''});void b2;toast(k.reposted?'Reposted':'Repost removed')}
+function doRepost(id){const k=calls.find(x=>x.id==id)||(id==='welcome'?BOTPOST:null);if(!k)return;const b2=document.querySelector(`[data-act="repost"][data-id="${CSS.escape(String(k.id))}"]`);k.reposted=!k.reposted;bg('/api/posts/react',{ref:String(k.id),kind:'repost',on:k.reposted});k.reposts+=k.reposted?1:-1;document.querySelectorAll(`[data-act="repost"][data-id="${CSS.escape(String(k.id))}"]`).forEach(x=>{x.classList.toggle('reposted',k.reposted);const sp=x.querySelector('span');if(sp)sp.textContent=(k.reposts||0)+quotesOf(k.id)||''});void b2;toast(k.reposted?'Reposted':'Repost removed')}
 /* Hold the repost button for 2s to get Repost / Quote / View quotes. A normal tap still reposts instantly. */
 const quotesOf=id=>{const k=calls.find(x=>String(x.id)===String(id));const local=calls.filter(x=>String(x.quote)===String(id)).length;return Math.max(local,k&&k.quotes||0)};
 let RPH=null;
@@ -662,7 +662,7 @@ function post(k){if(k.kind==='random')return postRandom(k);if(k.kind==='perps')r
   ${k.sponsored?`<div class="pnote">Paid promotion by ${esc(k.sponsor)}. Not counted in rankings.</div>`:`<div class="pnote">${k.target?`Target ${fmtUsd(k.target)} within ${esc(k.horizon)} · `:''}${k.buy?`<span class="bk">${ic('check',13)} Bought in</span>`:`<span class="bk no">No buy · earns no fees</span>`}${k.sold?` · <span class="sold">${ic('repost',13)} Caller sold ${k.sold.pct}% · ${k.sold.ago} ago</span>`:''}</div>`}
   <div class="pbar"><div class="icons">
    <button class="act" data-act="reply" aria-label="Reply">${ic('reply',18)}<span class="num">${k.replies||''}</span></button>
-   <button class="act${k.reposted?' reposted':''}" data-act="repost" data-id="${k.id}" aria-label="Repost">${ic('repost',18)}<span class="num">${k.reposts||''}</span></button>
+   <button class="act${k.reposted?' reposted':''}" data-act="repost" data-id="${k.id}" aria-label="Repost">${ic('repost',18)}<span class="num">${(k.reposts||0)+quotesOf(k.id)||''}</span></button>
    <button class="act${k.liked?' liked':''}" data-act="like" data-id="${k.id}" aria-label="Like">${ic('heart',18,k.liked)}<span class="num">${k.likes||''}</span></button>
    <span class="act views" aria-label="Views">${ic('views',18)}<span class="num">${fmtK(k.views||0)}</span></span>
    ${xacts(k)}<button class="act" data-act="share" data-id="${k.id}" aria-label="Share">${ic('share',18)}</button></div>
