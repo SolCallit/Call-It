@@ -1900,8 +1900,8 @@ function newsRow(n,compact){const go=n.post?`#/post/${n.post}`:n.sym?`#/token/${
  return `<${go?`a href="${go}"`:'button data-act="newsx"'} class="nrow${compact?' c':''}">${n.sym?tokav(n.sym):`<span class="tokav nwire">${ic('news',18)}</span>`}<span class="grow"><span class="ntag ${n.kind}">${n.kind==='chain'?'On-chain':'Crypto'}</span><b>${esc(n.title)}</b><span class="hint">${esc(n.src)} · ${ago2(n.min)}</span></span></${go?'a':'button'}>`}
 function newsCard(){const live=newsItems().filter(n=>n.kind==='chain').slice(0,5);if(!LIVE.feeds['movers:1h']&&!LIVE.err['movers:1h'])loadFeed('movers:1h');
  return `<div class="card newscard"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><h3 style="margin:0">Trending now</h3><a class="lnk" href="#/news">See all</a></div>${live.length?live.map(n=>newsRow(n,1)).join(''):Array.from({length:4},()=>'<div class="nrow c nskel" aria-hidden="true"><span class="tokav"></span><span class="grow"><i></i><i></i></span></div>').join('')+'<p class="sr-only" role="status">Loading market moves</p>'}</div>`}
-/* ---------- News: Recent (crypto + tech headlines) and Trending (social platforms + Callit) ---------- */
-const NEWS={recent:{},trending:{}};
+/* ---------- News: Recent (headlines by category), Trending (social platforms + Callit), Calendar (economic events) and Trending (social platforms + Callit) ---------- */
+const NEWS={recent:{},trending:{},calendar:{}};
 const NPLAT={x:['X','#E7E9EA'],reddit:['Reddit','#FF4500'],youtube:['YouTube','#FF0033'],bluesky:['Bluesky','#1185FE'],hackernews:['Hacker News','#FF6600'],coingecko:['CoinGecko','#8DC63F'],google:['Google','#4285F4'],callit:['Callit','#4DA8FF'],news:['News','#8FA6BA']};
 function loadNews(tab,force){const N=NEWS[tab];if(N.busy||(!force&&N.at&&Date.now()-N.at<3e5))return;N.busy=1;
  fetch('/api/news?tab='+tab).then(r=>r.json()).then(j=>{N.d=j;N.err=j.error||null}).catch(()=>{N.err='News is unavailable right now.'}).finally(()=>{N.busy=0;N.at=Date.now();if(currentRoute()==='news'&&!document.querySelector('#modal .modal'))render();const sr=$('#sres');if(sr&&S.sk==='trends')sr.dispatchEvent(new Event('newsready'))})}
@@ -1913,9 +1913,46 @@ function callitTrends(){const now=Date.now(),out=[],day=calls.filter(k=>visible(
  return out}
 const nsrcGet=()=>{try{const v=JSON.parse(localStorage.getItem('callit.nsrc')||'null');return Array.isArray(v)?new Set(v):null}catch(_){return null}};
 const nsrcSet=v=>{try{localStorage.setItem('callit.nsrc',JSON.stringify(v?[...v]:null))}catch(_){}};
+const NCATS=[['crypto','Crypto'],['economy','Economy'],['global','World'],['tech','Tech'],['sports','Sports'],['entertainment','Entertainment']];
+const lsSet=k=>{try{const v=JSON.parse(localStorage.getItem(k)||'null');return Array.isArray(v)&&v.length?new Set(v):null}catch(_){return null}};
+const lsPut=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v&&v.size?[...v]:null))}catch(_){}};
+/* Economic calendar (ForexFactory weekly export). Times are shown in the viewer's own timezone. */
+const cimpGet=()=>{if(!S.cimp){try{S.cimp=localStorage.getItem('callit.cimp')}catch(_){}}return ['h','hm','all'].includes(S.cimp)?S.cimp:'hm'};
+const CIMP={High:['High','#FF4D5E'],Medium:['Medium','#FF9F43'],Low:['Low','#F5C542'],Holiday:['Holiday','#8FA6BA']};
+const calIn=at=>{const d=at-Date.now(),a=Math.abs(d),m=Math.round(a/6e4),h=Math.floor(m/60),t=h>=24?Math.round(h/24)+'d':h?`${h}h${m%60?` ${m%60}m`:''}`:m+'m';return a<6e4?'now':d>0?'in '+t:t+' ago'};
+const calTime=at=>new Date(at).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+function calRow(e,compact){const [il,c]=CIMP[e.impact]||CIMP.Low,past=e.at<Date.now()-6e4,soon=!past&&e.at-Date.now()<36e5;
+ return `<div class="cevt${past?' past':''}${soon?' cvsoon':''}${compact?' c':''}"><span class="ctime">${e.impact==='Holiday'?'All day':calTime(e.at)}<small>${calIn(e.at)}</small></span>
+ <span class="cimp" style="--ic:${c}" title="${il} impact" aria-label="${il} impact"></span><span class="ccur">${esc(e.country)}</span>
+ <span class="grow"><b>${esc(e.title)}</b>${!compact&&(e.forecast||e.previous)?`<span class="hint">${e.forecast?`Forecast <em>${esc(e.forecast)}</em>`:''}${e.forecast&&e.previous?' · ':''}${e.previous?`Previous <em>${esc(e.previous)}</em>`:''}</span>`:''}</span></div>`}
+/* Trader shorthand → words used in event titles */
+const CALIAS={nfp:'non-farm',payrolls:'non-farm',jobs:'employment',fed:'fomc',rates:'rate',inflation:'cpi',boe:'boe',ecb:'ecb',retail:'retail',unemployment:'unemployment',pmi:'pmi'};
+function calList(q){const ev=((NEWS.calendar.d&&NEWS.calendar.d.events)||[]).slice().sort((a,b)=>a.at-b.at),imp=cimpGet(),cur=lsSet('callit.ccur');
+ let L=ev.filter(e=>imp==='all'||e.impact==='High'||(imp==='hm'&&e.impact==='Medium')||e.impact==='Holiday'&&imp!=='h');
+ if(cur)L=L.filter(e=>cur.has(e.country));
+ if(q){const ws=q.toLowerCase().split(/\s+/).filter(Boolean).map(w=>CALIAS[w]||w);L=L.filter(e=>{const h=(e.title+' '+e.country).toLowerCase();return ws.every(w=>h.includes(w))})}
+ return L}
+function vCalendar(q){const N=NEWS.calendar;loadNews('calendar');const ev=(N.d&&N.d.events)||[],cur=lsSet('callit.ccur'),imp=cimpGet();
+ const curs=[...new Set(ev.map(e=>e.country))].sort((a,b)=>(a==='USD'?-1:b==='USD'?1:a.localeCompare(b)));
+ const L=calList(q),days={};L.forEach(e=>{const k=new Date(e.at).toDateString();(days[k]=days[k]||[]).push(e)});
+ const today=new Date().toDateString(),tmr=new Date(Date.now()+864e5).toDateString();
+ const next=L.find(e=>e.at>Date.now()-6e4&&e.impact!=='Holiday');
+ const body=!N.d?rskel(6):N.d.error&&!ev.length?`<div class="empty"><b>Calendar unavailable</b><p>${esc(N.d.error)} Try again in a few minutes.</p></div>`
+  :!L.length?`<div class="empty"><b>No events match</b><p>Try showing more impact levels or currencies.</p></div>`
+  :Object.entries(days).map(([d,es])=>`<div class="cday${d===today?' today':''}"><div class="cdayh">${d===today?'Today':d===tmr?'Tomorrow':new Date(es[0].at).toLocaleDateString([],{weekday:'long',month:'short',day:'numeric'})}<small>${es.length} event${es.length>1?'s':''}</small></div>${es.map(e=>calRow(e)).join('')}</div>`).join('');
+ return `<div class="pad nhead"><div class="tsearch">${ic('search',16)}<input id="nq" value="${esc(q)}" placeholder="Search events: CPI, NFP, FOMC, USD…" autocomplete="off" enterkeyhint="search"></div>
+ <div class="nchips">${[['h','High only'],['hm','High + Medium'],['all','All impact']].map(([k,l])=>`<button class="nchip${imp===k?' on':''}" data-act="cimp" data-f="${k}">${k!=='all'?`<span class="cimp" style="--ic:${CIMP.High[1]}"></span>`:''}${k==='hm'?`<span class="cimp" style="--ic:${CIMP.Medium[1]}"></span>`:''}${l}</button>`).join('')}</div>
+ ${curs.length?`<div class="nchips">${curs.map(c=>`<button class="nchip${!cur||cur.has(c)?' on':''}" data-act="ccur" data-f="${c}">${esc(c)}</button>`).join('')}${cur?`<button class="lnk" data-act="ccur" data-f="*">All currencies</button>`:''}</div>`:''}</div>
+ ${next&&!q?`<div class="card cnext"><span class="hint">Next up</span>${calRow(next,1)}</div>`:''}
+ <div class="nlist">${body}</div>
+ <p class="hint pad">This week’s economic events from ForexFactory, in your local time. Red = high impact, the ones that usually move crypto and FX. Actual results land at release time on <a class="lnk" style="padding:0" href="https://www.forexfactory.com/calendar" target="_blank" rel="noopener noreferrer">forexfactory.com</a>.${N.d&&N.d.at?` Updated ${agoMs(N.d.at)==='now'?'just now':agoMs(N.d.at)+' ago'}.`:''}</p>`}
+/* Compact upcoming high-impact events, shown above Recent when Economy is in view. */
+function calNextCard(){loadNews('calendar');const ev=((NEWS.calendar.d&&NEWS.calendar.d.events)||[]).slice().sort((a,b)=>a.at-b.at).filter(e=>e.impact==='High'&&e.at>Date.now()-6e4).slice(0,3);
+ if(!ev.length)return '';
+ return `<div class="card cnext"><div style="display:flex;justify-content:space-between;align-items:center"><span class="hint">High-impact events coming up</span><button class="lnk" data-act="ntab" data-f="calendar">Calendar</button></div>${ev.map(e=>calRow(e,1)).join('')}</div>`}
 function newsList(tab,q){const N=NEWS[tab];let L=((N.d&&N.d.items)||[]).slice();
  if(tab==='trending'){L=callitTrends().concat(L);const on=nsrcGet();if(on)L=L.filter(x=>on.has(x.platform))}
- else if(S.nk&&S.nk!=='all')L=L.filter(x=>x.kind===S.nk);
+ else{const on=lsSet('callit.ncat');if(on)L=L.filter(x=>on.has(x.kind))}
  if(q){const t=q.toLowerCase().replace(/^[#$@]/,'');L=L.filter(x=>(x.title+' '+x.source+' '+(x.summary||'')).toLowerCase().includes(t))}
  return L}
 const favi=u=>{try{const h=new URL(u).hostname.replace(/^www\./,'');return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(h)}&sz=64`}catch(_){return ''}};
@@ -1925,18 +1962,24 @@ function nItem(x){const ext=!/^#\//.test(x.url),pl=(NPLAT[x.platform]||NPLAT.new
  return `<a class="nitem" href="${esc(x.url)}"${ext?' target="_blank" rel="noopener noreferrer nofollow"':''}>${x.sym&&T[x.sym]?tokav(x.sym):pbadge(x.platform,x.url)}
  <span class="grow"><b>${esc(x.title)}</b><span class="hint">${esc(x.source)}${x.platform!=='news'&&x.source!==pl?` · ${esc(pl)}`:''} · ${agoMs(x.at)}${x.score?` · ${fmtK(x.score)} ${x.platform==='hackernews'?'pts':x.platform==='callit'?'heat':'likes'}`:''}${x.comments?` · ${fmtK(x.comments)} comments`:''}</span>
  ${ext?`<span class="nopen">Open on ${esc(x.platform==='news'?x.source:pl)} ↗</span>`:''}</span>${x.image&&/^https:/.test(x.image)?`<img class="nthumb" src="${esc(x.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:''}</a>`}
-function vNews(){const tab=S.ntab==='trending'?'trending':'recent',N=NEWS[tab];loadNews(tab);const q=S.nq||'',L=newsList(tab,q);
- const srcs=(N.d&&N.d.sources)||[],on=nsrcGet();
+const NTAB=()=>['trending','calendar'].includes(S.ntab)?S.ntab:'recent';
+function vNews(){const tab=NTAB(),N=NEWS[tab],q=S.nq||'';
+ const tabs=`<div class="tabs" role="tablist">${[['recent','Recent'],['trending','Trending'],['calendar','Calendar']].map(([k,l])=>`<button role="tab" aria-selected="${tab===k}" class="${tab===k?'on':''}" data-act="ntab" data-f="${k}">${l}</button>`).join('')}</div>`;
+ if(tab==='calendar')return tabs+vCalendar(q);
+ loadNews(tab);const L=newsList(tab,q);
+ const srcs=(N.d&&N.d.sources)||[],on=nsrcGet(),cats=lsSet('callit.ncat');
  const plats=['callit','x','reddit','youtube','bluesky','hackernews','coingecko','google'];
  const okP=new Set(srcs.filter(x=>x.ok).map(x=>x.platform).concat(['callit']));
  const chips=tab==='trending'?`<div class="nchips">${plats.map(p=>{const sel=!on||on.has(p),dead=N.d&&!okP.has(p);return `<button class="nchip${sel?' on':''}${dead?' dead':''}" data-act="nsrc" data-f="${p}" title="${dead?'Not connected yet':''}">${pbadge(p)}${esc(NPLAT[p][0])}${dead?'<small>off</small>':''}</button>`}).join('')}${on?`<button class="lnk" data-act="nsrc" data-f="*">Show all</button>`:''}</div>`
-  :`<div class="nchips">${[['all','All'],['crypto','Crypto'],['tech','Tech']].map(([k,l])=>`<button class="nchip${(S.nk||'all')===k?' on':''}" data-act="nk" data-f="${k}">${l}</button>`).join('')}</div>`;
- return `<div class="tabs" role="tablist">${[['recent','Recent'],['trending','Trending']].map(([k,l])=>`<button role="tab" aria-selected="${tab===k}" class="${tab===k?'on':''}" data-act="ntab" data-f="${k}">${l}</button>`).join('')}</div>
+  :`<div class="nchips"><button class="nchip${!cats?' on':''}" data-act="ncat" data-f="*">All</button>${NCATS.map(([k,l])=>`<button class="nchip${cats&&cats.has(k)?' on':''}" data-act="ncat" data-f="${k}">${l}</button>`).join('')}</div>`;
+ const econ=tab==='recent'&&!q&&(!cats||cats.has('economy'));
+ return `${tabs}
  <div class="pad nhead"><div class="tsearch">${ic('search',16)}<input id="nq" value="${esc(q)}" placeholder="Search ${tab==='trending'?'trends':'news'}: solana, ETF, a ticker…" autocomplete="off" enterkeyhint="search"></div>${chips}</div>
+ ${econ?calNextCard():''}
  <div class="nlist">${!N.d?rskel(6):L.length?L.slice(0,80).map(nItem).join(''):`<div class="empty"><b>${q?`Nothing matches “${esc(q)}”`:'Nothing here right now'}</b><p>${q?'Try another word.':'Check back in a few minutes.'}</p></div>`}</div>
- <p class="hint pad">${tab==='trending'?'What people are talking about across social platforms, plus what’s hot on Callit. Tap any item to open the original post.':'Latest crypto and tech headlines. Tap a headline to read it at the source.'}${N.d&&N.d.at?` Updated ${agoMs(N.d.at)==='now'?'just now':agoMs(N.d.at)+' ago'}.`:''}</p>`}
-setInterval(()=>{if(!document.hidden&&currentRoute()==='news')loadNews(S.ntab==='trending'?'trending':'recent')},6e4);
-document.addEventListener('input',e=>{if(e.target.id!=='nq')return;S.nq=e.target.value;clearTimeout(e.target._t);e.target._t=setTimeout(()=>{const el=$('.nlist');if(el){const tab=S.ntab==='trending'?'trending':'recent',L=newsList(tab,S.nq);el.innerHTML=L.length?L.slice(0,80).map(nItem).join(''):`<div class="empty"><b>Nothing matches “${esc(S.nq)}”</b><p>Try another word.</p></div>`}},150)});
+ <p class="hint pad">${tab==='trending'?'What people are talking about across social platforms, plus what’s hot on Callit. Tap any item to open the original post.':'Latest headlines across crypto, the economy, world news, tech, sports and entertainment. Pick one or more categories above. Tap a headline to read it at the source.'}${N.d&&N.d.at?` Updated ${agoMs(N.d.at)==='now'?'just now':agoMs(N.d.at)+' ago'}.`:''}</p>`}
+setInterval(()=>{if(document.hidden||currentRoute()!=='news')return;const t=NTAB();if(t==='calendar'){if(!document.querySelector('#modal .modal')&&document.activeElement?.id!=='nq')render();loadNews('calendar')}else loadNews(t)},6e4);
+document.addEventListener('input',e=>{if(e.target.id!=='nq')return;S.nq=e.target.value;clearTimeout(e.target._t);e.target._t=setTimeout(()=>{const el=$('.nlist');if(el){const tab=NTAB();if(tab==='calendar'){const L=calList(S.nq),cl=document.querySelector('.cnext');cl&&cl.remove();el.innerHTML=L.length?L.slice(0,80).map(e=>calRow(e)).join(''):`<div class="empty"><b>Nothing matches “${esc(S.nq)}”</b><p>Try another word.</p></div>`;return}const L=newsList(tab,S.nq);el.innerHTML=L.length?L.slice(0,80).map(nItem).join(''):`<div class="empty"><b>Nothing matches “${esc(S.nq)}”</b><p>Try another word.</p></div>`}},150)});
 
 /* ---------- premium ---------- */
 const PLANS={monthly:{usd:8,label:'Monthly',per:'/month',days:30},yearly:{usd:80,label:'Yearly',per:'/year',days:365,save:'2 months free'}};
@@ -2320,7 +2363,10 @@ document.addEventListener('click',e=>{
     m=>$('#pgo',m).onclick=()=>{closeModal();txRun(`Callit Premium · ${P.label}`,()=>{S.bal[via]-=amt;const base=isPrem(S.me)?S.premium.until:Date.now();S.premium={plan:S.plan||'yearly',until:base+P.days*864e5};try{localStorage.setItem('callit.premium',JSON.stringify(S.premium))}catch(_){}
      S.activity.unshift({k:'Sent',d:`${via==='SOL'?amt.toFixed(3):amt} ${via} for Callit Premium`,t:'Just now'});render();toast('Welcome to Premium ✓')})})},
   nf:()=>{S.nf=b.dataset.f;render()},newsx:()=>{location.hash='#/news'},
-  ntab:()=>{S.ntab=b.dataset.f;render()},nk:()=>{S.nk=b.dataset.f;render()},
+  ntab:()=>{S.ntab=b.dataset.f;render()},
+  ncat:()=>{const f=b.dataset.f;if(f==='*'){lsPut('callit.ncat',null);return render()}const cur=lsSet('callit.ncat')||new Set();cur.has(f)?cur.delete(f):cur.add(f);lsPut('callit.ncat',cur.size===NCATS.length?null:cur);render()},
+  cimp:()=>{S.cimp=b.dataset.f;try{localStorage.setItem('callit.cimp',S.cimp)}catch(_){}render()},
+  ccur:()=>{const f=b.dataset.f;if(f==='*'){lsPut('callit.ccur',null);return render()}const all=[...new Set(((NEWS.calendar.d&&NEWS.calendar.d.events)||[]).map(e=>e.country))];const cur=lsSet('callit.ccur')||new Set(all);cur.has(f)?cur.delete(f):cur.add(f);lsPut('callit.ccur',cur.size===all.length||!cur.size?null:cur);render()},
   nsrc:()=>{const f=b.dataset.f;if(f==='*'){nsrcSet(null);return render()}const all=['callit','x','reddit','youtube','bluesky','hackernews','coingecko','google'];const cur=nsrcGet()||new Set(all);cur.has(f)?cur.delete(f):cur.add(f);nsrcSet(cur.size===all.length||!cur.size?null:cur);render()},stscroll:()=>{const t=$('#'+b.dataset.f);t&&t.scrollBy({left:+b.dataset.d*t.clientWidth*.8,behavior:'smooth'})},
   lsign:()=>signIn(b.dataset.f),lwallet:()=>realAuth()?realLogin('wallet',undefined,null):connectModal(null,'in'),
   lemail:()=>{const v=($('#lxemail')||{}).value||'';if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())){$('#lxerr').textContent='Enter a valid email address.';$('#lxemail').focus();return}signIn('Email',null,{email:v.trim()})},

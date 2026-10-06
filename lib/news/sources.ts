@@ -13,13 +13,14 @@ export type NewsItem = {
   url: string;
   source: string;       // publisher or account, e.g. "CoinDesk", "r/CryptoCurrency"
   platform: Platform;   // where it lives, for the filter chips and icon
-  kind: 'crypto' | 'tech' | 'social';
+  kind: Kind;
   at: number;           // ms
   image?: string | null;
   summary?: string | null;
   score?: number | null; // upvotes / points / likes, when the platform has them
   comments?: number | null;
 };
+export type Kind = 'crypto' | 'economy' | 'global' | 'tech' | 'sports' | 'entertainment' | 'social';
 export type Platform = 'news' | 'x' | 'reddit' | 'hackernews' | 'youtube' | 'bluesky' | 'coingecko' | 'google';
 
 const UA = 'Mozilla/5.0 (compatible; CallitNews/1.0; +https://call-it-chi.vercel.app)';
@@ -37,7 +38,7 @@ const strip = (s: string) => decode(decode(s).replace(/<[^>]+>/g, ' ')).replace(
 const tag = (block: string, name: string) => { const m = block.match(new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)</${name}>`, 'i')); return m ? m[1] : ''; };
 const attr = (block: string, name: string, a: string) => { const m = block.match(new RegExp(`<${name}\\b[^>]*\\b${a}=["']([^"']+)["']`, 'i')); return m ? decode(m[1]) : ''; };
 
-export function parseFeed(xml: string, source: string, kind: NewsItem['kind'], platform: Platform = 'news'): NewsItem[] {
+export function parseFeed(xml: string, source: string, kind: Kind, platform: Platform = 'news'): NewsItem[] {
   const blocks = xml.match(/<item\b[\s\S]*?<\/item>/gi) || xml.match(/<entry\b[\s\S]*?<\/entry>/gi) || [];
   return blocks.slice(0, 25).map((b) => {
     const title = strip(tag(b, 'title'));
@@ -51,7 +52,7 @@ export function parseFeed(xml: string, source: string, kind: NewsItem['kind'], p
   }).filter((x) => x.title && /^https?:\/\//.test(x.url));
 }
 
-async function rss(url: string, source: string, kind: NewsItem['kind'], platform: Platform = 'news') {
+async function rss(url: string, source: string, kind: Kind, platform: Platform = 'news') {
   const r = await get(url, { headers: { accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml' } });
   if (!r.ok) throw new Error(`${source} ${r.status}`);
   return parseFeed(await r.text(), source, kind, platform);
@@ -70,7 +71,55 @@ const TECH_FEEDS: [string, string][] = [
   ['https://techcrunch.com/feed/', 'TechCrunch'],
   ['https://www.theverge.com/rss/index.xml', 'The Verge'],
   ['https://feeds.arstechnica.com/arstechnica/index', 'Ars Technica'],
+  ['https://techcabal.com/feed/', 'TechCabal'],
 ];
+const ECONOMY_FEEDS: [string, string][] = [
+  ['https://www.fxstreet.com/rss/news', 'FXStreet'],
+  ['https://www.cnbc.com/id/20910258/device/rss/rss.html', 'CNBC Economy'],
+  ['https://feeds.content.dowjones.io/public/rss/mw_topstories', 'MarketWatch'],
+  ['https://finance.yahoo.com/news/rssindex', 'Yahoo Finance'],
+  ['https://www.investing.com/rss/news_14.rss', 'Investing.com'],
+];
+const GLOBAL_FEEDS: [string, string][] = [
+  ['https://feeds.bbci.co.uk/news/world/rss.xml', 'BBC World'],
+  ['https://www.aljazeera.com/xml/rss/all.xml', 'Al Jazeera'],
+  ['https://www.theguardian.com/world/rss', 'The Guardian'],
+  ['https://rss.nytimes.com/services/xml/rss/nyt/World.xml', 'New York Times'],
+];
+const SPORTS_FEEDS: [string, string][] = [
+  ['https://feeds.bbci.co.uk/sport/rss.xml', 'BBC Sport'],
+  ['https://www.espn.com/espn/rss/news', 'ESPN'],
+  ['https://www.skysports.com/rss/12040', 'Sky Sports'],
+];
+const ENT_FEEDS: [string, string][] = [
+  ['https://variety.com/feed/', 'Variety'],
+  ['https://www.billboard.com/feed/', 'Billboard'],
+  ['https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml', 'BBC Entertainment'],
+];
+
+/* ---------- Economic calendar (ForexFactory's public weekly export) ----------
+ * Free, but limited to 2 downloads per 5 minutes per IP, so it's cached 15 minutes.
+ * The export has forecast and previous values, not actual results. */
+export type CalEvent = { id: string; title: string; country: string; at: number; impact: 'High' | 'Medium' | 'Low' | 'Holiday' | string; forecast: string; previous: string };
+let CAL: { events: CalEvent[]; at: number } | null = null;
+export async function getCalendar(): Promise<{ events: CalEvent[]; at: number; error?: string }> {
+  if (CAL && Date.now() - CAL.at < 15 * 60_000) return CAL;
+  try {
+    const r = await fetch('https://nfs.faireconomy.media/ff_calendar_thisweek.json', { headers: { 'user-agent': UA }, signal: AbortSignal.timeout(8000), next: { revalidate: 900 } });
+    if (!r.ok) throw new Error(`ForexFactory ${r.status}`);
+    const j = (await r.json()) as { title: string; country: string; date: string; impact: string; forecast?: string; previous?: string }[];
+    const events = (Array.isArray(j) ? j : []).map((e, i) => ({
+      id: `ff:${e.date}:${e.country}:${i}`, title: e.title, country: e.country, at: Date.parse(e.date) || 0, impact: e.impact,
+      forecast: e.forecast || '', previous: e.previous || '',
+    })).filter((e) => e.at).sort((a, b) => a.at - b.at);
+    CAL = { events, at: Date.now() };
+    return CAL;
+  } catch (e) {
+    console.warn('[calendar]', (e as Error).message);
+    if (CAL) return CAL; // keep serving the last good copy when rate-limited
+    return { events: [], at: Date.now(), error: 'The economic calendar is unavailable right now.' };
+  }
+}
 
 async function hackerNews(): Promise<NewsItem[]> {
   const r = await get('https://hn.algolia.com/api/v1/search?tags=front_page&hitsPerPage=30');
@@ -203,6 +252,10 @@ export async function getNews(tab: 'recent' | 'trending'): Promise<Section> {
     ? await gather([
         ...CRYPTO_FEEDS.map(([u, n]) => [n, 'news', () => rss(u, n, 'crypto')] as [string, Platform, () => Promise<NewsItem[]>]),
         ...TECH_FEEDS.map(([u, n]) => [n, 'news', () => rss(u, n, 'tech')] as [string, Platform, () => Promise<NewsItem[]>]),
+        ...ECONOMY_FEEDS.map(([u, n]) => [n, 'news', () => rss(u, n, 'economy')] as [string, Platform, () => Promise<NewsItem[]>]),
+        ...GLOBAL_FEEDS.map(([u, n]) => [n, 'news', () => rss(u, n, 'global')] as [string, Platform, () => Promise<NewsItem[]>]),
+        ...SPORTS_FEEDS.map(([u, n]) => [n, 'news', () => rss(u, n, 'sports')] as [string, Platform, () => Promise<NewsItem[]>]),
+        ...ENT_FEEDS.map(([u, n]) => [n, 'news', () => rss(u, n, 'entertainment')] as [string, Platform, () => Promise<NewsItem[]>]),
         ['Hacker News', 'hackernews', hackerNews],
       ])
     : await gather([
@@ -221,7 +274,8 @@ export async function getNews(tab: 'recent' | 'trending'): Promise<Section> {
     const rank = (x: NewsItem) => Math.log10((x.score || 0) + (x.comments || 0) * 2 + 10) * 3 - (now - x.at) / 36e5 / 6;
     sec.items.sort((a, b) => rank(b) - rank(a));
   }
-  sec.items = sec.items.slice(0, 150);
+  const per = new Map<string, number>();
+  sec.items = sec.items.filter((x) => { const n = (per.get(x.source) || 0) + 1; per.set(x.source, n); return n <= (tab === 'recent' ? 12 : 30); }).slice(0, tab === 'recent' ? 320 : 150);
   if (sec.items.length) CACHE.set(tab, sec);
   return sec;
 }
