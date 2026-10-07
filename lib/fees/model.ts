@@ -16,19 +16,35 @@ export type Bucket = 'caller' | 'referrer' | 'cashback' | 'buyback' | 'treasury'
 export type Mode = 'call' | 'buy' | 'sell';
 
 export const BUCKETS: { key: Bucket; label: string; call: number; buy: number; sell: number; note: string }[] = [
-  { key: 'caller',   label: 'Callers',           call: 20, buy: 0,  sell: 0,  note: 'Buys from a bought-in call. 20% base, up to 30% by X reached' },
+  { key: 'caller',   label: 'Callers',           call: 20, buy: 0,  sell: 0,  note: 'Buys from a call, once it holds 2X. Bought in: 20% up to 30%. No buy: 5%' },
   { key: 'referrer', label: 'Referrals',         call: 10, buy: 10, sell: 0,  note: 'Whoever invited the buyer' },
   { key: 'cashback', label: 'Trader cashback',   call: 5,  buy: 5,  sell: 0,  note: 'Back to the buyer' },
   { key: 'buyback',  label: 'Buyback & burn',    call: 15, buy: 20, sell: 30, note: '$CALLIT bought and burned after launch' },
   { key: 'treasury', label: 'Treasury & growth', call: 50, buy: 65, sell: 70, note: 'Team, infra, product expansion' },
 ];
 
-/** Caller share grows 2.5 points per doubling of the X reached while still holding, capped at 30%. */
+/**
+ * Caller pay. Nothing is paid until the call holds 2X on its rolling-average MC (a wick doesn't count).
+ * - Bought in and held to target: 20% base, +2.5 points per doubling reached, capped at 30%.
+ * - Didn't buy, or sold before the target: a flat 5%.
+ * Whatever a caller doesn't take stays in Treasury & growth.
+ */
+export const CALLER_MIN_X = 2;
 export const CALLER_BASE = 20, CALLER_STEP = 2.5, CALLER_CAP = 30;
-export function callerShare(xReached: number): number {
-  if (!(xReached >= 2)) return CALLER_BASE;
+export const CALLER_NOBUY = 5;
+export function callerShare(xReached: number, boughtIn = true): number {
+  if (!(xReached >= CALLER_MIN_X)) return 0;
+  if (!boughtIn) return CALLER_NOBUY;
   return Math.min(CALLER_CAP, CALLER_BASE + CALLER_STEP * Math.floor(Math.log2(xReached)));
 }
+
+/** Claim limits (USD). Payouts stay off until PAYOUTS_ON=1 and a payout wallet is set. */
+export const PAYOUT = {
+  minUsd: () => num(process.env.PAYOUT_MIN_USD, 1),
+  maxPerClaimUsd: () => num(process.env.PAYOUT_MAX_CLAIM_USD, 25),
+  dailyCapUsd: () => num(process.env.PAYOUT_DAILY_CAP_USD, 20),
+};
+const num = (v: string | undefined, d: number) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : d; };
 
 /** Splits Callit's fee (after Jupiter's cut) into buckets. */
 export function split(feeUsd: number, mode: Mode): Record<Bucket, number> {

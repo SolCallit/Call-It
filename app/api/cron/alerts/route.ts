@@ -2,6 +2,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { json } from '@/lib/db/me';
 import { alertUsers, bellersOf, usd } from '@/lib/push/send';
 import { jupMany, type LiveToken } from '@/lib/market/sources';
+import { sampleCalls, settleEarnings } from '@/lib/earnings/settle';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -20,6 +21,7 @@ async function prices(mints: string[]): Promise<Map<string, LiveToken>> {
  * GET /api/cron/alerts — run every minute (Supabase pg_cron). Checks:
  *  - token bells: price moved ≥ the user's % since the last alert
  *  - calls: hit 2x / 3x / 5x / 10x / ... since entry (caller + their followers)
+ *  - caller earnings: updates each call's rolling-average X, then credits callers for buys through calls that held 2X
  * Auth: header x-cron-secret (or ?key=) must equal CRON_SECRET.
  */
 export async function GET(req: Request) {
@@ -68,5 +70,9 @@ export async function GET(req: Request) {
     sent += await alertUsers(db, [c.profile_id as string], 'milestones', `m:${c.id}:${hit}`, { ...a, title: `🚀 Your $${sym} call hit ${hit}x`, body: `Called at ${usd(entry)} MC → now ${usd(t.mc)}. Share it.` });
     sent += await alertUsers(db, fol, 'milestones', `m:${c.id}:${hit}`, { ...a, title: `🚀 @${handle}'s $${sym} call hit ${hit}x`, body: `Called at ${usd(entry)} MC → now ${usd(t.mc)}.` });
   }
-  return json({ ok: true, bells: bells?.length || 0, calls: calls?.length || 0, sent });
+  // Caller earnings: rolling-average X per call, then credit qualified calls.
+  const samples = (calls || []).map((c) => { const t = P.get(c.mint as string), e = Number(c.entry_mc); return { id: c.id as string, x: t?.mc && e > 0 ? t.mc / e : 0 }; });
+  const sampled = await sampleCalls(db, samples).catch(() => false);
+  const earned = sampled ? await settleEarnings(db).catch(() => ({ credited: 0, usd: 0 })) : { credited: 0, usd: 0 };
+  return json({ ok: true, bells: bells?.length || 0, calls: calls?.length || 0, sent, earnings: earned });
 }

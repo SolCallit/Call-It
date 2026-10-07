@@ -2493,3 +2493,41 @@ body.bpdrag iframe{pointer-events:none}
 .faq summary::after{content:'+';color:var(--muted);font-weight:800}
 .faq details[open] summary::after{content:'–'}
 .faq details p{margin:0;padding:0 14px 14px;color:var(--muted);line-height:1.55}
+
+/* ---------- caller earnings + Claim ---------- */
+.earn{margin:14px 0 4px;padding:14px;border-radius:18px;border:1px solid var(--line);background:linear-gradient(160deg,color-mix(in srgb,var(--up) 9%,var(--bg2)),var(--bg2) 60%)}
+.earn.sk{opacity:.7}
+.earnt{display:flex;align-items:center;gap:8px;font-size:15px}
+.earnic{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--up) 16%,transparent);color:var(--up)}
+.earnhow{margin-left:auto;display:inline-flex;align-items:center;gap:4px;border:0;background:transparent;color:var(--muted);font-size:13px;font-weight:600;padding:6px 8px;border-radius:999px}
+.earnhow:hover{background:var(--hover)}
+.earnhow svg{transition:transform .2s}.earnhow[aria-expanded="true"] svg{transform:rotate(90deg)}
+.earnmain{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px}
+.earnamt{font:800 32px/1.05 var(--display);letter-spacing:-.02em}
+.earnbtn{min-width:104px}
+.earnbtn[disabled]{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
+.earnbtn.busy{opacity:.8}
+.earnhowto{margin-top:12px;padding-top:12px;border-top:1px dashed var(--line);font-size:14px;line-height:1.5}
+.earnhowto p{margin:0 0 10px}
+.earntiers{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.earntiers div{padding:10px 12px;border-radius:14px;background:var(--bg);border:1px solid var(--line);display:flex;flex-direction:column;gap:2px}
+.earntiers b{font:800 20px/1.1 var(--display);color:var(--up)}
+.earntiers span{font-size:12.5px;color:var(--muted);line-height:1.35}
+.earnlist{margin-top:12px;display:flex;flex-direction:column}
+.earnh{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:4px}
+.earnrow{display:flex;align-items:center;gap:10px;padding:8px 6px;border-radius:12px}
+a.earnrow:hover{background:var(--hover)}
+.earnrow .grow{display:flex;flex-direction:column;min-width:0}
+.earnrow .grow b{font-size:14px}
+.earnrow .lnk{font-size:13px}
+.earndot{width:10px;height:10px;border-radius:50%;background:var(--muted);flex:none;margin:0 4px}
+.earndot.sent{background:var(--up)}.earndot.failed{background:var(--down)}.earndot.pending{background:#E8A317}
+.earnempty{margin:12px 0 0}
+@media (max-width:420px){.earntiers{grid-template-columns:1fr}.earnamt{font-size:28px}}
+
+/* calls that came from a Telegram group */
+.tgchip{display:inline-flex;align-items:center;gap:4px;max-width:120px;flex:none;font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:999px;color:#2AABEE;background:color-mix(in srgb,#2AABEE 13%,transparent)}
+.tgchip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tgrow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;border:1px solid var(--line);background:var(--bg2)}
+.tgrow svg{color:#2AABEE}
+.tgrow .grow{display:flex;flex-direction:column;min-width:0}
