@@ -116,16 +116,16 @@ export async function POST(req: Request) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [message] = await shapeMessages(db, c.id, [ins.data as any], me.id);
 
-  // Phone pop-ups: the other person in a DM, and anyone @mentioned in a group. A failed push never fails the send.
+  // Phone pop-ups: everyone in a DM or private group, and anyone @mentioned in a public group. A failed push never fails the send.
   // Awaited because serverless functions can stop as soon as the response is sent.
   await notify(c.kind, c.id, c.title, me, body).catch((e) => console.warn('[chat] push', e?.message));
   return json({ message });
 
   async function notify(kind: string, chatId: string, title: string | null, from: { id: string; handle: string }, text: string) {
     let ids: string[] = [];
-    if (kind === 'dm') {
+    if (kind === 'dm' || kind === 'private') { // DMs and private groups ping every member; public groups only @mentions
       const { data } = await db.from('chat_members').select('profile_id').eq('chat_id', chatId).eq('muted', false).neq('profile_id', from.id);
-      ids = (data || []).map((r) => r.profile_id as string);
+      ids = (data || []).map((r) => r.profile_id as string).slice(0, 100);
     } else {
       const tags = [...new Set([...text.matchAll(/@([A-Za-z0-9_]{3,20})/g)].map((m) => m[1].toLowerCase()))].filter((h) => h !== from.handle).slice(0, 20);
       if (!tags.length) return;
