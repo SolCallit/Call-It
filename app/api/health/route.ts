@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { PRIVY_APP_ID } from '@/lib/config';
+import { chatKeyReady } from '@/lib/chat/crypto';
+import { pushIssue } from '@/lib/push/send';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -83,6 +85,16 @@ export async function GET() {
     const b = await db.storage.getBucket('media');
     media_bucket = b.error ? `error: ${b.error.message}` : b.data?.public ? 'ok' : 'error: bucket is not public';
   }
+  // Migration 0011 + CHAT_KEY: chat. Push: phone pop-ups (VAPID keys).
+  let chat: Record<string, string> = { tables: 'no_database_config' };
+  if (db) {
+    const r = await Promise.all(['chats', 'chat_members', 'chat_messages'].map((t) => db.from(t).select('*').limit(1)));
+    const e = r.find((x) => x.error)?.error;
+    const f = await db.rpc('chat_inbox', { p: '00000000-0000-0000-0000-000000000000' });
+    chat = { tables: e ? `error: ${e.message}` : f.error ? `error: ${f.error.message}` : 'ok' };
+  }
+  chat.encryption_key = chatKeyReady() ? 'ok' : 'missing: set CHAT_KEY (64 hex characters) in Vercel, then redeploy';
+  const push = pushIssue() || 'ok';
   const welcome_email = process.env.RESEND_API_KEY && process.env.EMAIL_FROM ? 'configured' : 'not_configured';
 
   const ok = Object.values(env).every(Boolean) && privy_jwks === 'ok' && profiles_table === 'ok' && notifications_table === 'ok'
@@ -92,5 +104,5 @@ export async function GET() {
     : media_bucket !== 'ok' ? 'Media bucket missing: it is created automatically on the first image upload, or run supabase/migrations/0004_repair_posts_and_media.sql'
     : edit4 !== 'ok' ? 'Run supabase/migrations/0005_bookmarks_social_notifs_usernames.sql in Supabase → SQL Editor (bookmarks, social notifications, usernames)'
     : null;
-  return NextResponse.json({ ok, service: 'callit-web', time: new Date().toISOString(), env, privy_jwks, privy_login, profiles_table, notifications_table, social_tables: social, media_bucket, bookmarks_and_social_notifs: edit4, fix, welcome_email });
+  return NextResponse.json({ ok, service: 'callit-web', time: new Date().toISOString(), env, privy_jwks, privy_login, profiles_table, notifications_table, social_tables: social, media_bucket, bookmarks_and_social_notifs: edit4, fix, welcome_email, chat, push });
 }
