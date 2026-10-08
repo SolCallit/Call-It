@@ -1582,7 +1582,7 @@ P.lists=P.list;P.defi='<circle cx="12" cy="12" r="8.5"/><path d="M8 10h8l-2.5-2.
 const NAVH={stack:[],cur:location.hash||'#/home',back:false};
 function goBack(){const prev=NAVH.stack.pop();NAVH.back=true;location.hash=prev&&prev!==location.hash?prev:'#/home'}
 const NAVC=(()=>{try{return JSON.parse(localStorage.getItem('callit.navc')||'{}')}catch(_){return {}}})();
-function chrome(route){const link=([k,l])=>`<a href="#/${k}" class="${route===k?'on':''}" title="${l}">${k==='notifications'?`<span class="nbadge">${ic('bell')}${unreadN()?`<i>${unreadN()}</i>`:''}</span>`:ic(k)}<span class="lbl">${l}</span></a>`;
+function chrome(route){const link=([k,l])=>`<a href="#/${k}" class="${route===k?'on':''}" title="${l}">${k==='notifications'?`<span class="nbadge">${ic('bell')}${unreadN()?`<i>${unreadN()}</i>`:''}</span>`:k==='messages'&&window.__chU?`<span class="nbadge">${ic(k)}<i>${window.__chU>99?'99+':window.__chU}</i></span>`:ic(k)}<span class="lbl">${l}</span></a>`;
  $('#navA').innerHTML=NAV_A.map(link).join('');$('#navB').innerHTML=NAV_B.map(link).join('');
  // Premium sits at the bottom of the tray, under Products (the tray scrolls on short screens).
  $('#navP').innerHTML=`<a href="#/premium" class="navprem${route==='premium'?' on':''}${isPrem(S.me)?' active':''}" title="Premium">${ic('verified',20)}<span class="lbl">${isPrem(S.me)?'Premium':'Get Premium'}</span></a>`;
@@ -2372,15 +2372,255 @@ function onboard(step=1){const st=S.ob||(S.ob={i:new Set()});
 function obDone(){try{localStorage.setItem('callit.onboarded','1')}catch(_){}closeModal();render();toast('You’re all set')}
 function maybeOnboard(){let d=false;try{d=localStorage.getItem('callit.onboarded')==='1'}catch(_){}if(!d)setTimeout(()=>onboard(1),400)}
 
-/* ---------- messages ---------- */
-const DMS={};
-function vMessages(h){if(h&&DMS[h]!==undefined||h&&C[h]){DMS[h]=DMS[h]||[];const ms=DMS[h];
-  return `<div class="rhead"><a href="#/profile/${h}">${avatar(h)}</a><div class="grow"><b>${esc(h)}</b><div class="hint">@${esc(h)}${C[h]&&C[h].win?` · ${C[h].win}% win rate`:''}</div></div><a class="btn sm ghost" href="#/profile/${h}">Profile</a></div>
-  <div class="msgs" id="msgs">${ms.length?ms.map(([w,tx,ago])=>{const me=w==='me';return `<div class="msg${me?' me':''}">${avatar(me?S.me:w)}<div><div class="mh"><b>${esc(me?(PROF.name||S.me):w)}</b><span class="hint">${ago}</span></div><p>${esc(tx)}</p></div></div>`}).join(''):`<div class="empty"><b>Say hi to ${esc(h)}</b><p>Messages are private between you two.</p></div>`}</div>
-  <div class="composer">${S.connected?`<input class="input" id="msgin" maxlength="500" placeholder="Write a message"><button class="btn primary" data-act="dmsend" data-f="${h}">Send</button>`:`<div class="grow"><b>Sign in to message</b></div><button class="btn primary" data-act="connect">Sign in</button>`}</div>`}
- const th=Object.entries(DMS).filter(([,m])=>m.length);
- return `<div class="pad" style="display:flex;justify-content:space-between;align-items:center;padding-bottom:6px"><span class="hint">Direct messages</span><button class="btn sm primary" data-act="dmnew">${ic('promote',15)} New message</button></div>
- <div>${th.map(([h,m])=>{const l=m[m.length-1];return `<a class="comm" href="#/messages/${h}">${avatar(h,'md')}<div class="grow"><div class="cn1"><b>${esc(h)}</b><span class="hint">· ${l[2]}</span></div><p class="lastm">${l[0]==='me'?'You: ':''}${esc(l[1])}</p></div></a>`}).join('')||'<div class="empty"><b>No messages yet</b><p>Start a conversation with a caller you follow.</p></div>'}</div>`}
+/* ---------- messages: real chat ----------
+   Private = DMs + private groups (encrypted on the server). Public = open groups anyone can find,
+   guarded against drainer links and scam lines. Live by polling (2.5s in an open chat), so it
+   runs on the free tier with no socket server. Chat actions use data-cx so they never collide
+   with the app's data-act map. */
+P.shield='<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6l8-3z"/><path d="M8.8 12.2l2.2 2.2 4.4-4.6"/>';
+P.users='<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.3-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 010 6.8M18 14.8c2 .7 3.2 2.5 3.5 5.2"/>';
+P.info='<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>';
+const CH={tab:(()=>{try{return localStorage.getItem('callit.ctab')==='public'?'public':'private'}catch(_){return 'private'}})(),
+ inbox:null,ibusy:0,ierr:'',enc:true,disc:null,dbusy:0,dq:'',th:{},draft:{},reply:{},open:null,unread:0,dmid:{},inv:{},showInfo:null,need:new Set(),tmp:0};
+const CH_KEYISH=/\b[1-9A-HJ-NP-Za-km-z]{80,90}\b/,CH_MINT=/\b[1-9A-HJ-NP-Za-km-z]{32,44}\b/g;
+const chOn=()=>SYNC();
+const chRoute=()=>currentRoute()==='messages'?(location.hash.split('/')[2]||''):null;
+const chName=c=>c.kind==='dm'?(c.peer?(c.peer.name||c.peer.handle):'Chat'):(c.title||'Group');
+function chSeen(p){if(p&&p.handle){if(p.avatar)AVURL[p.handle]=p.avatar;if(p.name)DN[p.handle]=p.name}}
+function chErr(e){const m=String(e&&e.message||e||'');return ({
+ blocked_link:'Links outside trusted sites are blocked in public groups',blocked_scam:'That reads like a scam line, so it wasn’t sent',blocked_key:'That looks like a private key. Never share it',
+ slow_down:'Slow mode. Give it a few seconds',duplicate:'You just said that',chat_key_missing:'Private chat isn’t switched on yet (server needs CHAT_KEY)',
+ not_member:'You’re not in this chat',banned:'You were removed from this group',cant_message:'This caller isn’t taking messages from you',you_blocked:'Unblock them first to message',
+ user_not_found:'That caller hasn’t joined Callit yet',invite_not_found:'This invite link has expired or was reset',invite_required:'This group is invite-only',
+ too_many_groups:'You’ve started 5 groups today. Try again tomorrow',title_required:'Give the group a name',cant_leave_dm:'DMs can be muted, not left'})[m]||m||'Something went wrong'}
+function chAgo(at){const d=new Date(at),m=(Date.now()-d)/6e4;if(m<1)return 'now';if(m<60)return Math.floor(m)+'m';if(m<1440)return Math.floor(m/60)+'h';
+ if(m<10080)return d.toLocaleDateString(undefined,{weekday:'short'});return d.toLocaleDateString(undefined,{month:'short',day:'numeric'})}
+const chClock=at=>new Date(at).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});
+function chDay(at){const d=new Date(at),t=new Date(),y=new Date(Date.now()-864e5),s=x=>x.toDateString();
+ return s(d)===s(t)?'Today':s(d)===s(y)?'Yesterday':d.toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'})}
+/* Group sigil: a raised tile tinted from the group id, with the Callit glyph for its kind. */
+function chSig(c,cls=''){if(c.kind==='dm'&&c.peer){chSeen(c.peer);return avatar(c.peer.handle,cls)}
+ if(c.mint&&T[c.mint])return `<span class="chsig ${cls} tok">${tokav(c.mint)}<i>${ic(c.kind==='public'?'promote':'lock',11)}</i></span>`;
+ const w=(c.title||'G').replace(/[^A-Za-z0-9 ]/g,'').trim().split(/\s+/),ini=((w[0]||'G')[0]+(w[1]?w[1][0]:'')).toUpperCase();
+ return `<span class="chsig ${cls} ${c.kind}" style="--h:${hue(c.id||c.title||'g')}"><b>${esc(ini)}</b><i>${ic(c.kind==='public'?'promote':'lock',11)}</i></span>`}
+
+/* ---------- data ---------- */
+function chPaint(id){const r=chRoute();if(r===null||document.querySelector('#modal .modal'))return;
+ if(id&&r==='c-'+id){if(!$('#chmsgs'))return render();chMsgs(id);return}
+ if(!id&&r==='')render()}
+function loadInbox(){if(!chOn()||CH.ibusy)return Promise.resolve();CH.ibusy=1;
+ return API('/api/chat').then(j=>{CH.inbox=j.chats||[];CH.enc=j.encrypted!==false;CH.ierr='';CH.inbox.forEach(c=>chSeen(c.peer));chScanMints(CH.inbox.map(c=>c.last||{}));
+  CH.unread=CH.inbox.filter(c=>!c.muted).reduce((a,c)=>a+(c.unread||0),0);chBadge();
+  const miss=CH.inbox.map(c=>c.mint).filter(m=>m&&!T[m]);if(miss.length)chNeed(miss)})
+ .catch(e=>{CH.ierr=chErr(e)}).finally(()=>{CH.ibusy=0;chPaint()})}
+function loadDisc(){if(CH.dbusy)return;CH.dbusy=1;const q=CH.dq;
+ fetch('/api/chat?discover=1'+(q?'&q='+encodeURIComponent(q):''),{cache:'no-store'}).then(r=>r.json()).then(j=>{if(q!==CH.dq)return;CH.disc=j.groups||[]})
+ .catch(()=>{CH.disc=CH.disc||[]}).finally(()=>{CH.dbusy=0;const el=$('#chdisc');if(el)el.innerHTML=chDiscList();else chPaint()})}
+function chThread(id){return CH.th[id]||(CH.th[id]={chat:null,people:[],msgs:[],more:false,busy:0,err:'',last:0})}
+function loadThread(id){const t=chThread(id);if(t.busy)return;t.busy=1;
+ API('/api/chat/messages?chat='+encodeURIComponent(id)).then(j=>{t.chat=j.chat;t.people=j.people||[];t.people.forEach(chSeen);t.msgs=j.messages||[];t.more=!!j.more;t.err='';
+  t.msgs.forEach(m=>chSeen(m.from));t.last=t.msgs.reduce((a,m)=>Math.max(a,+m.id||0),0);chScanMints(t.msgs);
+  const ib=CH.inbox&&CH.inbox.find(c=>c.id===id);if(ib&&ib.unread){CH.unread=Math.max(0,CH.unread-(ib.muted?0:ib.unread));ib.unread=0;chBadge()}})
+ .catch(e=>{t.err=chErr(e)}).finally(()=>{t.busy=0;const first=!$('#chmsgs');chPaint(id);if(first)chBottom(true);
+  if(CH.showInfo===id&&t.chat){CH.showInfo=null;setTimeout(()=>chInfo(id),250)}})}
+function pollThread(id){const t=CH.th[id];if(!t||!t.chat||t.busy||t.polling)return;t.polling=1;
+ const head=window.CallitWallet&&chOn();(head?API('/api/chat/messages?chat='+id+'&after='+t.last):fetch('/api/chat/messages?chat='+id+'&after='+t.last,{cache:'no-store'}).then(r=>r.json()))
+ .then(j=>{const add=(j.messages||[]).filter(m=>!t.msgs.some(x=>x.id===m.id));if(!add.length)return;const near=chNear();
+  add.forEach(m=>{chSeen(m.from);const i=t.msgs.findIndex(x=>x.pend&&x.mine&&m.mine&&x.body===m.body);if(i>=0)t.msgs.splice(i,1)});
+  t.msgs.push(...add);t.last=Math.max(t.last,...add.map(m=>+m.id));chScanMints(add);chPaint(id);if(near)chBottom()}).catch(()=>{}).finally(()=>{t.polling=0})}
+function olderThread(id){const t=CH.th[id];if(!t||t.busy||!t.more)return;const first=t.msgs.find(m=>!m.pend);if(!first)return;t.busy=1;
+ const h0=document.documentElement.scrollHeight;
+ API('/api/chat/messages?chat='+id+'&before='+first.id).then(j=>{t.msgs=(j.messages||[]).concat(t.msgs);t.more=!!j.more;chScanMints(j.messages||[]);(j.messages||[]).forEach(m=>chSeen(m.from))})
+ .catch(e=>toast(chErr(e))).finally(()=>{t.busy=0;chMsgs(id);scrollBy(0,document.documentElement.scrollHeight-h0)})}
+function chScanMints(ms){const miss=[];ms.forEach(m=>{for(const x of String(m.body||'').matchAll(CH_MINT))if(!T[x[0]])miss.push(x[0])});if(miss.length)chNeed(miss)}
+function chNeed(list){const n=list.filter(k=>!CH.need.has(k));if(!n.length)return;n.forEach(k=>CH.need.add(k));
+ fetchTokens([...new Set(n)].slice(0,30)).then(l=>{l.forEach(regLive);const r=chRoute();if(r&&r.startsWith('c-'))chMsgs(r.slice(2));else if(r==='')chPaint()}).catch(()=>{})}
+const chNear=()=>innerHeight+scrollY>=document.documentElement.scrollHeight-160;
+function chBottom(instant){requestAnimationFrame(()=>scrollTo({top:document.documentElement.scrollHeight,behavior:instant?'auto':'smooth'}))}
+function chBadge(){window.__chU=CH.unread;const a=document.querySelector('.nav a[href="#/messages"]');if(!a)return;const n=CH.unread;
+ a.innerHTML=(n?`<span class="nbadge">${ic('messages')}<i>${n>99?'99+':n}</i></span>`:ic('messages'))+'<span class="lbl">Messages</span>'}
+
+/* ---------- inbox ---------- */
+function chToggle(){const ib=CH.inbox||[],u=k=>ib.filter(c=>(k==='public'?c.kind==='public':c.kind!=='public')&&!c.muted).reduce((a,c)=>a+(c.unread||0),0),pu=u('private'),qu=u('public');
+ return `<div class="ctog" role="tablist" aria-label="Chat type" data-on="${CH.tab}"><span class="ctog-thumb" aria-hidden="true"></span>
+ <button role="tab" aria-selected="${CH.tab==='private'}" class="${CH.tab==='private'?'on':''}" data-cx="tab" data-f="private">${ic('lock',16)}<span>Private</span>${pu?`<i>${pu>99?'99+':pu}</i>`:''}</button>
+ <button role="tab" aria-selected="${CH.tab==='public'}" class="${CH.tab==='public'?'on':''}" data-cx="tab" data-f="public">${ic('promote',16)}<span>Public</span>${qu?`<i>${qu>99?'99+':qu}</i>`:''}</button></div>`}
+function chRow(c){const l=c.last,who=l&&!l.system&&l.from?(l.from===S.me?'You':(c.kind==='dm'?'':'@'+l.from)):'',body=l?(l.body||(l.system?'':'Message deleted')):(c.kind==='dm'?'Say hi':'No messages yet');
+ const mint=l&&l.body&&l.body.match(CH_MINT),only=mint&&l.body.trim()===mint[0],prev=!mint?body:only?'📣 Dropped '+(T[mint[0]]?'$'+T[mint[0]].sym:'a CA'):l.body.replace(CH_MINT,m=>T[m]?'$'+T[m].sym:'a CA');
+ return `<a class="chrow${c.unread?' new':''}" href="#/messages/c-${c.id}">${chSig(c,'md')}<div class="grow"><div class="chr1"><b>${esc(chName(c))}</b>${c.kind==='private'?`<span class="chk" title="Encrypted">${ic('lock',11)}</span>`:c.kind==='public'?`<span class="chk g" title="Guarded">${ic('shield',11)}</span>`:''}${c.muted?`<span class="chk m" title="Muted">${ic('bell',11)}</span>`:''}<span class="hint">${chAgo(c.lastAt)}</span></div>
+ <p class="lastm">${who?`<b>${esc(who)}:</b> `:''}${esc(prev)}</p></div>${c.unread?`<span class="chun">${c.unread>99?'99+':c.unread}</span>`:''}</a>`}
+function chDiscCard(g){const j=CH.inbox&&CH.inbox.some(c=>c.id===g.id);
+ return `<div class="chgcard" data-go="#/messages/c-${g.id}">${chSig(g,'md')}<div class="grow"><b>${esc(g.title||'Group')}</b>${g.about?`<p>${esc(g.about)}</p>`:''}<span class="hint num">${ic('users',13)} ${fmtK(g.members||0)} · active ${chAgo(g.lastAt)}</span></div>
+ <button class="btn sm ${j?'ghost':'primary'}" data-cx="${j?'open':'join'}" data-f="${g.id}">${j?'Open':'Join'}</button></div>`}
+function chDiscList(){if(!CH.disc)return '<div class="chskel"></div><div class="chskel"></div><div class="chskel"></div>';
+ const mine=new Set((CH.inbox||[]).map(c=>c.id)),l=CH.disc.filter(g=>!mine.has(g.id));
+ return l.length?l.map(chDiscCard).join(''):`<div class="chempty sm"><b>${CH.dq?'No groups match “'+esc(CH.dq)+'”':'No public groups yet'}</b><p>${CH.dq?'Try another name, or start it yourself.':'Be the first. Start the room your trench lives in.'}</p></div>`}
+function chEmpty(kind){return `<div class="chempty"><span class="chmega" aria-hidden="true"><span class="mark"></span><i></i><i></i><i></i></span>
+ ${kind==='private'?`<b>Your inner circle lives here</b><p>DM a caller before the crowd catches on, or spin up a private squad. Everything in here is encrypted.</p><div class="chcta"><button class="btn primary" data-cx="newdm">${ic('reply',16)} New message</button><button class="btn ghost" data-cx="newgroup" data-f="private">${ic('lock',16)} Private group</button></div>`
+ :`<b>Find your trench</b><p>Public groups are open rooms around a token or a narrative. Drop a CA and it turns into a card anyone can call.</p>`}</div>`}
+function vInbox(){if(chOn()&&!CH.inbox&&!CH.ibusy)loadInbox();if(CH.tab==='public'&&!CH.disc&&!CH.dbusy)loadDisc();
+ const top=`<div class="chtop">${chToggle()}<button class="chnew" data-cx="${CH.tab==='public'?'newgroup':'newmenu'}" data-f="${CH.tab}" aria-label="${CH.tab==='public'?'Start a public group':'New chat'}">${ic('plus',20)}</button></div>`;
+ if(CH.tab==='private'){
+  if(!chOn())return top+`<div class="chempty"><span class="chmega" aria-hidden="true"><span class="mark"></span><i></i><i></i><i></i></span><b>Sign in to chat</b><p>DMs and private groups are tied to your account and encrypted.</p><div class="chcta"><button class="btn primary" data-act="connect">Sign in</button></div></div>`;
+  if(!CH.inbox)return top+(CH.ierr?`<div class="chempty sm"><b>Couldn’t load your chats</b><p>${esc(CH.ierr)}</p><div class="chcta"><button class="btn primary" data-cx="retry">Try again</button></div></div>`:'<div class="chskel"></div><div class="chskel"></div><div class="chskel"></div>');
+  const l=CH.inbox.filter(c=>c.kind!=='public');
+  return top+(l.length?`<div class="chlist">${l.map(chRow).join('')}</div>`:chEmpty('private'))+`<p class="chfoot">${ic('lock',13)} DMs and private groups are encrypted on Callit’s servers. Only members can open them.</p>`}
+ const mine=(CH.inbox||[]).filter(c=>c.kind==='public');
+ return top+`${mine.length?`<div class="chsec">Your groups</div><div class="chlist">${mine.map(chRow).join('')}</div>`:''}
+ <div class="chsec">Discover<button class="btn sm primary" data-cx="newgroup" data-f="public">${ic('plus',14)} Start one</button></div>
+ <div class="chsearch">${ic('search',17)}<input class="input" id="chq" placeholder="Search public groups" value="${esc(CH.dq)}" autocomplete="off"></div>
+ <div id="chdisc">${chDiscList()}</div>${!mine.length&&CH.disc&&!CH.disc.length&&!CH.dq?chEmpty('public'):''}
+ <p class="chfoot">${ic('shield',13)} Public groups are guarded. Links outside trusted sites, invite links and wallet-drain lines are blocked before they post.</p>`}
+
+/* ---------- thread ---------- */
+function chBodyHTML(txt){let out='',last=0;const s=String(txt||'');
+ for(const m of s.matchAll(CH_MINT)){out+=rich(s.slice(last,m.index));last=m.index+m[0].length;const t=T[m[0]];
+  out+=`<a class="chca" href="#/token/${m[0]}" title="${m[0]}">${t?'$'+esc(t.sym):esc(m[0].slice(0,4)+'…'+m[0].slice(-4))}</a>`}
+ return out+rich(s.slice(last))}
+function chDrop(body){const m=String(body||'').match(CH_MINT);if(!m)return '';const t=T[m[0]];
+ if(!t)return `<div class="chdrop wait"><span class="chdl">${ic('promote',14)} CA dropped</span><span class="hint">Loading token…</span></div>`;
+ const c=chgOf(t,'24h');
+ return `<div class="chdrop"><a class="chdt" href="#/token/${t.key}">${tokav(t.key)}<span class="grow"><b>$${esc(t.sym)}</b><span class="hint num">${t.supply&&t.price?fmtSmall(mcap(t))+' MC':''}${c!=null?` · <em class="${c>=0?'up':'dn'}">${pctS(c)}</em>`:''}</span></span></a>
+ <div class="chdb"><button class="btn sm ghost" data-act="qbuy" data-t="${t.key}">Buy</button><button class="btn sm primary" data-act="newcall" data-t="${t.key}">${ic('promote',14)} Call it</button></div></div>`}
+const CH_EMOJI=/^(?:\p{Extended_Pictographic}|\p{Emoji_Component}|‍|️){1,8}$/u;
+function chMsgsHTML(id){const t=CH.th[id];if(!t)return '';const grp=t.chat&&t.chat.kind!=='dm',boss=t.chat&&(t.chat.role==='owner'||t.chat.role==='admin');
+ let out=t.more?`<button class="chmore" data-cx="older" data-f="${id}">${t.busy?'Loading…':'Load earlier'}</button>`:'',prev=null,day='';
+ const list=t.msgs.filter(m=>!(m.from&&!m.mine&&(S.muted.has(m.from.handle)||S.blocked.has(m.from.handle))));
+ if(!list.length)out+=`<div class="chstart">${t.chat?chSig(t.chat,'lg'):''}<b>${t.chat?esc(chName(t.chat)):''}</b><p>${t.chat&&t.chat.kind==='dm'?'This is the start of your DMs. Encrypted, just the two of you.':t.chat&&t.chat.kind==='private'?'Private and encrypted. Invite your squad from the ⓘ menu.':'Say gm. Drop a CA. Make the call.'}</p></div>`;
+ for(const m of list){const d=chDay(m.at);if(d!==day){out+=`<div class="chday"><span>${d}</span></div>`;day=d;prev=null}
+  if(m.kind==='system'){out+=`<div class="chsys">${chBodyHTML(m.body)}</div>`;prev=null;continue}
+  const h=m.from?m.from.handle:'deleted',cont=prev&&prev.from&&m.from&&prev.from.handle===h&&(new Date(m.at)-new Date(prev.at))<3e5;prev=m;
+  const emo=!m.deleted&&CH_EMOJI.test(String(m.body).trim()),open=CH.open===m.id;
+  out+=`<div class="chm${m.mine?' me':''}${cont?' cont':''}${m.pend?' pend':''}${m.fail?' fail':''}" data-mid="${m.id}">
+  ${m.mine?'':cont?'<span class="chav"></span>':`<a class="chav" href="#/profile/${esc(h)}">${avatar(h)}</a>`}
+  <div class="chw">${grp&&!m.mine&&!cont?`<a class="chn" href="#/profile/${esc(h)}">${esc(DN[h]||h)}<span class="hint">@${esc(h)}</span></a>`:''}
+  <div class="chb${emo?' emo':''}${m.deleted?' del':''}${open?' on':''}" data-cx="tap" data-f="${m.id}" tabindex="0">
+   ${m.reply?`<div class="chq"><b>@${esc(m.reply.from||'deleted')}</b><span>${esc(m.reply.body||'Message deleted')}</span></div>`:''}
+   <div class="chtx">${m.deleted?'Message deleted':chBodyHTML(m.body)}</div><span class="cht">${m.fail?'Not sent · tap':m.pend?'Sending…':chClock(m.at)}</span></div>
+  ${m.deleted?'':chDrop(m.body)}
+  ${open&&!m.deleted?`<div class="chacts"><button data-cx="reply" data-f="${m.id}">${ic('reply',15)} Reply</button><button data-cx="copy" data-f="${m.id}">${ic('copy',15)} Copy</button>${m.fail?`<button data-cx="resend" data-f="${m.id}">${ic('share',15)} Retry</button>`:''}${(m.mine||boss)&&!m.pend?`<button class="dn" data-cx="del" data-f="${m.id}">${ic('trash',15)} Delete</button>`:''}</div>`:''}
+  </div></div>`}
+ return out}
+function chMsgs(id){const el=$('#chmsgs');if(el)el.innerHTML=chMsgsHTML(id);const rb=$('#chreply');if(rb)rb.outerHTML=chReplyBar(id)}
+function chReplyBar(id){const r=CH.reply[id];return `<div id="chreply"${r?'':' hidden'}>${r?`<span class="chrq">${ic('reply',14)}<span>Replying to <b>@${esc(r.from||'')}</b> ${esc((r.body||'').slice(0,80))}</span></span><button class="ib" data-cx="unreply" data-f="${id}" aria-label="Cancel reply">${ic('x',16)}</button>`:''}</div>`}
+function chComposer(id){const t=CH.th[id],c=t&&t.chat;if(!c)return '';
+ if(!chOn())return `<div class="composer chcbar"><div class="grow"><b>Sign in to chat</b><div class="hint">${c.kind==='public'?'Anyone can read. Sign in to talk.':''}</div></div><button class="btn primary" data-act="connect">Sign in</button></div>`;
+ if(c.kind==='public'&&!c.role)return `<div class="composer chcbar"><div class="grow"><b>${esc(c.title||'Public group')}</b><div class="hint">${fmtK(c.members||0)} members · guarded</div></div><button class="btn primary" data-cx="join" data-f="${id}">${ic('plus',16)} Join group</button></div>`;
+ const ph=c.kind==='dm'?`Message ${c.peer?'@'+c.peer.handle:''}`:c.kind==='private'?'Message the squad':'Say it in public. Drop a CA';
+ return `<div class="composer chcomp">${chReplyBar(id)}<div class="chcrow"><textarea id="chin" class="input" rows="1" maxlength="1000" placeholder="${esc(ph)}" data-f="${id}">${esc(CH.draft[id]||'')}</textarea>
+ <button class="chsend" data-cx="send" data-f="${id}" aria-label="Send">${ic('promote',20)}</button></div></div>`}
+function vThread(id){const t=chThread(id);if(!t.chat&&!t.busy&&!t.err)loadThread(id);
+ if(t.err&&!t.chat)return `<div class="chempty"><b>${esc(t.err)}</b><p>${t.err.includes('invite')?'Ask a member for a fresh link.':''}</p><div class="chcta"><a class="btn primary" href="#/messages">Back to messages</a></div></div>`;
+ if(!t.chat)return `<div class="rhead chhead"><span class="chskel av"></span><div class="grow"><span class="chskel ln"></span></div></div><div class="msgs chmsgs"><div class="chskel"></div><div class="chskel r"></div><div class="chskel"></div></div>`;
+ const c=t.chat,sub=c.kind==='dm'?(c.peer?`@${esc(c.peer.handle)} · ${ic('lock',11)} encrypted`:''):c.kind==='private'?`${fmtK(c.members)} members · ${ic('lock',11)} encrypted`:`${fmtK(c.members)} members · ${ic('shield',11)} guarded`;
+ const link=c.kind==='dm'&&c.peer?`#/profile/${esc(c.peer.handle)}`:'';
+ return `<div class="rhead chhead">${link?`<a href="${link}">${chSig(c)}</a>`:chSig(c)}<div class="grow" ${link?`data-go="${link}"`:`data-cx="info" data-f="${id}"`}><b>${esc(chName(c))}</b><div class="hint chsub">${sub}</div></div>
+ ${c.mint&&T[c.mint]?`<a class="btn sm ghost" href="#/token/${c.mint}">$${esc(T[c.mint].sym)}</a>`:''}<button class="ib chib" data-cx="info" data-f="${id}" aria-label="Chat details">${ic('info',20)}</button></div>
+ <div class="msgs chmsgs" id="chmsgs">${chMsgsHTML(id)}</div>${chComposer(id)}`}
+function vJoin(code){const g=CH.inv[code];
+ if(!g){fetch('/api/chat?invite='+encodeURIComponent(code),{cache:'no-store'}).then(r=>r.json().then(j=>({ok:r.ok,j}))).then(({ok,j})=>{CH.inv[code]=ok?j.group:{err:chErr(j.error)};chPaint()}).catch(()=>{CH.inv[code]={err:'Couldn’t open this invite'};chPaint()});
+  return '<div class="chinvite"><div class="chskel big"></div></div>'}
+ if(g.err)return `<div class="chempty"><b>${esc(g.err)}</b><div class="chcta"><a class="btn primary" href="#/messages">Back to messages</a></div></div>`;
+ return `<div class="chinvite"><div class="chicard">${chSig(g,'xl')}<span class="chikind">${g.kind==='public'?ic('shield',13)+' Public · guarded':ic('lock',13)+' Private · encrypted'}</span>
+ <h2>${esc(g.title||'Group')}</h2>${g.about?`<p>${esc(g.about)}</p>`:''}<span class="hint num">${ic('users',13)} ${fmtK(g.members||0)} members</span>
+ <button class="btn primary block lg" data-cx="${chOn()?'joincode':'signjoin'}" data-f="${esc(code)}">You’re invited · Join</button></div></div>`}
+function vMessages(p){p=p||'';if(p.startsWith('c-'))return vThread(p.slice(2));if(p.startsWith('join-'))return vJoin(p.slice(5));
+ if(p){chOpenDM(p);return '<div class="chempty"><div class="chskel"></div></div>'}return vInbox()}
+
+/* ---------- actions ---------- */
+function chOpenDM(h){h=String(h).toLowerCase();if(!chOn())return connectModal(()=>chOpenDM(h));
+ if(CH.dmid[h]){location.replace('#/messages/c-'+CH.dmid[h]);return}
+ if(CH.dmBusy===h)return;CH.dmBusy=h;
+ API('/api/chat',{body:{action:'dm',handle:h}}).then(j=>{CH.dmid[h]=j.id;location.replace('#/messages/c-'+j.id);CH.inbox=null})
+ .catch(e=>{toast(chErr(e));if(chRoute()===h)location.replace('#/messages')}).finally(()=>{CH.dmBusy=null})}
+function chSend(id,retry){const t=CH.th[id];if(!t)return;let body,rep;
+ if(retry){const m=t.msgs.find(x=>x.id===retry);if(!m)return;body=m.body;rep=m.replyId;t.msgs=t.msgs.filter(x=>x!==m)}
+ else{const i=$('#chin');body=(i&&i.value||'').trim();if(!body)return;rep=CH.reply[id]&&CH.reply[id].id;
+  if(CH_KEYISH.test(body)&&!confirm('This looks like a wallet private key. Anyone who has it can empty that wallet. Send it anyway?'))return;
+  i.value='';CH.draft[id]='';chGrow(i);delete CH.reply[id]}
+ const tmp='tmp'+(++CH.tmp),r=rep?t.msgs.find(x=>x.id===rep):null;
+ const m={id:tmp,mine:true,pend:1,kind:'text',body,at:new Date().toISOString(),from:{handle:S.me,name:PROF.name||null,avatar:PROF.avatar||null},replyId:rep||null,reply:r?{id:r.id,from:r.from&&r.from.handle,body:r.body}:null};
+ t.msgs.push(m);CH.open=null;chMsgs(id);chBottom();
+ API('/api/chat/messages',{body:{chat:id,body,reply_to:rep||undefined}}).then(j=>{const i=t.msgs.indexOf(m);if(j.message&&!t.msgs.some(x=>x.id===j.message.id)){t.msgs[i]=j.message}else t.msgs.splice(i,1);
+  t.last=Math.max(t.last,+(j.message&&j.message.id)||0);if(t.chat&&!t.chat.role){t.chat.role='member';render()}chScanMints([j.message||{}]);chMsgs(id);
+  const ib=CH.inbox&&CH.inbox.find(c=>c.id===id);if(ib){ib.last={id:j.message.id,from:S.me,body,at:j.message.at};ib.lastAt=j.message.at}})
+ .catch(e=>{m.pend=0;m.fail=1;chMsgs(id);toast(chErr(e))})}
+function chGrow(i){if(!i)return;i.style.height='auto';i.style.height=Math.min(i.scrollHeight,140)+'px'}
+function chPeople(onPick,opts={}){const sel=new Set(opts.sel||[]);
+ return {html:`<div class="chsearch">${ic('search',17)}<input class="input" id="chps" placeholder="Search callers by name or @handle" autocomplete="off"></div>${opts.multi?'<div class="chchips" id="chchips"></div>':''}<div class="list chpl" id="chpl"></div>`,
+ mount(m){const box=$('#chpl',m),inp=$('#chps',m);let tm=0;
+  const row=p=>`<button type="button" class="li chpr${sel.has(p.handle)?' on':''}" data-h="${esc(p.handle)}">${p.avatar_url?`<span class="av" style="background:#0B1B27 url(${esc(p.avatar_url)}) center/cover"></span>`:avatar(p.handle)}<div class="grow"><b>${esc(p.display_name||p.handle)}</b><div class="hint">@${esc(p.handle)}</div></div>${opts.multi?`<span class="chtick">${ic('check',14)}</span>`:''}</button>`;
+  const chips=()=>{const c=$('#chchips',m);if(c)c.innerHTML=[...sel].map(h=>`<button type="button" class="chchip" data-h="${esc(h)}">@${esc(h)} ${ic('x',12)}</button>`).join('')};
+  const base=()=>{const f=[...S.following].filter(h=>h!==S.me).slice(0,20).map(h=>({handle:h,display_name:DN[h]||null,avatar_url:AVURL[h]||null}));
+   box.innerHTML=f.length?`<div class="chsec sm">People you follow</div>${f.map(row).join('')}`:'<p class="hint pad">Search for anyone on Callit.</p>'};
+  base();chips();
+  inp.oninput=()=>{clearTimeout(tm);const q=inp.value.trim();if(q.length<2)return base();tm=setTimeout(()=>fetch('/api/profile?q='+encodeURIComponent(q)).then(r=>r.json()).then(j=>{if(inp.value.trim()!==q)return;
+   const l=(j.profiles||[]).filter(p=>p.handle!==S.me);box.innerHTML=l.length?l.map(row).join(''):`<p class="hint pad">No callers match “${esc(q)}”.</p>`}).catch(()=>{}),250)};
+  m.addEventListener('click',e=>{const c=e.target.closest('.chchip');if(c){sel.delete(c.dataset.h);chips();box.querySelectorAll(`[data-h="${CSS.escape(c.dataset.h)}"]`).forEach(b=>b.classList.remove('on'));opts.change&&opts.change(sel);return}
+   const b=e.target.closest('.chpr');if(!b)return;const h=b.dataset.h;if(!opts.multi)return onPick(h);sel.has(h)?sel.delete(h):sel.add(h);b.classList.toggle('on',sel.has(h));chips();opts.change&&opts.change(sel)})}}}
+function chNewDM(){if(!chOn())return connectModal(chNewDM);const pk=chPeople(h=>{closeModal();location.hash='#/messages/'+h});modal('New message','Encrypted. Just the two of you.',pk.html,m=>pk.mount(m))}
+function chNewMenu(){if(!chOn())return connectModal(chNewMenu);
+ modal('Start a chat','',`<div class="chpick"><button class="chpk" data-cx="newdm">${ic('reply',22)}<span><b>Message someone</b><em>One-to-one, encrypted</em></span></button>
+ <button class="chpk" data-cx="newgroup" data-f="private">${ic('lock',22)}<span><b>Private group</b><em>Invite-only, encrypted, no filters</em></span></button>
+ <button class="chpk" data-cx="newgroup" data-f="public">${ic('shield',22)}<span><b>Public group</b><em>Anyone can find it. Guarded against scams</em></span></button></div>`)}
+function chNewGroup(kind){if(!chOn())return connectModal(()=>chNewGroup(kind));const D={kind:kind==='public'?'public':'private',sel:new Set()};
+ const pk=chPeople(null,{multi:true,sel:D.sel,change:s=>{D.sel=s}});
+ modal('New group','',`<div class="ctog sm" role="tablist" data-on="${D.kind}" id="ngk"><span class="ctog-thumb" aria-hidden="true"></span><button type="button" role="tab" data-k="private" class="${D.kind==='private'?'on':''}">${ic('lock',15)}<span>Private</span></button><button type="button" role="tab" data-k="public" class="${D.kind==='public'?'on':''}">${ic('shield',15)}<span>Public</span></button></div>
+ <p class="hint chkhint" id="ngh"></p>
+ <div class="field"><label for="ngt">Name</label><input id="ngt" class="input" maxlength="48" placeholder="e.g. Sunday Runners"></div>
+ <div class="field"><label for="nga">What’s it about? <span class="hint" style="float:right">Optional</span></label><input id="nga" class="input" maxlength="160" placeholder="The token, the narrative, the vibe"></div>
+ <div id="ngp"><label class="hint" style="display:block;margin:2px 0 8px;font-weight:600">Add people <span style="float:right">Or share the invite link later</span></label>${pk.html}</div>
+ <div class="err" id="nge"></div><button class="btn primary block" id="ngo" disabled>Create group</button>`,
+ m=>{const k=$('#ngk',m),t=$('#ngt',m),go=$('#ngo',m),hint=()=>{k.dataset.on=D.kind;k.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.k===D.kind));
+   $('#ngh',m).innerHTML=D.kind==='private'?`${ic('lock',12)} Invite-only and encrypted. Nothing is filtered, it’s your room.`:`${ic('shield',12)} Anyone can find and join. Drainer links, invite links and scam lines are blocked.`};
+  hint();pk.mount(m);k.onclick=e=>{const b=e.target.closest('[data-k]');if(b){D.kind=b.dataset.k;hint()}};t.oninput=()=>{go.disabled=!t.value.trim()};
+  go.onclick=()=>{go.disabled=true;go.textContent='Creating…';API('/api/chat',{body:{action:'create',kind:D.kind,title:t.value.trim(),about:$('#nga',m).value.trim(),members:[...D.sel]}})
+   .then(j=>{closeModal();CH.inbox=null;CH.tab=D.kind;CH.showInfo=j.id;location.hash='#/messages/c-'+j.id;toast('Group created')})
+   .catch(e=>{$('#nge',m).textContent=chErr(e);go.disabled=false;go.textContent='Create group'})}})}
+function chInfo(id){const t=CH.th[id];if(!t||!t.chat)return;const c=t.chat,boss=c.role==='owner'||c.role==='admin',url=c.invite?location.origin+'/#/messages/join-'+c.invite:'';
+ const ppl=t.people||[],role={owner:'Owner',admin:'Admin'};
+ modal(esc(chName(c)),c.kind==='dm'?'Direct message · encrypted':c.kind==='private'?`Private group · ${fmtK(c.members)} members · encrypted`:`Public group · ${fmtK(c.members)} members · guarded`,
+ `${c.about?`<p class="chabout">${esc(c.about)}</p>`:''}
+ ${url?`<div class="chinv"><span class="hint">${c.kind==='public'?'Invite link':'Invite link · anyone with it can join'}</span><div class="chinvl"><code>${esc(url.replace(/^https?:\/\//,''))}</code><button class="btn sm primary" data-cx="copyinv" data-f="${esc(url)}">${ic('copy',14)} Copy</button></div>
+  <div class="chinvb">${navigator.share?`<button class="btn sm ghost" data-cx="shareinv" data-f="${esc(url)}">${ic('share',14)} Share</button>`:''}<a class="btn sm ghost" target="_blank" rel="noopener" href="https://x.com/intent/post?text=${encodeURIComponent('Join '+(c.title||'my group')+' on Callit. Call it. Get Paid.')}&url=${encodeURIComponent(url)}">Post on X</a>${boss?`<button class="btn sm ghost" data-cx="resetinv" data-f="${id}">Reset link</button>`:''}</div></div>`:''}
+ <div class="chopts"><button class="chopt" data-cx="mute" data-f="${id}">${ic('bell',18)}<span>${c.muted?'Unmute':'Mute'} notifications</span></button>
+ ${c.kind!=='dm'?`<button class="chopt dn" data-cx="leave" data-f="${id}">${ic('back',18)}<span>Leave group</span></button>`:''}</div>
+ ${c.kind!=='dm'?`<div class="chsec sm">Members</div><div class="list">${ppl.map(p=>`<div class="li"><a href="#/profile/${esc(p.handle)}" data-act="close">${avatar(p.handle)}</a><div class="grow"><b>${esc(p.name||p.handle)}</b><div class="hint">@${esc(p.handle)}${role[p.role]?' · '+role[p.role]:''}</div></div>${boss&&p.handle!==S.me&&p.role!=='owner'?`<button class="btn sm ghost" data-cx="ban" data-f="${id}" data-h="${esc(p.handle)}">Remove</button>`:''}</div>`).join('')}</div>`:''}`)}
+const chPost=(body)=>API('/api/chat',{body});
+document.addEventListener('click',e=>{const b=e.target.closest('[data-cx]');if(!b)return;const a=b.dataset.cx,f=b.dataset.f;
+ const ln=e.target.closest('a,button');if(ln&&ln!==b&&b.contains(ln))return; // links inside a bubble still work
+ if(b.tagName==='BUTTON'||b.tagName==='A')e.preventDefault();e.stopPropagation();
+ const go={
+  tab:()=>{if(CH.tab===f)return;CH.tab=f;try{localStorage.setItem('callit.ctab',f)}catch(_){}const tg=$('.chtop .ctog');if(tg){tg.dataset.on=f;tg.querySelectorAll('[data-cx="tab"]').forEach(x=>{x.classList.toggle('on',x.dataset.f===f);x.setAttribute('aria-selected',x.dataset.f===f)})}setTimeout(render,180)},
+  retry:()=>{CH.ierr='';loadInbox();render()},
+  newmenu:chNewMenu,newdm:()=>{closeModal();setTimeout(chNewDM,10)},newgroup:()=>{closeModal();setTimeout(()=>chNewGroup(f),10)},
+  open:()=>{location.hash='#/messages/c-'+f},
+  join:()=>{if(!chOn())return connectModal();b.disabled=true;chPost({action:'join',id:f}).then(()=>{CH.inbox=null;const t=CH.th[f];if(t&&t.chat){t.chat.role='member';t.chat.members++}location.hash='#/messages/c-'+f;render();toast('You joined')}).catch(er=>{b.disabled=false;toast(chErr(er))})},
+  joincode:()=>{b.disabled=true;chPost({action:'join',code:f}).then(j=>{CH.inbox=null;delete CH.th[j.id];location.replace('#/messages/c-'+j.id);toast('You’re in')}).catch(er=>{b.disabled=false;toast(chErr(er))})},
+  signjoin:()=>connectModal(),
+  send:()=>chSend(f),resend:()=>chSend(chRoute().slice(2),f.startsWith('tmp')?f:+f),
+  tap:()=>{if(getSelection&&String(getSelection()).length)return;const id=f.startsWith('tmp')?f:+f,r=chRoute();CH.open=CH.open===id?null:id;if(r&&r.startsWith('c-'))chMsgs(r.slice(2))},
+  reply:()=>{const id=chRoute().slice(2),t=CH.th[id],m=t&&t.msgs.find(x=>String(x.id)===f);if(!m)return;CH.reply[id]={id:m.id,from:m.from&&m.from.handle,body:m.body};CH.open=null;chMsgs(id);const i=$('#chin');i&&i.focus()},
+  unreply:()=>{delete CH.reply[f];chMsgs(f)},
+  copy:()=>{const id=chRoute().slice(2),m=CH.th[id].msgs.find(x=>String(x.id)===f);if(m)copy(m.body,'Message copied');CH.open=null;chMsgs(id)},
+  del:()=>{const id=chRoute().slice(2),t=CH.th[id],m=t.msgs.find(x=>String(x.id)===f);if(!m||!confirm('Delete this message for everyone?'))return;m.deleted=true;m.body='';CH.open=null;chMsgs(id);chPost({action:'delete_msg',id,msg:m.id}).catch(er=>toast(chErr(er)))},
+  older:()=>olderThread(f),
+  info:()=>chInfo(f),
+  copyinv:()=>copy(f,'Invite link copied'),shareinv:()=>navigator.share&&navigator.share({title:'Join on Callit',url:f}).catch(()=>{}),
+  resetinv:()=>{if(!confirm('Reset the invite link? The old link stops working.'))return;chPost({action:'invite_reset',id:f}).then(j=>{CH.th[f].chat.invite=j.invite;closeModal();chInfo(f);toast('New invite link ready')}).catch(er=>toast(chErr(er)))},
+  mute:()=>{const c=CH.th[f].chat;c.muted=!c.muted;chPost({action:'mute',id:f,on:c.muted}).catch(er=>toast(chErr(er)));closeModal();toast(c.muted?'Muted':'Notifications on');const ib=CH.inbox&&CH.inbox.find(x=>x.id===f);if(ib)ib.muted=c.muted},
+  leave:()=>{if(!confirm('Leave this group?'))return;chPost({action:'leave',id:f}).then(()=>{closeModal();delete CH.th[f];CH.inbox=null;location.hash='#/messages';toast('You left the group')}).catch(er=>toast(chErr(er)))},
+  ban:()=>{const h=b.dataset.h;if(!confirm(`Remove @${h} from this group? They won’t be able to rejoin.`))return;chPost({action:'ban',id:f,handle:h}).then(()=>{const t=CH.th[f];t.people=t.people.filter(p=>p.handle!==h);t.chat.members--;closeModal();chInfo(f);toast(`@${h} removed`)}).catch(er=>toast(chErr(er)))}
+ }[a];go&&go()},true);
+document.addEventListener('input',e=>{const t=e.target;if(t.id==='chin'){CH.draft[t.dataset.f]=t.value;chGrow(t)}
+ else if(t.id==='chq'){clearTimeout(CH.qt);CH.qt=setTimeout(()=>{CH.dq=t.value.replace(/[^A-Za-z0-9_ $]/g,'').trim();CH.disc=null;loadDisc()},300)}});
+document.addEventListener('keydown',e=>{if(e.target.id!=='chin'||e.key!=='Enter'||e.shiftKey||e.isComposing)return;if(isPhone())return;e.preventDefault();chSend(e.target.dataset.f)});
+/* Live: open chat every 2.5s, inbox every 10s, the nav badge every 30s. Paused when the tab is hidden. */
+let CHT=0;setInterval(()=>{if(document.hidden)return;CHT++;const r=chRoute();
+ if(r&&r.startsWith('c-'))pollThread(r.slice(2));
+ else if(r===''&&CHT%4===0&&chOn())loadInbox();
+ if(CHT%12===1&&chOn()&&r!=='')API('/api/chat?unread=1').then(j=>{CH.unread=j.unread||0;chBadge()}).catch(()=>{})},2500);
+window.addEventListener('hashchange',()=>{CH.open=null;setTimeout(chBadge,0)});
 
 /* ---------- edit profile ---------- */
 function editProfile(focus){const D={...PROF,handle:S.me};let hOk=true,hT=0;
@@ -2721,8 +2961,7 @@ document.addEventListener('click',e=>{
   newcall:()=>composeModal(b.dataset.t?'meme':(b.dataset.k||(currentRoute()==='home'?S.cat:'meme')),{pre:b.dataset.t}),
   navgrp:()=>{const g=b.dataset.f;NAVC[g]=!NAVC[g];try{localStorage.setItem('callit.navc',JSON.stringify(NAVC))}catch(_){}chrome(currentRoute())},
   install:()=>installApp(),instclose:()=>{try{localStorage.setItem('callit.installDismissed','1')}catch(_){}const x=$('#instbar');x&&x.remove()},
-  dmsend:()=>{const i=$('#msgin'),v=i&&i.value.trim();if(!v)return;DMS[b.dataset.f].push(['me',v,'now']);render();const m=$('#msgs');m&&m.lastElementChild&&m.lastElementChild.scrollIntoView({block:'end'});setTimeout(()=>{const n=$('#msgin');n&&n.focus()},50)},
-  dmnew:()=>{if(!S.connected)return connectModal();modal('New message','Pick a caller',`<div class="list">${ranked().map(c=>`<a class="li" href="#/messages/${c.h}" data-act="close">${avatar(c.h)}<div class="grow"><b>${c.h}</b><div class="hint">${c.win}% win rate</div></div></a>`).join('')}</div>`)},
+  dmnew:()=>chNewMenu(),
   dm:()=>{location.hash='#/messages/'+b.dataset.h},
   nread:()=>{const n=NOTIFS.find(x=>x.id==b.dataset.f);if(n){if(n.real&&n.unread&&window.CallitAuth&&window.CallitAuth.markRead)window.CallitAuth.markRead([n.id]);n.unread=0}closeModal();chrome(currentRoute())},
   nall:()=>{if(NOTIFS.some(n=>n.real&&n.unread)&&window.CallitAuth&&window.CallitAuth.markRead)window.CallitAuth.markRead('all');NOTIFS.forEach(n=>n.unread=0);toast('All caught up');render()},nt:()=>{S.nt=b.dataset.f;render()},
@@ -2915,7 +3154,7 @@ function remapDemo(cands){const map={};DEMO_KEYS.forEach((k,i)=>{if(cands[i]&&T[
  for(const k of Object.keys(S.bal)){if(map[k]){const o=T[k],n=T[map[k]];S.bal[n.key]=(S.bal[n.key]||0)+(S.bal[k]*o.price/n.price);delete S.bal[k]}}
  for(const f of ['from','to'])if(map[S.swap[f]])S.swap[f]=map[S.swap[f]];
  COMMS.forEach(c=>{if(c.sym&&map[c.sym]){const o=T[c.sym],n=T[map[c.sym]];c.name=c.name.replace(o.name.split(' ')[0],n.name.length>18?n.sym:n.name);c.desc=sw(c.desc);c.sym=n.key}});
- for(const id in MSG)MSG[id].forEach(m=>m[1]=sw(m[1]));for(const h in DMS)DMS[h].forEach(m=>m[1]=sw(m[1]));
+ for(const id in MSG)MSG[id].forEach(m=>m[1]=sw(m[1]));
  NOTIFS.forEach(n=>{if(n.real)return;n.t=sw(n.t).replace(/\. It's up \S+ since/,'');if(n.sym&&map[n.sym]){n.sym=map[n.sym];const t=T[n.sym];n.t=n.id===5?`$${t.sym} is ${pctS(chgOf(t,'24h'))} in 24h. It's on your watchlist`:`$${t.sym} is trading at ${fmtSmall(mcap(t))} market cap`}const g=(n.go||'').split('/');if(g[1]==='token'&&map[g[2]])n.go='#/token/'+map[g[2]]});
  const live24=k=>{const t=T[k];return t?pctS(chgOf(t,'24h')):''};
  [LX_TICK_A,LX_TICK_B].forEach(L=>L.forEach(x=>{if(x[0]==='g'&&map[x[1]]){x[1]=map[x[1]];x[2]=live24(x[1])}else if(x[0]==='m'&&map[x[1]]){x[1]=map[x[1]];x[2]=fmtSmall(mcap(T[x[1]]))+' MC'}

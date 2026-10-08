@@ -36,3 +36,10 @@ Vercel → Project → Settings → Build & Deployment → Framework Preset: **N
 - After sign-in the browser calls `POST /api/session` with the Privy token. The server verifies it, reads the user's linked accounts from Privy, and creates or loads their row in Supabase `profiles`.
 - `PATCH /api/profile` saves name, bio, website and X handle.
 - Database schema lives in `supabase/migrations/`. Run each file once in Supabase → SQL Editor.
+
+## Chat (migration 0011)
+- **Private**: DMs and invite-only groups. Message bodies are encrypted at rest (AES-256-GCM, one key per chat derived from `CHAT_KEY`). Server-side encryption, not end-to-end.
+- **Public**: anyone can find, read and join. On send, links outside trusted sites, chat invite links, wallet-drain lines and private-key-shaped strings are blocked; slow mode is 5 messages / 15s.
+- Live updates by polling (2.5s in an open chat), so no socket server is needed.
+- Env: `CHAT_KEY` = 64 hex characters (32 random bytes). Set it once and never change it, or old private messages can't be opened.
+- API: `app/api/chat` (inbox, discover, invites, group actions) and `app/api/chat/messages` (read, poll, send).
