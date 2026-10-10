@@ -2,6 +2,7 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
+    id: '/',
     name: 'Callit',
     short_name: 'Callit',
     description: 'Call it. Get Paid. Crypto calls, tracked in public.',

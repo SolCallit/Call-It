@@ -18,6 +18,7 @@ declare global {
     /** Set by the engine; receives the signed-in profile or null on sign-out. */
     callitApplySession?: (p: CallitProfile | null, opts?: { isNew?: boolean }) => void;
     __callitPendingSession?: { p: CallitProfile | null; opts?: { isNew?: boolean } };
+    __callitRestored?: number;
     drawRMedia?: () => void;
     callitAuthChanged?: () => void;
     /** Set by the engine; replaces the notification list (null restores the demo list). */

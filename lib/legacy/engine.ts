@@ -126,6 +126,17 @@ assistant:'<path d="M11 3.5l1.8 4.7 4.7 1.8-4.7 1.8L11 16.5l-1.8-4.7L4.5 10l4.7-
  rotate:'<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>',
  zoom:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M11 8v6M8 11h6"/>'
 };
+Object.assign(P,{bot:'<rect x="4" y="8" width="16" height="12" rx="4"/><path d="M12 8V5"/><circle cx="12" cy="4" r="1.2"/><path d="M9 13.5h.01M15 13.5h.01M9.5 17h5"/>',
+ mic:'<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',clip:'<path d="M21 11.5l-8.6 8.6a5 5 0 0 1-7.1-7.1l8.6-8.6a3.4 3.4 0 0 1 4.8 4.8L10 17.9a1.7 1.7 0 0 1-2.4-2.4l7.9-7.9"/>',
+ stop:'<rect x="6" y="6" width="12" height="12" rx="2"/>',palette:'<path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.9-.6-1.3-.6-2.1 0-.9.7-1.5 1.6-1.5H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7" r="1"/>'});
+/* Device preferences (Settings page). */
+const PREF=(()=>{try{return JSON.parse(localStorage.getItem('callit.prefs')||'{}')||{}}catch(_){return {}}})();
+const prefSave=()=>{try{localStorage.setItem('callit.prefs',JSON.stringify(PREF))}catch(_){}};
+const prefApply=()=>{if(typeof document==='undefined')return;document.body.classList.toggle('calm',PREF.motion==='off');document.body.classList.toggle('hidebal',PREF.hidebal==='on')};
+/* Referral: anyone arriving from someone's share link is remembered as theirs. */
+(()=>{try{const u=new URL(location.href),r=(u.searchParams.get('ref')||'').replace(/[^A-Za-z0-9_]/g,'').slice(0,30);if(r){if(!localStorage.getItem('callit.ref'))localStorage.setItem('callit.ref',r);u.searchParams.delete('ref');history.replaceState(null,'',u.pathname+(u.search||'')+u.hash)}}catch(_){}})();
+const refURL=u=>{if(!S||!S.connected||!S.me)return u;const [a,h='']=String(u).split('#');return a.replace(/[?&]ref=[^&#]*/,'')+(a.includes('?')?'&':'?')+'ref='+encodeURIComponent(S.me)+(h?'#'+h:'')};
+const inviteURL=()=>location.origin+'/?ref='+encodeURIComponent(S.me||'');
 const ic=(k,s=22,fill=false)=>`<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="${fill?'currentColor':'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[k]}</svg>`;
 
 /* ---------- mock data ---------- */
@@ -214,6 +225,8 @@ const C={};
 let calls=[];
 /* Official Callit post, pinned to the top of For you so newcomers see how it works. */
 const BOTPOST={id:'welcome',c:'callit',kind:'random',pinned:true,thesis:'Welcome to Callit 👋 Here\'s how it works. 1) Find a token in Market, or paste a contract address in Search. 2) Make a call: buy in with your own wallet and your entry is stamped at the live market cap. 3) Every call is tracked in public: win rate, returns and sells. Once a call holds 2X, the caller earns a share of fees on every buy it brings in, and a bigger share if they bought in. Call it. Get Paid.',ago:'1d',likes:0,reposts:0,replies:0,views:0};
+/* The pinned welcome post isn't in the feed list, so lookups fall back to it: likes, reposts, replies and share work on it too. */
+const postBy=id=>calls.find(x=>String(x.id)===String(id))||(String(id)===String(BOTPOST.id)?BOTPOST:null);
 const pinnedPost=()=>`<div class="pinwrap"><div class="pinlab">${ic('pin',13)} Pinned</div>${postRandom(BOTPOST)}</div>`;
 const ADS=[
  {id:'vault',brand:'Vaultline',h:'vaultline',ic:'wallet',text:'Keep your bags cold. The pocket hardware wallet that signs Solana transactions in one tap.',title:'Vaultline Wallet',sub:'★★★★★ 2,140 reviews',cta:'Shop',g:['#1F7AE0','#0B1B27']},
@@ -427,21 +440,21 @@ function randomModal(o={}){const CD={media:[]},qid=o.quote||null;
    if(!SYNC())return afterPost({...local,id:Date.now(),ago:'now'},'Posted');
    go.disabled=true;go.textContent='Posting…';
    upMedia(CD.media).then(media=>API('/api/posts',{body:{kind:'random',body,media,quote_ref:qid?String(qid):undefined}}))
-    .then(r=>{if(qid){const o=calls.find(x=>String(x.id)===String(qid));if(o)o.quotes=(o.quotes||0)+1;if(r.quoteSaved===false)setTimeout(()=>toast('Quote saved as a normal post. Run migration 0009 in Supabase so quotes stick'),2400)}afterPost(Object.assign(fromRow({...r.post,handle:S.me}),{fresh:true,quote:r.post.quote_ref||(r.quoteSaved===false?null:qid)}),qid?'Quoted':'Posted')})
+    .then(r=>{if(qid){const o=postBy(qid);if(o)o.quotes=(o.quotes||0)+1;if(r.quoteSaved===false)setTimeout(()=>toast('Quote saved as a normal post. Run migration 0009 in Supabase so quotes stick'),2400)}afterPost(Object.assign(fromRow({...r.post,handle:S.me}),{fresh:true,quote:r.post.quote_ref||(r.quoteSaved===false?null:qid)}),qid?'Quoted':'Posted')})
     .catch(e=>{go.disabled=false;go.textContent='Post';$('#cerr',m).textContent=e.message})}})}
 
 /* Quoted post shown inside another post (and in the Quote composer). */
 const QF=new Set();
-function quoteCard(id,inComposer){if(!id)return '';const q=calls.find(x=>String(x.id)===String(id))||(String(id)==='welcome'?BOTPOST:null);
+function quoteCard(id,inComposer){if(!id)return '';const q=postBy(id)||(String(id)==='welcome'?BOTPOST:null);
  if(!q){if(SYNC()&&!QF.has(String(id))&&/^[0-9a-f-]{36}$/i.test(String(id))){QF.add(String(id));API('/api/posts?ids='+encodeURIComponent(id)).then(j=>{mergePosts(j.posts||[]);render()}).catch(()=>{})}
   return `<div class="qcard qmiss">${ic('repost',14)} Quoted post</div>`}
  const n=q.kind==='meme'&&T[q.t]?nums(q):null,sym=q.kind==='meme'?symOf(q.t):'';
  return `<div class="qcard"${inComposer?'':` data-go="#/post/${esc(q.id)}" role="link" tabindex="0"`}><div class="qhead">${avatar(q.c)}<b>${esc(nameOf(q.c))}</b><span class="hint">@${esc(q.c)}${q.ago?' · '+esc(q.ago):''}</span></div>
   ${q.kind==='meme'&&q.t?`<div class="qcall">${tokav(q.t)}<span class="grow"><b>Called $${esc(sym)}</b><span class="hint">at ${fmtUsd(q.entry)} MC</span></span>${n?`<b class="num ${n.up?'up':'down'}">${fmtPct(n.p)}</b>`:''}</div>`:''}
   ${q.thesis?`<p class="qtext">${esc(String(q.thesis).slice(0,180))}${String(q.thesis).length>180?'…':''}</p>`:''}</div>`}
-function doRepost(id){const k=calls.find(x=>x.id==id)||(id==='welcome'?BOTPOST:null);if(!k)return;const b2=document.querySelector(`[data-act="repost"][data-id="${CSS.escape(String(k.id))}"]`);k.reposted=!k.reposted;bg('/api/posts/react',{ref:String(k.id),kind:'repost',on:k.reposted});k.reposts+=k.reposted?1:-1;document.querySelectorAll(`[data-act="repost"][data-id="${CSS.escape(String(k.id))}"]`).forEach(x=>{x.classList.toggle('reposted',k.reposted);const sp=x.querySelector('span');if(sp)sp.textContent=(k.reposts||0)+quotesOf(k.id)||''});void b2;toast(k.reposted?'Reposted':'Repost removed')}
+function doRepost(id){const k=postBy(id)||(id==='welcome'?BOTPOST:null);if(!k)return;const b2=document.querySelector(`[data-act="repost"][data-id="${CSS.escape(String(k.id))}"]`);k.reposted=!k.reposted;bg('/api/posts/react',{ref:String(k.id),kind:'repost',on:k.reposted});k.reposts+=k.reposted?1:-1;document.querySelectorAll(`[data-act="repost"][data-id="${CSS.escape(String(k.id))}"]`).forEach(x=>{x.classList.toggle('reposted',k.reposted);const sp=x.querySelector('span');if(sp)sp.textContent=(k.reposts||0)+quotesOf(k.id)||''});void b2;toast(k.reposted?'Reposted':'Repost removed')}
 /* Hold the repost button for 2s to get Repost / Quote / View quotes. A normal tap still reposts instantly. */
-const quotesOf=id=>{const k=calls.find(x=>String(x.id)===String(id));const local=calls.filter(x=>String(x.quote)===String(id)).length;return Math.max(local,k&&k.quotes||0)};
+const quotesOf=id=>{const k=postBy(id);const local=calls.filter(x=>String(x.quote)===String(id)).length;return Math.max(local,k&&k.quotes||0)};
 let RPH=null;
 document.addEventListener('pointerdown',e=>{const b=e.target.closest&&e.target.closest('[data-act="repost"]');if(!b)return;clearTimeout(RPH);b.classList.add('holding');
  RPH=setTimeout(()=>{b.classList.remove('holding');b._heldAt=Date.now();if(navigator.vibrate)try{navigator.vibrate(15)}catch(_){}if(!S.connected)return connectModal();repostSheet(b.dataset.id)},2000)});
@@ -452,7 +465,7 @@ function vQuotes(id){id=decodeURIComponent(String(id||''));if(!id)return vHome()
  if(SYNC()&&!QQ[id]){QQ[id]='busy';API('/api/posts?limit=60&quote_of='+encodeURIComponent(id)).then(j=>{mergePosts(j.posts||[]);QQ[id]='ok'}).catch(()=>{QQ[id]='err'}).finally(()=>{if(currentRoute()==='quotes')render()})}
  const list=calls.filter(k=>visible(k)&&String(k.quote)===id);
  return `<div class="pad"><div class="hint" style="margin-bottom:6px">Quotes of</div>${quoteCard(id)}</div><div id="feed">${list.map(post).join('')||(QQ[id]==='busy'?'<div class="post pskel" aria-hidden="true"><span class="av md"></span><div><i></i><i></i><i></i><b></b></div></div>':'<div class="empty"><b>No quotes yet</b><p>Hold the repost button on a post for 2 seconds and pick Quote.</p></div>')}</div>`}
-function repostSheet(id){const k=calls.find(x=>String(x.id)===String(id))||(String(id)==='welcome'?BOTPOST:null);if(!k)return;
+function repostSheet(id){const k=postBy(id)||(String(id)==='welcome'?BOTPOST:null);if(!k)return;
  aSheet('Repost',``,`<div class="asgroup">${arow(`data-act="rpdo" data-id="${esc(k.id)}"`,'repost',k.reposted?'Undo repost':'Repost',k.reposted?'Remove it from your profile':'Share it to your followers as is')}${arow(`data-act="rpq" data-id="${esc(k.id)}"`,'pen','Quote','Add your take on top')}${quotesOf(k.id)?arow(`data-act="rpv" data-id="${esc(k.id)}"`,'messages',`View quotes (${quotesOf(k.id)})`,'See what people said about it'):''}</div>`)}
 /* ---------- ⋯ menu: share profile, add to list, mute, block ---------- */
 function moreSheet(h,k){const me=h===S.me,mu=S.muted.has(h),bl=S.blocked.has(h),inL=S.lists.filter(l=>l.members.includes(h)).length,c=C[h]||{},pub=PUB[h]&&!PUB[h].pending?PUB[h]:null;
@@ -500,14 +513,18 @@ function cardOfProfile(h){const c=C[h]||{},r=rankOf(h),st=statsOf(h),jn=joinedOf
  return {h,name:nameOf(h),tag:r?`CALLER #${r}`:'CALLER',head:`@${h} on Callit`,label:'All-time PnL',big:st.n?money(st.pnl):'$0.00',up:st.n?st.pnl>=0:null,
   sub:jn?`Joined ${jn}`:'',stats:[['Volume',st.vol?fmtUsd(st.vol):'$0'],['Win rate',c.calls?c.win+'%':'—'],['Calls',String(c.calls||mine||0)],['Rank',r?'#'+r:'—']],theme:themeOf(h)}}
 function xcardHTML(d){return `<div class="xstage"><div class="xhead">${d.head}</div>
- <div class="xcard ${d.up===false?'dn':d.up==null?'nt':''}${d.theme?` xp xp-${d.theme.pat} xo${d.theme.o}`:''}"${d.theme?` style="--xh:${d.theme.h}"`:''} tabindex="-1">${d.theme?'<i class="xorb"></i>':''}<i class="xgrain"></i><i class="xsheen"></i><span class="xwm mark" aria-hidden="true"></span>
+ <div class="xcard ${d.up===false?'dn':d.up==null?'nt':''}${d.theme?` xp xp-${d.theme.pat} xo${d.theme.o}`:''}"${d.theme?` style="--xh:${d.theme.h}"`:''} data-sty="${d.theme?'':esc(d.sty||XSTY())}" tabindex="-1">${d.theme?'<i class="xorb"></i>':''}<i class="xgrain"></i><i class="xsheen"></i><i class="xart" aria-hidden="true"></i><span class="xwm" aria-hidden="true"></span>
   <div class="xtop"><span class="xbrand"><span class="mark"></span><b>Callit</b></span><span class="xtag">${d.tag}</span></div>
   <div class="xmid">${d.label?`<span class="xlab">${d.label}</span>`:''}${d.quote!=null?`<p class="xquote">“${esc(d.quote.length>160?d.quote.slice(0,157)+'…':d.quote)}”</p>`:`<b class="xbig num"${d.n!=null?` data-count="${d.n.toFixed(1)}"`:''}>${d.n!=null?fmtPct(0):d.big}</b>`}${d.sub?`<span class="xsub num">${d.sub}</span>`:''}
    ${d.stats?`<div class="xstats">${d.stats.map(([l,v])=>`<div><span>${l}</span><b class="num">${v}</b></div>`).join('')}</div>`:''}${d.chips&&d.chips.length?`<div class="xchips">${d.chips.map(c=>`<span>${c}</span>`).join('')}</div>`:''}</div>
   <div class="xbot"><span class="xwho">${avatar(d.h,'md')}<span><b>${esc(d.name)}</b><small>@${esc(d.h)}</small></span></span>${d.tok?`<span class="xtok">${d.tok}<b>${d.tokLab||''}</b></span>`:''}</div></div>
  <div class="xfoot"><span><span class="mark"></span>Call it. Get Paid.</span><span>${esc(location.host)}</span></div></div>`}
-function shareModal(d,url,fname,text){modal('Share','',`${xcardHTML(d)}
+const XSTYLES=[['mega','Callit'],['aurora','Aurora'],['sunset','Sunset'],['ocean','Ocean'],['mono','Mono'],['neon','Neon']];
+const XSTY=()=>{try{return localStorage.getItem('callit.xsty')||'mega'}catch(_){return 'mega'}};
+function shareModal(d,url,fname,text){url=refURL(url);if(!d.theme)d.sty=XSTY();modal('Share','',`${xcardHTML(d)}
+ ${d.theme?'':`<div class="xstys" role="radiogroup" aria-label="Card style">${XSTYLES.map(([k,l])=>`<button type="button" role="radio" aria-checked="${d.sty===k}" class="xsty${d.sty===k?' on':''}" data-sty="${k}"><i data-sty="${k}"></i><span>${l}</span></button>`).join('')}</div>`}
  <div class="shlink"><span class="num">${esc(url.replace(/^https?:\/\//,''))}</span><button class="btn sm primary" data-act="copy" data-v="${esc(url)}" data-m="Link copied">${ic('copy',14)} Copy</button></div>
+ ${S.connected?`<div class="shrefl">${ic('people',14)} <b>Your referral link</b><span>Anyone who joins from it is yours.</span></div><div class="shlink shref"><span class="num">${esc(inviteURL().replace(/^https?:\/\//,''))}</span><button class="btn sm ghost" data-act="copyinvite">${ic('copy',14)} Copy</button></div>`:''}
  <div class="shacts"><a class="btn primary" target="_blank" rel="noopener" href="https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}">${ic('xlogo',15)} Post on X</a>
  <button class="btn ghost" id="xsave">${ic('image',16)} Save image</button>${navigator.share?`<button class="btn ghost" id="xnative">${ic('share',16)} More…</button>`:''}</div>`,
  m=>{const el=m.querySelector('[data-count]');if(el){const to=+el.dataset.count,t0=performance.now()+250,dur=1100;
@@ -515,8 +532,9 @@ function shareModal(d,url,fname,text){modal('Share','',`${xcardHTML(d)}
    matchMedia('(prefers-reduced-motion:reduce)').matches?el.textContent=fmtPct(to):requestAnimationFrame(step)}
   const card=m.querySelector('.xcard');card.addEventListener('pointermove',e=>{const r=card.getBoundingClientRect(),x=(e.clientX-r.left)/r.width-.5,y=(e.clientY-r.top)/r.height-.5;card.style.setProperty('--rx',(-y*7)+'deg');card.style.setProperty('--ry',(x*9)+'deg');card.style.setProperty('--mx',(x*100+50)+'%')});
   card.addEventListener('pointerleave',()=>{card.style.setProperty('--rx','0deg');card.style.setProperty('--ry','0deg')});
+  m.querySelectorAll('.xsty').forEach(b=>b.onclick=()=>{d.sty=b.dataset.sty;card.dataset.sty=d.sty;try{localStorage.setItem('callit.xsty',d.sty)}catch(_){}m.querySelectorAll('.xsty').forEach(x=>{x.classList.toggle('on',x===b);x.setAttribute('aria-checked',x===b)})});
   $('#xsave',m).onclick=()=>xcardImage(d,fname,'dl',url,text);const nv=$('#xnative',m);if(nv)nv.onclick=()=>xcardImage(d,fname,'native',url,text)})}
-function shareSheet(id){const k=calls.find(x=>String(x.id)===String(id));if(!k)return;const d=cardOf(k),url=postURL(id);
+function shareSheet(id){const k=postBy(id);if(!k)return;const d=cardOf(k),url=postURL(id);
  const text=k.perp?`${k.c} called ${k.perp.side} ${k.perp.m} ${+k.perp.lev}x. ${d.big} ROE so far. Tracked on Callit`:catOf(k)==='random'?`${k.c} on Callit`:d.n!=null?`${k.c} called $${symOf(k.t)} at ${fmtUsd(k.entry)} MC. It's ${fmtPct(d.n)} since. Tracked on Callit`:`${k.c} is calling $${symOf(k.t)} on Callit`;
  shareModal(d,url,`callit-${k.perp?k.perp.m:k.t||'post'}`,text)}
 function shareProfile(h){const d=cardOfProfile(h);shareModal(d,profileURL(h),'callit-'+h,h===S.me?'My calls, tracked live on Callit':`Follow @${h}'s calls on Callit`);if(!PUB[h])loadPub(h)}
@@ -527,7 +545,7 @@ function xcardImage(d,fname,mode,url,text){const W=1200,H=630,c=document.createE
  const logoSrc=(getComputedStyle(document.querySelector('.mark')).backgroundImage.match(/url\("?(.*?)"?\)/)||[])[1]||'';
  const avSrc=d.h===S.me&&PROF.avatar||AVURL[d.h]||'';
  const load=s=>new Promise(res=>{if(!s)return res(null);const im=new Image();im.crossOrigin='anonymous';im.onload=()=>res(im);im.onerror=()=>res(null);im.src=s});
- Promise.all([load(logoSrc),load(avSrc)]).then(([logo,av])=>{
+ Promise.all([load(logoSrc),load(avSrc),load('/mega-white.png')]).then(([logo,av,mega])=>{
   g.fillStyle='#070F16';g.fillRect(0,0,W,H);
   const glow=g.createRadialGradient(600,330,40,600,330,620);glow.addColorStop(0,col+'33');glow.addColorStop(1,'#070F1600');g.fillStyle=glow;g.fillRect(0,0,W,H);
   if(logo){g.globalAlpha=.045;for(let y=-20;y<H;y+=110)for(let x=(y/110%2)*55-20;x<W;x+=110)g.drawImage(logo,x,y,46,46);g.globalAlpha=1}
@@ -545,9 +563,13 @@ function xcardImage(d,fname,mode,url,text){const W=1200,H=630,c=document.createE
    else if(TH.pat==='burst'){const bx=cx+cw*.8,by=cy+ch*1.1;g.globalAlpha=.06;for(let a=0;a<360;a+=12){const r1=a*Math.PI/180,r2=(a+4)*Math.PI/180;g.beginPath();g.moveTo(bx,by);g.lineTo(bx+Math.cos(r1)*1400,by+Math.sin(r1)*1400);g.lineTo(bx+Math.cos(r2)*1400,by+Math.sin(r2)*1400);g.closePath();g.fill()}}
    else for(let i=-ch;i<cw;i+=6){g.beginPath();g.moveTo(cx+i,cy);g.lineTo(cx+i+ch,cy+ch);g.stroke()}
    g.globalAlpha=1}
-  else{g.globalAlpha=.06;g.strokeStyle='#fff';g.lineWidth=1;for(let i=-ch;i<cw;i+=6){g.beginPath();g.moveTo(cx+i,cy);g.lineTo(cx+i+ch,cy+ch);g.stroke()}g.globalAlpha=1}
+  else{const st=d.sty||'mega',AR={aurora:[['#22D3EE',.0],['#8B5CF6',.55],['#22C55E',1]],sunset:[['#F97316',0],['#EC4899',.6],['#7C3AED',1]],ocean:[['#0EA5E9',0],['#1E3A8A',.7],['#0B1B27',1]],neon:[['#4DA8FF',0],['#0B1B27',.5],['#3DDC97',1]]}[st];
+   if(AR){g.globalAlpha=st==='neon'?.35:.5;const ag=g.createLinearGradient(cx,cy,cx+cw,cy+ch);AR.forEach(([c2,o])=>ag.addColorStop(o,c2));g.fillStyle=ag;g.fillRect(cx,cy,cw,ch);g.globalAlpha=1}
+   if(st==='neon'){g.globalAlpha=.12;g.strokeStyle='#4DA8FF';for(let x=cx;x<cx+cw;x+=40){g.beginPath();g.moveTo(x,cy);g.lineTo(x,cy+ch);g.stroke()}for(let y=cy;y<cy+ch;y+=40){g.beginPath();g.moveTo(cx,y);g.lineTo(cx+cw,y);g.stroke()}g.globalAlpha=1}
+   const og=g.createRadialGradient(cx+cw*.85,cy+ch*.9,10,cx+cw*.85,cy+ch*.9,520);og.addColorStop(0,col+'55');og.addColorStop(1,col+'00');g.fillStyle=og;g.fillRect(cx,cy,cw,ch)}
   const sh=g.createLinearGradient(cx,cy,cx+cw,cy+ch);sh.addColorStop(.25,'rgba(255,255,255,0)');sh.addColorStop(.42,'rgba(255,255,255,.09)');sh.addColorStop(.5,'rgba(255,255,255,0)');g.fillStyle=sh;g.fillRect(cx,cy,cw,ch);
-  if(logo){g.globalAlpha=.07;g.drawImage(logo,cx+cw-330,cy+ch-330,380,380);g.globalAlpha=1}
+  if(mega&&!TH){const mh=st2=>st2==='mono'?.12:.24;g.globalAlpha=mh(d.sty);const mw=420,hh=mw*mega.height/mega.width;g.drawImage(mega,cx+cw-mw+40,cy+ch-hh+60,mw,hh);g.globalAlpha=1}
+  else if(logo){g.globalAlpha=.07;g.drawImage(logo,cx+cw-330,cy+ch-330,380,380);g.globalAlpha=1}
   const ac=g.createLinearGradient(cx,0,cx+cw,0);ac.addColorStop(0,col+'00');ac.addColorStop(.5,col);ac.addColorStop(1,col+'00');g.fillStyle=ac;g.fillRect(cx,cy,cw,3);
   g.restore();g.strokeStyle='rgba(255,255,255,.14)';g.lineWidth=2;rr(cx+1,cy+1,cw-2,ch-2,35);g.stroke();
   g.textAlign='left';if(logo)g.drawImage(logo,cx+46,cy+38,52,52);g.fillStyle='#fff';g.font=`800 34px ${F}`;g.fillText('Callit',cx+112,cy+76);
@@ -1159,6 +1181,9 @@ function vStake(){return locked(`<div class="prem"><div class="phero2"><span cla
 /* Sliding 3D toggle used at the top of DeFi and You. */
 function tglBar(act,items,cur,label){const i=Math.max(0,items.findIndex(x=>x[0]===cur));
  return `<div class="mtabs tgl" style="--i:${i};--n:${items.length}" role="tablist" aria-label="${label}">${items.map(([k,l,icn,soon])=>`<button role="tab" aria-selected="${cur===k}" class="${cur===k?'on':''}" data-act="${act}" data-f="${k}">${ic(icn,16)}<span>${l}</span>${soon?'<small>Soon</small>':''}</button>`).join('')}</div>`}
+/* Compact sliding toggle (the Make-a-call "Time window" look). */
+function vseg(act,items,cur,label,cls=''){const i=Math.max(0,items.findIndex(x=>x[0]===cur));
+ return `<div class="tgl vseg ${cls}" style="--i:${i};--n:${items.length}" role="tablist" aria-label="${label}">${items.map(([k,l,icn])=>`<button role="tab" aria-selected="${cur===k}" class="${cur===k?'on':''}" data-act="${act}" data-f="${k}">${icn?ic(icn,14):''}<span>${l}</span></button>`).join('')}</div>`}
 function vDefi(){const t=S.dtab==='stake'?'stake':'swap';return tglBar('dtab',[['swap','Swap','swap'],['stake','Stake','stake',1]],t,'DeFi')+(t==='stake'?vStake():vSwap())}
 function vYou(){const t=S.ytab==='profile'?'profile':'wallet';return tglBar('ytab',[['wallet','Wallet','wallet'],['profile','Profile','profile']],t,'You')+(t==='wallet'?vWallet():vProfile(S.me))}
 
@@ -1325,15 +1350,23 @@ function vLatestCalls(){if(SYNC()&&Date.now()-(S.lcAt||0)>2e4){S.lcAt=Date.now()
  const top=topCalls(),act=lbActivity(40);
  return lbToggle()+top+(act?(top?'':'<div style="height:10px"></div>')+act:'')+(!top&&!act?'<div class="empty"><b class="h2">No calls yet</b><p>Every new call shows up here live. Be the first.</p><button class="btn primary" data-act="newcall">Make a call</button></div>':'')
  +'<p class="hint pad">Newest first, updated live. Tap a call to open it. This view doesn’t affect rankings.</p>'}
+const LBEMO=['👑','🥈','🥉','🏅','🎖️'];
+/* Rank movement like a billboard: compared with the board as it stood about a day ago (kept on this device). */
+function lbBase(w,L){const k='callit.lbbase.'+w;let b=null;try{b=JSON.parse(localStorage.getItem(k)||'null')}catch(_){}
+ if(!b||Date.now()-b.at>864e5){const cur=Object.fromEntries(L.map((c,i)=>[c.h,i]));b={at:Date.now(),r:cur,prev:b?b.r:null};try{localStorage.setItem(k,JSON.stringify(b))}catch(_){}}
+ return b.prev||b.r}
+function lbMove(base,h,i){const p=base&&base[h];if(p==null)return base&&Object.keys(base).length?'<span class="rmv nw" title="New on the board">NEW</span>':'';const d=p-i;if(!d)return '';
+ return `<span class="rmv ${d>0?'up':'dn'}${Math.abs(d)>=3?' hot':''}" title="${d>0?'Up':'Down'} ${Math.abs(d)} since yesterday">${d>0?'▲':'▼'}${Math.abs(d)}</span>`}
+function lbPts(h){const t=tierOf(h);return `<button class="lbpts" data-act="ranks" data-h="${esc(h)}" aria-label="${t.xp} points, ${t.name}"><b class="num">${t.xp.toLocaleString()}</b><span class="lbpbar"><i style="width:${Math.max(4,t.pct)}%"></i></span><small>${t.name}${t.next?` · ${t.need.toLocaleString()} to ${t.next}`:''}</small></button>`}
 function vLeaders(){if(S.lbv==='latest')return vLatestCalls();loadCallers();const w=S.lb||'30d',L=ranked(),st=CALLERS[w],podium=L.slice(0,3),me=L.findIndex(c=>c.h===S.me);
  const pod=podium.length?`<div class="podium">${[1,0,2].filter(i=>podium[i]).map(i=>{const c=podium[i];return `<a class="pod p${i+1}" href="#/profile/${esc(c.h)}"><span class="pcrown">${['👑','🥈','🥉'][i]}</span>${avatar(c.h)}<b>${esc(nameOf(c.h))}</b><span class="muted">@${esc(c.h)}</span><span class="pwin num">${c.win}%<small>win</small></span><span class="num ${c.avg>=0?'up':'down'}">${fmtPct(c.avg)} avg</span><span class="pstep">${i+1}</span></a>`}).join('')}</div>`:'';
  const head=`<div class="pad lbhead"><span class="muted">${st?'Ranked by win rate, then average return. Updates live.':'Loading callers…'}</span><div class="seg">${['7d','30d','All time'].map(x=>`<button class="${(S.lb||'30d')===x?'on':''}" data-act="lb" data-f="${x}">${x}</button>`).join('')}</div></div>`;
  if(st&&!L.length)return lbToggle()+head+`<div class="empty"><b class="h2">The board is wide open</b><p>No calls in this window yet. Make the first one and take #1.</p><button class="btn primary" data-act="newcall">Make a call</button></div>`;
- return lbToggle()+head+pod+`<div class="tablewrap" style="border-top:1px solid var(--line)"><table><thead><tr><th>Rank</th><th>Caller</th><th>Win rate</th><th>Avg return</th><th>Calls</th><th>Best call</th><th></th></tr></thead><tbody>
- ${L.map((c,i)=>`<tr class="${c.h===S.me?'mine':''}" data-go="#/profile/${c.h}"><td class="rkc">${i+1}${rankMove('lbt',c.h,i)}</td><td><div class="person">${avatar(c.h)}${esc(c.h)}</div></td><td class="num">${c.win}%</td><td class="num ${c.avg>=0?'up':'down'}">${fmtPct(c.avg)}</td><td class="num">${c.calls}</td><td class="num ${c.best>=0?'up':'down'}">${fmtPct(c.best)}</td>
+ return lbToggle()+head+pod+`<div class="tablewrap" style="border-top:1px solid var(--line)"><table><thead><tr><th>Rank</th><th>Caller</th><th>Points</th><th>Win rate</th><th>Avg return</th><th>Calls</th><th>Best call</th><th></th></tr></thead><tbody>
+ ${(()=>{S._lbb=lbBase(w,L);return ''})()}${L.map((c,i)=>`<tr class="${c.h===S.me?'mine':''}${i<5?' top'+(i+1):''}" data-go="#/profile/${c.h}"><td class="rkc"><span class="rkn">${i+1}</span>${lbMove(S._lbb,c.h,i)}</td><td><div class="person">${i<5?`<span class="lbemo" aria-hidden="true">${LBEMO[i]}</span>`:''}${avatar(c.h)}${esc(c.h)}</div></td><td>${lbPts(c.h)}</td><td class="num">${c.win}%</td><td class="num ${c.avg>=0?'up':'down'}">${fmtPct(c.avg)}</td><td class="num">${c.calls}</td><td class="num ${c.best>=0?'up':'down'}">${fmtPct(c.best)}</td>
  <td>${c.h===S.me?'<span class="muted">You</span>':`<button class="btn sm ${S.following.has(c.h)?'ghost':'primary'}" data-act="follow" data-h="${c.h}">${S.following.has(c.h)?'Following':'Follow'}</button>`}</td></tr>`).join('')}</tbody></table></div>${(()=>{RANKS.lbt={};L.forEach((c,i)=>RANKS.lbt[c.h]=i);return ''})()}
- ${me>=0?`<div class="myrank"><span>Your rank</span><b class="num">#${me+1}</b><span class="muted">${L[me].win}% win · ${L[me].calls} calls</span></div>`:''}
- <p class="hint pad">A call wins if it hits its target, or is up at least 50% since the call. Calls earn once they hold 2X. Bought-in calls earn the most.</p>`}
+ ${me>=0?(()=>{const t=tierOf(S.me);return `<div class="myrank"><span>Your rank</span><b class="num">#${me+1}</b>${lbMove(S._lbb,S.me,me)}<span class="muted">${L[me].win}% win · ${L[me].calls} calls</span><span class="mypts"><b class="num">${t.xp.toLocaleString()} pts</b><span class="lbpbar"><i style="width:${Math.max(4,t.pct)}%"></i></span><small>${t.name}${t.next?` · ${t.need.toLocaleString()} to ${t.next}`:''}</small></span></div>`})():S.connected?(()=>{const t=tierOf(S.me);return `<div class="myrank"><span>Your points</span><b class="num">${t.xp.toLocaleString()}</b><span class="mypts"><span class="lbpbar"><i style="width:${Math.max(4,t.pct)}%"></i></span><small>${t.name}${t.next?` · ${t.need.toLocaleString()} to ${t.next}`:''} · 10 calls to get ranked</small></span></div>`})():''}
+ <p class="hint pad">A call wins if it hits its target, or is up at least 50% since the call. Calls earn once they hold 2X. Bought-in calls earn the most. ▲▼ show moves since yesterday. Points count toward $CALLIT rewards.</p>`}
 function vLeadersOld(){return topCalls()+`<div class="pad" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><span class="muted">Ranked by win rate. Minimum 10 calls. Sponsored calls don't count.</span>
  <div class="seg">${['7d','30d','All time'].map(x=>`<button class="${S.lb===x?'on':''}" data-act="lb" data-f="${x}">${x}</button>`).join('')}</div></div>
  <div class="tablewrap" style="border-top:1px solid var(--line)"><table><thead><tr><th>Rank</th><th>Caller</th><th>Win rate</th><th>Avg return</th><th>Calls</th><th>Best call</th><th></th></tr></thead><tbody>
@@ -1359,9 +1392,10 @@ function pboard(rows,tot){const d24=rows.reduce((a,[k,amt])=>{const t=T[k],v=usd
  <button class="copyca pbaddr" data-act="copy" data-v="${S.addr}">${ic('wallet',13)} ${short(S.addr)} ${ic('copy',13)}</button></div>`}
 function vWallet(){if(!S.connected)return `<div class="empty"><b class="h2">No wallet connected</b><p>Sign in with email, Google or X and we create a wallet for you. Or connect Phantom, Solflare or Backpack. You always hold your own keys.</p><button class="btn primary" data-act="connect">Connect wallet</button></div>`;
  const rows=Object.entries(S.bal).filter(([k,a])=>a>0&&T[k]).sort((x,y)=>(usd(y[0],y[1])||0)-(usd(x[0],x[1])||0)),tot=rows.reduce((s,[k,a])=>s+(usd(k,a)||0),0);
- return `<div class="pad">${pboard(rows,tot)}
+ const wc=['earn','keys'].includes(S.wcard)?S.wcard:'pf';
+ const card=wc==='earn'?(earnCard()||`<div class="earn"><div class="earnt"><span class="earnic">${ic('crown',18)}</span><b>Caller earnings</b></div><p class="hint earnempty">Earnings show here once you’re signed in.</p></div>`):wc==='keys'?(keysCard()+`<p class="hint wkeyx">Callit is non-custodial. Every trade, withdrawal and claim is signed by you.</p>`):pboard(rows,tot);
+ return `<div class="pad"><div class="wcsw">${vseg('wcard',[['pf','Portfolio','wallet'],['earn','Earnings','crown'],['keys','Keys','lock']],wc,'Wallet view')}</div><div class="wcbody">${card}</div>
  <div class="acts2 acts3"><button class="btn primary" data-act="deposit">${ic('down',16)} Deposit</button><button class="btn" data-act="withdraw">${ic('up',16)} Withdraw</button><a class="btn" href="#/swap">${ic('swap',16)} Swap</a></div>
- ${earnCard()}${keysCard()}
  <div class="list">${(()=>{const B=pnlBook();return rows.map(([k,a])=>{const x=posPnl(k,B);return holdRow(k,a,usd(k,a)||0,x?x.pnl:null,x?x.pct:null,1)}).join('')})()}</div>
  <div id="walords">${ordersList()}</div><b class="h2" style="display:block;margin:22px 0 4px">History</b><div class="list">${S.activity.map(a=>`<div class="li"><div class="grow"><b>${esc(a.k)}</b><div class="hint">${esc(a.t)}${a.sig?` · <a class="lnk" href="https://solscan.io/tx/${a.sig}" target="_blank" rel="noopener noreferrer">View</a>`:''}</div></div><div class="r num">${esc(a.d)}</div></div>`).join('')||'<div class="empty" style="padding:18px 8px"><b>No history yet</b><p>Deposits, trades and withdrawals show up here.</p></div>'}</div></div>`}
 
@@ -1576,11 +1610,12 @@ async function astSend(text){const q=String(text||'').trim();if(!q||AST.busy)ret
 
 /* ---------- chrome ---------- */
 const NAV_A=[['home','Home'],['market','Market'],['defi','DeFi'],['callerboard','Callerboard'],['you','You'],['assistant','Assistant']];
-const NAV_B=[['messages','Messages'],['bookmarks','Bookmarks'],['lists','Lists'],['news','News'],['promote','Promote'],['about','About']];
+const NAV_B=[['messages','Messages'],['bookmarks','Bookmarks'],['lists','Lists'],['news','News'],['promote','Promote'],['about','About'],['bot','Bot'],['settings','Settings']];
 const TITLES=Object.fromEntries([...NAV_A,...NAV_B,['notifications','Notifications'],['bookmarks','Bookmarks'],['token','Token'],['community','Community'],['post','Post'],['premium','Premium'],['messages','Messages'],['admin','Admin'],['tag','Tag'],['alerts','Alerts'],['legal','Legal'],['profile','Profile'],['quotes','Quotes']]);
 P.lists=P.list;P.defi='<circle cx="12" cy="12" r="8.5"/><path d="M8 10h8l-2.5-2.5M16 14H8l2.5 2.5"/>';P.callerboard=P.leaderboard;P.you=P.profile;
 const NAVH={stack:[],cur:location.hash||'#/home',back:false};
-function goBack(){const prev=NAVH.stack.pop();NAVH.back=true;location.hash=prev&&prev!==location.hash?prev:'#/home'}
+function goBack(){let prev;do{prev=NAVH.stack.pop()}while(prev&&(prev===location.hash||/^#\/messages\/(?!c-|join-)[^/]+$/.test(prev)));
+ NAVH.back=true;location.hash=prev||(/^#\/messages\/./.test(location.hash)?'#/messages':'#/home')}
 const NAVC=(()=>{try{return JSON.parse(localStorage.getItem('callit.navc')||'{}')}catch(_){return {}}})();
 function chrome(route){const link=([k,l])=>`<a href="#/${k}" class="${route===k?'on':''}" title="${l}">${k==='notifications'?`<span class="nbadge">${ic('bell')}${unreadN()?`<i>${unreadN()}</i>`:''}</span>`:k==='messages'&&window.__chU?`<span class="nbadge">${ic(k)}<i>${window.__chU>99?'99+':window.__chU}</i></span>`:ic(k)}<span class="lbl">${l}</span></a>`;
  $('#navA').innerHTML=NAV_A.map(link).join('');$('#navB').innerHTML=NAV_B.map(link).join('');
@@ -1598,6 +1633,7 @@ function chrome(route){const link=([k,l])=>`<a href="#/${k}" class="${route===k?
  {let bt=$('#btabs');if(!bt){bt=document.createElement('nav');bt.id='btabs';bt.className='btabs';bt.setAttribute('aria-label','Main');document.body.appendChild(bt)}
   bt.innerHTML=[['home','Home','home'],['market','Market','market'],['defi','DeFi','defi'],['callerboard','Callerboard','leaderboard'],['you','You','profile']].map(([h,l,i])=>{const on=route===h;
    return `<a href="#/${h}" class="${on?'on':''}" aria-label="${l}">${h==='you'&&S.connected?avatar(S.me,'btav'):ic(i,23)}<span>${l}</span></a>`}).join('')}
+ mfabSync(route);
  $('#title').textContent=TITLES[route]||'Home';{const u=$('#upg'),on=isPrem(S.me);u.hidden=true;u.classList.toggle('on',!!on);u.innerHTML=`${ic('verified',18)}<span>Premium</span>`}const bk=$('#back');bk.hidden=route==='home';bk.innerHTML=ic('back',20);
  // phones: the side tray is hidden, so the logo in the header opens it (like X's avatar menu)
  if(!$('#mmenu')){const mm=document.createElement('button');mm.id='mmenu';mm.className='mmenu';mm.dataset.act='collapse';mm.setAttribute('aria-label','Open menu');mm.innerHTML='<span class="mark" aria-hidden="true"></span>';$('.hdr').prepend(mm)}}
@@ -1635,7 +1671,7 @@ function render(){if(isPhone())document.body.classList.add('collapsed');const [,
  else if(r==='token'){const t=T[p];if(t&&tradable(t)&&p!==S.swap.from){S.swap.from=S.swap.from===p?S.swap.from:(S.swap.from===S.swap.to||!T[S.swap.from]?'SOL':S.swap.from);S.swap.to=p}html=vToken(p)}
  else html=({market:vMarket,trenches:vMarket,defi:vDefi,you:()=>{adminPing();return (S.admin?`<div class="pad" style="padding-bottom:0"><a class="btn sm primary" href="#/admin">${ic('leaderboard',15)} Admin panel</a></div>`:'')+vYou()},profile:()=>vProfile(p),callerboard:vLeaders,admin:vAdmin,promote:vPromote,about:vAbout,
   messages:()=>vMessages(p),lists:()=>vLists(p),
-  news:vNews,premium:vPremium,notifications:vNotifs,assistant:vAssistant,bookmarks:vBookmarks,tag:()=>vTag(p),legal:()=>vLegal(p),alerts:vAlerts,quotes:()=>vQuotes(p)}[r]||vHome)();
+  bot:vBot,settings:vSettings,news:vNews,premium:vPremium,notifications:vNotifs,assistant:vAssistant,bookmarks:vBookmarks,tag:()=>vTag(p),legal:()=>vLegal(p),alerts:vAlerts,quotes:()=>vQuotes(p)}[r]||vHome)();
  if(LCHART){LCHART();LCHART=null}
  $('#view').innerHTML=html;document.body.classList.toggle('mwide',r!=='home');document.body.dataset.route=r;drawRail();chrome(r);renderSwaps();skin($('#view'));syncLanding();mountLiveChart();
  if(r==='post'){wireAttach($('#rbox'),RDRAFT,()=>drawRMedia());if(S.focusReply){S.focusReply=false;setTimeout(()=>{const i=$('#rin');i&&i.focus()},60)}}}
@@ -1682,7 +1718,7 @@ function callModal(pre,draft){if(!S.connected)return connectModal(()=>callModal(
  <div class="field"><label>Time window</label><div class="seg wide tw" id="ch" data-v="7 days">${[['24 hours','24h'],['3 days','3d'],['7 days','7d'],['30 days','30d']].map(([v,l])=>`<button type="button" class="${v==='7 days'?'on':''}" data-hz="${v}">${l}</button>`).join('')}</div></div></div>
  <div class="field"><label for="cx">Why this token?</label><div class="composer2" id="cbox"><textarea id="cx" class="input" maxlength="280" placeholder="Your thesis. What do you see that others don't?">${esc(draft||'')}</textarea><div id="cmedia"></div>${attachBar()}</div><span class="hint" id="cn">0 / 280</span></div>
  <div class="err" id="cerr"></div><button class="btn primary block" id="cpost" disabled>Post call</button>`,
- m=>{wireKind(m,'meme');let tok=null,sol='0.25',skip=false,asell=false,aslp=0;const CD={media:[]};wireAttach($('#cbox',m),CD,()=>{$('#cmedia',m).innerHTML=mediaGrid(CD.media,1);$('#cbox [data-attn]',m).textContent=CD.media.length?CD.media.length+'/4':''});m.querySelectorAll('[data-hz]').forEach(b=>b.onclick=()=>{m.querySelectorAll('[data-hz]').forEach(x=>x.classList.toggle('on',x===b));$('#ch',m).dataset.v=b.dataset.hz});const inp=$('#ct',m),tx=$('#cx',m),post=$('#cpost',m);
+ m=>{wireKind(m,'meme');let tok=null,sol=PREF.buy||'0.25',skip=false,asell=false,aslp=0;const CD={media:[]};wireAttach($('#cbox',m),CD,()=>{$('#cmedia',m).innerHTML=mediaGrid(CD.media,1);$('#cbox [data-attn]',m).textContent=CD.media.length?CD.media.length+'/4':''});m.querySelectorAll('[data-hz]').forEach(b=>b.onclick=()=>{m.querySelectorAll('[data-hz]').forEach(x=>x.classList.toggle('on',x===b));$('#ch',m).dataset.v=b.dataset.hz});const inp=$('#ct',m),tx=$('#cx',m),post=$('#cpost',m);
   const canBuy=()=>tok&&tradable(tok);
   const buyOn=()=>canBuy()&&!skip;
   const drawBuy=()=>{const el=$('#cbuy',m);if(tok&&tok.prelaunch){el.innerHTML=`<div class="buybox"><b>Buying opens at launch</b><p class="hint" style="margin:4px 0 0">$${tok.sym} launches ${esc(tok.prelaunch)}. You can buy and call it then.</p></div>`;return}
@@ -1691,7 +1727,7 @@ function callModal(pre,draft){if(!S.connected)return connectModal(()=>callModal(
    el.innerHTML=`<div class="buybox"><div class="top"><b>${tok?'Buy $'+tok.sym:'Buy in'}</b><span class="hint num" style="white-space:nowrap">Balance ${fmtAmt(S.bal.SOL)} SOL</span></div>
    ${skip?'':`<div class="presets">${['0.1','0.25','0.5','1'].map(v=>`<button type="button" data-sol="${v}" class="${sol===v?'on':''}">${v} SOL</button>`).join('')}</div>
    <label class="solin"><input id="csol" class="num" inputmode="decimal" value="${esc(sol)}" aria-label="SOL to spend"><button type="button" class="mx" id="cmax">Max</button><span class="muted">SOL</span></label>
-   <div class="hint num" style="margin-top:8px">${!a?'Enter an amount':tok?`≈ ${fmtUsd(usdV)} · you get ~${fmtAmt(got)} $${tok.sym} · via Jupiter`:`≈ ${fmtUsd(usdV)} · add a token above to see what you get`}</div>`}
+   <div class="hint num" style="margin-top:8px">${a&&usdV<1?'<b class="down">Minimum buy is $1</b>':!a?'Enter an amount':tok?`≈ ${fmtUsd(usdV)} · you get ~${fmtAmt(got)} $${tok.sym} · via Jupiter`:`≈ ${fmtUsd(usdV)} · add a token above to see what you get`}</div>`}
    ${skip?'':`<div class="asell"><label class="skip"><input type="checkbox" id="casell" ${asell?'checked':''}> Auto-sell at my target market cap</label>
    ${asell?`<div class="aslrow"><span class="hint">Stop loss</span><div class="seg" id="caslp">${[[0,'Off'],[30,'-30%'],[50,'-50%']].map(([v,l])=>`<button type="button" data-aslp="${v}" class="${v===aslp?'on':''}">${l}</button>`).join('')}</div></div><p class="hint" style="margin:6px 0 0">Sells on Jupiter even with Callit closed. Needs a buy of $10+ and a target above.</p>`:''}</div>`}
    <label class="skip"><input type="checkbox" id="cskip" ${skip?'checked':''}> Call without buying (smaller fee share)</label></div>`;
@@ -1700,7 +1736,7 @@ function callModal(pre,draft){if(!S.connected)return connectModal(()=>callModal(
    el.querySelectorAll('[data-sol]').forEach(b=>b.onclick=()=>{sol=b.dataset.sol;drawBuy();check()});
    const cm=$('#cmax',el);if(cm)cm.onclick=e=>{e.preventDefault();sol=maxOf('SOL');drawBuy();check()};
    $('#cskip',el).onchange=e=>{skip=e.target.checked;drawBuy();check()}};
-  const check=()=>{$('#cn',m).textContent=tx.value.length+' / 280';post.textContent=(tok?buyOn():!skip)?`Buy ${parseFloat(sol)||0} SOL & post call`:'Post call';post.disabled=!(tok&&!tok.prelaunch&&tx.value.trim().length>=10&&(!buyOn()||parseFloat(sol)>0))};
+  const check=()=>{$('#cn',m).textContent=tx.value.length+' / 280';post.textContent=(tok?buyOn():!skip)?`Buy ${parseFloat(sol)||0} SOL & post call`:'Post call';post.disabled=!(tok&&!tok.prelaunch&&tx.value.trim().length>=10&&(!buyOn()||(parseFloat(sol)>0&&parseFloat(sol)*T.SOL.price>=1)))};
   const find=()=>{const raw=inp.value.trim().replace(/^\$/,''),v=raw.toUpperCase();tok=Object.values(T).find(t=>!t.base&&(t.ca.toUpperCase()===v))||Object.values(T).filter(t=>!t.base&&String(t.sym).toUpperCase()===v).sort((a,b)=>(b.vol||0)-(a.vol||0))[0]||null;
    if(!tok&&isMintStr(raw)&&!CAQ[raw]){CAQ[raw]=1;fetchToken(raw).then(x=>{if(x){regLive(x);if(inp.value.trim().replace(/^\$/,'')===raw)find()}}).catch(()=>{})}
    $('#cprev',m).innerHTML=tok?`<div class="preview">${tokav(tok.key)}<div style="flex:1"><b>${esc(tok.name)} $${tok.sym}</b> <span class="chain">${tok.chain}</span><div class="hint num">${tok.prelaunch?'Launches '+esc(tok.prelaunch)+'. Calls open at launch.':'Entry would be <b id="cent" class="num">'+fmtUsd(mcap(tok))+'</b> MC <span class="livedot" title="Updates live"></span>'}</div></div></div>`:(v?`<p class="hint" style="margin-top:-6px">${isMintStr(v.length>30?inp.value.trim():'')?'Looking up this contract address…':'No token found. Paste the contract address, or pick one from Search or the Market.'}</p>`:'');drawBuy();check()};
@@ -2018,7 +2054,7 @@ function depositModal(){if(!S.connected)return connectModal(()=>depositModal());
   :`<div class="empty" style="padding:18px 8px"><b>Your wallet is still being set up</b><p>Give it a few seconds, then try again.</p></div>`)}
 
 /* ---------- quick buy from a call ---------- */
-function quickBuy(sym,cid,startSide){if(!S.connected)return connectModal();const t=T[sym],k=calls.find(x=>x.id==cid),SY=t.sym;let side=startSide==='sell'?'sell':'buy',sol='0.25',pct='',amt='';
+function quickBuy(sym,cid,startSide){if(!S.connected)return connectModal();const t=T[sym],k=postBy(cid),SY=t.sym;let side=startSide==='sell'?'sell':'buy',sol='0.25',pct='',amt='';
  const held=()=>S.bal[sym]||0;
  const draw=m=>{const h=held();
   const head=`<div class="qhead">${tokav(sym)}<div class="grow"><b>${esc(t.name)}</b><div class="hint num">$${esc(SY)} · ${fmtUsd(mcap(t))} MC · <span class="${t.chg>=0?'up':'down'}">${fmtPct(t.chg)}</span></div></div></div>
@@ -2269,14 +2305,23 @@ function calNextCard(){loadNews('calendar');const ev=((NEWS.calendar.d&&NEWS.cal
  if(!ev.length)return '';
  return `<div class="card cnext"><div style="display:flex;justify-content:space-between;align-items:center"><span class="hint">High-impact events coming up</span><button class="lnk" data-act="ntab" data-f="calendar">Calendar</button></div>${ev.map(e=>calRow(e,1)).join('')}</div>`}
 function newsList(tab,q){const N=NEWS[tab];let L=((N.d&&N.d.items)||[]).slice();
- if(tab==='trending'){L=callitTrends().concat(L);const on=nsrcGet();if(on)L=L.filter(x=>on.has(x.platform))}
+ if(tab==='trending'){L=callitTrends().concat(L)}
  else{const on=lsSet('callit.ncat');if(on)L=L.filter(x=>on.has(x.kind))}
  if(q){const t=q.toLowerCase().replace(/^[#$@]/,'');L=L.filter(x=>(x.title+' '+x.source+' '+(x.summary||'')).toLowerCase().includes(t))}
  return L}
 const favi=u=>{try{const h=new URL(u).hostname.replace(/^www\./,'');return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(h)}&sz=64`}catch(_){return ''}};
 const pbadge=(p,u)=>{const [l,c]=NPLAT[p]||NPLAT.news;if(p==='news'&&u&&favi(u))return `<span class="pbadge fav" style="--pc:${c}"><img src="${esc(favi(u))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()"><i>${esc(l[0])}</i></span>`;return p==='x'?`<span class="pbadge" style="--pc:${c}">${ic('xlogo',13)}</span>`:`<span class="pbadge" style="--pc:${c}">${esc(l[0])}</span>`};
 const agoMs=at=>{const m=Math.max(0,(Date.now()-at)/6e4);return m<1?'now':m<60?Math.round(m)+'m':m<1440?Math.round(m/60)+'h':Math.round(m/1440)+'d'};
+function nSummary(x){const pl=(NPLAT[x.platform]||NPLAT.news)[0],s=String(x.summary||'').trim();
+ if(s&&s.toLowerCase()!==String(x.title).toLowerCase())return esc(s.length>420?s.slice(0,417)+'…':s);
+ const bits=[x.score?`${fmtK(x.score)} ${x.platform==='hackernews'?'points':x.platform==='callit'?'heat':'likes'}`:'',x.comments?`${fmtK(x.comments)} comments`:''].filter(Boolean).join(' and ');
+ return `${esc(x.title)}. Trending on ${esc(x.platform==='news'?x.source:pl)} ${agoMs(x.at)==='now'?'right now':agoMs(x.at)+' ago'}${bits?` with ${bits}`:''}. ${x.platform==='callit'?'Open it to see the calls and chat.':'The source didn’t share a summary. Open it to read the full story.'}`}
 function nItem(x){const ext=!/^#\//.test(x.url),pl=(NPLAT[x.platform]||NPLAT.news)[0];
+ return `<div class="nitem nx">${x.sym&&T[x.sym]?tokav(x.sym):pbadge(x.platform,x.url)}<span class="grow"><button class="nhead2" data-act="nexp" aria-expanded="false"><b>${esc(x.title)}</b><span class="hint">${esc(x.source)}${x.platform!=='news'&&x.source!==pl?` · ${esc(pl)}`:''} · ${agoMs(x.at)}${x.score?` · ${fmtK(x.score)} ${x.platform==='hackernews'?'pts':x.platform==='callit'?'heat':'likes'}`:''}${x.comments?` · ${fmtK(x.comments)} comments`:''}</span></button>
+ <span class="nbody">${x.image&&/^https:/.test(x.image)?`<img class="nbimg" src="${esc(x.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:''}<span class="nsum">${nSummary(x)}</span>
+ <span class="nacts"><a class="btn sm primary" href="${esc(x.url)}"${ext?' target="_blank" rel="noopener noreferrer nofollow"':''}>${ext?`Read on ${esc(x.platform==='news'?x.source:pl)} ↗`:'Open'}</a><button class="btn sm ghost" data-act="copy" data-v="${esc(ext?x.url:location.origin+'/'+x.url)}" data-m="Link copied">${ic('copy',14)} Copy link</button></span></span></span>
+ <button class="nchev" data-act="nexp" aria-label="Show summary">${ic('down',18)}</button></div>`}
+function nItemOld(x){const ext=!/^#\//.test(x.url),pl=(NPLAT[x.platform]||NPLAT.news)[0];
  return `<a class="nitem" href="${esc(x.url)}"${ext?' target="_blank" rel="noopener noreferrer nofollow"':''}>${x.sym&&T[x.sym]?tokav(x.sym):pbadge(x.platform,x.url)}
  <span class="grow"><b>${esc(x.title)}</b><span class="hint">${esc(x.source)}${x.platform!=='news'&&x.source!==pl?` · ${esc(pl)}`:''} · ${agoMs(x.at)}${x.score?` · ${fmtK(x.score)} ${x.platform==='hackernews'?'pts':x.platform==='callit'?'heat':'likes'}`:''}${x.comments?` · ${fmtK(x.comments)} comments`:''}</span>
  ${ext?`<span class="nopen">Open on ${esc(x.platform==='news'?x.source:pl)} ↗</span>`:''}</span>${x.image&&/^https:/.test(x.image)?`<img class="nthumb" src="${esc(x.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:''}</a>`}
@@ -2288,17 +2333,56 @@ function vNews(){const tab=NTAB(),N=NEWS[tab],q=S.nq||'';
  const srcs=(N.d&&N.d.sources)||[],on=nsrcGet(),cats=lsSet('callit.ncat');
  const plats=['callit','x','reddit','youtube','bluesky','hackernews','coingecko','google'];
  const okP=new Set(srcs.filter(x=>x.ok).map(x=>x.platform).concat(['callit']));
- const chips=tab==='trending'?`<div class="nchips">${plats.map(p=>{const sel=!on||on.has(p),dead=N.d&&!okP.has(p);return `<button class="nchip${sel?' on':''}${dead?' dead':''}" data-act="nsrc" data-f="${p}" title="${dead?'Not connected yet':''}">${pbadge(p)}${esc(NPLAT[p][0])}${dead?'<small>off</small>':''}</button>`}).join('')}${on?`<button class="lnk" data-act="nsrc" data-f="*">Show all</button>`:''}</div>`
-  :`<div class="nchips"><button class="nchip${!cats?' on':''}" data-act="ncat" data-f="*">All</button>${NCATS.map(([k,l])=>`<button class="nchip${cats&&cats.has(k)?' on':''}" data-act="ncat" data-f="${k}">${l}</button>`).join('')}</div>`;
+ const chips=tab==='trending'?'':`<div class="nchips"><button class="nchip${!cats?' on':''}" data-act="ncat" data-f="*">All</button>${NCATS.map(([k,l])=>`<button class="nchip${cats&&cats.has(k)?' on':''}" data-act="ncat" data-f="${k}">${l}</button>`).join('')}</div>`;
  const econ=tab==='recent'&&!q&&(!cats||cats.has('economy'));
  return `${tabs}
  <div class="pad nhead"><div class="tsearch">${ic('search',16)}<input id="nq" value="${esc(q)}" placeholder="Search ${tab==='trending'?'trends':'news'}: solana, ETF, a ticker…" autocomplete="off" enterkeyhint="search"></div>${chips}</div>
  ${econ?calNextCard():''}
  <div class="nlist">${!N.d?rskel(6):L.length?L.slice(0,80).map(nItem).join(''):`<div class="empty"><b>${q?`Nothing matches “${esc(q)}”`:'Nothing here right now'}</b><p>${q?'Try another word.':'Check back in a few minutes.'}</p></div>`}</div>
- <p class="hint pad">${tab==='trending'?'What people are talking about across social platforms, plus what’s hot on Callit. Tap any item to open the original post.':'Latest headlines across crypto, the economy, world news, tech, sports and entertainment. Pick one or more categories above. Tap a headline to read it at the source.'}${N.d&&N.d.at?` Updated ${agoMs(N.d.at)==='now'?'just now':agoMs(N.d.at)+' ago'}.`:''}</p>`}
+ <p class="hint pad">${tab==='trending'?'What people are talking about across social platforms, plus what’s hot on Callit. Tap a headline for the summary, then decide if you want the full story.':'Latest headlines across crypto, the economy, world news, tech, sports and entertainment. Pick one or more categories above. Tap a headline for the summary, then read the full story at the source.'}${N.d&&N.d.at?` Updated ${agoMs(N.d.at)==='now'?'just now':agoMs(N.d.at)+' ago'}.`:''}</p>`}
 setInterval(()=>{if(document.hidden||currentRoute()!=='news')return;const t=NTAB();if(t==='calendar'){if(!document.querySelector('#modal .modal')&&document.activeElement?.id!=='nq')render();loadNews('calendar')}else loadNews(t)},6e4);
 document.addEventListener('input',e=>{if(e.target.id!=='nq')return;S.nq=e.target.value;clearTimeout(e.target._t);e.target._t=setTimeout(()=>{const el=$('.nlist');if(el){const tab=NTAB();if(tab==='calendar'){const L=calList(S.nq),cl=document.querySelector('.cnext');cl&&cl.remove();el.innerHTML=L.length?L.slice(0,80).map(e=>calRow(e)).join(''):`<div class="empty"><b>Nothing matches “${esc(S.nq)}”</b><p>Try another word.</p></div>`;return}const L=newsList(tab,S.nq);el.innerHTML=L.length?L.slice(0,80).map(nItem).join(''):`<div class="empty"><b>Nothing matches “${esc(S.nq)}”</b><p>Try another word.</p></div>`}},150)});
 
+/* ---------- Bot: the Callit Telegram bot + automations ---------- */
+function vBot(){const d=TGL.d,bot=d&&d.bot;if(SYNC()&&!d)loadTg();
+ const step=(n,t,s)=>`<div class="bstep"><span class="bnum">${n}</span><div><b>${t}</b><span class="hint">${s}</span></div></div>`;
+ return `<div class="pad botpg">
+ <section class="bothero"><span class="botav">${ic('bot',30)}</span><div><h2>Callit Bot</h2><p class="hint">Turn any Telegram group into a calling channel. Every contract address dropped there becomes a tracked call on Callit, and earns.</p></div></section>
+ <section class="setcard"><div class="seth">${ic('telegram',18)}<b>Telegram</b></div><div id="tgfield">${tgField()}</div>
+  ${bot?`<div class="botbtns"><a class="btn primary" href="https://t.me/${esc(bot)}?startgroup=callit" target="_blank" rel="noopener">${ic('plus',16)} Add to a group</a><a class="btn ghost" href="https://t.me/${esc(bot)}" target="_blank" rel="noopener">Open @${esc(bot)} ↗</a></div>`:''}</section>
+ <section class="setcard"><div class="seth">${ic('promote',18)}<b>How it works</b></div>
+  ${step(1,'Add the bot to your group','Any Telegram group or channel you run.')}${step(2,'An admin sends /callit','That switches it on for the group. Send it again any time to see the status.')}${step(3,'Drop contract addresses','The first drop of a token each day becomes a call, stamped at the live market cap.')}${step(4,'Get paid','Link your Telegram above so the calls post as you and earn caller fees once they hold 2X.')}</section>
+ <section class="setcard"><div class="seth">${ic('target',18)}<b>Automations</b></div>
+  <a class="setrow" href="#/alerts">${ic('bell',18)}<span class="grow"><b>Push alerts</b><span class="hint">Callers you follow, wallets you track, token price moves, call milestones.</span></span>${ic('chev',16).replace('<svg','<svg style="transform:scaleX(-1)"')}</a>
+  <a class="setrow" href="#/you">${ic('target',18)}<span class="grow"><b>Auto-sell at target</b><span class="hint">Tick it when you make a call. Sells on Jupiter even with Callit closed.</span></span>${ic('chev',16).replace('<svg','<svg style="transform:scaleX(-1)"')}</a>
+  <div class="setrow">${ic('people',18)}<span class="grow"><b>Copy a caller</b><span class="hint">Auto-buy when a caller you pick makes a call.</span></span><span class="soonb">Soon</span></div>
+  <div class="setrow">${ic('sniper',18)}<span class="grow"><b>Launch sniper</b><span class="hint">Buy new launches that pass your filters the second they go live.</span></span><span class="soonb">Soon</span></div></section></div>`}
+/* ---------- Settings (full page) ---------- */
+function vSettings(){const th=document.documentElement.dataset.theme||'system',col=document.body.classList.contains('collapsed');
+ const sg=(k,opts,cur)=>vseg('pref',opts.map(([v,l])=>[v,l]),cur,k).replace(/data-act="pref" data-f="([^"]+)"/g,(_,v)=>`data-act="pref" data-f="${k}" data-v="${v}"`);
+ const row=(icn,t,s,right,href)=>`<${href?`a href="${href}"`:'div'} class="setrow">${ic(icn,18)}<span class="grow"><b>${t}</b>${s?`<span class="hint">${s}</span>`:''}</span>${right||''}</${href?'a':'div'}>`;
+ const go=ic('chev',16).replace('<svg','<svg style="transform:scaleX(-1)"');
+ return `<div class="pad setpg">
+ ${S.connected?`<section class="setcard setme"><a class="setrow" href="#/you">${avatar(S.me,'md')}<span class="grow"><b>${esc(nameOf(S.me))}</b><span class="hint">@${esc(S.me)}</span></span>${go}</a></section>`:`<section class="setcard"><button class="btn primary block" data-act="connect">Sign in</button></section>`}
+ <section class="setcard"><div class="seth">${ic('sun',18)}<b>Appearance</b></div>
+  <div class="setf"><span>Theme</span>${vseg('settheme',[['system','System'],['dark','Navy'],['light','White']],th,'Theme')}</div>
+  ${zoomOn()?`<div class="setf"><span>Display size</span><div class="seg">${ZOOMS.map(z=>`<button class="${zoomGet()===z?'on':''}" data-act="setzoom" data-f="${z}">${z}%</button>`).join('')}</div></div>`:''}
+  <div class="setf"><span>Sidebar</span>${vseg('setside',[['open','Expanded'],['closed','Icons only']],col?'closed':'open','Sidebar')}</div>
+  <div class="setf"><span>Hide bars when scrolling</span>${sg('bars',[['on','On'],['off','Off']],PREF.bars==='off'?'off':'on')}</div>
+  <div class="setf"><span>Animations</span>${sg('motion',[['on','On'],['off','Reduced']],PREF.motion==='off'?'off':'on')}</div></section>
+ <section class="setcard"><div class="seth">${ic('swap',18)}<b>Trading</b></div>
+  <div class="setf"><span>Default buy on calls</span>${sg('buy',[['0.1','0.1'],['0.25','0.25'],['0.5','0.5'],['1','1 SOL']],PREF.buy||'0.25')}</div>
+  <button class="setrow" data-act="swapset">${ic('gear',18)}<span class="grow"><b>Swap settings</b><span class="hint">Slippage, speed, front-running protection and tip.</span></span>${go}</button>
+  <div class="setf"><span>Hide balances</span>${sg('hidebal',[['off','Show'],['on','Hide']],PREF.hidebal==='on'?'on':'off')}</div></section>
+ <section class="setcard"><div class="seth">${ic('bell',18)}<b>Notifications</b></div>${row('bell','Push alerts','Pick what pings your phone.',go,'#/alerts')}</section>
+ <section class="setcard"><div class="seth">${ic('messages',18)}<b>Chat</b></div><button class="setrow" data-act="wppick">${ic('palette',18)}<span class="grow"><b>Chat wallpaper</b><span class="hint">Default for all chats. Change it per chat from the chat’s settings.</span></span>${go}</button></section>
+ <section class="setcard"><div class="seth">${ic('bot',18)}<b>Bot &amp; Telegram</b></div>${row('telegram','Callit Bot','Calls from your Telegram groups.',go,'#/bot')}</section>
+ <section class="setcard"><div class="seth">${ic('lock',18)}<b>Security</b></div>${S.connected?keysCard():'<p class="hint">Sign in to manage your wallet.</p>'}</section>
+ <section class="setcard"><div class="seth">${ic('down',18)}<b>App</b></div>
+  <button class="setrow" data-act="install">${ic('down',18)}<span class="grow"><b>Install Callit</b><span class="hint">Opens full-screen from your home screen.</span></span>${go}</button>
+  ${zoomOn()?`<button class="setrow" data-act="bpreset">${ic('rotate',18)}<span class="grow"><b>Reset home panels</b></span></button>`:''}
+  ${row('about','Terms, privacy, risks & security','',go,'#/legal/terms')}${row('verified','Premium','',go,'#/premium')}</section>
+ ${S.connected?`<button class="btn ghost block setout" data-act="logout">${ic('logout',16)} Log out</button>`:''}</div>`}
 /* ---------- premium ---------- */
 const PLANS={monthly:{usd:8,label:'Monthly',per:'/month',days:30},yearly:{usd:80,label:'Yearly',per:'/year',days:365,save:'2 months free'}};
 const STAKE_AMT=50000;
@@ -2327,9 +2411,9 @@ function repliesOf(k){if(!RLOADED[k.id]&&realAuth()){RLOADED[k.id]=1;fetch('/api
  if(!REPLIES[k.id]){const r=rng(k.id*7+3),who=ranked().map(c=>c.h).filter(h=>h!==k.c),n=Math.min(k.replies||0,3+Math.floor(r()*3));
  const lines=[...RLINES].sort(()=>r()-.5);REPLIES[k.id]=Array.from({length:Math.min(n,lines.length)},(_,i)=>({h:who[Math.floor(r()*who.length)],t:lines[i],ago:(i+1)*(7+Math.floor(r()*20))+'m',likes:Math.floor(r()*40),rts:Math.floor(r()*9),reps:Math.floor(r()*5)})).sort((a,b)=>parseInt(b.ago)-parseInt(a.ago))}return REPLIES[k.id]}
 function drawRMedia(){const el=$('#rmedia');if(el)el.innerHTML=mediaGrid(RDRAFT.media,1);const n=$('#rbox [data-attn]');if(n)n.textContent=RDRAFT.media.length?RDRAFT.media.length+'/4':'';const g=$('#rgo'),i=$('#rin');if(g&&i)g.disabled=!(i.value.trim()||RDRAFT.media.length)}
-function sendReply(id){if(!S.connected)return connectModal();const k=calls.find(x=>x.id==id),i=$('#rin'),v=i.value.trim();if(!v&&!RDRAFT.media.length)return;
+function sendReply(id){if(!S.connected)return connectModal();const k=postBy(id),i=$('#rin'),v=i.value.trim();if(!v&&!RDRAFT.media.length)return;
  const md=RDRAFT.media.slice();repliesOf(k).unshift({h:S.me,t:v,ago:'now',likes:0,rts:0,reps:0,media:md,mine:1});if(SYNC())upMedia(md).then(media=>bg('/api/posts/replies',{ref:String(k.id),body:v,media})).catch(()=>toast('Your reply couldn’t be saved'));k.replies=(k.replies||0)+1;RDRAFT.media=[];render();toast('Reply posted')}
-function vPost(id){const k=calls.find(x=>String(x.id)===String(id));if(!k)return `<div class="empty"><b class="h2">This post is gone</b><p>It may have been removed.</p><a class="btn primary" href="#/home">Back to Home</a></div>`;
+function vPost(id){const k=postBy(id);if(!k)return `<div class="empty"><b class="h2">This post is gone</b><p>It may have been removed.</p><a class="btn primary" href="#/home">Back to Home</a></div>`;
  if(k.t&&!T[k.t]){loadLiveToken(k.t,1);return `<div class="empty"><b>Loading this call…</b></div>`}
  const t=T[k.t],n=nums(k),r=rankOf(k.c),reps=repliesOf(k);
  const trade=k.kind==='random'?'':k.perp?perpPanel(k):n?`<div class="tpanel"><a class="ccard" href="#/token/${t.key}">${tokav(t.key)}<div class="cn"><b>${esc(t.name)}</b><span>$${t.sym} <span class="chain">${t.chain}</span></span></div>${mkt(k)}</a>
@@ -2437,7 +2521,10 @@ function chNeed(list){const n=list.filter(k=>!CH.need.has(k));if(!n.length)retur
  fetchTokens([...new Set(n)].slice(0,30)).then(l=>{l.forEach(regLive);const r=chRoute();if(r&&r.startsWith('c-'))chMsgs(r.slice(2));else if(r==='')chPaint()}).catch(()=>{})}
 const chNear=()=>innerHeight+scrollY>=document.documentElement.scrollHeight-160;
 function chBottom(instant){requestAnimationFrame(()=>scrollTo({top:document.documentElement.scrollHeight,behavior:instant?'auto':'smooth'}))}
-function chBadge(){window.__chU=CH.unread;const a=document.querySelector('.nav a[href="#/messages"]');if(!a)return;const n=CH.unread;
+function mfabSync(route){let mf=$('#mfab');if(!mf){mf=document.createElement('a');mf.id='mfab';mf.className='mfab';mf.href='#/messages';document.body.appendChild(mf)}
+ const u=window.__chU||0;mf.setAttribute('aria-label',u?`Messages, ${u} unread`:'Messages');mf.innerHTML=`${ic('messages',23)}${u?`<i>${u>99?'99+':u}</i>`:''}`;
+ mf.hidden=!S.connected||(route||currentRoute())==='messages'}
+function chBadge(){window.__chU=CH.unread;mfabSync();const a=document.querySelector('.nav a[href="#/messages"]');if(!a)return;const n=CH.unread;
  a.innerHTML=(n?`<span class="nbadge">${ic('messages')}<i>${n>99?'99+':n}</i></span>`:ic('messages'))+'<span class="lbl">Messages</span>'}
 
 /* ---------- inbox ---------- */
@@ -2445,8 +2532,8 @@ function chToggle(){const ib=CH.inbox||[],u=k=>ib.filter(c=>(k==='public'?c.kind
  return `<div class="ctog" role="tablist" aria-label="Chat type" data-on="${CH.tab}"><span class="ctog-thumb" aria-hidden="true"></span>
  <button role="tab" aria-selected="${CH.tab==='private'}" class="${CH.tab==='private'?'on':''}" data-cx="tab" data-f="private">${ic('lock',16)}<span>Private</span>${pu?`<i>${pu>99?'99+':pu}</i>`:''}</button>
  <button role="tab" aria-selected="${CH.tab==='public'}" class="${CH.tab==='public'?'on':''}" data-cx="tab" data-f="public">${ic('promote',16)}<span>Public</span>${qu?`<i>${qu>99?'99+':qu}</i>`:''}</button></div>`}
-function chRow(c){const l=c.last,who=l&&!l.system&&l.from?(l.from===S.me?'You':(c.kind==='dm'?'':'@'+l.from)):'',body=l?(l.body||(l.system?'':'Message deleted')):(c.kind==='dm'?'Say hi':'No messages yet');
- const mint=l&&l.body&&l.body.match(CH_MINT),only=mint&&l.body.trim()===mint[0],prev=!mint?body:only?'📣 Dropped '+(T[mint[0]]?'$'+T[mint[0]].sym:'a CA'):l.body.replace(CH_MINT,m=>T[m]?'$'+T[m].sym:'a CA');
+function chRow(c){const l=c.last,who=l&&!l.system&&l.from?(l.from===S.me?'You':(c.kind==='dm'?'':'@'+l.from)):'',body=l?(chPlain(l.body)||(l.system?'':'Message deleted')):(c.kind==='dm'?'Say hi':'No messages yet');
+ const lb=l&&chPlain(l.body),mint=lb&&lb.match(CH_MINT),only=mint&&lb.trim()===mint[0],prev=!mint?body:only?'📣 Dropped '+(T[mint[0]]?'$'+T[mint[0]].sym:'a CA'):lb.replace(CH_MINT,m=>T[m]?'$'+T[m].sym:'a CA');
  return `<a class="chrow${c.unread?' new':''}" href="#/messages/c-${c.id}">${chSig(c,'md')}<div class="grow"><div class="chr1"><b>${esc(chName(c))}</b>${c.kind==='private'?`<span class="chk" title="Encrypted">${ic('lock',11)}</span>`:c.kind==='public'?`<span class="chk g" title="Guarded">${ic('shield',11)}</span>`:''}${c.muted?`<span class="chk m" title="Muted">${ic('bell',11)}</span>`:''}<span class="hint">${chAgo(c.lastAt)}</span></div>
  <p class="lastm">${who?`<b>${esc(who)}:</b> `:''}${esc(prev)}</p></div>${c.unread?`<span class="chun">${c.unread>99?'99+':c.unread}</span>`:''}</a>`}
 function chDiscCard(g){const j=CH.inbox&&CH.inbox.some(c=>c.id===g.id);
@@ -2473,11 +2560,19 @@ function vInbox(){if(chOn()&&!CH.inbox&&!CH.ibusy)loadInbox();if(CH.tab==='publi
  <p class="chfoot">${ic('shield',13)} Public groups are guarded. Links outside trusted sites, invite links and wallet-drain lines are blocked before they post.</p>`}
 
 /* ---------- thread ---------- */
-function chBodyHTML(txt){let out='',last=0;const s=String(txt||'');
+const CH_MK=/\[\[(img|voice|file):(https:\/\/[^\]|\s]+)(?:\|([^\]]*))?\]\]/g;
+function chPlain(t){return String(t||'').replace(/\[\[img:[^\]]+\]\]/g,'📷 Photo').replace(/\[\[voice:[^\]]+\]\]/g,'🎤 Voice note').replace(/\[\[file:[^|\]]+\|?([^\]]*)\]\]/g,(_,n)=>'📎 '+(n||'File')).trim()}
+function chMediaHTML(t){let out='';for(const m of String(t||'').matchAll(CH_MK)){const [,k,u,x]=m;
+  if(k==='img')out+=`<a class="chimg" href="${esc(u)}" target="_blank" rel="noopener noreferrer"><img src="${esc(u)}" alt="Photo" loading="lazy"></a>`;
+  else if(k==='voice')out+=`<div class="chvoice"><span class="chvic">${ic('mic',16)}</span><audio controls preload="metadata" src="${esc(u)}"></audio>${x?`<span class="hint num">${esc(x)}s</span>`:''}</div>`;
+  else out+=`<a class="chfile" href="${esc(u)}" target="_blank" rel="noopener noreferrer">${ic('clip',16)}<span>${esc(x||'File')}</span><small>Open ↗</small></a>`}
+ return out}
+function chBodyHTML(txt){const md=chMediaHTML(txt);return md+chTextHTML(String(txt||'').replace(CH_MK,'').trim())}
+function chTextHTML(txt){let out='',last=0;const s=String(txt||'');
  for(const m of s.matchAll(CH_MINT)){out+=rich(s.slice(last,m.index));last=m.index+m[0].length;const t=T[m[0]];
   out+=`<a class="chca" href="#/token/${m[0]}" title="${m[0]}">${t?'$'+esc(t.sym):esc(m[0].slice(0,4)+'…'+m[0].slice(-4))}</a>`}
  return out+rich(s.slice(last))}
-function chDrop(body){const m=String(body||'').match(CH_MINT);if(!m)return '';const t=T[m[0]];
+function chDrop(body){const m=String(body||'').replace(CH_MK,'').match(CH_MINT);if(!m)return '';const t=T[m[0]];
  if(!t)return `<div class="chdrop wait"><span class="chdl">${ic('promote',14)} CA dropped</span><span class="hint">Loading token…</span></div>`;
  const c=chgOf(t,'24h');
  return `<div class="chdrop"><a class="chdt" href="#/token/${t.key}">${tokav(t.key)}<span class="grow"><b>$${esc(t.sym)}</b><span class="hint num">${t.supply&&t.price?fmtSmall(mcap(t))+' MC':''}${c!=null?` · <em class="${c>=0?'up':'dn'}">${pctS(c)}</em>`:''}</span></span></a>
@@ -2486,7 +2581,7 @@ const CH_EMOJI=/^(?:\p{Extended_Pictographic}|\p{Emoji_Component}|‍|️){1,8}$
 function chMsgsHTML(id){const t=CH.th[id];if(!t)return '';const grp=t.chat&&t.chat.kind!=='dm',boss=t.chat&&(t.chat.role==='owner'||t.chat.role==='admin');
  let out=t.more?`<button class="chmore" data-cx="older" data-f="${id}">${t.busy?'Loading…':'Load earlier'}</button>`:'',prev=null,day='';
  const list=t.msgs.filter(m=>!(m.from&&!m.mine&&(S.muted.has(m.from.handle)||S.blocked.has(m.from.handle))));
- if(!list.length)out+=`<div class="chstart">${t.chat?chSig(t.chat,'lg'):''}<b>${t.chat?esc(chName(t.chat)):''}</b><p>${t.chat&&t.chat.kind==='dm'?'This is the start of your DMs. Encrypted, just the two of you.':t.chat&&t.chat.kind==='private'?'Private and encrypted. Invite your squad from the ⓘ menu.':'Say gm. Drop a CA. Make the call.'}</p></div>`;
+ if(!list.length)out+=`<div class="chstart">${t.chat?`<button class="chstav" data-cx="info" data-f="${id}" aria-label="Chat settings">${chSig(t.chat,'lg')}</button>`:''}<b>${t.chat?esc(chName(t.chat)):''}</b><p>${t.chat&&t.chat.kind==='dm'?'This is the start of your DMs. Encrypted, just the two of you.':t.chat&&t.chat.kind==='private'?'Private and encrypted. Invite your squad from the ⓘ menu.':'Say gm. Drop a CA. Make the call.'}</p></div>`;
  for(const m of list){const d=chDay(m.at);if(d!==day){out+=`<div class="chday"><span>${d}</span></div>`;day=d;prev=null}
   if(m.kind==='system'){out+=`<div class="chsys">${chBodyHTML(m.body)}</div>`;prev=null;continue}
   const h=m.from?m.from.handle:'deleted',cont=prev&&prev.from&&m.from&&prev.from.handle===h&&(new Date(m.at)-new Date(prev.at))<3e5;prev=m;
@@ -2507,16 +2602,17 @@ function chComposer(id){const t=CH.th[id],c=t&&t.chat;if(!c)return '';
  if(!chOn())return `<div class="composer chcbar"><div class="grow"><b>Sign in to chat</b><div class="hint">${c.kind==='public'?'Anyone can read. Sign in to talk.':''}</div></div><button class="btn primary" data-act="connect">Sign in</button></div>`;
  if(c.kind==='public'&&!c.role)return `<div class="composer chcbar"><div class="grow"><b>${esc(c.title||'Public group')}</b><div class="hint">${fmtK(c.members||0)} members · guarded</div></div><button class="btn primary" data-cx="join" data-f="${id}">${ic('plus',16)} Join group</button></div>`;
  const ph=c.kind==='dm'?`Message ${c.peer?'@'+c.peer.handle:''}`:c.kind==='private'?'Message the squad':'Say it in public. Drop a CA';
- return `<div class="composer chcomp">${chReplyBar(id)}<div class="chcrow"><textarea id="chin" class="input" rows="1" maxlength="1000" placeholder="${esc(ph)}" data-f="${id}">${esc(CH.draft[id]||'')}</textarea>
- <button class="chsend" data-cx="send" data-f="${id}" aria-label="Send">${ic('promote',20)}</button></div></div>`}
+ return `<div class="composer chcomp">${chReplyBar(id)}<div class="chcrow"><button class="chtool" data-cx="attach" data-f="${id}" aria-label="Send a photo or file">${ic('plus',20)}</button><div class="chfield"><textarea id="chin" class="input" rows="1" maxlength="1000" placeholder="${esc(ph)}" data-f="${id}">${esc(CH.draft[id]||'')}</textarea>
+ <button class="chmic" data-cx="voice" data-f="${id}" aria-label="Record a voice note">${ic('mic',19)}</button></div>
+ <button class="chsend" data-cx="send" data-f="${id}" aria-label="Send"><span class="mark" aria-hidden="true"></span></button></div><div class="chrec" id="chrec" hidden></div></div>`}
 function vThread(id){const t=chThread(id);if(!t.chat&&!t.busy&&!t.err)loadThread(id);
  if(t.err&&!t.chat)return `<div class="chempty"><b>${esc(t.err)}</b><p>${t.err.includes('invite')?'Ask a member for a fresh link.':''}</p><div class="chcta"><a class="btn primary" href="#/messages">Back to messages</a></div></div>`;
  if(!t.chat)return `<div class="rhead chhead"><span class="chskel av"></span><div class="grow"><span class="chskel ln"></span></div></div><div class="msgs chmsgs"><div class="chskel"></div><div class="chskel r"></div><div class="chskel"></div></div>`;
  const c=t.chat,sub=c.kind==='dm'?(c.peer?`@${esc(c.peer.handle)} · ${ic('lock',11)} encrypted`:''):c.kind==='private'?`${fmtK(c.members)} members · ${ic('lock',11)} encrypted`:`${fmtK(c.members)} members · ${ic('shield',11)} guarded`;
  const link=c.kind==='dm'&&c.peer?`#/profile/${esc(c.peer.handle)}`:'';
- return `<div class="rhead chhead">${link?`<a href="${link}">${chSig(c)}</a>`:chSig(c)}<div class="grow" ${link?`data-go="${link}"`:`data-cx="info" data-f="${id}"`}><b>${esc(chName(c))}</b><div class="hint chsub">${sub}</div></div>
+ return `<div class="rhead chhead"><button class="chheadav" data-cx="info" data-f="${id}" aria-label="Chat settings">${chSig(c)}</button><div class="grow chheadt" data-cx="info" data-f="${id}"><b>${esc(chName(c))}</b><div class="hint chsub">${sub}</div></div>
  ${c.mint&&T[c.mint]?`<a class="btn sm ghost" href="#/token/${c.mint}">$${esc(T[c.mint].sym)}</a>`:''}<button class="ib chib" data-cx="info" data-f="${id}" aria-label="Chat details">${ic('info',20)}</button></div>
- <div class="msgs chmsgs" id="chmsgs">${chMsgsHTML(id)}</div>${chComposer(id)}`}
+ <div class="msgs chmsgs" id="chmsgs"${chWpAttr(id)}>${chMsgsHTML(id)}</div>${chComposer(id)}`}
 function vJoin(code){const g=CH.inv[code];
  if(!g){fetch('/api/chat?invite='+encodeURIComponent(code),{cache:'no-store'}).then(r=>r.json().then(j=>({ok:r.ok,j}))).then(({ok,j})=>{CH.inv[code]=ok?j.group:{err:chErr(j.error)};chPaint()}).catch(()=>{CH.inv[code]={err:'Couldn’t open this invite'};chPaint()});
   return '<div class="chinvite"><div class="chskel big"></div></div>'}
@@ -2533,8 +2629,9 @@ function chOpenDM(h){h=String(h).toLowerCase();if(!chOn())return connectModal(()
  if(CH.dmBusy===h)return;CH.dmBusy=h;
  API('/api/chat',{body:{action:'dm',handle:h}}).then(j=>{CH.dmid[h]=j.id;location.replace('#/messages/c-'+j.id);CH.inbox=null})
  .catch(e=>{toast(chErr(e));if(chRoute()===h)location.replace('#/messages')}).finally(()=>{CH.dmBusy=null})}
-function chSend(id,retry){const t=CH.th[id];if(!t)return;let body,rep;
+function chSend(id,retry,raw){const t=CH.th[id];if(!t)return;let body,rep;
  if(retry){const m=t.msgs.find(x=>x.id===retry);if(!m)return;body=m.body;rep=m.replyId;t.msgs=t.msgs.filter(x=>x!==m)}
+ else if(raw){body=raw;rep=CH.reply[id]&&CH.reply[id].id;delete CH.reply[id]}
  else{const i=$('#chin');body=(i&&i.value||'').trim();if(!body)return;rep=CH.reply[id]&&CH.reply[id].id;
   if(CH_KEYISH.test(body)&&!confirm('This looks like a wallet private key. Anyone who has it can empty that wallet. Send it anyway?'))return;
   i.value='';CH.draft[id]='';chGrow(i);delete CH.reply[id]}
@@ -2577,10 +2674,49 @@ function chNewGroup(kind){if(!chOn())return connectModal(()=>chNewGroup(kind));c
   go.onclick=()=>{go.disabled=true;go.textContent='Creating…';API('/api/chat',{body:{action:'create',kind:D.kind,title:t.value.trim(),about:$('#nga',m).value.trim(),members:[...D.sel]}})
    .then(j=>{closeModal();CH.inbox=null;CH.tab=D.kind;CH.showInfo=j.id;location.hash='#/messages/c-'+j.id;toast('Group created')})
    .catch(e=>{$('#nge',m).textContent=chErr(e);go.disabled=false;go.textContent='Create group'})}})}
+/* ---------- chat wallpapers (kept on this device): per chat, or a default for every chat ---------- */
+const WPS=[['none','Default'],['midnight','Midnight'],['aurora','Aurora'],['sunset','Sunset'],['mint','Mint'],['dots','Dots'],['grid','Grid'],['callit','Callit']];
+const WP=(()=>{try{return JSON.parse(localStorage.getItem('callit.wp')||'{}')||{}}catch(_){return {}}})();
+const wpSave=()=>{try{localStorage.setItem('callit.wp',JSON.stringify(WP))}catch(_){}};
+const wpImg=k=>{try{return localStorage.getItem('callit.wpimg.'+k)||''}catch(_){return ''}};
+const wpOf=id=>WP[id]||WP['*']||'none';
+function chWpAttr(id){const w=wpOf(id);if(w==='custom'){const src=wpImg(WP[id]==='custom'?id:'*');return src?` data-wp="custom" style="--wpimg:url('${src}')"`:''}return w==='none'?'':` data-wp="${esc(w)}"`}
+function chWpApply(id){const el=$('#chmsgs');if(!el)return;el.removeAttribute('data-wp');el.style.removeProperty('--wpimg');const a=chWpAttr(id),k=(a.match(/data-wp="([^"]+)"/)||[])[1];if(k)el.dataset.wp=k;const im=(a.match(/--wpimg:url\('([^']+)'\)/)||[])[1];if(im)el.style.setProperty('--wpimg',`url('${im}')`)}
+function chWpGrid(id){const cur=WP[id]||(id==='*'?'none':'');return `<div class="wpgrid">${id!=='*'?`<button type="button" class="wpopt${!cur?' on':''}" data-cx="wp" data-f="${id}" data-w=""><i data-wp="${esc(WP['*']||'none')}"></i><span>Same as all</span></button>`:''}${WPS.map(([k,l])=>`<button type="button" class="wpopt${cur===k?' on':''}" data-cx="wp" data-f="${id}" data-w="${k}"><i data-wp="${k}"></i><span>${l}</span></button>`).join('')}
+ <button type="button" class="wpopt${cur==='custom'?' on':''}" data-cx="wpup" data-f="${id}"><i class="wpup"${wpImg(id)?` style="background:url('${wpImg(id)}') center/cover"`:''}>${wpImg(id)?'':ic('image',20)}</i><span>Your photo</span></button></div>`}
+function chWpOpen(id){modal('Chat wallpaper',id==='*'?'The default for all your chats. Saved on this device.':'Only for this chat. Saved on this device.',chWpGrid(id))}
+/* ---------- attachments + voice notes ---------- */
+async function chUpload(id,data,marker){toast(marker==='img'?'Sending photo…':marker==='voice'?'Sending voice note…':'Sending file…');
+ try{const r=await API('/api/media',{body:{data,kind:'chat'}});return r.url}catch(e){toast(e.message||'Upload failed');return null}}
+function chAttach(id){modal('Send','',`<div class="chopts"><button class="chopt" data-cx="pickimg" data-f="${id}">${ic('image',18)}<span>Photo</span></button><button class="chopt" data-cx="pickcam" data-f="${id}">${ic('camera',18)}<span>Camera</span></button><button class="chopt" data-cx="pickfile" data-f="${id}">${ic('clip',18)}<span>File · PDF, audio or video up to 3 MB</span></button><button class="chopt" data-cx="voice" data-f="${id}">${ic('mic',18)}<span>Voice note</span></button></div>`)}
+function chPick(id,accept,capture){closeModal();const inp=document.createElement('input');inp.type='file';inp.accept=accept;if(capture)inp.setAttribute('capture','environment');
+ inp.onchange=()=>{const f=inp.files&&inp.files[0];if(!f)return;
+  if(/^image\//.test(f.type)&&f.type!=='image/gif')return shrink(f,1600,async d=>{const u=await chUpload(id,d,'img');if(u)chSend(id,null,`[[img:${u}]]`)});
+  if(f.size>3*1024*1024)return toast('That file is over 3 MB');
+  const r=new FileReader();r.onload=async()=>{const img=/^image\//.test(f.type),u=await chUpload(id,r.result,img?'img':'file');if(u)chSend(id,null,img?`[[img:${u}]]`:/^audio\//.test(f.type)?`[[voice:${u}]]`:`[[file:${u}|${f.name.replace(/[\[\]|]/g,'').slice(0,60)}]]`)};r.readAsDataURL(f)};
+ inp.click()}
+const REC={r:null,t0:0,iv:0,chunks:[],cancel:false};
+async function chVoice(id){closeModal();if(REC.r)return chVoiceStop(false);
+ if(!navigator.mediaDevices||!window.MediaRecorder)return toast('Voice notes aren’t supported in this browser');
+ let st;try{st=await navigator.mediaDevices.getUserMedia({audio:true})}catch(_){return toast('Allow the microphone to record a voice note')}
+ const type=['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg'].find(t=>MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(t))||'';
+ const r=new MediaRecorder(st,type?{mimeType:type,audioBitsPerSecond:32000}:undefined);REC.r=r;REC.chunks=[];REC.cancel=false;REC.t0=Date.now();
+ r.ondataavailable=e=>{if(e.data&&e.data.size)REC.chunks.push(e.data)};
+ r.onstop=()=>{st.getTracks().forEach(x=>x.stop());clearInterval(REC.iv);const secs=Math.max(1,Math.round((Date.now()-REC.t0)/1000));REC.r=null;chRecUI(null);if(REC.cancel||!REC.chunks.length)return;
+  const bl=new Blob(REC.chunks,{type:(r.mimeType||'audio/webm').split(';')[0]});if(bl.size>3*1024*1024)return toast('Voice note is too long');
+  const fr=new FileReader();fr.onload=async()=>{const u=await chUpload(id,String(fr.result).replace(/;codecs=[^;,]+/,''),'voice');if(u)chSend(id,null,`[[voice:${u}|${secs}]]`)};fr.readAsDataURL(bl)};
+ r.start(250);chRecUI(id);REC.iv=setInterval(()=>{const s2=Math.round((Date.now()-REC.t0)/1000);const el=$('#chrect');if(el)el.textContent=`${Math.floor(s2/60)}:${String(s2%60).padStart(2,'0')}`;if(s2>=120)chVoiceStop(false)},250)}
+function chVoiceStop(cancel){if(!REC.r)return;REC.cancel=cancel;try{REC.r.stop()}catch(_){}}
+function chRecUI(id){const el=$('#chrec');if(!el)return;el.hidden=!id;document.querySelector('.chcomp')?.classList.toggle('rec',!!id);
+ el.innerHTML=id?`<span class="chrdot"></span><b>Recording</b><span class="num" id="chrect">0:00</span><span class="grow"></span><button class="btn sm ghost" data-cx="voicex">Cancel</button><button class="btn sm primary" data-cx="voiceok">${ic('check',14)} Send</button>`:''}
 function chInfo(id){const t=CH.th[id];if(!t||!t.chat)return;const c=t.chat,boss=c.role==='owner'||c.role==='admin',url=c.invite?location.origin+'/#/messages/join-'+c.invite:'';
  const ppl=t.people||[],role={owner:'Owner',admin:'Admin'};
+ const pics=[];(t.msgs||[]).forEach(m=>{for(const x of String(m.body||'').matchAll(CH_MK))if(x[1]==='img')pics.push(x[2])});
  modal(esc(chName(c)),c.kind==='dm'?'Direct message · encrypted':c.kind==='private'?`Private group · ${fmtK(c.members)} members · encrypted`:`Public group · ${fmtK(c.members)} members · guarded`,
- `${c.about?`<p class="chabout">${esc(c.about)}</p>`:''}
+ `${c.kind==='dm'&&c.peer?`<div class="chpeer">${avatar(c.peer.handle,'lg')}<b>${esc(c.peer.name||c.peer.handle)}</b><span class="hint">@${esc(c.peer.handle)}</span><div class="chpeerb"><a class="btn sm primary" href="#/profile/${esc(c.peer.handle)}" data-act="close">${ic('profile',14)} Profile</a><button class="btn sm ghost" data-cx="mute" data-f="${id}">${ic('bell',14)} ${c.muted?'Unmute':'Mute'}</button></div></div>`:''}
+ ${c.about?`<p class="chabout">${esc(c.about)}</p>`:''}
+ <div class="chsec sm">${ic('palette',14)} Wallpaper</div>${chWpGrid(id)}
+ ${pics.length?`<div class="chsec sm">Photos</div><div class="chpics">${pics.slice(-12).reverse().map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener noreferrer"><img src="${esc(u)}" alt="" loading="lazy"></a>`).join('')}</div>`:''}
  ${url?`<div class="chinv"><span class="hint">${c.kind==='public'?'Invite link':'Invite link · anyone with it can join'}</span><div class="chinvl"><code>${esc(url.replace(/^https?:\/\//,''))}</code><button class="btn sm primary" data-cx="copyinv" data-f="${esc(url)}">${ic('copy',14)} Copy</button></div>
   <div class="chinvb">${navigator.share?`<button class="btn sm ghost" data-cx="shareinv" data-f="${esc(url)}">${ic('share',14)} Share</button>`:''}<a class="btn sm ghost" target="_blank" rel="noopener" href="https://x.com/intent/post?text=${encodeURIComponent('Join '+(c.title||'my group')+' on Callit. Call it. Get Paid.')}&url=${encodeURIComponent(url)}">Post on X</a>${boss?`<button class="btn sm ghost" data-cx="resetinv" data-f="${id}">Reset link</button>`:''}</div></div>`:''}
  <div class="chopts"><button class="chopt" data-cx="mute" data-f="${id}">${ic('bell',18)}<span>${c.muted?'Unmute':'Mute'} notifications</span></button>
@@ -2588,6 +2724,7 @@ function chInfo(id){const t=CH.th[id];if(!t||!t.chat)return;const c=t.chat,boss=
  ${c.kind!=='dm'?`<div class="chsec sm">Members</div><div class="list">${ppl.map(p=>`<div class="li"><a href="#/profile/${esc(p.handle)}" data-act="close">${avatar(p.handle)}</a><div class="grow"><b>${esc(p.name||p.handle)}</b><div class="hint">@${esc(p.handle)}${role[p.role]?' · '+role[p.role]:''}</div></div>${boss&&p.handle!==S.me&&p.role!=='owner'?`<button class="btn sm ghost" data-cx="ban" data-f="${id}" data-h="${esc(p.handle)}">Remove</button>`:''}</div>`).join('')}</div>`:''}`)}
 const chPost=(body)=>API('/api/chat',{body});
 document.addEventListener('click',e=>{const b=e.target.closest('[data-cx]');if(!b)return;const a=b.dataset.cx,f=b.dataset.f;
+ if(e.target.closest('audio,video'))return;
  const ln=e.target.closest('a,button');if(ln&&ln!==b&&b.contains(ln))return; // links inside a bubble still work
  if(b.tagName==='BUTTON'||b.tagName==='A')e.preventDefault();e.stopPropagation();
  const go={
@@ -2606,6 +2743,11 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-cx]');if(!
   del:()=>{const id=chRoute().slice(2),t=CH.th[id],m=t.msgs.find(x=>String(x.id)===f);if(!m||!confirm('Delete this message for everyone?'))return;m.deleted=true;m.body='';CH.open=null;chMsgs(id);chPost({action:'delete_msg',id,msg:m.id}).catch(er=>toast(chErr(er)))},
   older:()=>olderThread(f),
   info:()=>chInfo(f),
+  attach:()=>chAttach(f),pickimg:()=>chPick(f,'image/*'),pickcam:()=>chPick(f,'image/*',1),pickfile:()=>chPick(f,'application/pdf,audio/*,video/mp4,text/plain'),
+  voice:()=>chVoice(f),voicex:()=>chVoiceStop(true),voiceok:()=>chVoiceStop(false),
+  wp:()=>{const w=b.dataset.w;if(w)WP[f]=w;else delete WP[f];wpSave();const r=chRoute();if(r&&r.startsWith('c-'))chWpApply(r.slice(2));b.parentElement.querySelectorAll('.wpopt').forEach(x=>x.classList.toggle('on',x===b));toast('Wallpaper set')},
+  wpup:()=>{const inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.onchange=()=>{const fl=inp.files&&inp.files[0];if(!fl)return;shrink(fl,1080,d=>{try{localStorage.setItem('callit.wpimg.'+f,d)}catch(_){return toast('That photo is too big to keep on this device')}
+   WP[f]='custom';wpSave();const r=chRoute();if(r&&r.startsWith('c-'))chWpApply(r.slice(2));closeModal();toast('Wallpaper set')})};inp.click()},
   copyinv:()=>copy(f,'Invite link copied'),shareinv:()=>navigator.share&&navigator.share({title:'Join on Callit',url:f}).catch(()=>{}),
   resetinv:()=>{if(!confirm('Reset the invite link? The old link stops working.'))return;chPost({action:'invite_reset',id:f}).then(j=>{CH.th[f].chat.invite=j.invite;closeModal();chInfo(f);toast('New invite link ready')}).catch(er=>toast(chErr(er)))},
   mute:()=>{const c=CH.th[f].chat;c.muted=!c.muted;chPost({action:'mute',id:f,on:c.muted}).catch(er=>toast(chErr(er)));closeModal();toast(c.muted?'Muted':'Notifications on');const ib=CH.inbox&&CH.inbox.find(x=>x.id===f);if(ib)ib.muted=c.muted},
@@ -2874,7 +3016,7 @@ function landingHTML(){const yr=new Date().getFullYear();
 /* Boot splash: covers the page until we know whether to show the landing or the app,
    so a reload or a return from Google/X never flashes the wrong screen. */
 const BOOT_AT=Date.now(),BOOT_MAX=7000;
-function authPending(){if(!realAuth())return false;if(Date.now()-BOOT_AT>BOOT_MAX)return false;
+function authPending(){if(!realAuth())return false;if(S.connected&&window.__callitRestored)return false;if(Date.now()-BOOT_AT>BOOT_MAX)return false;
  const A=window.CallitAuth;if(!A||!A.ready)return true;
  if(A.authenticated&&!S.connected)return true;
  return /[?&]privy_oauth_/.test(location.search)&&!A.authenticated}
@@ -2888,6 +3030,11 @@ function syncLanding(){const el=$('#landing');let exp=false;try{exp=sessionStora
 try{S.premium=JSON.parse(localStorage.getItem('callit.premium')||'null')}catch(_){}
 if(!realAuth())try{const v=JSON.parse(localStorage.getItem('callit.session')||'null');if(v&&v.me){S.connected=true;S.addr=v.addr;S.me=v.me;C[S.me]=C[S.me]||{h:S.me,win:0,avg:0,calls:0,best:0,followers:0}}}catch(_){}
 
+/* ---------- scroll: the top board and the bottom tabs slide away while you scroll down, back on scroll up ---------- */
+{let LSY=0;addEventListener('scroll',()=>{const y=Math.max(0,scrollY),d=y-LSY;if(Math.abs(d)<8)return;LSY=y;
+ const on=isPhone()&&PREF.bars!=='off'&&d>0&&y>140&&!document.querySelector('#modal .modal,.sheet.open');document.body.classList.toggle('bars-off',on)},{passive:true});
+ addEventListener('hashchange',()=>{document.body.classList.remove('bars-off');LSY=0})}
+prefApply();
 /* ---------- offline + install ---------- */
 const syncNet=()=>{const o=$('#offline');if(o)o.hidden=navigator.onLine};addEventListener('online',()=>{syncNet();toast('Back online')});addEventListener('offline',syncNet);
 if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('/sw.js').catch(()=>{});
@@ -2909,7 +3056,8 @@ if(isIOS()&&!isStandalone())setTimeout(()=>{if(S.connected)showInstallBar()},400
 
 /* ---------- real sign-in (Privy) ---------- */
 window.callitApplySession=(p,o={})=>{
- if(!p){if(S.connected){S.connected=false;S.addr='';S.me='';S.profile=null;toast('Signed out')}render();return}
+ if(!p){try{localStorage.removeItem('callit.lastProfile')}catch(_){}window.__callitRestored=0;if(S.connected){S.connected=false;S.addr='';S.me='';S.profile=null;toast('Signed out')}render();return}
+ try{localStorage.setItem('callit.lastProfile',JSON.stringify(p))}catch(_){}
  const first=!S.connected,prevAddr=S.addr;S.connected=true;S.profile=p;S.me=p.handle;S.addr=p.wallet_address||'';
  if(realAuth()&&S.addr!==prevAddr){S.bal={SOL:0};S.activity=[];S.balAt=0;for(const k in RAW)delete RAW[k];S.swap.amt=''}
  C[S.me]=C[S.me]||{h:S.me,win:0,avg:0,calls:0,best:0,followers:0};
@@ -2919,9 +3067,13 @@ window.callitApplySession=(p,o={})=>{
  const om=document.querySelector('#modal .modal'),lab=om&&om.getAttribute('aria-label')||'';
  if(om&&/^(Sign in to Callit|Welcome back|Create your Callit account)$/.test(lab))closeModal();
  render();loadBalances();if(realAuth()){loadMe();loadPosts()}
- if(first){toast(o.isNew?'Welcome to Callit. Your wallet is ready':'Signed in');const n=pendingNext;pendingNext=null;if(n)n();else if(o.isNew)maybeOnboard()}};
+ if(first&&!o.restore){toast(o.isNew?'Welcome to Callit. Your wallet is ready':'Signed in');const n=pendingNext;pendingNext=null;if(n)n();else if(o.isNew)maybeOnboard()}};
 window.callitAuthChanged=()=>syncLanding();
 window.callitWalletChanged=()=>{if(REALW())loadBalances()};
+/* Cold start: reopen straight into the last account while Privy wakes up in the background.
+   Privy confirms (or signs out) a moment later, so the sign-in screen never flashes for a signed-in user. */
+if(realAuth()&&!S.connected&&!window.__callitPendingSession)try{const v=JSON.parse(localStorage.getItem('callit.lastProfile')||'null'),live=Object.keys(localStorage).some(k=>/^privy:.*token/.test(k));
+ if(v&&v.handle&&live){window.__callitRestored=1;window.callitApplySession(v,{restore:1})}}catch(_){}
 if(window.__callitPendingSession){const q=window.__callitPendingSession;delete window.__callitPendingSession;window.callitApplySession(q.p,q.opts)}
 
 /* ---------- events ---------- */
@@ -2980,13 +3132,18 @@ document.addEventListener('click',e=>{
   ntab:()=>{S.ntab=b.dataset.f;render()},
   exportkey:()=>exportKeyModal(),
   bubpick:()=>{const i=+b.dataset.i;BUBX.sel=BUBX.sel===i?-1:i;const w=$('#bubwrap');if(w&&BUBT)w.innerHTML=bubbles(BUBT)},bubpool:()=>{BUBX.pool=!BUBX.pool;BUBX.sel=-1;const w=$('#bubwrap');if(w&&BUBT)w.innerHTML=bubbles(BUBT)},
-  setzoom:()=>{try{localStorage.setItem('callit.zoom',b.dataset.f)}catch(_){}zoomApply();closeModal();settingsModal()},
+  setzoom:()=>{try{localStorage.setItem('callit.zoom',b.dataset.f)}catch(_){}zoomApply();closeModal();currentRoute()==='settings'?render():settingsModal()},
   bpdel:()=>{const k=b.dataset.f;bpSet(bpGet().filter(x=>x!==k));BPMENU=null;drawRail();toast(`${BP[k][0]} removed. Bring panels back in Settings`)},
   bpmenu:()=>{BPMENU=BPMENU===b.dataset.f?null:b.dataset.f;drawRail()},
   bppick:()=>{const from=b.dataset.f,to=b.dataset.to,v=bpGet(),i=v.indexOf(from),j=v.indexOf(to);if(i<0||from===to){BPMENU=null;return drawRail()}
    if(j>=0){v[j]=from}v[i]=to;const w=bpW[from];if(w!=null){bpW[to]=w;delete bpW[from];bpWSave()}bpSet(v);BPMENU=null;drawRail()},
   bpreset:()=>{bpSet(BP_DEF.slice());Object.keys(bpW).forEach(k=>delete bpW[k]);bpWSave();bpApplyFeed();closeModal();drawRail();toast('Panels reset')},
   pushtest:()=>pushTest(b),
+  wcard:()=>{if(S.wcard===b.dataset.f)return;if(slideTo(b)&&!b.dataset.slid){b.dataset.slid=1;return setTimeout(()=>b.isConnected?b.click():null,170)}S.wcard=b.dataset.f;render()},
+  pref:()=>{PREF[b.dataset.f]=b.dataset.v;prefSave();prefApply();if(b.dataset.f==='bars'&&b.dataset.v==='off')document.body.classList.remove('bars-off');render()},
+  nexp:()=>{const it=b.closest('.nitem');if(!it)return;const o=!it.classList.contains('open');it.classList.toggle('open',o);b.setAttribute('aria-expanded',o)},
+  wppick:()=>chWpOpen('*'),
+  copyinvite:()=>copy(inviteURL(),'Invite link copied'),
   bubtog:()=>{const c=b.closest('.hmcard'),o=!c.classList.contains('open');c.classList.toggle('open',o);b.setAttribute('aria-expanded',o);const bd=c.querySelector('.hmbody');bd.hidden=!o;try{localStorage.setItem('callit.bubopen',o?'1':'0')}catch(_){}if(o){const w=c.querySelector('#bubwrap');if(w&&BUBT)w.innerHTML=bubbles(BUBT)}},
   ncat:()=>{const f=b.dataset.f;if(f==='*'){lsPut('callit.ncat',null);return render()}const cur=lsSet('callit.ncat')||new Set();cur.has(f)?cur.delete(f):cur.add(f);lsPut('callit.ncat',cur.size===NCATS.length?null:cur);render()},
   cimp:()=>{S.cimp=b.dataset.f;try{localStorage.setItem('callit.cimp',S.cimp)}catch(_){}render()},
@@ -3002,7 +3159,7 @@ document.addEventListener('click',e=>{
   back:()=>goBack(),totop:()=>scrollTo({top:0,behavior:'smooth'}),
   join:()=>{const f=b.dataset.f;S.joined.has(f)?S.joined.delete(f):S.joined.add(f);toast(S.joined.has(f)?'Joined':'Left the community');render()},
   msend:()=>{const i=$('#msgin'),v=i&&i.value.trim();if(!v)return;(MSG[b.dataset.f]=MSG[b.dataset.f]||[]).push([S.me,v,'now']);render();const m=$('#msgs');m&&m.lastElementChild&&m.lastElementChild.scrollIntoView({block:'end',behavior:'smooth'});setTimeout(()=>{const n=$('#msgin');n&&n.focus()},50)},
-  ptab:()=>{S.ptab=b.dataset.f;render()},connect:()=>connectModal(),search:()=>searchModal(),notifs:()=>notifsModal(),settings:()=>settingsModal(),
+  ptab:()=>{S.ptab=b.dataset.f;render()},connect:()=>connectModal(),search:()=>searchModal(),notifs:()=>notifsModal(),settings:()=>{closeModal();if(isPhone())document.body.classList.add('collapsed');location.hash='#/settings'},
   disconnect:()=>act2.disconnect(),
   me:()=>S.connected?location.hash='#/you':connectModal(),
   logout:()=>modal('Log out of Callit?','Your wallet and everything you saved stay on your account. Sign back in any time.',`<button class="btn block" style="background:var(--down);color:#fff;border-color:var(--down)" id="logo">Log out</button><button class="btn ghost block" data-act="close" style="margin-top:8px">Cancel</button>`,m=>$('#logo',m).onclick=()=>{closeModal();act2.disconnect()}),
@@ -3037,7 +3194,7 @@ document.addEventListener('click',e=>{
   adgo:()=>{S.board=+b.dataset.f;const el=$('#adboard');if(el)el.outerHTML=adBoard()},
   tab:()=>{if(S.tab===b.dataset.f)return scrollTo({top:0,behavior:'smooth'});S.tab=b.dataset.f;render();scrollTo({top:0})},tf:()=>{S.tf=b.dataset.f;render()},lb:()=>{S.lb=b.dataset.f;render()},
   pkg:()=>{S.pkg=b.dataset.f;document.querySelectorAll('.pkg').forEach(p=>p.classList.toggle('on',p===b))},
-  like:()=>{if(!S.connected)return connectModal();const k=calls.find(x=>x.id==b.dataset.id);k.liked=!k.liked;bg('/api/posts/react',{ref:String(k.id),kind:'like',on:k.liked});k.likes+=k.liked?1:-1;b.classList.toggle('liked',k.liked);b.innerHTML=ic('heart',18,k.liked)+`<span class="num">${k.likes||''}</span>`},
+  like:()=>{if(!S.connected)return connectModal();const k=postBy(b.dataset.id);k.liked=!k.liked;bg('/api/posts/react',{ref:String(k.id),kind:'like',on:k.liked});k.likes+=k.liked?1:-1;b.classList.toggle('liked',k.liked);b.innerHTML=ic('heart',18,k.liked)+`<span class="num">${k.likes||''}</span>`},
   repost:()=>{if(Date.now()-(b._heldAt||0)<1500)return;if(!S.connected)return connectModal();doRepost(b.dataset.id)},
   rpv:()=>{closeModal();location.hash='#/quotes/'+encodeURIComponent(b.dataset.id)},
   rpq:()=>{const id=b.dataset.id;closeModal();setTimeout(()=>randomModal({quote:id}),60)},
@@ -3049,7 +3206,7 @@ document.addEventListener('click',e=>{
   rrep:()=>{if(!S.connected)return connectModal();const i=$('#rin');if(!i)return;const tag='@'+b.dataset.h+' ';if(!i.value.startsWith(tag))i.value=tag+i.value;i.focus();i.setSelectionRange(i.value.length,i.value.length);i.dispatchEvent(new Event('input'));$('#rbox').scrollIntoView({block:'center',behavior:'smooth'})},
   share:()=>shareSheet(b.dataset.id),
   cat:()=>{if(S.cat===b.dataset.f)return scrollTo({top:0,behavior:'smooth'});if(slideTo(b)&&!b.dataset.slid){b.dataset.slid=1;return setTimeout(()=>b.isConnected?b.click():null,170)}S.cat=b.dataset.f;try{localStorage.setItem('callit.cat',S.cat)}catch(_){}if(S.cat==='perps')loadPerps();render();scrollTo({top:0})},
-  pmenu:()=>{const k=calls.find(x=>String(x.id)===String(b.dataset.id));if(k)moreSheet(k.c,k)},
+  pmenu:()=>{const k=postBy(b.dataset.id);if(k)moreSheet(k.c,k)},
   profmenu:()=>moreSheet(b.dataset.h),
   xsearch:()=>xSearchSheet(b.dataset.k),
   xgo:()=>{window.open('https://x.com/search?q='+encodeURIComponent(b.dataset.v)+'&f=live','_blank','noopener');closeModal()},
@@ -3092,8 +3249,8 @@ document.addEventListener('click',e=>{
    if(!n||!l||p.length<20)return $('#perr').textContent='Add a project name, a CA or website, and at least 20 characters about the project.';
    if(!S.connected)return connectModal();toast('Promotion request sent');location.hash='#/home'},
   theme:()=>{const r=document.documentElement,d=r.dataset.theme&&r.dataset.theme!=='system'?r.dataset.theme:(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');r.dataset.theme=d==='dark'?'light':'dark'},
-  settheme:()=>{const f=b.dataset.f;if(f==='system')delete document.documentElement.dataset.theme;else document.documentElement.dataset.theme=f;settingsModal()},
-  setside:()=>{document.body.classList.toggle('collapsed',b.dataset.f==='closed');syncTray();settingsModal()}
+  settheme:()=>{const f=b.dataset.f;if(f==='system')delete document.documentElement.dataset.theme;else document.documentElement.dataset.theme=f;currentRoute()==='settings'?render():settingsModal()},
+  setside:()=>{document.body.classList.toggle('collapsed',b.dataset.f==='closed');syncTray();currentRoute()==='settings'?render():settingsModal()}
  }[a];act&&act()});
 document.addEventListener('input',e=>{if(e.target.dataset.swap!=='amt')return;{const v=e.target.value.replace(/[^0-9.]/g,''),w=S.swap;if(S.swUsd){const p=(T[w.from]||{}).price;w.usdTxt=v;w.amt=p&&+v?String(+(+v/p).toPrecision(9)):'';w._ua=w.amt}else w.amt=v}
  const all=[...document.querySelectorAll('[data-swap="amt"]')],idx=all.indexOf(e.target),pos=e.target.selectionStart;renderSwaps();

@@ -34,7 +34,7 @@ export async function notifySocial(
     }
     if (!profileId || profileId === actor.id) return;
 
-    const { data: a } = await db.from('profiles').select('display_name').eq('id', actor.id).maybeSingle();
+    const { data: a } = await db.from('profiles').select('display_name, avatar_url').eq('id', actor.id).maybeSingle();
     const who = (a?.display_name as string) || actor.handle;
     const snippet = (opts.snippet || '').replace(/\s+/g, ' ').trim();
     const { error } = await db.from('notifications').insert({
@@ -56,6 +56,7 @@ export async function notifySocial(
       body: snippet ? (snippet.length > 120 ? snippet.slice(0, 117) + '…' : snippet) : kind === 'follows' ? `@${actor.handle}` : '',
       link,
       tag: kind === 'likes' || kind === 'reposts' ? `${kind}:${link}` : undefined,
+      icon: (a?.avatar_url as string) || null, // the person's photo, like X; the Callit badge shows in the status bar
     }, `${kind}:${actor.handle}:${Date.now()}`);
   } catch (e) {
     console.warn('[notify] failed', kind, (e as Error).message);

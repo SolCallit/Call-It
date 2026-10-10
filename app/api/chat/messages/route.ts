@@ -4,6 +4,7 @@ import { chatKeyReady, seal } from '@/lib/chat/crypto';
 import { cleanBody, guardPublic, hostOf } from '@/lib/chat/guard';
 import { addMember, getChat, isUuid, memberOf, MSG_COLS, shapeMessages } from '@/lib/chat/store';
 import { pushTo } from '@/lib/push/send';
+import { SUPABASE_URL } from '@/lib/config';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -11,7 +12,8 @@ const nocache = { headers: { 'cache-control': 'no-store' } };
 const PAGE = 50;
 
 /** The live site's own host is always a trusted link in public groups. */
-const ownHosts = () => [process.env.PUBLIC_SITE_URL, process.env.VERCEL_PROJECT_PRODUCTION_URL]
+// Chat attachments live in Supabase storage, so its host is trusted too.
+const ownHosts = () => [process.env.PUBLIC_SITE_URL, process.env.VERCEL_PROJECT_PRODUCTION_URL, SUPABASE_URL]
   .filter((x): x is string => !!x).map(hostOf);
 
 /**
@@ -136,12 +138,17 @@ export async function POST(req: Request) {
       ids = (data || []).map((r) => r.profile_id as string);
     }
     if (!ids.length) return;
-    const preview = text.length > 90 ? text.slice(0, 87) + '…' : text;
+    const { data: who } = await db.from('profiles').select('avatar_url').eq('id', from.id).maybeSingle();
+    // Attachments travel as [[img:url]] / [[voice:url|secs]] / [[file:url|name]] markers; show them as words.
+    const plain = text.replace(/\[\[img:[^\]]+\]\]/g, '📷 Photo').replace(/\[\[voice:[^\]]+\]\]/g, '🎤 Voice note')
+      .replace(/\[\[file:[^|\]]+\|?([^\]]*)\]\]/g, (_, n) => '📎 ' + (n || 'File')).trim();
+    const preview = plain.length > 90 ? plain.slice(0, 87) + '…' : plain;
     await pushTo(db, ids, {
       title: kind === 'dm' ? `@${from.handle}` : `@${from.handle} in ${title || 'a group'}`,
       body: preview,
       link: `#/messages/c-${chatId}`,
       tag: 'chat-' + chatId,
+      icon: (who?.avatar_url as string) || null, // sender's photo on the pop-up
     });
   }
 }

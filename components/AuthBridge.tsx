@@ -174,7 +174,8 @@ export default function AuthBridge() {
   useEffect(() => {
     if (!ready) return;
     if (!authenticated || !user) {
-      if (synced.current) { synced.current = ''; apply(null); window.callitSetNotifs?.(null); }
+      // Also clears a session the engine reopened from cache if Privy says it has expired.
+      if (synced.current || window.__callitRestored) { synced.current = ''; apply(null); window.callitSetNotifs?.(null); }
       return;
     }
     const key = `${user.id}|${walletKey}`;
