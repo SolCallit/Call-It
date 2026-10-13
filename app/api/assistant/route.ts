@@ -68,6 +68,8 @@ async function claude(messages: Msg[]) {
 export async function POST(req: Request) {
   const ctx = await requireMe(req);
   if (ctx instanceof NextResponse) return ctx;
+  // Locked until SI Assistant launches: set SI_ASSISTANT=1 in Vercel (and SI_OPEN in the app) to open it.
+  if (process.env.SI_ASSISTANT !== '1') return json({ error: 'SI Assistant is coming soon.' }, 503);
   if (!process.env.ANTHROPIC_API_KEY) return json({ error: 'assistant_not_configured' }, 503);
   // Every message costs money: 6 a minute and ASSISTANT_DAILY_LIMIT (default 30) a day per account.
   if (!burst('ast:' + ctx.me.id, 6, 60_000)) return json({ error: 'Slow down a little. Try again in a minute.' }, 429);

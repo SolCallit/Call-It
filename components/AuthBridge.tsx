@@ -86,7 +86,14 @@ export default function AuthBridge() {
         const { signature } = await signMessage({ message: new TextEncoder().encode(text), wallet: w });
         return bytesToB64(signature);
       },
-      embedded: authenticated ? wallets.filter((w) => (w as { isPrivyWallet?: boolean }).isPrivyWallet).map((w) => w.address) : [],
+      // Wallets Privy made for this user (email / Google / X sign-ins). Privy v3 flags them on
+      // standardWallet.isPrivyWallet; linkedAccounts (walletClientType 'privy') is the backup source.
+      embedded: authenticated ? [...new Set([
+        ...wallets.filter((w) => (w as { standardWallet?: { isPrivyWallet?: boolean } }).standardWallet?.isPrivyWallet).map((w) => w.address),
+        ...((user?.linkedAccounts || []) as { type?: string; chainType?: string; walletClientType?: string; address?: string }[])
+          .filter((a) => a.type === 'wallet' && a.chainType === 'solana' && /^privy/.test(a.walletClientType || '') && a.address)
+          .map((a) => a.address as string),
+      ])] : [],
       // Privy shows the private key in its own isolated window; the key never reaches Callit's code.
       exportKey: async (address) => {
         if (!authenticated) throw new Error('Sign in first.');
@@ -94,7 +101,7 @@ export default function AuthBridge() {
       },
     };
     window.callitWalletChanged?.();
-  }, [authenticated, wallets, signTransaction, signMessage, getAccessToken, exportWallet]);
+  }, [authenticated, user, wallets, signTransaction, signMessage, getAccessToken, exportWallet]);
 
   // Expose controls to the legacy engine.
   useEffect(() => {

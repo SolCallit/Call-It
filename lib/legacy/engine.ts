@@ -1618,7 +1618,10 @@ function astLog(){if(!AST.msgs.length)return `<div class="astempty"><span class=
  return AST.msgs.map(m=>m.role==='user'?`<div class="astu">${astText(m.content)}</div>`
   :`<div class="asta"><span class="mark astav" aria-hidden="true"></span><div class="grow">${(m.tokens||[]).map(t=>T[t]?`<a class="ccard asttok" href="#/token/${t}">${tokav(t)}<div class="cn"><b>${esc(T[t].name||T[t].sym)}</b><span class="hint">$${esc(T[t].sym)}</span></div><b class="num">${T[t].price&&T[t].supply?fmtUsd(mcap(T[t])):''}</b></a>`:'').join('')}<div class="astmsg">${astText(m.content)}</div></div></div>`).join('')
   +(AST.busy?`<div class="asta astbusy" role="status"><span class="mark astav" aria-hidden="true"></span><span class="hint">Checking<i>.</i><i>.</i><i>.</i></span></div>`:'')}
-function vAssistant(){return `<div class="ast"><div class="astlog" id="astlog" aria-live="polite">${astLog()}</div>
+/* SI Assistant is locked until launch numbers justify it. Flip SI_OPEN to true to unlock. */
+const SI_OPEN=false;
+function vAssistant(){if(!SI_OPEN)return `<div class="pad"><div class="soonx"><div class="sxmark"><span class="mark"></span></div><span class="lkick" style="margin:0 0 12px">${ic('lock',13)} Coming soon</span><b class="h2">SI Assistant</b><p>Callit’s Super Intelligence. Not a help bot: an AI that works your trades with you, and only ever on your command.</p><ul>${['Researches any token: holders, liquidity, risk flags, copycats','Cross-checks calls before you follow them','Places trades and payments when you tell it to, never by itself','Every action waits for your approval in your wallet'].map(x=>`<li>${ic('check',16)} ${x}</li>`).join('')}</ul><a class="btn primary" href="#/market">Open Market</a></div></div>`;
+ return `<div class="ast"><div class="astlog" id="astlog" aria-live="polite">${astLog()}</div>
  <div class="astbar">${AST.err?`<p class="asterr">${esc(AST.err)}</p>`:''}<div class="astbox"><textarea class="input" id="astin" rows="1" maxlength="2000" placeholder="Paste a CA or ask anything" aria-label="Message the assistant"></textarea>
  <button class="btn primary astgo" data-act="astsend" aria-label="Send">${ic('up',18)}</button></div>
  <p class="hint astnote">Not financial advice. Always check the contract address.${AST.msgs.length?` <button class="linkbtn" data-act="astnew">New chat</button>`:''}</p></div></div>`}
@@ -1634,7 +1637,7 @@ async function astSend(text){const q=String(text||'').trim();if(!q||AST.busy)ret
 
 /* ---------- chrome ---------- */
 /* One tray, no Features/Products split. Messages and News sit right under Home. */
-const NAV_A=[['home','Home'],['messages','Messages'],['news','News'],['market','Market'],['defi','DeFi'],['callerboard','Callerboard'],['you','You'],['assistant','Assistant'],['bookmarks','Bookmarks'],['lists','Lists'],['promote','Promote'],['about','About'],['settings','Settings']]; // Bot hidden until the new Telegram is set up
+const NAV_A=[['home','Home'],['messages','Messages'],['news','News'],['market','Market'],['defi','DeFi'],['callerboard','Callerboard'],['you','You'],['assistant','SI Assistant'],['bookmarks','Bookmarks'],['lists','Lists'],['promote','Promote'],['about','About'],['settings','Settings']]; // Bot hidden until the new Telegram is set up
 const NAV_B=[];
 const TITLES=Object.fromEntries([...NAV_A,...NAV_B,['notifications','Notifications'],['bookmarks','Bookmarks'],['token','Token'],['community','Community'],['post','Post'],['premium','Premium'],['messages','Messages'],['admin','Admin'],['tag','Tag'],['alerts','Alerts'],['legal','Legal'],['profile','Profile'],['quotes','Quotes']]);
 P.lists=P.list;P.defi='<circle cx="12" cy="12" r="8.5"/><path d="M8 10h8l-2.5-2.5M16 14H8l2.5 2.5"/>';P.callerboard=P.leaderboard;P.you=P.profile;
