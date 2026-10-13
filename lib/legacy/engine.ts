@@ -1437,7 +1437,7 @@ function earnCard(){if(!SYNC())return '';loadEarn();const d=EARN.d;
  if(!d.ready)return '';
  const can=d.claimOpen&&d.available>=d.minUsd&&!EARN.claiming;
  const sub=[d.paid>0?`${fmtUsd(d.paid)} paid`:'',d.processing>0?`${fmtUsd(d.processing)} processing`:''].filter(Boolean).join(' · ');
- const why=!d.claimOpen?'Claims open soon. Earnings keep adding up.':d.available<d.minUsd?`Claim from ${fmtUsd(d.minUsd)}`:`Paid in SOL to this wallet${d.available>d.maxUsd?` · up to ${fmtUsd(d.maxUsd)} per claim`:''}`;
+ const why=!d.claimOpen?'Claims open soon. Earnings keep adding up.':d.autoPay&&d.available<d.minUsd?`Payday is daily at 18:00 UTC from ${fmtUsd(d.minUsd)}`:d.available<d.minUsd?`Claim from ${fmtUsd(d.minUsd)}`:`${d.autoPay?'Payday: auto-paid in SOL daily at 18:00 UTC, or claim now':'Paid in SOL to this wallet'}${d.available>d.maxUsd?` · up to ${fmtUsd(d.maxUsd)} per claim`:''}`;
  const calls=(d.calls||[]).map(c=>`<a class="earnrow" href="#/post/${esc(c.call_id)}">${c.mint&&T[c.mint]?tokav(c.mint):`<span class="earndot"></span>`}<div class="grow"><b>$${esc(c.sym||'?')}</b><span class="hint">${c.buys} buy${c.buys===1?'':'s'} · ${c.bought_in?`Bought in · ${c.share}%`:`No buy · ${c.share}%`}</span></div><b class="num up">+${fmtUsd(c.usd)}</b></a>`).join('');
  const hist=(d.claims||[]).slice(0,5).map(c=>`<div class="earnrow"><span class="earndot ${esc(c.status)}"></span><div class="grow"><b>${c.status==='sent'?'Claimed':c.status==='pending'?'Processing':'Didn’t go through'}</b><span class="hint">${agoT(c.created_at)} ago${c.sol?` · ${(+c.sol).toFixed(4)} SOL`:''}</span></div><span class="num">${fmtUsd(+c.usd)}</span>${c.signature&&c.status!=='failed'?`<a class="lnk" href="https://solscan.io/tx/${esc(c.signature)}" target="_blank" rel="noopener noreferrer">View</a>`:''}</div>`).join('');
  return `<section class="earn" aria-label="Caller earnings"><div class="earnt"><span class="earnic">${ic('crown',18)}</span><b>Caller earnings</b><button class="earnhow" data-act="earnopen" aria-expanded="${!!EARN.open}">How it works ${ic('chev',14)}</button></div>
@@ -1634,7 +1634,7 @@ async function astSend(text){const q=String(text||'').trim();if(!q||AST.busy)ret
 
 /* ---------- chrome ---------- */
 /* One tray, no Features/Products split. Messages and News sit right under Home. */
-const NAV_A=[['home','Home'],['messages','Messages'],['news','News'],['market','Market'],['defi','DeFi'],['callerboard','Callerboard'],['you','You'],['assistant','Assistant'],['bookmarks','Bookmarks'],['lists','Lists'],['promote','Promote'],['about','About'],['bot','Bot'],['settings','Settings']];
+const NAV_A=[['home','Home'],['messages','Messages'],['news','News'],['market','Market'],['defi','DeFi'],['callerboard','Callerboard'],['you','You'],['assistant','Assistant'],['bookmarks','Bookmarks'],['lists','Lists'],['promote','Promote'],['about','About'],['settings','Settings']]; // Bot hidden until the new Telegram is set up
 const NAV_B=[];
 const TITLES=Object.fromEntries([...NAV_A,...NAV_B,['notifications','Notifications'],['bookmarks','Bookmarks'],['token','Token'],['community','Community'],['post','Post'],['premium','Premium'],['messages','Messages'],['admin','Admin'],['tag','Tag'],['alerts','Alerts'],['legal','Legal'],['profile','Profile'],['quotes','Quotes']]);
 P.lists=P.list;P.defi='<circle cx="12" cy="12" r="8.5"/><path d="M8 10h8l-2.5-2.5M16 14H8l2.5 2.5"/>';P.callerboard=P.leaderboard;P.you=P.profile;

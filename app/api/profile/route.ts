@@ -3,6 +3,7 @@ import { verifyPrivyToken } from '@/lib/auth/privy-server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { ownMediaUrl, isHandle } from '@/lib/db/me';
 import { HANDLE_RE } from '@/lib/auth/handle';
+import { adminHandles } from '@/lib/db/admin';
 
 /** Names nobody can take: they'd look like Callit staff or collide with app routes. */
 const RESERVED = new Set(['callit', 'admin', 'support', 'help', 'official', 'team', 'staff', 'mod', 'moderator', 'system', 'root', 'api', 'home', 'market', 'profile', 'settings', 'wallet', 'swap', 'stake', 'premium', 'bookmarks', 'notifications', 'null', 'undefined']);
@@ -40,7 +41,7 @@ export async function PATCH(req: Request) {
   if (body.handle !== undefined) {
     const h = typeof body.handle === 'string' ? body.handle.trim().replace(/^@/, '').toLowerCase() : '';
     if (!HANDLE_RE.test(h)) return NextResponse.json({ error: 'Usernames are 3–20 characters: letters, numbers and _ only.' }, { status: 400 });
-    if (RESERVED.has(h)) return NextResponse.json({ error: 'That username is reserved. Try another.' }, { status: 400 });
+    if (RESERVED.has(h) || adminHandles().includes(h)) return NextResponse.json({ error: 'That username is reserved. Try another.' }, { status: 400 });
     const cur = await db.from('profiles').select('handle').eq('privy_id', privyId).maybeSingle();
     if (cur.data && cur.data.handle !== h) {
       const taken = await db.from('profiles').select('id').eq('handle', h).maybeSingle();

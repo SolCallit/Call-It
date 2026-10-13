@@ -1,5 +1,6 @@
 import { dbOrNull, json } from '@/lib/db/me';
 import { liveToken, candles, type Tf } from '@/lib/market/sources';
+import { burst, clientIp } from '@/lib/ratelimit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -17,6 +18,7 @@ const tfFor = (ageH: number): Tf => (ageH < 4.5 ? '1m' : ageH < 24 ? '5m' : ageH
 export async function GET(req: Request) {
   const db = dbOrNull();
   if (!db) return json({ peaks: {} });
+  if (!burst('peak:' + clientIp(req), 12, 60_000)) return json({ peaks: {} }, 429);
   const ids = (new URL(req.url).searchParams.get('ids') || '').split(',').filter((x) => /^[0-9a-f-]{36}$/i.test(x)).slice(0, 8);
   if (!ids.length) return json({ peaks: {} });
 

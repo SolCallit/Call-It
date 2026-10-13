@@ -108,7 +108,7 @@ export type ClaimResult =
   | { ok: false; error: string; status?: number };
 
 /** Pays a user's unclaimed earnings in SOL from the payout wallet. */
-export async function claim(db: SupabaseClient, me: { id: string; wallet_address: string | null }): Promise<ClaimResult> {
+export async function claim(db: SupabaseClient, me: { id: string; wallet_address: string | null }, opts: { wait?: boolean } = {}): Promise<ClaimResult> {
   if (!me.wallet_address) return { ok: false, error: 'Your account has no wallet yet.' };
   const issue = await payoutIssue(await isPaused(db));
   if (issue) return { ok: false, error: 'Claims open soon. Your earnings are safe and keep adding up.', status: 503 };
@@ -161,7 +161,8 @@ export async function claim(db: SupabaseClient, me: { id: string; wallet_address
       }
       // Network trouble: it may have landed. Leave it pending; resolvePending sorts it out.
     }
-    for (let i = 0; i < 16; i++) {
+    // Daily auto-payout doesn't wait for each one: resolvePending settles them on the next run or when the user opens Earnings.
+    for (let i = 0; i < (opts.wait === false ? 0 : 16); i++) {
       await sleep(1500);
       const st = await resolvePending(db, { id: row.claim_id, signature, created_at: new Date().toISOString(), status: 'pending' });
       if (st === 'sent') return { ok: true, signature, usd, sol: Number(lamports) / 1e9, status: 'sent' };

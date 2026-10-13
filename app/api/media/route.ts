@@ -1,3 +1,4 @@
+import { burst } from '@/lib/ratelimit';
 import { NextResponse } from 'next/server';
 import { requireMe, json } from '@/lib/db/me';
 
@@ -20,6 +21,7 @@ const CHAT_MAX = 3 * 1024 * 1024;
 export async function POST(req: Request) {
   const ctx = await requireMe(req);
   if (ctx instanceof NextResponse) return ctx;
+  if (!burst('up:' + ctx.me.id, 20, 60_000)) return json({ error: 'Too many uploads. Wait a minute.' }, 429);
   const b = (await req.json().catch(() => ({}))) as { data?: unknown; kind?: unknown };
   if (b.kind === 'chat') return chatUpload(ctx, b.data);
   const m = typeof b.data === 'string' ? /^data:(image\/(?:jpeg|png|webp|gif));base64,([A-Za-z0-9+/=]+)$/.exec(b.data) : null;

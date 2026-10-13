@@ -1,3 +1,4 @@
+import { adminHandles } from '@/lib/db/admin';
 import { NextResponse } from 'next/server';
 import { verifyPrivyToken, getPrivyUser } from '@/lib/auth/privy-server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
@@ -49,7 +50,8 @@ export async function POST(req: Request) {
   // New user: pick a unique handle.
   const base = toHandle(info.xUsername || info.emailLocal, info.solanaWallet);
   for (let i = 0; i < 6; i++) {
-    const handle = i === 0 ? base : (base.slice(0, 16) + Math.floor(100 + Math.random() * 900)).slice(0, 20);
+    // Admin handles are never handed out at signup (an X username matching one gets a numbered variant).
+    const handle = i === 0 && !adminHandles().includes(base) ? base : (base.slice(0, 16) + Math.floor(100 + Math.random() * 900)).slice(0, 20);
     const ins = await db
       .from('profiles')
       .insert({ privy_id: privyId, handle, display_name: info.name, x_handle: info.xUsername, wallet_address: info.solanaWallet })

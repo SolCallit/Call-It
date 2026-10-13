@@ -43,7 +43,7 @@ export async function GET(req: Request) {
     ready: true, available, processing, paid, total: available + processing + paid,
     calls: Object.values(by).sort((x, y) => y.usd - x.usd).slice(0, 20),
     claims: claims.map((x) => ({ ...x, sol: x.lamports ? Number(x.lamports) / 1e9 : null })),
-    claimOpen: !issue, minUsd: PAYOUT.minUsd(), maxUsd: PAYOUT.maxPerClaimUsd(),
+    claimOpen: !issue, autoPay: process.env.AUTO_PAYOUTS === '1', minUsd: PAYOUT.minUsd(), maxUsd: PAYOUT.maxPerClaimUsd(),
     rules: { minX: CALLER_MIN_X, boughtIn: [CALLER_BASE, CALLER_CAP], noBuy: CALLER_NOBUY },
   });
 }

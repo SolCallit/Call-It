@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireMe, json } from '@/lib/db/me';
 import { isMint, jupSearch, liveToken, type LiveToken } from '@/lib/market/sources';
+import { burst, dailyCount } from '@/lib/ratelimit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -68,6 +69,10 @@ export async function POST(req: Request) {
   const ctx = await requireMe(req);
   if (ctx instanceof NextResponse) return ctx;
   if (!process.env.ANTHROPIC_API_KEY) return json({ error: 'assistant_not_configured' }, 503);
+  // Every message costs money: 6 a minute and ASSISTANT_DAILY_LIMIT (default 30) a day per account.
+  if (!burst('ast:' + ctx.me.id, 6, 60_000)) return json({ error: 'Slow down a little. Try again in a minute.' }, 429);
+  const limit = Number(process.env.ASSISTANT_DAILY_LIMIT) || 30;
+  if ((await dailyCount(ctx.db, 'ast:' + ctx.me.id)) > limit) return json({ error: `You’ve used today’s ${limit} Assistant messages. Back tomorrow.` }, 429);
 
   const b = (await req.json().catch(() => ({}))) as { messages?: { role?: string; content?: unknown }[] };
   const history: Msg[] = (b.messages || [])
