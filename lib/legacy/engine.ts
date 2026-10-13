@@ -2681,7 +2681,7 @@ function chPeople(onPick,opts={}){const sel=new Set(opts.sel||[]);
    const l=(j.profiles||[]).filter(p=>p.handle!==S.me);box.innerHTML=l.length?l.map(row).join(''):`<p class="hint pad">No callers match “${esc(q)}”.</p>`}).catch(()=>{}),250)};
   m.addEventListener('click',e=>{const c=e.target.closest('.chchip');if(c){sel.delete(c.dataset.h);chips();box.querySelectorAll(`[data-h="${CSS.escape(c.dataset.h)}"]`).forEach(b=>b.classList.remove('on'));opts.change&&opts.change(sel);return}
    const b=e.target.closest('.chpr');if(!b)return;const h=b.dataset.h;if(!opts.multi)return onPick(h);sel.has(h)?sel.delete(h):sel.add(h);b.classList.toggle('on',sel.has(h));chips();opts.change&&opts.change(sel)})}}}
-function chNewDM(){if(!chOn())return connectModal(chNewDM);const pk=chPeople(h=>{closeModal();location.hash='#/messages/'+h});modal('New message','Encrypted. Just the two of you.',pk.html,m=>pk.mount(m))}
+function chNewDM(){if(!chOn())return connectModal(chNewDM);const pk=chPeople(h=>{closeModal();location.hash='#/messages/'+h});modal('New message','Private. Encrypted on Callit’s servers.',pk.html,m=>pk.mount(m))}
 function chNewMenu(){if(!chOn())return connectModal(chNewMenu);
  modal('Start a chat','',`<div class="chpick"><button class="chpk" data-cx="newdm">${ic('reply',22)}<span><b>Message someone</b><em>One-to-one, encrypted</em></span></button>
  <button class="chpk" data-cx="newgroup" data-f="private">${ic('lock',22)}<span><b>Private group</b><em>Invite-only, encrypted, no filters</em></span></button>

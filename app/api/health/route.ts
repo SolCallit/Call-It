@@ -1,3 +1,4 @@
+import { burst } from '@/lib/ratelimit';
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { PRIVY_APP_ID } from '@/lib/config';
@@ -11,7 +12,7 @@ export const dynamic = 'force-dynamic';
  * Uptime + config check. Open /api/health in a browser.
  * Reports which pieces are configured and reachable. Never returns secret values.
  */
-export async function GET() {
+export async function GET(req: Request) {
   const env = {
     privy_app_id: !!process.env.NEXT_PUBLIC_PRIVY_APP_ID,
     privy_secret: !!process.env.PRIVY_APP_SECRET,
@@ -95,6 +96,19 @@ export async function GET() {
   }
   chat.encryption_key = chatKeyReady() ? 'ok' : 'missing: set CHAT_KEY (64 hex characters) in Vercel, then redeploy';
   const push = pushIssue() || 'ok';
+  // Assistant: key present, and one tiny live call so we know the key and model actually work.
+  let assistant: string = process.env.ANTHROPIC_API_KEY ? 'key_set' : 'not_configured';
+  if (process.env.ANTHROPIC_API_KEY && new URL(req.url).searchParams.get('ai') === '1' && burst('health-ai', 3, 60_000)) {
+    try {
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+        body: JSON.stringify({ model: process.env.ASSISTANT_MODEL || 'claude-sonnet-5-5', max_tokens: 5, messages: [{ role: 'user', content: 'ping' }] }),
+      });
+      assistant = r.ok ? 'working' : `error_${r.status}`;
+    } catch { assistant = 'unreachable'; }
+  }
+  const auto_payouts = process.env.AUTO_PAYOUTS === '1' ? 'on' : 'off';
   const welcome_email = process.env.RESEND_API_KEY && process.env.EMAIL_FROM ? 'configured' : 'not_configured';
 
   const ok = Object.values(env).every(Boolean) && privy_jwks === 'ok' && profiles_table === 'ok' && notifications_table === 'ok'
@@ -104,5 +118,5 @@ export async function GET() {
     : media_bucket !== 'ok' ? 'Media bucket missing: it is created automatically on the first image upload, or run supabase/migrations/0004_repair_posts_and_media.sql'
     : edit4 !== 'ok' ? 'Run supabase/migrations/0005_bookmarks_social_notifs_usernames.sql in Supabase → SQL Editor (bookmarks, social notifications, usernames)'
     : null;
-  return NextResponse.json({ ok, service: 'callit-web', time: new Date().toISOString(), env, privy_jwks, privy_login, profiles_table, notifications_table, social_tables: social, media_bucket, bookmarks_and_social_notifs: edit4, fix, welcome_email, chat, push });
+  return NextResponse.json({ ok, service: 'callit-web', time: new Date().toISOString(), env, privy_jwks, privy_login, profiles_table, notifications_table, social_tables: social, assistant, auto_payouts, admin_by: process.env.ADMIN_WALLETS ? 'wallet' : process.env.ADMIN_HANDLES ? 'handle' : 'none', media_bucket, bookmarks_and_social_notifs: edit4, fix, welcome_email, chat, push });
 }

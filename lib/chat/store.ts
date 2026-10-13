@@ -60,7 +60,7 @@ export async function shapeMessages(db: SupabaseClient, chatId: string, rows: Ms
     const { data } = await db.from('chat_messages').select(MSG_COLS).in('id', missing).eq('chat_id', chatId);
     ((data || []) as unknown as MsgRow[]).forEach((r) => byId.set(r.id, r));
   }
-  return rows.map((r) => {
+  const out = rows.map((r) => {
     const q = r.reply_to ? byId.get(r.reply_to) : null;
     return {
       id: r.id,
@@ -73,6 +73,19 @@ export async function shapeMessages(db: SupabaseClient, chatId: string, rows: Ms
       reply: q ? { id: q.id, from: q.profiles?.handle || null, body: q.deleted_at ? '' : bodyOf(chatId, q.body, q.enc).slice(0, 140) } : null,
     };
   });
+  return signAttachments(db, out);
+}
+
+/* Chat files live in a PRIVATE bucket. Messages store a stable reference; members only ever get
+   short-lived signed links, handed out after the membership check in /api/chat/messages. */
+const CHAT_REF = /https:\/\/[^\s\]|]+\/storage\/v1\/object\/(?:public|sign)\/chat\/([^\s\]|?]+)(?:\?[^\s\]|]*)?/g;
+async function signAttachments(db: SupabaseClient, msgs: Msg[]): Promise<Msg[]> {
+  const paths = new Set<string>();
+  for (const m of msgs) for (const x of m.body.matchAll(CHAT_REF)) paths.add(decodeURIComponent(x[1]));
+  if (!paths.size) return msgs;
+  const { data } = await db.storage.from('chat').createSignedUrls([...paths], 6 * 3600);
+  const map = new Map((data || []).filter((d) => d.signedUrl && d.path).map((d) => [d.path as string, d.signedUrl as string]));
+  return msgs.map((m) => ({ ...m, body: m.body.replace(CHAT_REF, (all, p) => map.get(decodeURIComponent(p)) || all) }));
 }
 
 /** Adds a member (or re-activates one). Banned people stay out. */

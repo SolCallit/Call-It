@@ -54,11 +54,13 @@ async function chatUpload(ctx: Exclude<Awaited<ReturnType<typeof requireMe>>, Ne
   const put = () => ctx.db.storage.from('chat').upload(path, bytes, { contentType: m[1], cacheControl: '31536000', upsert: false });
   let up = await put();
   if (up.error && /bucket not found/i.test(up.error.message)) {
-    const mk = await ctx.db.storage.createBucket('chat', { public: true, fileSizeLimit: CHAT_MAX, allowedMimeTypes: Object.keys(CHAT_TYPES) });
+    const mk = await ctx.db.storage.createBucket('chat', { public: false, fileSizeLimit: CHAT_MAX, allowedMimeTypes: Object.keys(CHAT_TYPES) });
     if (mk.error && !/already exists/i.test(mk.error.message)) return json({ error: 'upload_failed', detail: mk.error.message }, 500);
     up = await put();
   }
   if (up.error) return json({ error: 'upload_failed', detail: up.error.message }, 500);
-  const { data: pub } = ctx.db.storage.from('chat').getPublicUrl(path);
-  return json({ url: pub.publicUrl });
+  // Private bucket: hand back a signed link. Messages re-sign it for members every time they load.
+  const { data: sig } = await ctx.db.storage.from('chat').createSignedUrl(path, 6 * 3600);
+  if (!sig?.signedUrl) return json({ error: 'upload_failed' }, 500);
+  return json({ url: sig.signedUrl });
 }
