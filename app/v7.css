@@ -27,11 +27,16 @@
 .post:has(.stamps) .ccard,.tpanel:has(.stamps){margin-top:16px}
 @media (max-width:520px){.stamps{right:10px;top:-11px}.stamp{min-width:56px;padding:2px 8px 1px}.stamp b{font-size:11px}.ccard .cr3{gap:10px}}
 
-/* ---------- 2. Messages FAB spins like the Make-a-call button ---------- */
-.mfab svg{transition:rotate .6s cubic-bezier(.3,1.4,.5,1)}
-@media (any-hover:hover){.mfab:hover svg{rotate:360deg}}
-.mfab.hov svg,.mfab:active svg{rotate:360deg}
-.fab svg{transition:rotate .45s cubic-bezier(.3,1.4,.5,1)}
+/* ---------- 2. Make-a-call + Messages buttons: no spin, a soft heartbeat pulse ---------- */
+.fab svg,.mfab svg,.fab:hover svg,.fab.hov svg,.mfab:hover svg,.mfab.hov svg{rotate:0deg!important;transition:none}
+.fab,.mfab{outline:2px solid transparent;animation:fabpulse 2.4s ease-out infinite}
+.mfab{animation:fabin .7s cubic-bezier(.3,1.5,.5,1) .4s both,fabpulse 2.4s ease-out 1.2s infinite}
+.fab{animation:fabin .7s var(--spring) .3s both,fabpulse 2.4s ease-out 1s infinite}
+.fab svg,.mfab svg{animation:fabbeat 2.4s ease-in-out infinite}
+.mfab svg{animation-delay:1.2s}
+@keyframes fabpulse{0%{outline-color:color-mix(in srgb,var(--hi) 70%,transparent);outline-offset:0}75%,100%{outline-color:transparent;outline-offset:14px}}
+@keyframes fabbeat{0%,100%{scale:1}10%{scale:1.14}20%{scale:1}30%{scale:1.08}40%{scale:1}}
+@media (prefers-reduced-motion:reduce){.fab,.mfab,.fab svg,.mfab svg{animation:none}}
 
 /* ---------- 3. Chat: narrower desktop column, logo attach button, plane send ---------- */
 @media (min-width:761px){

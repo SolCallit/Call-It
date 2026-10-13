@@ -2,6 +2,7 @@ import { NextResponse, after } from 'next/server';
 import { requireMe, json, isMint, num, str } from '@/lib/db/me';
 import { rpc } from '@/lib/solana/rpc';
 import { liveFeeBps } from '@/lib/fees/model';
+import { solPrice } from '@/lib/payouts/payout';
 import { onTrade } from '@/lib/alerts/triggers';
 
 export const runtime = 'nodejs';
@@ -10,16 +11,36 @@ export const dynamic = 'force-dynamic';
 const KINDS = ['buy', 'sell', 'swap', 'withdraw', 'deposit'];
 const SIG = /^[1-9A-HJ-NP-Za-km-z]{64,100}$/;
 
-/** True when `wallet` signed the transaction on-chain. null = couldn't check right now. */
-async function signedBy(sig: string, wallet: string): Promise<boolean | null> {
+const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+const WSOL = 'So11111111111111111111111111111111111111112';
+
+type TokBal = { accountIndex: number; mint: string; owner?: string; uiTokenAmount: { uiAmount: number | null } };
+type RpcTx = {
+  blockTime: number | null;
+  transaction: { message: { header: { numRequiredSignatures: number }; accountKeys: string[] } };
+  meta: { err: unknown; fee: number; preBalances: number[]; postBalances: number[]; preTokenBalances?: TokBal[]; postTokenBalances?: TokBal[] } | null;
+};
+
+/** What the chain says about this transaction for `wallet`. null = couldn't check right now. */
+async function onChain(sig: string, wallet: string): Promise<{ signed: boolean; ok: boolean; ageMs: number; sol: number; usdc: number } | null> {
   for (let i = 0; i < 3; i++) {
     try {
-      const tx = await rpc<{ transaction: { message: { header: { numRequiredSignatures: number }; accountKeys: string[] } } } | null>(
-        'getTransaction', [sig, { encoding: 'json', maxSupportedTransactionVersion: 0, commitment: 'confirmed' }],
-      );
+      const tx = await rpc<RpcTx | null>('getTransaction', [sig, { encoding: 'json', maxSupportedTransactionVersion: 0, commitment: 'confirmed' }]);
       if (tx) {
         const m = tx.transaction.message;
-        return m.accountKeys.slice(0, m.header.numRequiredSignatures).includes(wallet);
+        const signed = m.accountKeys.slice(0, m.header.numRequiredSignatures).includes(wallet);
+        const idx = m.accountKeys.indexOf(wallet);
+        const meta = tx.meta;
+        // Net SOL moved by the wallet (network fee added back), plus wrapped SOL and USDC it owns.
+        let sol = 0, usdc = 0;
+        if (meta && idx >= 0) sol = (meta.postBalances[idx] - meta.preBalances[idx] + (idx === 0 ? meta.fee : 0)) / 1e9;
+        const tok = (list: TokBal[] | undefined, mint: string) =>
+          (list || []).filter((b) => b.mint === mint && b.owner === wallet).reduce((a, b) => a + (Number(b.uiTokenAmount.uiAmount) || 0), 0);
+        if (meta) {
+          sol += tok(meta.postTokenBalances, WSOL) - tok(meta.preTokenBalances, WSOL);
+          usdc = tok(meta.postTokenBalances, USDC) - tok(meta.preTokenBalances, USDC);
+        }
+        return { signed, ok: !!meta && !meta.err, ageMs: tx.blockTime ? Date.now() - tx.blockTime * 1000 : Infinity, sol, usdc };
       }
     } catch { /* retry */ }
     await new Promise((r) => setTimeout(r, 1500));
@@ -54,14 +75,25 @@ export async function POST(req: Request) {
   if (typeof b.signature !== 'string' || !SIG.test(b.signature)) return json({ error: 'invalid_signature' }, 400);
   if (!me.wallet_address) return json({ error: 'no_wallet' }, 400);
 
-  const verified = await signedBy(b.signature, me.wallet_address);
-  if (verified === false) return json({ error: 'not_your_transaction' }, 403);
+  const chain = await onChain(b.signature, me.wallet_address);
+  if (chain && !chain.signed) return json({ error: 'not_your_transaction' }, 403);
+  const verified: boolean | null = chain ? chain.ok : null;
+  const trade0 = b.kind === 'buy' || b.kind === 'sell' || b.kind === 'swap';
+  /* Trade value comes from the chain, never from the browser: SOL or USDC the wallet actually moved.
+     The client's number is only allowed to be lower. Old or failed transactions earn nothing. */
+  let usdValue = num(b.usd_value);
+  if (trade0) {
+    const sp = chain && chain.sol !== 0 ? await solPrice() : null;
+    const real = chain ? Math.max(Math.abs(chain.sol) * (sp || 0), Math.abs(chain.usdc)) : 0;
+    const fresh = !!chain && chain.ok && chain.ageMs < 15 * 60e3;
+    usdValue = fresh && real > 0 ? Math.min(usdValue && usdValue > 0 ? usdValue : real, real * 1.05) : 0;
+  }
 
   const row = {
     profile_id: me.id, wallet: me.wallet_address, kind: b.kind, signature: b.signature,
     in_mint: isMint(b.in_mint) ? b.in_mint : null, in_amount: num(b.in_amount),
     out_mint: isMint(b.out_mint) ? b.out_mint : null, out_amount: num(b.out_amount),
-    usd_value: num(b.usd_value), to_address: isMint(b.to_address) ? b.to_address : null,
+    usd_value: usdValue, to_address: isMint(b.to_address) ? b.to_address : null,
     call_ref: typeof b.call_ref === 'string' || typeof b.call_ref === 'number' ? String(b.call_ref).slice(0, 64) : null,
     label: str(b.label, 160) || null, verified: verified === true,
   };
