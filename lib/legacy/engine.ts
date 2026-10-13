@@ -59,6 +59,8 @@ const tokav=s=>{const t=T[s],lab=t&&t.sym?t.sym:String(s),ca=t&&(t.ca||t.key),mi
 const symOf=k=>T[k]&&T[k].sym||k;
 
 const P={
+ send:'<path d="M21 3 10.5 13.5"/><path d="M21 3l-6.5 18-4-7.5L3 9.5z"/>',
+ clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
  grip:'<circle cx="9" cy="6" r="1.3"/><circle cx="15" cy="6" r="1.3"/><circle cx="9" cy="12" r="1.3"/><circle cx="15" cy="12" r="1.3"/><circle cx="9" cy="18" r="1.3"/><circle cx="15" cy="18" r="1.3"/>',
  pin:'<path d="M9 3h6l-1 6 3 3v1H7v-1l3-3-1-6z"/><path d="M12 13v8"/>',
  cog:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/>',
@@ -131,6 +133,9 @@ Object.assign(P,{bot:'<rect x="4" y="8" width="16" height="12" rx="4"/><path d="
  stop:'<rect x="6" y="6" width="12" height="12" rx="2"/>',palette:'<path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.9-.6-1.3-.6-2.1 0-.9.7-1.5 1.6-1.5H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7" r="1"/>'});
 /* Device preferences (Settings page). */
 const PREF=(()=>{try{return JSON.parse(localStorage.getItem('callit.prefs')||'{}')||{}}catch(_){return {}}})();
+/* Buy amount chips: the standard four plus the user's own custom default, smallest first. */
+const BUY_STD=['0.1','0.25','0.5','1'];
+const buyPresets=()=>{const c=PREF.buy&&!BUY_STD.includes(PREF.buy)?[PREF.buy]:[];return [...BUY_STD,...c].sort((a,b)=>+a-+b)};
 const prefSave=()=>{try{localStorage.setItem('callit.prefs',JSON.stringify(PREF))}catch(_){}};
 const prefApply=()=>{if(typeof document==='undefined')return;document.body.classList.toggle('calm',PREF.motion==='off');document.body.classList.toggle('hidebal',PREF.hidebal==='on')};
 /* Referral: anyone arriving from someone's share link is remembered as theirs. */
@@ -279,17 +284,22 @@ function who(h){const n=nameOf(h);return `<a class="pwho" href="#/profile/${esc(
 function fromRow(r){if(!r||!r.handle)return null;if(r.avatar_url)AVURL[r.handle]=r.avatar_url;if(r.display_name)DN[r.handle]=r.display_name;
  if(!C[r.handle])C[r.handle]={h:r.handle,win:0,avg:0,calls:0,best:0,followers:0,real:1};
  const k={id:r.id,srv:1,c:r.handle,kind:r.kind,src:r.source||'app',srcLabel:r.source_label||'',peak:+r.peak_x||0,thesis:r.body||'',media:r.media||[],likes:r.likes||0,reposts:r.reposts||0,replies:r.replies||0,views:Math.max(1,(r.likes||0)*9+(r.replies||0)*14),liked:!!r.liked,reposted:!!r.reposted,horizon:r.horizon||null,quote:r.quote_ref||null,quotes:+r.quotes||0};
- if(r.kind==='meme'){Object.assign(k,{t:r.mint,entry:+r.entry_mc,target:r.target_mc?+r.target_mc:null,buy:+r.buy_usd||0,snap:{sym:r.token_sym,name:r.token_name}})}
+ if(r.kind==='meme'){Object.assign(k,{t:r.mint,entry:+r.entry_mc,target:r.target_mc?+r.target_mc:null,buy:+r.buy_usd||0,snap:{sym:r.token_sym,name:r.token_name},hi:Math.max(+r.hi_x||0,+r.peak_x||0),hit:r.hit_at||r.target_at||null,born:Date.parse(r.created_at)||0});if(r.sold_pct)k.sold={pct:+r.sold_pct,at:Date.parse(r.sold_at)||0}}
  if(r.kind==='perps')k.perp={m:r.perp_market,side:r.perp_side,lev:+r.perp_leverage,entry:+r.perp_entry,target:r.perp_target?+r.perp_target:null,stop:r.perp_stop?+r.perp_stop:null};
  return liveAgo(k,Date.parse(r.created_at))}
 function mergePosts(rows){const ids=new Set(calls.map(k=>String(k.id))),add=[],miss=new Set();
- rows.map(fromRow).filter(Boolean).forEach(k=>{const i=calls.findIndex(x=>String(x.id)===String(k.id));if(i>=0){const o=calls[i];['likes','reposts','replies','liked','reposted','buy'].forEach(f=>o[f]=k[f]);return}
+ rows.map(fromRow).filter(Boolean).forEach(k=>{const i=calls.findIndex(x=>String(x.id)===String(k.id));if(i>=0){const o=calls[i];['likes','reposts','replies','liked','reposted','buy','sold','hit'].forEach(f=>o[f]=k[f]);if((k.hi||0)>(o.hi||0))o.hi=k.hi;return}
   if(!ids.has(String(k.id))){add.push(k);if(k.t&&!T[k.t])miss.add(k.t)}});
  if(add.length){const at=k=>k.at||0;calls=[...calls,...add].sort((a,b)=>(b.at?1:0)-(a.at?1:0)||at(b)-at(a))}
  if(miss.size)fetchTokens([...miss].slice(0,50)).then(l=>{l.forEach(regLive);render()}).catch(()=>{});
  return add.length}
 let PBUSY=0;
-function loadPosts(){if(PBUSY)return;PBUSY=1;API('/api/posts?limit=60').then(j=>{if(mergePosts(j.posts||[])&&['home','profile','lists','callerboard'].includes(currentRoute()))render()}).catch(()=>{}).finally(()=>{PBUSY=0})}
+/* The pinned welcome post isn't a posts row, so its likes/reposts/replies come from their own lookup. */
+let PINAT=0;function loadPinned(){if(Date.now()-PINAT<20000)return;PINAT=Date.now();
+ API('/api/posts/react?ref='+encodeURIComponent(BOTPOST.id)).then(j=>{if(!j)return;const was=JSON.stringify([BOTPOST.likes,BOTPOST.reposts,BOTPOST.replies,BOTPOST.liked,BOTPOST.reposted]);
+  Object.assign(BOTPOST,{likes:+j.likes||0,reposts:+j.reposts||0,replies:+j.replies||0,liked:!!j.liked,reposted:!!j.reposted});BOTPOST.views=Math.max(BOTPOST.likes*9+BOTPOST.replies*14,BOTPOST.likes+BOTPOST.reposts);
+  if(JSON.stringify([BOTPOST.likes,BOTPOST.reposts,BOTPOST.replies,BOTPOST.liked,BOTPOST.reposted])!==was&&['home','post'].includes(currentRoute()))render()}).catch(()=>{})}
+function loadPosts(){loadPinned();if(PBUSY)return;PBUSY=1;API('/api/posts?limit=60').then(j=>{if(mergePosts(j.posts||[])&&['home','profile','lists','callerboard'].includes(currentRoute()))render();setTimeout(peakSync,800)}).catch(()=>{}).finally(()=>{PBUSY=0})}
 function loadMe(){if(!SYNC())return;API('/api/me').then(j=>{
   S.following=new Set(j.following||[]);S.muted=new Set(j.muted||[]);S.blocked=new Set(j.blocked||[]);S.lists=j.lists||[];S.followers=j.followers||0;
   if(j.watchlist&&j.watchlist.length)S.watch=new Set(j.watchlist);
@@ -674,8 +684,22 @@ const tradable=t=>t.chain==='Solana'&&!t.prelaunch&&(!REALW()||!!t.base||!!t.liv
 /* ---------- post (X layout + pump call card) ---------- */
 const money=n=>(n>=0?'+':'−')+fmtUsd(Math.abs(n));
 function nums(k){const t=T[k.t];if(!t||t.prelaunch||!k.entry)return null;const mc=mcap(t),x=mc/k.entry,o={mc,p:(x-1)*100,up:x>=1};if(k.buy){const keep=1-((k.sold&&k.sold.pct)||0)/100;o.pos=k.buy*x*keep;o.pnl=k.buy*x-k.buy}return o}
+/* Call outcome stamps, like a desk stamp on the call card: Target hit (green) and Sold (red). */
+const hitOf=k=>!!(k.target&&k.entry&&(k.hit||(k.hi&&k.hi*k.entry>=k.target)||(T[k.t]&&!T[k.t].prelaunch&&mcap(T[k.t])>=k.target)));
+const soldAgo=k=>k.sold?(k.sold.ago||(k.sold.at?agoMin(k.sold.at):'')):'';
+const agoMin=at=>{const m=(Date.now()-at)/6e4;return m<1?'now':m<60?Math.round(m)+'m':m<1440?Math.round(m/60)+'h':Math.round(m/1440)+'d'};
+function stamps(k){if(k.kind!=='meme'||k.sponsored)return '';const hit=hitOf(k),sold=k.sold;if(!hit&&!sold)return '';
+ return `<span class="stamps" aria-hidden="true">${hit?`<span class="stamp hit"><b>Target hit</b><small>${k.hi>=1.05?k.hi.toFixed(k.hi<10?1:0)+'X peak':'✓'}</small></span>`:''}${sold?`<span class="stamp sold"><b>Sold</b>${sold.pct&&sold.pct<100?`<small>${sold.pct}%</small>`:''}</span>`:''}</span>`}
+/* Real highs since each call (from chart candles), so a quick pump between samples still counts as Target hit. */
+const PKAT={};let PKBUSY=0;
+function peakSync(){if(PKBUSY)return;const now=Date.now();
+ const due=calls.filter(k=>k.srv&&k.kind==='meme'&&k.entry&&(!k.born||now-k.born<30*864e5)&&(k.target?!k.hit:!(k.hi>0))&&now-(PKAT[k.id]||0)>6e5).slice(0,8);
+ if(!due.length)return;PKBUSY=1;due.forEach(k=>PKAT[k.id]=now);
+ fetch('/api/calls/peak?ids='+due.map(k=>k.id).join(',')).then(r=>r.ok?r.json():null).then(j=>{let ch=0;
+  Object.entries((j&&j.peaks)||{}).forEach(([id,v])=>{const k=postBy(id);if(!k)return;if(v.hi_x>(k.hi||0)+.01){k.hi=v.hi_x;ch=1}if(v.hit_at&&!k.hit){k.hit=v.hit_at;ch=1}});
+  if(ch&&['home','post','profile','callerboard'].includes(currentRoute()))render()}).catch(()=>{}).finally(()=>{PKBUSY=0})}
 function mkt(k){const n=nums(k);
- return k.buy?`<div class="cr2 num"><div><span>Position</span><b data-pos="${k.id}">${fmtUsd(n.pos)}</b></div><div><span>Profit</span><b class="${n.pnl>=0?'up':'down'}" data-pnl="${k.id}">${money(n.pnl)}</b></div></div>`
+ return k.buy?`<div class="cr2 cr3 num"><div><span>Entry</span><b>${fmtUsd(k.entry)}</b></div><div><span>Position</span><b data-pos="${k.id}">${fmtUsd(n.pos)}</b></div><div><span>Profit</span><b class="${n.pnl>=0?'up':'down'}" data-pnl="${k.id}">${money(n.pnl)}</b></div></div>`
   :`<div class="cr2 num"><div><span>Called at</span><b>${fmtUsd(k.entry)}</b></div><div><span>Since call</span><b class="${n.up?'up':'down'}" data-perf="${k.id}">${fmtPct(n.p)}</b></div></div>`}
 function post(k){if(k.kind==='random')return postRandom(k);if(k.kind==='perps')return postPerp(k);const t=T[k.t];if(!t)return '';const p=perf(k),r=rankOf(k.c);
  const right=p===null?`<div class="cr"><b>Soon</b><span>Launches ${esc(t.prelaunch)}</span></div>`:mkt(k);
@@ -684,8 +708,8 @@ function post(k){if(k.kind==='random')return postRandom(k);if(k.kind==='perps')r
  <div style="min-width:0">
   <div class="phead">${who(k.c)}${r&&!k.sponsored?`<span class="rk">#${r}</span>`:''}${k.sponsored?'<span class="tag">Sponsored</span>':''}${k.src==='telegram'?tgChip(k):''}${k.c!==S.me?`<button class="fchip${S.following.has(k.c)?' on':''}" data-act="follow" data-h="${k.c}" aria-label="${S.following.has(k.c)?'Following':'Follow'} ${esc(k.c)}">${S.following.has(k.c)?ic('check',12)+'<span>Following</span>':'+<span>Follow</span>'}</button>`:''}<time>${k.ago==='now'?'now':k.ago+' ago'}</time>${k.sponsored?'':moreBtn(k)}</div>
   <p class="ptext">${rich(k.thesis)}</p>${mediaGrid(k.media)}${quoteCard(k.quote)}
-  <a class="ccard" href="#/token/${t.key}">${tokav(t.key)}<div class="cn"><b>${esc(t.name)}</b><span>$${t.sym} <span class="chain">${t.chain}</span></span></div>${right}</a>
-  ${k.sponsored?`<div class="pnote">Paid promotion by ${esc(k.sponsor)}. Not counted in rankings.</div>`:`<div class="pnote">${k.target?`Target ${fmtUsd(k.target)} within ${esc(k.horizon)} · `:''}${k.buy?`<span class="bk">${ic('check',13)} Bought in</span>`:`<span class="bk no">No buy · earns ${EARN_RULE.noBuy}% after ${EARN_RULE.minX}X</span>`}${k.sold?` · <span class="sold">${ic('repost',13)} Caller sold ${k.sold.pct}% · ${k.sold.ago} ago</span>`:''}</div>`}
+  <a class="ccard${hitOf(k)?' ishit':''}${k.sold?' issold':''}" href="#/token/${t.key}">${tokav(t.key)}<div class="cn"><b>${esc(t.name)}</b><span>$${t.sym} <span class="chain">${t.chain}</span></span></div>${right}${stamps(k)}</a>
+  ${k.sponsored?`<div class="pnote">Paid promotion by ${esc(k.sponsor)}. Not counted in rankings.</div>`:`<div class="pnote">${k.target?(hitOf(k)?`<span class="tgt hit">${ic('target',13)} ${fmtUsd(k.target)} hit</span> · `:`Target ${fmtUsd(k.target)} within ${esc(k.horizon)} · `):''}${k.hi>=2&&!hitOf(k)?`<span class="tgt pk">Peaked ${k.hi.toFixed(1)}X</span> · `:''}${k.buy?`<span class="bk">${ic('check',13)} Bought in</span>`:`<span class="bk no">No buy · earns ${EARN_RULE.noBuy}% after ${EARN_RULE.minX}X</span>`}${k.sold?` · <span class="sold">Caller sold ${k.sold.pct}%${soldAgo(k)?' · '+soldAgo(k)+' ago':''}</span>`:''}</div>`}
   <div class="pbar"><div class="icons">
    <button class="act" data-act="reply" aria-label="Reply">${ic('reply',18)}<span class="num">${k.replies||''}</span></button>
    <button class="act${k.reposted?' reposted':''}" data-act="repost" data-id="${k.id}" aria-label="Repost">${ic('repost',18)}<span class="num">${(k.reposts||0)+quotesOf(k.id)||''}</span></button>
@@ -1609,8 +1633,9 @@ async function astSend(text){const q=String(text||'').trim();if(!q||AST.busy)ret
  finally{AST.busy=false;drawAst();const k=$('#astin');k&&k.focus()}}
 
 /* ---------- chrome ---------- */
-const NAV_A=[['home','Home'],['market','Market'],['defi','DeFi'],['callerboard','Callerboard'],['you','You'],['assistant','Assistant']];
-const NAV_B=[['messages','Messages'],['bookmarks','Bookmarks'],['lists','Lists'],['news','News'],['promote','Promote'],['about','About'],['bot','Bot'],['settings','Settings']];
+/* One tray, no Features/Products split. Messages and News sit right under Home. */
+const NAV_A=[['home','Home'],['messages','Messages'],['news','News'],['market','Market'],['defi','DeFi'],['callerboard','Callerboard'],['you','You'],['assistant','Assistant'],['bookmarks','Bookmarks'],['lists','Lists'],['promote','Promote'],['about','About'],['bot','Bot'],['settings','Settings']];
+const NAV_B=[];
 const TITLES=Object.fromEntries([...NAV_A,...NAV_B,['notifications','Notifications'],['bookmarks','Bookmarks'],['token','Token'],['community','Community'],['post','Post'],['premium','Premium'],['messages','Messages'],['admin','Admin'],['tag','Tag'],['alerts','Alerts'],['legal','Legal'],['profile','Profile'],['quotes','Quotes']]);
 P.lists=P.list;P.defi='<circle cx="12" cy="12" r="8.5"/><path d="M8 10h8l-2.5-2.5M16 14H8l2.5 2.5"/>';P.callerboard=P.leaderboard;P.you=P.profile;
 const NAVH={stack:[],cur:location.hash||'#/home',back:false};
@@ -1622,7 +1647,7 @@ function chrome(route){const link=([k,l])=>`<a href="#/${k}" class="${route===k?
  // Premium sits at the bottom of the tray, under Products (the tray scrolls on short screens).
  $('#navP').innerHTML=`<a href="#/premium" class="navprem${route==='premium'?' on':''}${isPrem(S.me)?' active':''}" title="Premium">${ic('verified',20)}<span class="lbl">${isPrem(S.me)?'Premium':'Get Premium'}</span></a>`;
  // Collapsible tray groups, remembered on this device.
- ['A','B'].forEach(g=>{const shut=!!NAVC[g],btn=document.querySelector(`[data-act="navgrp"][data-f="${g}"]`),nav=$('#nav'+g);
+ ['A','B'].forEach(g=>{const shut=false,btn=document.querySelector(`[data-act="navgrp"][data-f="${g}"]`),nav=$('#nav'+g);
   if(nav)nav.classList.toggle('shut',shut);
   if(btn){btn.setAttribute('aria-expanded',String(!shut));if(!btn.querySelector('.gchev'))btn.insertAdjacentHTML('beforeend',`<span class="gchev" aria-hidden="true">${ic('down',15)}</span>`)}});
  $('#acct').innerHTML=S.connected?`<div class="acctrow"><a class="acct" href="#/you" title="You">${avatar(S.me)}<span class="lbl" style="min-width:0"><b style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(nameOf(S.me))}</b><span class="hint num">@${esc(S.me)}</span></span></a><button class="ib logout" data-act="logout" aria-label="Log out" title="Log out">${ic('logout',19)}</button></div>`
@@ -1725,7 +1750,7 @@ function callModal(pre,draft){if(!S.connected)return connectModal(()=>callModal(
    if(tok&&!canBuy()){el.innerHTML=`<div class="buybox"><b>No buy for this one</b><p class="hint" style="margin:4px 0 0">In-app buys for ${tok.chain} tokens aren't live yet. You can still call it. Without a buy it earns the smaller caller share.</p></div>`;return}
    const a=parseFloat(sol)||0,usdV=a*T.SOL.price,got=tok?usdV*.995/tok.price:0;
    el.innerHTML=`<div class="buybox"><div class="top"><b>${tok?'Buy $'+tok.sym:'Buy in'}</b><span class="hint num" style="white-space:nowrap">Balance ${fmtAmt(S.bal.SOL)} SOL</span></div>
-   ${skip?'':`<div class="presets">${['0.1','0.25','0.5','1'].map(v=>`<button type="button" data-sol="${v}" class="${sol===v?'on':''}">${v} SOL</button>`).join('')}</div>
+   ${skip?'':`<div class="presets">${buyPresets().map(v=>`<button type="button" data-sol="${v}" class="${sol===v?'on':''}">${v} SOL</button>`).join('')}</div>
    <label class="solin"><input id="csol" class="num" inputmode="decimal" value="${esc(sol)}" aria-label="SOL to spend"><button type="button" class="mx" id="cmax">Max</button><span class="muted">SOL</span></label>
    <div class="hint num" style="margin-top:8px">${a&&usdV<1?'<b class="down">Minimum buy is $1</b>':!a?'Enter an amount':tok?`≈ ${fmtUsd(usdV)} · you get ~${fmtAmt(got)} $${tok.sym} · via Jupiter`:`≈ ${fmtUsd(usdV)} · add a token above to see what you get`}</div>`}
    ${skip?'':`<div class="asell"><label class="skip"><input type="checkbox" id="casell" ${asell?'checked':''}> Auto-sell at my target market cap</label>
@@ -1983,7 +2008,7 @@ function searchModal(){S.stf=TF_OK.includes(S.stf)?S.stf:'1h';S.sk=SK.some(x=>x[
     box.insertAdjacentHTML('afterbegin',`<div class="tsec">Wallet belongs to</div>${prow(C[p.handle])}`)}).catch(()=>{});
    SRT=setTimeout(()=>searchTokens(q).then(res=>{const el=$('#slive',m);if(!el||qv()!==q||S.sk!=='tokens')return;
     const rows=res.map(regLive).filter(Boolean),seen=new Set(),all=[...rows,...local].filter(t=>!seen.has(t.key)&&seen.add(t.key));
-    const og=ogKeys(all),top=rank(all,og).slice(0,12),copies=top.filter(t=>!og.has(t.key)&&(og.of[t.key]||[]).some(x=>og.has(x.key))).length;
+    const og=ogKeys(all),top=rank(all,og).slice(0,25),copies=top.filter(t=>!og.has(t.key)&&(og.of[t.key]||[]).some(x=>og.has(x.key))).length;
     el.innerHTML=top.length?`<div class="tsec">Tokens</div>${copies?`<p class="hint sognote">${ic('target',13)} ${copies} cop${copies>1?'ies':'y'} of an OG in here. Check the contract before you buy.</p>`:''}${top.map(t=>trow2(t,'24h',og)).join('')}`:(isMintStr(q)?`<a class="li" href="#/token/${q}" data-act="close"><div class="grow"><b>Open ${short(q)}</b><div class="hint">Look up this contract address</div></div></a>`:`<p class="hint" style="padding:8px 4px">No live token matches “${esc(q)}”.</p>`)})
     .catch(()=>{const b=$('#sbusy',m);if(b)b.textContent='Live search is unavailable right now.'}),250)};
   m.addEventListener('click',e=>{const cl=e.target.closest('[data-sclear]');if(cl){e.preventDefault();recentClear(cl.dataset.sclear);draw();return}
@@ -2062,7 +2087,7 @@ function quickBuy(sym,cid,startSide){if(!S.connected)return connectModal();const
   let body;
   if(side==='buy'){const a=parseFloat(sol)||0,usdV=a*T.SOL.price,got=usdV*.995/t.price;
    body=`<div class="buybox"><div class="top"><b>Amount</b><span class="hint num" style="white-space:nowrap">Balance ${fmtAmt(S.bal.SOL)} SOL</span></div>
-   <div class="presets">${['0.1','0.25','0.5','1'].map(v=>`<button type="button" data-sol="${v}" class="${sol===v?'on':''}">${v} SOL</button>`).join('')}</div>
+   <div class="presets">${buyPresets().map(v=>`<button type="button" data-sol="${v}" class="${sol===v?'on':''}">${v} SOL</button>`).join('')}</div>
    <label class="solin"><input id="qin" class="num" inputmode="decimal" value="${esc(sol)}" aria-label="SOL to spend"><button type="button" class="mx" id="qmax">Max</button><span class="muted">SOL</span></label>
    <div class="hint num" style="margin-top:8px">${a?`≈ ${fmtUsd(usdV)} · you get ~${fmtAmt(got)} $${esc(SY)} · via Jupiter`:'Enter an amount'}</div></div>
    ${k?`<p class="hint" style="margin:0 0 14px">${k.buy?`Buying from <b style="color:var(--text)">${esc(k.c)}</b>'s call. They bought in, so they earn a bigger share of the fee.`:`${esc(k.c)} didn't buy in, so they earn a small share once the call holds 2X.`}</p>`:''}
@@ -2371,7 +2396,7 @@ function vSettings(){const th=document.documentElement.dataset.theme||'system',c
   <div class="setf"><span>Hide bars when scrolling</span>${sg('bars',[['on','On'],['off','Off']],PREF.bars==='off'?'off':'on')}</div>
   <div class="setf"><span>Animations</span>${sg('motion',[['on','On'],['off','Reduced']],PREF.motion==='off'?'off':'on')}</div></section>
  <section class="setcard"><div class="seth">${ic('swap',18)}<b>Trading</b></div>
-  <div class="setf"><span>Default buy on calls</span>${sg('buy',[['0.1','0.1'],['0.25','0.25'],['0.5','0.5'],['1','1 SOL']],PREF.buy||'0.25')}</div>
+  <div class="setf setbuy"><span>Default buy on calls</span><div class="setbuyr">${sg('buy',[['0.1','0.1'],['0.25','0.25'],['0.5','0.5'],['1','1 SOL']],PREF.buy||'0.25')}<button type="button" class="btn sm custbuy${PREF.buy&&!BUY_STD.includes(PREF.buy)?' on':''}" data-act="buycustom">${PREF.buy&&!BUY_STD.includes(PREF.buy)?`${esc(PREF.buy)} SOL`:'Custom'} ${ic('pen',13)}</button></div></div>
   <button class="setrow" data-act="swapset">${ic('gear',18)}<span class="grow"><b>Swap settings</b><span class="hint">Slippage, speed, front-running protection and tip.</span></span>${go}</button>
   <div class="setf"><span>Hide balances</span>${sg('hidebal',[['off','Show'],['on','Hide']],PREF.hidebal==='on'?'on':'off')}</div></section>
  <section class="setcard"><div class="seth">${ic('bell',18)}<b>Notifications</b></div>${row('bell','Push alerts','Pick what pings your phone.',go,'#/alerts')}</section>
@@ -2415,8 +2440,8 @@ function sendReply(id){if(!S.connected)return connectModal();const k=postBy(id),
  const md=RDRAFT.media.slice();repliesOf(k).unshift({h:S.me,t:v,ago:'now',likes:0,rts:0,reps:0,media:md,mine:1});if(SYNC())upMedia(md).then(media=>bg('/api/posts/replies',{ref:String(k.id),body:v,media})).catch(()=>toast('Your reply couldn’t be saved'));k.replies=(k.replies||0)+1;RDRAFT.media=[];render();toast('Reply posted')}
 function vPost(id){const k=postBy(id);if(!k)return `<div class="empty"><b class="h2">This post is gone</b><p>It may have been removed.</p><a class="btn primary" href="#/home">Back to Home</a></div>`;
  if(k.t&&!T[k.t]){loadLiveToken(k.t,1);return `<div class="empty"><b>Loading this call…</b></div>`}
- const t=T[k.t],n=nums(k),r=rankOf(k.c),reps=repliesOf(k);
- const trade=k.kind==='random'?'':k.perp?perpPanel(k):n?`<div class="tpanel"><a class="ccard" href="#/token/${t.key}">${tokav(t.key)}<div class="cn"><b>${esc(t.name)}</b><span>$${t.sym} <span class="chain">${t.chain}</span></span></div>${mkt(k)}</a>
+ const t=T[k.t],n=nums(k),r=rankOf(k.c),reps=repliesOf(k);if(k.kind==='meme'&&k.srv)setTimeout(peakSync,300);
+ const trade=k.kind==='random'?'':k.perp?perpPanel(k):n?`<div class="tpanel"><a class="ccard${hitOf(k)?' ishit':''}${k.sold?' issold':''}" href="#/token/${t.key}">${tokav(t.key)}<div class="cn"><b>${esc(t.name)}</b><span>$${t.sym} <span class="chain">${t.chain}</span></span></div>${mkt(k)}${stamps(k)}</a>
   <div class="tgrid num"><div><span>Called at</span><b>${fmtUsd(k.entry)}</b></div><div><span>Market cap now</span><b class="${n.up?'up':'down'}">${fmtUsd(n.mc)}</b></div><div><span>Since call</span><b class="${n.up?'up':'down'}">${fmtPct(n.p)}</b></div>
   <div><span>Target</span><b>${k.target?fmtUsd(k.target):'None set'}</b></div><div><span>Window</span><b>${esc(k.horizon||'Open')}</b></div><div><span>To target</span><b>${k.target?Math.min(100,Math.max(0,Math.round((n.mc-k.entry)/(k.target-k.entry)*100)))+'%':'—'}</b></div></div>
   ${k.target?`<div class="tprog"><i style="width:${Math.min(100,Math.max(2,(n.mc-k.entry)/(k.target-k.entry)*100))}%"></i></div>`:''}
@@ -2426,21 +2451,22 @@ function vPost(id){const k=postBy(id);if(!k)return `<div class="empty"><b class=
   ${k.c===S.me?'':`<button class="btn sm ${S.following.has(k.c)?'ghost':'primary'}" data-act="follow" data-h="${k.c}">${S.following.has(k.c)?'Following':'Follow'}</button>`}${k.sponsored?'':moreBtn(k)}</div>
   <p class="ftext">${rich(k.thesis)}</p>${mediaGrid(k.media)}${quoteCard(k.quote)}${trade}
   ${k.sponsored?`<div class="pnote">Paid promotion by ${esc(k.sponsor)}. Not counted in rankings.</div>`:''}
-  <div class="fmeta hint">${k.ago==='now'?'Just now':k.ago+' ago'} · <b>${fmtK(k.views||0)}</b> views</div>
-  <div class="fstats"><span><b>${k.replies||0}</b> replies</span><span><b>${k.reposts||0}</b> reposts</span><span><b>${k.likes||0}</b> likes</span></div>
-  <div class="pbar fbar"><div class="icons">
-   <button class="act" data-act="reply" aria-label="Reply">${ic('reply',20)}</button>
-   <button class="act${k.reposted?' reposted':''}" data-act="repost" data-id="${k.id}" aria-label="Repost">${ic('repost',20)}</button>
-   <button class="act${k.liked?' liked':''}" data-act="like" data-id="${k.id}" aria-label="Like">${ic('heart',20,k.liked)}</button>
-   ${xacts(k,20)}<button class="act" data-act="share" data-id="${k.id}" aria-label="Share">${ic('share',20)}</button></div></div>
-  <div class="rbox" id="rbox">${S.connected?avatar(S.me):'<span class="av" style="background:var(--bg2)"></span>'}<div class="grow"><textarea id="rin" class="rin" maxlength="280" rows="1" placeholder="${S.connected?'Post your reply':'Sign in to reply'}" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px';window.drawRMedia&&window.drawRMedia()" ${S.connected?'':'disabled'}></textarea><div id="rmedia"></div>
-   <div class="rfoot">${S.connected?attachBar():''}<button class="btn primary sm" id="rgo" data-act="${S.connected?'rsend':'connect'}" data-id="${k.id}" ${S.connected?'disabled':''}>${S.connected?'Reply':'Sign in'}</button></div></div></div></article>
- <div class="replies">${reps.map((x,ri)=>`<div class="rep"><a href="#/profile/${x.h}" aria-label="Open @${esc(x.h)}'s profile">${avatar(x.h)}</a><div class="grow"><div class="phead" style="margin:0"><span class="pname">${esc(nameOf(x.h))}</span><span class="hint">@${esc(x.h)}</span><time>${x.ago==='now'?'now':x.ago}</time></div>
-  <div class="hint" style="font-size:13px">Replying to <span style="color:var(--hi)">@${esc(k.c)}</span></div>${x.t?`<p class="ptext" style="margin:4px 0 0">${rich(x.t)}</p>`:''}${mediaGrid(x.media)}
-  <div class="rbar"><button class="act" data-act="rrep" data-h="${esc(x.h)}" aria-label="Reply to @${esc(x.h)}">${ic('reply',17)}<span class="num">${x.reps||''}</span></button>
-  <button class="act${x.rted?' reposted':''}" data-act="rrt" data-p="${k.id}" data-i="${ri}" aria-label="Repost">${ic('repost',17)}<span class="num">${x.rts||''}</span></button>
-  <button class="act${x.liked?' liked':''}" data-act="rlike" data-p="${k.id}" data-i="${ri}" aria-label="Like">${ic('heart',17,x.liked)}<span class="num">${x.likes||''}</span></button>
-  <button class="act" data-act="share" data-id="${k.id}" aria-label="Share">${ic('share',17)}</button></div></div></div>`).join('')||'<div class="empty"><b>No replies yet</b><p>Be the first to reply.</p></div>'}</div>`}
+  <div class="fmeta2"><span>${ic('clock',13)} ${k.ago==='now'?'Just now':k.ago+' ago'}</span><span>${ic('views',13)} ${fmtK(k.views||0)} ${(k.views||0)===1?'view':'views'}</span>${k.kind==='meme'?`<span>${ic('target',13)} Call</span>`:''}</div>
+  <div class="fdock" role="group" aria-label="Post actions">
+   <button class="act" data-lbl="Reply" data-act="reply" aria-label="Reply">${ic('reply',19)}<span class="num">${k.replies||''}</span></button>
+   <button class="act${k.reposted?' reposted':''}" data-lbl="Repost" data-act="repost" data-id="${k.id}" aria-label="Repost">${ic('repost',19)}<span class="num">${(k.reposts||0)+quotesOf(k.id)||''}</span></button>
+   <button class="act${k.liked?' liked':''}" data-lbl="Like" data-act="like" data-id="${k.id}" aria-label="Like">${ic('heart',18,k.liked)}<span class="num">${k.likes||''}</span></button>
+   ${xacts(k,19).replace('data-act="track"','data-lbl="Watch" data-act="track"').replace('data-act="bmark"','data-lbl="Save" data-act="bmark"')}
+   <button class="act" data-lbl="Share" data-act="share" data-id="${k.id}" aria-label="Share">${ic('share',19)}</button></div>
+  <div class="rcomp" id="rbox">${S.connected?avatar(S.me):`<span class="av rcav">${ic('pen',16)}</span>`}<div class="grow">
+   <textarea id="rin" class="rin" maxlength="280" rows="1" placeholder="${S.connected?(k.kind==='meme'?'Your take on this call…':'Add your take…'):'Sign in to join the thread'}" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px';window.drawRMedia&&window.drawRMedia()" ${S.connected?'':'disabled'}></textarea><div id="rmedia"></div>
+   <div class="rfoot">${S.connected?attachBar():'<span class="grow"></span>'}<button class="btn primary rsendb" id="rgo" data-act="${S.connected?'rsend':'connect'}" data-id="${k.id}" ${S.connected?'disabled':''} aria-label="${S.connected?'Send reply':'Sign in'}">${S.connected?ic('send',17)+'<span>Send</span>':'Sign in'}</button></div></div></div></article>
+ <div class="rhd"><b>Thread</b><span class="num">${reps.length}</span></div>
+ <div class="replies rthread">${reps.map((x,ri)=>`<div class="rep rbub"><a href="#/profile/${x.h}" aria-label="Open @${esc(x.h)}'s profile">${avatar(x.h)}</a><div class="grow rbody"><div class="phead" style="margin:0"><span class="pname">${esc(nameOf(x.h))}</span><span class="hint">@${esc(x.h)}</span><time>${x.ago==='now'?'now':x.ago}</time></div>
+  ${x.t?`<p class="ptext" style="margin:4px 0 0">${rich(x.t)}</p>`:''}${mediaGrid(x.media)}
+  <div class="rbar"><button class="act" data-act="rrep" data-h="${esc(x.h)}" aria-label="Reply to @${esc(x.h)}">${ic('reply',16)}<span class="num">${x.reps||''}</span></button>
+  <button class="act${x.rted?' reposted':''}" data-act="rrt" data-p="${k.id}" data-i="${ri}" aria-label="Repost">${ic('repost',16)}<span class="num">${x.rts||''}</span></button>
+  <button class="act${x.liked?' liked':''}" data-act="rlike" data-p="${k.id}" data-i="${ri}" aria-label="Like">${ic('heart',16,x.liked)}<span class="num">${x.likes||''}</span></button></div></div></div>`).join('')||`<div class="rempty"><span class="rempty-ic">${ic('reply',22)}</span><b>Quiet in here</b><p>Start the thread. First take gets seen.</p></div>`}</div>`}
 
 /* ---------- share ---------- */
 const postURL=id=>location.href.split('#')[0]+'#/post/'+id;
@@ -2602,9 +2628,9 @@ function chComposer(id){const t=CH.th[id],c=t&&t.chat;if(!c)return '';
  if(!chOn())return `<div class="composer chcbar"><div class="grow"><b>Sign in to chat</b><div class="hint">${c.kind==='public'?'Anyone can read. Sign in to talk.':''}</div></div><button class="btn primary" data-act="connect">Sign in</button></div>`;
  if(c.kind==='public'&&!c.role)return `<div class="composer chcbar"><div class="grow"><b>${esc(c.title||'Public group')}</b><div class="hint">${fmtK(c.members||0)} members · guarded</div></div><button class="btn primary" data-cx="join" data-f="${id}">${ic('plus',16)} Join group</button></div>`;
  const ph=c.kind==='dm'?`Message ${c.peer?'@'+c.peer.handle:''}`:c.kind==='private'?'Message the squad':'Say it in public. Drop a CA';
- return `<div class="composer chcomp">${chReplyBar(id)}<div class="chcrow"><button class="chtool" data-cx="attach" data-f="${id}" aria-label="Send a photo or file">${ic('plus',20)}</button><div class="chfield"><textarea id="chin" class="input" rows="1" maxlength="1000" placeholder="${esc(ph)}" data-f="${id}">${esc(CH.draft[id]||'')}</textarea>
+ return `<div class="composer chcomp">${chReplyBar(id)}<div class="chcrow"><button class="chtool chlogo" data-cx="attach" data-f="${id}" aria-label="Send a photo or file"><span class="mark" aria-hidden="true"></span><i class="chplus" aria-hidden="true">${ic('plus',11)}</i></button><div class="chfield"><textarea id="chin" class="input" rows="1" maxlength="1000" placeholder="${esc(ph)}" data-f="${id}">${esc(CH.draft[id]||'')}</textarea>
  <button class="chmic" data-cx="voice" data-f="${id}" aria-label="Record a voice note">${ic('mic',19)}</button></div>
- <button class="chsend" data-cx="send" data-f="${id}" aria-label="Send"><span class="mark" aria-hidden="true"></span></button></div><div class="chrec" id="chrec" hidden></div></div>`}
+ <button class="chsend chplane" data-cx="send" data-f="${id}" aria-label="Send">${ic('send',21)}</button></div><div class="chrec" id="chrec" hidden></div></div>`}
 function vThread(id){const t=chThread(id);if(!t.chat&&!t.busy&&!t.err)loadThread(id);
  if(t.err&&!t.chat)return `<div class="chempty"><b>${esc(t.err)}</b><p>${t.err.includes('invite')?'Ask a member for a fresh link.':''}</p><div class="chcta"><a class="btn primary" href="#/messages">Back to messages</a></div></div>`;
  if(!t.chat)return `<div class="rhead chhead"><span class="chskel av"></span><div class="grow"><span class="chskel ln"></span></div></div><div class="msgs chmsgs"><div class="chskel"></div><div class="chskel r"></div><div class="chskel"></div></div>`;
@@ -3140,6 +3166,10 @@ document.addEventListener('click',e=>{
   bpreset:()=>{bpSet(BP_DEF.slice());Object.keys(bpW).forEach(k=>delete bpW[k]);bpWSave();bpApplyFeed();closeModal();drawRail();toast('Panels reset')},
   pushtest:()=>pushTest(b),
   wcard:()=>{if(S.wcard===b.dataset.f)return;if(slideTo(b)&&!b.dataset.slid){b.dataset.slid=1;return setTimeout(()=>b.isConnected?b.click():null,170)}S.wcard=b.dataset.f;render()},
+  buycustom:()=>{const cur=PREF.buy&&!BUY_STD.includes(PREF.buy)?PREF.buy:'';
+   modal('Custom buy amount','Your one-tap buy on calls. Any amount from 0.01 to 100 SOL.',`<label class="solin ssin"><input id="cbamt" class="num" inputmode="decimal" placeholder="e.g. 0.3" value="${esc(cur)}" aria-label="Buy amount in SOL"><span class="muted">SOL</span></label><div class="err" id="cberr"></div><button class="btn primary block" id="cbgo">Save amount</button>`,
+    m=>{const i=$('#cbamt',m);setTimeout(()=>i.focus(),60);const go=()=>{const v=parseFloat(String(i.value).replace(',','.'));if(!(v>=0.01&&v<=100)){$('#cberr',m).textContent='Pick an amount between 0.01 and 100 SOL.';return}
+     PREF.buy=String(+v.toFixed(4));prefSave();closeModal();render();toast(`Default buy set to ${PREF.buy} SOL`)};$('#cbgo',m).onclick=go;i.onkeydown=e=>{if(e.key==='Enter')go()}})},
   pref:()=>{PREF[b.dataset.f]=b.dataset.v;prefSave();prefApply();if(b.dataset.f==='bars'&&b.dataset.v==='off')document.body.classList.remove('bars-off');render()},
   nexp:()=>{const it=b.closest('.nitem');if(!it)return;const o=!it.classList.contains('open');it.classList.toggle('open',o);b.setAttribute('aria-expanded',o)},
   wppick:()=>chWpOpen('*'),
@@ -3361,8 +3391,8 @@ render();
 document.addEventListener('keydown',e=>{if(e.target.id==='astin'&&e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();astSend(e.target.value)}});
 document.addEventListener('input',e=>{if(e.target.id!=='astin')return;const t=e.target;t.style.height='auto';t.style.height=Math.min(t.scrollHeight,160)+'px'});
 /* ---------- motion helpers ---------- */
-(()=>{const RIP='.btn,.lxb,.buyb,.upg,.fab,.chip,.tpick,.mtabs button';
- const HOV='.btn,.lxb,.buyb,.upg,.fab,.chip,.tpick,.mtabs button,.pfollow button,.soc a,.bnadd,.ib,.tabs button,.tscroll>button,.scard,.rcard,.act,.notif,.comm,.cats button,.ccard,.astart';
+(()=>{const RIP='.btn,.lxb,.buyb,.upg,.fab,.mfab,.chip,.tpick,.mtabs button';
+ const HOV='.btn,.lxb,.buyb,.upg,.fab,.mfab,.chip,.tpick,.mtabs button,.pfollow button,.soc a,.bnadd,.ib,.tabs button,.tscroll>button,.scard,.rcard,.act,.notif,.comm,.cats button,.ccard,.astart';
  let hovEl=null;const setHov=el=>{if(hovEl===el)return;hovEl&&hovEl.classList.remove('hov');hovEl=el;el&&el.classList.add('hov')};
  document.addEventListener('pointerover',e=>{if(e.pointerType==='mouse')return;setHov(e.target.closest(HOV))},{passive:true});
  document.addEventListener('pointerout',e=>{if(e.pointerType==='mouse')return;if(hovEl&&!hovEl.contains(e.relatedTarget))setHov(null)},{passive:true});

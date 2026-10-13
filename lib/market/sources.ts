@@ -200,6 +200,70 @@ export async function jupSearch(q: string, revalidate = 6): Promise<LiveToken[]>
   return Array.isArray(data) ? data.filter((j) => j && j.id).map(fromJup) : [];
 }
 
+/**
+ * Name/ticker search across every source we have, so fresh pump.fun launches and their copycats
+ * show up like they do on GMGN. Jupiter's index skips many tiny or brand-new tokens, so we also ask
+ * DexScreener's pair search and pump.fun's own search, then enrich and de-duplicate by mint.
+ */
+export async function searchAll(q: string): Promise<LiveToken[]> {
+  if (isMint(q)) return liveToken(q).then((t) => (t ? [t] : []));
+  const ql = q.toLowerCase();
+  const [jup, ds, pump] = await Promise.all([
+    jupSearch(q, 15),
+    getJSON<{ pairs?: (DsPair & { chainId?: string })[] }>(`${DEXS}/latest/dex/search?q=${encodeURIComponent(q)}`, 15),
+    pumpSearch(q),
+  ]);
+  const byMint = new Map<string, LiveToken>();
+  for (const t of jup) byMint.set(t.mint, t);
+  // DexScreener: group pairs by base token, keep Solana only.
+  const groups = new Map<string, DsPair[]>();
+  for (const p of ds?.pairs || []) {
+    if (p.chainId && p.chainId !== 'solana') continue;
+    const m = p.baseToken?.address;
+    if (!m) continue;
+    if (!groups.has(m)) groups.set(m, []);
+    groups.get(m)!.push(p);
+  }
+  for (const [m, pairs] of groups) {
+    const t = withPair(byMint.get(m) || null, pairs);
+    if (t) byMint.set(m, t);
+  }
+  // pump.fun: anything still missing gets enriched through Jupiter/DexScreener, else kept as-is.
+  const missing = pump.filter((p) => !byMint.has(p.mint));
+  if (missing.length) {
+    const rich = await jupMany(missing.map((p) => p.mint));
+    for (const p of missing) {
+      const r = rich.find((x) => x.mint === p.mint);
+      byMint.set(p.mint, r ? { ...r, icon: r.icon || p.icon, createdAt: r.createdAt || p.createdAt, launchpad: r.launchpad || 'pump.fun' } : p);
+    }
+  }
+  const score = (t: LiveToken) => {
+    const s = (t.sym || '').toLowerCase(), n = (t.name || '').toLowerCase();
+    return s === ql || n === ql ? 3 : s.startsWith(ql) || n.startsWith(ql) ? 2 : s.includes(ql) || n.includes(ql) ? 1 : 0;
+  };
+  return [...byMint.values()]
+    .filter((t) => score(t) > 0 || t.mint.toLowerCase() === ql)
+    .sort((a, b) => score(b) - score(a) || (b.mc ?? 0) - (a.mc ?? 0));
+}
+
+type PumpCoin = { mint?: string; name?: string; symbol?: string; image_uri?: string; usd_market_cap?: number; market_cap?: number; created_timestamp?: number; twitter?: string; website?: string; telegram?: string };
+
+/** pump.fun's public coin search. Best effort: it is unofficial and may refuse server traffic. */
+async function pumpSearch(q: string): Promise<LiveToken[]> {
+  const url = `https://frontend-api-v3.pump.fun/coins?searchTerm=${encodeURIComponent(q)}&limit=40&offset=0&sort=market_cap&order=DESC&includeNsfw=false`;
+  const data = await getJSON<PumpCoin[] | { coins?: PumpCoin[] }>(url, 20, { 'user-agent': 'Mozilla/5.0 (compatible; Callit/1.0)' });
+  const list = Array.isArray(data) ? data : Array.isArray(data?.coins) ? data!.coins! : [];
+  return list.filter((c) => c && c.mint && isMint(c.mint)).map((c) => ({
+    mint: c.mint!, sym: String(c.symbol || '').slice(0, 16), name: String(c.name || '').slice(0, 64), icon: c.image_uri || null,
+    price: null, mc: num(c.usd_market_cap), fdv: null, liq: null, holders: null, vol24: null,
+    chg: { m5: null, h1: null, h6: null, h24: null }, buys24: null, sells24: null, traders24: null,
+    createdAt: c.created_timestamp ? new Date(c.created_timestamp).toISOString() : null,
+    pool: null, dex: 'pumpfun', verified: false, organic: null,
+    audit: { mintOff: null, freezeOff: null, top10: null, dev: null, sus: false },
+    socials: { x: c.twitter || null, web: c.website || null, tg: c.telegram || null }, launchpad: 'pump.fun', decimals: 6,
+  }));
+}
+
 /* ---------- DexScreener ---------- */
 
 type DsPair = {

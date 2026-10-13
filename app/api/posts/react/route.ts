@@ -1,9 +1,29 @@
 import { NextResponse } from 'next/server';
-import { requireMe, json } from '@/lib/db/me';
+import { requireMe, maybeMe, dbOrNull, json } from '@/lib/db/me';
 import { notifySocial, postOwner } from '@/lib/notify/social';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+/** GET /api/posts/react?ref=<id> — counts for a built-in post (the pinned welcome post isn't a posts row). */
+export async function GET(req: Request) {
+  const ref = (new URL(req.url).searchParams.get('ref') || '').slice(0, 64);
+  const db = dbOrNull();
+  if (!db || !/^[A-Za-z0-9_-]{1,64}$/.test(ref)) return json({ likes: 0, reposts: 0, replies: 0 });
+  const [re, rp] = await Promise.all([
+    db.from('post_reactions').select('kind, profile_id').eq('post_ref', ref).limit(20000),
+    db.from('post_replies').select('post_ref', { count: 'exact', head: true }).eq('post_ref', ref).is('deleted_at', null),
+  ]);
+  const rows = (re.data || []) as { kind: string; profile_id: string }[];
+  const me = await maybeMe(req);
+  return json({
+    likes: rows.filter((x) => x.kind === 'like').length,
+    reposts: rows.filter((x) => x.kind === 'repost').length,
+    replies: rp.count || 0,
+    liked: !!me && rows.some((x) => x.kind === 'like' && x.profile_id === me.id),
+    reposted: !!me && rows.some((x) => x.kind === 'repost' && x.profile_id === me.id),
+  });
+}
 
 /** POST /api/posts/react { ref, kind: 'like'|'repost', on: boolean } */
 export async function POST(req: Request) {

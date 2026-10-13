@@ -1,0 +1,95 @@
+/* ==========================================================================
+   Callit UI pass 7 (Oct 2026). Loaded after v6.css, so these win.
+   ========================================================================== */
+
+/* ---------- 1. Call outcome stamps: Target hit (green) / Sold (red) ---------- */
+.ccard{position:relative}
+.ccard .cr3{gap:16px}
+.stamps{position:absolute;top:-12px;right:14px;display:flex;gap:6px;pointer-events:none;z-index:2}
+.stamp{--ink:var(--down);display:inline-flex;flex-direction:column;align-items:center;justify-content:center;min-width:64px;padding:3px 10px 2px;
+ border:2.5px solid var(--ink);border-radius:8px;color:var(--ink);background:color-mix(in srgb,var(--bg) 86%,var(--ink));
+ box-shadow:0 0 0 1.5px color-mix(in srgb,var(--bg) 70%,transparent) inset,0 6px 16px -8px color-mix(in srgb,var(--ink) 80%,transparent);
+ transform:rotate(-7deg);font-family:var(--display);text-transform:uppercase;letter-spacing:.08em;line-height:1;
+ background-image:radial-gradient(circle,color-mix(in srgb,var(--bg) 55%,transparent) 0 .7px,transparent 1px);background-size:5px 5px;
+ animation:stampin .55s cubic-bezier(.2,1.6,.4,1) both}
+.stamp b{font-weight:800;font-size:12.5px}
+.stamp small{font:700 9.5px/1.2 var(--body);letter-spacing:.06em;opacity:.9;margin-top:1px}
+.stamp.hit{--ink:var(--up);transform:rotate(-5deg)}
+.stamp.sold{transform:rotate(6deg)}
+.stamp+.stamp{margin-left:-4px}
+@keyframes stampin{0%{opacity:0;scale:1.9;filter:blur(2px)}60%{opacity:1;scale:.94;filter:none}100%{scale:1}}
+@media (prefers-reduced-motion:reduce){.stamp{animation:none}}
+.ccard.ishit{border-color:color-mix(in srgb,var(--up) 55%,var(--line))}
+.ccard.issold:not(.ishit){border-color:color-mix(in srgb,var(--down) 45%,var(--line))}
+.pnote .tgt{font-weight:700;display:inline-flex;align-items:center;gap:4px;vertical-align:-2px}
+.pnote .tgt.hit{color:var(--up)}
+.pnote .tgt.pk{color:var(--hi)}
+.post:has(.stamps) .ccard,.tpanel:has(.stamps){margin-top:16px}
+@media (max-width:520px){.stamps{right:10px;top:-11px}.stamp{min-width:56px;padding:2px 8px 1px}.stamp b{font-size:11px}.ccard .cr3{gap:10px}}
+
+/* ---------- 2. Messages FAB spins like the Make-a-call button ---------- */
+.mfab svg{transition:rotate .6s cubic-bezier(.3,1.4,.5,1)}
+@media (any-hover:hover){.mfab:hover svg{rotate:360deg}}
+.mfab.hov svg,.mfab:active svg{rotate:360deg}
+.fab svg{transition:rotate .45s cubic-bezier(.3,1.4,.5,1)}
+
+/* ---------- 3. Chat: narrower desktop column, logo attach button, plane send ---------- */
+@media (min-width:761px){
+ body.mwide[data-route=messages] .center,body.mwide[data-route=bookmarks] .center,body.mwide[data-route=lists] .center{max-width:760px}
+}
+#chin{resize:none}
+.chlogo{position:relative;padding:0;overflow:visible;background:transparent;border:0}
+.chlogo .mark{display:block;width:40px;height:40px;border-radius:50%;box-shadow:0 0 0 1.5px color-mix(in srgb,var(--hi) 45%,transparent),var(--raise-sm)!important}
+.chlogo .chplus{position:absolute;right:-3px;bottom:-3px;width:17px;height:17px;border-radius:50%;display:grid;place-items:center;background:var(--hi);color:#fff;box-shadow:0 0 0 2px var(--bg)}
+.chlogo:hover{transform:translateY(-2px) rotate(-8deg)}
+.chsend.chplane{width:48px;height:48px;background:var(--accent);color:var(--on-accent);
+ box-shadow:0 1px 0 rgba(255,255,255,.3) inset,0 4px 0 color-mix(in srgb,var(--accent) 55%,#000),0 12px 24px -8px rgba(77,168,255,.55)}
+.chsend.chplane svg{translate:-1px 1px}
+.chsend.chplane:hover svg{transform:translate(2px,-2px) rotate(-8deg)}
+.chsend.chplane::before,.chsend.chplane .mark{display:none}
+
+/* ---------- 4. Settings: custom default buy ---------- */
+.setbuyr{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.custbuy{display:inline-flex;align-items:center;gap:6px;border-radius:999px!important;font-weight:700}
+.custbuy.on{background:var(--accent)!important;color:var(--on-accent)!important}
+@media (max-width:520px){.setbuy{flex-wrap:wrap}.setbuyr{width:100%;justify-content:flex-start}}
+
+/* ---------- 5. Post page: Callit's own layout (meta chips, action dock, take composer, thread) ---------- */
+.fmeta2{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 4px}
+.fmeta2 span{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;background:var(--bg2);border:1px solid var(--line);
+ color:var(--muted);font:600 12.5px/1 var(--body)}
+.fmeta2 svg{opacity:.85}
+.fdock{display:grid;grid-template-columns:repeat(auto-fit,minmax(56px,1fr));gap:8px;margin:12px 0 14px}
+.fdock .act{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;height:auto;min-height:64px;padding:9px 4px 8px;border-radius:18px;
+ background:var(--bg2);border:1px solid var(--line);color:var(--text);box-shadow:var(--raise-sm);cursor:pointer;
+ transition:translate .3s cubic-bezier(.3,1.5,.5,1),box-shadow .2s,background-color .2s,color .2s}
+.fdock .act .num{font:800 14px/1 var(--body);min-height:14px;color:inherit;margin:0}
+.fdock .act .num:empty::before{content:'0';opacity:.55}
+.fdock .act::after{content:attr(data-lbl);font:600 10.5px/1 var(--body);letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.fdock .act:not(:has(.num))::before{content:'';height:0}
+@media (any-hover:hover){.fdock .act:hover{translate:0 -3px;background:var(--hover)}}
+.fdock .act.hov{translate:0 -3px;background:var(--hover)}
+.fdock .act:active{translate:0 2px;box-shadow:none}
+.fdock .act.liked{color:var(--down);border-color:color-mix(in srgb,var(--down) 45%,var(--line));background:color-mix(in srgb,var(--down) 10%,var(--bg2))}
+.fdock .act.reposted{color:var(--up);border-color:color-mix(in srgb,var(--up) 45%,var(--line));background:color-mix(in srgb,var(--up) 10%,var(--bg2))}
+.fdock .act.on{color:var(--hi);border-color:color-mix(in srgb,var(--hi) 45%,var(--line))}
+.fdock .act svg{scale:1!important}
+.rcomp{display:flex;gap:12px;padding:12px 12px 10px;border:1.5px solid var(--line);border-radius:22px;background:var(--bg2);box-shadow:var(--raise-sm);
+ transition:border-color .2s,box-shadow .2s}
+.rcomp:focus-within{border-color:color-mix(in srgb,var(--hi) 60%,var(--line));box-shadow:0 0 0 4px color-mix(in srgb,var(--hi) 15%,transparent)}
+.rcomp .rin{background:transparent;border:0;resize:none;width:100%;padding:9px 0 6px;font-size:15.5px;color:var(--text);outline:0}
+.rcomp .rfoot{border-top:1px dashed var(--line);padding-top:8px;margin-top:4px}
+.rcav{display:grid;place-items:center;background:var(--bg);color:var(--muted)}
+.rsendb{display:inline-flex;align-items:center;gap:6px;border-radius:999px!important;padding:8px 16px!important}
+.rsendb:disabled{opacity:.5}
+.rhd{display:flex;align-items:center;gap:8px;padding:18px 16px 6px;font:800 13px/1 var(--display);text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.rhd .num{min-width:22px;height:22px;padding:0 7px;border-radius:999px;display:inline-grid;place-items:center;background:var(--bg2);border:1px solid var(--line);color:var(--text);font:700 12px/1 var(--body);letter-spacing:0}
+.rthread{position:relative;padding:4px 16px 24px}
+.rthread .rbub{position:relative;display:flex;gap:10px;padding:8px 0;border:0}
+.rthread .rbub+.rbub::before{content:'';position:absolute;left:19px;top:-8px;height:16px;width:2px;border-radius:2px;background:var(--line)}
+.rthread .rbody{background:var(--bg2);border:1px solid var(--line);border-radius:4px 18px 18px 18px;padding:10px 12px 4px}
+.rthread .rbar{display:flex;gap:4px;margin-top:4px}
+.rempty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;padding:28px 16px;margin-top:4px;border:1.5px dashed var(--line);border-radius:22px;color:var(--muted)}
+.rempty-ic{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:var(--bg2);color:var(--hi);box-shadow:var(--raise-sm)}
+.rempty b{color:var(--text);font:800 16px/1.2 var(--display)}
+.rempty p{margin:0;font-size:14px}
