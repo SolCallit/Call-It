@@ -53,8 +53,10 @@ export const POINTS = { perUsd: 0.1, perTradeCap: 1000, qualified: 50, target: 1
 /** Claim limits (USD). Payouts stay off until PAYOUTS_ON=1 and a payout wallet is set. */
 export const PAYOUT = {
   minUsd: () => num(process.env.PAYOUT_MIN_USD, 1),
-  maxPerClaimUsd: () => num(process.env.PAYOUT_MAX_CLAIM_USD, 25),
-  dailyCapUsd: () => num(process.env.PAYOUT_DAILY_CAP_USD, 20),
+  // No caps by default: callers are paid whatever they earned, 24/7. The payout wallet's balance is the
+  // real limit, and the admin pause switch stops everything at once. Set these only as an emergency brake.
+  maxPerClaimUsd: () => num(process.env.PAYOUT_MAX_CLAIM_USD, Infinity),
+  dailyCapUsd: () => num(process.env.PAYOUT_DAILY_CAP_USD, Infinity),
 };
 const num = (v: string | undefined, d: number) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : d; };
 

@@ -55,7 +55,7 @@ export async function GET(req: Request) {
     cashback: { usd: cbUnclaimed, open: cbOpen, points, need: needPts, pct: CASHBACK_PCT, earned: sum(cb) },
     calls: Object.values(by).sort((x, y) => y.usd - x.usd).slice(0, 20),
     claims: claims.map((x) => ({ ...x, sol: x.lamports ? Number(x.lamports) / 1e9 : null })),
-    claimOpen: !issue, autoPay: process.env.AUTO_PAYOUTS === '1', minUsd: PAYOUT.minUsd(), maxUsd: PAYOUT.maxPerClaimUsd(),
+    claimOpen: !issue, autoPay: process.env.AUTO_PAYOUTS === '1', minUsd: PAYOUT.minUsd(), maxUsd: Number.isFinite(PAYOUT.maxPerClaimUsd()) ? PAYOUT.maxPerClaimUsd() : null,
     rules: { minX: CALLER_MIN_X, boughtIn: [CALLER_BASE, CALLER_CAP], noBuy: CALLER_NOBUY },
   });
 }
