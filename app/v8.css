@@ -201,3 +201,41 @@ body:has(.chcomp) #view>.composer,body:has(.chcbar) #view>.composer{margin-top:a
 .gface:has(.gcam) .chsig>i{display:none}
 @media (max-width:760px){.cutiles[data-n="2"]{grid-template-columns:minmax(0,1fr);grid-template-rows:1fr 1fr}
 }
+
+/* ---------- 8. Points board + monthly rewards ---------- */
+.ptshero{position:relative;overflow:hidden;margin:14px 16px 12px;padding:22px 20px 18px;border-radius:26px;border:1px solid var(--line);
+  background:linear-gradient(150deg,color-mix(in srgb,var(--hi) 22%,var(--bg2)),var(--bg2) 55%,color-mix(in srgb,var(--up) 14%,var(--bg2)));box-shadow:var(--raise)}
+.ptsglow{position:absolute;right:-80px;top:-90px;width:260px;height:260px;border-radius:50%;background:radial-gradient(closest-side,color-mix(in srgb,var(--up) 40%,transparent),transparent);pointer-events:none}
+.ptshero>*:not(.ptsglow){position:relative}
+.ptskick{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;background:color-mix(in srgb,#F2C94C 18%,transparent);color:#E9B949;font:800 12px/1 var(--body);letter-spacing:.02em}
+.ptshero h2{margin:12px 0 4px;font:800 clamp(24px,5vw,32px)/1.08 var(--display);letter-spacing:-.025em}
+.ptshero p{margin:0;color:var(--muted);max-width:440px}
+.ptsstat{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:16px}
+.ptsstat>div{padding:11px 12px;border-radius:16px;background:color-mix(in srgb,var(--bg) 70%,transparent);border:1px solid var(--line)}
+.ptsstat b{display:block;font:800 21px/1.1 var(--display)}
+.ptsstat span{display:block;margin-top:3px;font-size:11.5px;color:var(--muted)}
+.ptssoon{display:inline-block;margin-top:12px;font-size:12px;color:var(--muted)}
+.ptshow{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0 16px 4px}
+.ptshow>div{display:flex;flex-direction:column;gap:3px;padding:12px;border-radius:16px;background:var(--bg2);border:1px solid var(--line)}
+.ptshow span{color:var(--hi)}.ptshow b{font:800 15px/1.1 var(--display)}.ptshow em{font-style:normal;font-size:11.5px;color:var(--muted)}
+@media (max-width:560px){.ptshow{grid-template-columns:repeat(2,1fr)}}
+.ptlist{display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.ptrow{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--line);color:inherit;text-decoration:none;transition:background .15s}
+.ptrow:hover{background:var(--hover)}
+.ptrow.mine{background:color-mix(in srgb,var(--hi) 10%,transparent)}
+.ptrow .grow{flex:1;min-width:0;display:flex;flex-direction:column}
+.ptrow .grow b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ptrk{width:30px;text-align:center;font:800 15px/1 var(--display);color:var(--muted)}
+.ptin{flex:none;padding:4px 8px;border-radius:999px;font:700 11px/1 var(--body);background:color-mix(in srgb,var(--up) 15%,transparent);color:var(--up)}
+.ptv{font:800 16px/1 var(--display)}
+@media (max-width:420px){.ptin{display:none}}
+
+/* ---------- 9. Cashback inside the earnings card ---------- */
+.cbbox{display:flex;align-items:flex-start;gap:12px;margin-top:14px;padding:12px 14px;border-radius:16px;background:var(--bg2);border:1px dashed var(--line)}
+.cbbox.open{border-style:solid;border-color:color-mix(in srgb,var(--up) 45%,var(--line));background:color-mix(in srgb,var(--up) 8%,var(--bg2))}
+.cbic{flex:none;width:32px;height:32px;border-radius:11px;display:grid;place-items:center;background:color-mix(in srgb,var(--hi) 16%,transparent);color:var(--hi)}
+.cbbox.open .cbic{background:color-mix(in srgb,var(--up) 18%,transparent);color:var(--up)}
+.cbbox .grow{display:flex;flex-direction:column;gap:4px;min-width:0}
+.cbbox b{font:700 14.5px/1.2 var(--body)}
+.cbbar{display:block;height:7px;border-radius:999px;background:var(--line);overflow:hidden;margin-top:4px}
+.cbbar i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--hi),var(--up));transition:width .6s ease}

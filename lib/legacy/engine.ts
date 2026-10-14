@@ -1363,19 +1363,38 @@ function vToken(sym){const t=T[sym];if(!t)return isMintStr(sym)?(loadLiveToken(s
 let CALLERS={},CBUSY={};
 function loadCallers(force){const w=S.lb||'30d';if(CBUSY[w]||(!force&&CALLERS[w]&&Date.now()-CALLERS[w].at<2e4))return;CBUSY[w]=1;
  fetch('/api/leaders/callers?window='+encodeURIComponent(w)).then(r=>r.ok?r.json():{callers:[]}).then(j=>{const list=j.callers||[],sig=JSON.stringify(list),same=CALLERS[w]&&CALLERS[w].sig===sig;CALLERS[w]={at:Date.now(),list,sig};
-  list.forEach(c=>{if(c.avatar_url)AVURL[c.handle]=c.avatar_url;if(c.display_name)DN[c.handle]=c.display_name;C[c.handle]=Object.assign(C[c.handle]||{},{h:c.handle,win:c.win,avg:c.avg,calls:c.calls,best:c.best,followers:c.followers||0,pnl:c.pnl||0,real:1})});
+  list.forEach(c=>{if(c.avatar_url)AVURL[c.handle]=c.avatar_url;if(c.display_name)DN[c.handle]=c.display_name;if(c.pts!=null)SPTS[c.handle]=c.pts;C[c.handle]=Object.assign(C[c.handle]||{},{h:c.handle,win:c.win,avg:c.avg,calls:c.calls,best:c.best,followers:c.followers||0,pnl:c.pnl||0,real:1})});
   if(!same&&currentRoute()==='callerboard'&&!document.querySelector('#modal .modal'))render()}).catch(()=>{CALLERS[w]=CALLERS[w]||{at:Date.now(),list:[],sig:'[]',err:1}}).finally(()=>{CBUSY[w]=0})}
 setInterval(()=>{if(!document.hidden&&currentRoute()==='callerboard')loadCallers(true)},2e4);
 function lbActivity(n=8){const rec=calls.filter(k=>k.srv&&k.kind==='meme'&&k.t&&!k.sponsored).sort((a,b)=>(b.at||0)-(a.at||0)).slice(0,n);
  if(!rec.length)return '';return `<section class="lbfeed" aria-label="Latest calls"><div class="lbfh"><span class="stlive"><i></i>Live</span><b>Latest calls</b></div>${rec.map(k=>{const p=perf(k);return `<a class="lbfi" href="#/post/${k.id}">${avatar(k.c)}<span class="grow"><b>@${esc(k.c)}</b> called <b>$${esc(symOf(k.t))}</b> at ${fmtUsd(k.entry)}<small class="muted"> · ${esc(k.ago)}</small></span><em class="num ${p==null?'muted':p>=0?'up':'down'}">${p==null?'—':pctS(p)}</em></a>`}).join('')}</section>`}
 /* Callerboard has two views. Latest calls is just a live feed: it never touches the ranking. */
-function lbToggle(){const v=S.lbv==='latest'?'latest':'rank';return `<div class="pad" style="padding-bottom:0"><div class="seg wide lbtog" role="tablist">${[['rank','Rankings'],['latest','Latest calls']].map(([k,l])=>`<button role="tab" aria-selected="${v===k}" class="${v===k?'on':''}" data-act="lbv" data-f="${k}">${l}</button>`).join('')}</div></div>`}
+function lbToggle(){const v=S.lbv==='latest'||S.lbv==='points'?S.lbv:'rank';return `<div class="pad" style="padding-bottom:0"><div class="seg wide lbtog" role="tablist">${[['rank','Rankings'],['points','Points'],['latest','Latest calls']].map(([k,l])=>`<button role="tab" aria-selected="${v===k}" class="${v===k?'on':''}" data-act="lbv" data-f="${k}">${l}</button>`).join('')}</div></div>`}
 /* Latest calls: this week's top 10 call cards plus the live list of every new call. Rankings stay on their own tab. */
 function vLatestCalls(){if(SYNC()&&Date.now()-(S.lcAt||0)>2e4){S.lcAt=Date.now();loadPosts()}
  const top=topCalls(),act=lbActivity(40);
  return lbToggle()+top+(act?(top?'':'<div style="height:10px"></div>')+act:'')+(!top&&!act?'<div class="empty"><b class="h2">No calls yet</b><p>Every new call shows up here live. Be the first.</p><button class="btn primary" data-act="newcall">Make a call</button></div>':'')
  +'<p class="hint pad">Newest first, updated live. Tap a call to open it. This view doesn’t affect rankings.</p>'}
 const LBEMO=['👑','🥈','🥉','🏅','🎖️'];
+/* Points board: verified points this month (or all time). The top of the month board gets paid once monthly rewards switch on. */
+const PTB={};
+function loadPts(force){const p=S.ptp||'month';if(PTB['b'+p]||(!force&&PTB[p]&&Date.now()-PTB[p].at<3e4))return;PTB['b'+p]=1;
+ (SYNC()?API('/api/points?period='+p):fetch('/api/points?period='+p).then(r=>r.json())).then(j=>{PTB[p]={at:Date.now(),...j};if(p==='all')(j.board||[]).forEach(r=>{SPTS[r.handle]=r.pts});(j.board||[]).forEach(r=>{if(r.avatar)AVURL[r.handle]=r.avatar;if(r.name)DN[r.handle]=r.name});
+  if(j.me&&S.me&&p==='all')SPTS[S.me]=j.me.total;if(currentRoute()==='callerboard'&&S.lbv==='points'&&!document.querySelector('#modal .modal'))render()}).catch(()=>{PTB[p]={at:Date.now(),board:[],ready:false}}).finally(()=>{PTB['b'+p]=0})}
+function vPoints(){loadPts();const p=S.ptp||'month',d=PTB[p];
+ const left=d&&d.monthly?Math.max(0,Math.ceil((Date.parse(d.monthly.endsAt)-Date.now())/864e5)):null,top=d&&d.monthly?d.monthly.top:50;
+ const hero=`<section class="ptshero"><div class="ptsglow" aria-hidden="true"></div><span class="ptskick">${ic('crown',14)} Monthly rewards</span>
+  <h2>Top ${top} every month get paid.</h2><p>Not everyone qualifies. Anyone can. Trade on Callit, call runners, hit your targets.</p>
+  <div class="ptsstat"><div><b class="num">${d&&d.me?d.me.pts.toLocaleString():'—'}</b><span>Your points this month</span></div><div><b class="num">${d&&d.me&&d.me.rank?'#'+d.me.rank:'—'}</b><span>Your rank</span></div><div><b class="num">${left==null?'—':left+'d'}</b><span>${d&&d.monthly&&d.monthly.on?'Until payout':'Season starts soon'}</span></div></div>
+  ${d&&d.monthly&&!d.monthly.on?'<span class="ptssoon">Payouts switch on soon · points you earn now already count</span>':''}</section>`;
+ const how=`<div class="ptshow">${[['swap','1 pt / $10','traded on Callit'],['market','+50','call holds 2X'],['target','+100','call hits target'],['wallet',d&&d.rules?d.rules.cashbackPoints+' pts':'100 pts','unlocks cashback']].map(([i,a,b])=>`<div><span>${ic(i,16)}</span><b>${a}</b><em>${b}</em></div>`).join('')}</div>`;
+ const seg=`<div class="pad lbhead"><span class="muted">${p==='month'?'This month, verified on-chain':'All time, verified on-chain'}</span><div class="seg">${[['month','This month'],['all','All time']].map(([k,l])=>`<button class="${p===k?'on':''}" data-act="ptp" data-f="${k}">${l}</button>`).join('')}</div></div>`;
+ if(!d)return lbToggle()+hero+how+seg+'<div class="pad"><div class="chskel"></div><div class="chskel"></div><div class="chskel"></div></div>';
+ if(d.ready===false)return lbToggle()+hero+how+seg+`<div class="empty"><b>Points are warming up</b><p>${esc(d.reason||'Check back in a minute.')}</p></div>`;
+ const L=d.board||[];
+ const rows=L.map(r=>`<a class="ptrow${r.handle===S.me?' mine':''}${r.rank<=top?' paid':''}" href="#/profile/${esc(r.handle)}"><span class="ptrk num">${r.rank<=3?LBEMO[r.rank-1]:r.rank}</span>${avatar(r.handle)}<span class="grow"><b>${esc(r.name||r.handle)}</b><small class="muted">@${esc(r.handle)}</small></span>${r.rank<=top?'<span class="ptin">In the money</span>':''}<b class="num ptv">${r.pts.toLocaleString()}</b></a>`).join('');
+ return lbToggle()+hero+how+seg+(L.length?`<div class="ptlist">${rows}</div>`:`<div class="empty"><b>No points yet ${p==='month'?'this month':''}</b><p>Trade or make a call that runs. First points take #1.</p><button class="btn primary" data-act="newcall">Make a call</button></div>`)
+ +`<p class="hint pad">Only verified activity counts, so points can’t be farmed with likes or alt accounts. Wash trading costs more in fees than it earns.</p>`}
 /* Rank movement like a billboard: compared with the board as it stood about a day ago (kept on this device). */
 function lbBase(w,L){const k='callit.lbbase.'+w;let b=null;try{b=JSON.parse(localStorage.getItem(k)||'null')}catch(_){}
  if(!b||Date.now()-b.at>864e5){const cur=Object.fromEntries(L.map((c,i)=>[c.h,i]));b={at:Date.now(),r:cur,prev:b?b.r:null};try{localStorage.setItem(k,JSON.stringify(b))}catch(_){}}
@@ -1383,7 +1402,7 @@ function lbBase(w,L){const k='callit.lbbase.'+w;let b=null;try{b=JSON.parse(loca
 function lbMove(base,h,i){const p=base&&base[h];if(p==null)return base&&Object.keys(base).length?'<span class="rmv nw" title="New on the board">NEW</span>':'';const d=p-i;if(!d)return '';
  return `<span class="rmv ${d>0?'up':'dn'}${Math.abs(d)>=3?' hot':''}" title="${d>0?'Up':'Down'} ${Math.abs(d)} since yesterday">${d>0?'▲':'▼'}${Math.abs(d)}</span>`}
 function lbPts(h){const t=tierOf(h);return `<button class="lbpts" data-act="ranks" data-h="${esc(h)}" aria-label="${t.xp} points, ${t.name}"><b class="num">${t.xp.toLocaleString()}</b><span class="lbpbar"><i style="width:${Math.max(4,t.pct)}%"></i></span><small>${t.name}${t.next?` · ${t.need.toLocaleString()} to ${t.next}`:''}</small></button>`}
-function vLeaders(){if(S.lbv==='latest')return vLatestCalls();loadCallers();const w=S.lb||'30d',L=ranked(),st=CALLERS[w],podium=L.slice(0,3),me=L.findIndex(c=>c.h===S.me);
+function vLeaders(){if(S.lbv==='latest')return vLatestCalls();if(S.lbv==='points')return vPoints();loadCallers();const w=S.lb||'30d',L=ranked(),st=CALLERS[w],podium=L.slice(0,3),me=L.findIndex(c=>c.h===S.me);
  const pod=podium.length?`<div class="podium">${[1,0,2].filter(i=>podium[i]).map(i=>{const c=podium[i];return `<a class="pod p${i+1}" href="#/profile/${esc(c.h)}"><span class="pcrown">${['👑','🥈','🥉'][i]}</span>${avatar(c.h)}<b>${esc(nameOf(c.h))}</b><span class="muted">@${esc(c.h)}</span><span class="pwin num">${c.win}%<small>win</small></span><span class="num ${c.avg>=0?'up':'down'}">${fmtPct(c.avg)} avg</span><span class="pstep">${i+1}</span></a>`}).join('')}</div>`:'';
  const head=`<div class="pad lbhead"><span class="muted">${st?'Ranked by win rate, then average return. Updates live.':'Loading callers…'}</span><div class="seg">${['7d','30d','All time'].map(x=>`<button class="${(S.lb||'30d')===x?'on':''}" data-act="lb" data-f="${x}">${x}</button>`).join('')}</div></div>`;
  if(st&&!L.length)return lbToggle()+head+`<div class="empty"><b class="h2">The board is wide open</b><p>No calls in this window yet. Make the first one and take #1.</p><button class="btn primary" data-act="newcall">Make a call</button></div>`;
@@ -1437,14 +1456,18 @@ function earnCard(){if(!SYNC())return '';loadEarn();const d=EARN.d;
  if(!d)return `<div class="earn sk"><div class="earnt"><span class="earnic">${ic('crown',18)}</span><b>Caller earnings</b></div><div class="earnamt num">—</div></div>`;
  if(!d.ready)return '';
  const can=d.claimOpen&&d.available>=d.minUsd&&!EARN.claiming;
- const sub=[d.paid>0?`${fmtUsd(d.paid)} paid`:'',d.processing>0?`${fmtUsd(d.processing)} processing`:''].filter(Boolean).join(' · ');
- const why=!d.claimOpen?'Claims open soon. Earnings keep adding up.':d.autoPay&&d.available<d.minUsd?`Payday is daily at 18:00 UTC from ${fmtUsd(d.minUsd)}`:d.available<d.minUsd?`Claim from ${fmtUsd(d.minUsd)}`:`${d.autoPay?'Payday: auto-paid in SOL daily at 18:00 UTC, or claim now':'Paid in SOL to this wallet'}${d.available>d.maxUsd?` · up to ${fmtUsd(d.maxUsd)} per claim`:''}`;
- const calls=(d.calls||[]).map(c=>`<a class="earnrow" href="#/post/${esc(c.call_id)}">${c.mint&&T[c.mint]?tokav(c.mint):`<span class="earndot"></span>`}<div class="grow"><b>$${esc(c.sym||'?')}</b><span class="hint">${c.buys} buy${c.buys===1?'':'s'} · ${c.bought_in?`Bought in · ${c.share}%`:`No buy · ${c.share}%`}</span></div><b class="num up">+${fmtUsd(c.usd)}</b></a>`).join('');
+ const sub=[d.paid>0?`${fmtUsd(d.paid)} paid`:'',d.processing>0?`${fmtUsd(d.processing)} processing`:'',d.waiting>0?`${fmtUsd(d.waiting)} waiting on target`:''].filter(Boolean).join(' · ');
+ const why=!d.claimOpen?'Claims open soon. Earnings keep adding up.':d.autoPay?(d.available<d.minUsd?`Paid in SOL the minute your call hits target (from ${fmtUsd(d.minUsd)})`:'Sending to your wallet now. Or tap Claim'):d.available<d.minUsd?`Claim from ${fmtUsd(d.minUsd)}`:`Paid in SOL to this wallet${d.available>d.maxUsd?` · up to ${fmtUsd(d.maxUsd)} per claim`:''}`;
+ const cb=d.cashback,cbPct=cb?Math.min(100,Math.round(cb.points/Math.max(1,cb.need)*100)):0;
+ const cbBox=cb?`<div class="cbbox${cb.open?' open':''}"><span class="cbic">${ic(cb.open?'wallet':'lock',16)}</span><div class="grow"><b>Cashback <span class="num">${fmtUsd(cb.usd)}</span></b>
+  <span class="hint">${cb.open?`Unlocked. ${cb.pct}% of Callit’s fee back on every buy, paid with your earnings`:`${cb.pct}% of Callit’s fee back on every buy. Unlocks at ${cb.need.toLocaleString()} points`}</span>
+  ${cb.open?'':`<span class="cbbar" role="progressbar" aria-valuenow="${cbPct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${Math.max(3,cbPct)}%"></i></span><small class="hint num">${Math.floor(cb.points).toLocaleString()} / ${cb.need.toLocaleString()} pts · <a class="lnk" href="#/callerboard" data-act="lbv" data-f="points">How to earn points</a></small>`}</div></div>`:'';
+ const calls=(d.calls||[]).map(c=>`<a class="earnrow" href="#/post/${esc(c.call_id)}">${c.mint&&T[c.mint]?tokav(c.mint):`<span class="earndot"></span>`}<div class="grow"><b>$${esc(c.sym||'?')}</b><span class="hint">${c.buys} buy${c.buys===1?'':'s'} · ${c.bought_in?`Bought in · ${c.share}%`:`No buy · ${c.share}%`}${c.locked?' · pays at target':''}</span></div><b class="num ${c.locked?'muted':'up'}">${c.locked?ic('lock',12)+' ':'+'}${fmtUsd(c.usd)}</b></a>`).join('');
  const hist=(d.claims||[]).slice(0,5).map(c=>`<div class="earnrow"><span class="earndot ${esc(c.status)}"></span><div class="grow"><b>${c.status==='sent'?'Claimed':c.status==='pending'?'Processing':'Didn’t go through'}</b><span class="hint">${agoT(c.created_at)} ago${c.sol?` · ${(+c.sol).toFixed(4)} SOL`:''}</span></div><span class="num">${fmtUsd(+c.usd)}</span>${c.signature&&c.status!=='failed'?`<a class="lnk" href="https://solscan.io/tx/${esc(c.signature)}" target="_blank" rel="noopener noreferrer">View</a>`:''}</div>`).join('');
  return `<section class="earn" aria-label="Caller earnings"><div class="earnt"><span class="earnic">${ic('crown',18)}</span><b>Caller earnings</b><button class="earnhow" data-act="earnopen" aria-expanded="${!!EARN.open}">How it works ${ic('chev',14)}</button></div>
  <div class="earnmain"><div><div class="earnamt num">${fmtUsd(d.available)}</div><div class="hint">${sub?esc(sub)+' · ':''}${esc(why)}</div></div>
- <button class="btn primary earnbtn${EARN.claiming?' busy':''}" data-act="claim" ${can?'':'disabled'}>${EARN.claiming?'Sending…':'Claim'}</button></div>
- ${EARN.open?`<div class="earnhowto"><p><b>Call it. Get paid.</b> When people buy a token from your call, you earn part of Callit’s fee on every buy. Payouts start once your call <b>holds ${EARN_RULE.minX}X</b> (a quick wick doesn’t count).</p>
+ <button class="btn primary earnbtn${EARN.claiming?' busy':''}" data-act="claim" ${can?'':'disabled'}>${EARN.claiming?'Sending…':'Claim'}</button></div>${cbBox}
+ ${EARN.open?`<div class="earnhowto"><p><b>Call it. Get paid.</b> When people buy a token from your call, you earn part of Callit’s fee on every buy once it <b>holds ${EARN_RULE.minX}X</b>. The moment your call <b>hits your target</b>, it pays out in SOL, about a minute later, no waiting for payday. More buys after that keep paying.</p>
   <div class="earntiers"><div><b>${EARN_RULE.lo}–${EARN_RULE.hi}%</b><span>You bought in and held to your target. Grows as the call climbs.</span></div><div><b>${EARN_RULE.noBuy}%</b><span>You didn’t buy, or sold before your target.</span></div></div>
   <p class="hint">Sells and your own buys never pay out. Calls you drop in Telegram count too once you <a class="lnk" href="#" data-act="tglink">link Telegram</a>.</p></div>`:''}
  ${calls?`<div class="earnlist"><span class="earnh">Top earning calls</span>${calls}</div>`:`<p class="hint earnempty">No earnings yet. Make a call, buy in, and share it. Every buy through it counts.</p>`}
@@ -1638,7 +1661,7 @@ async function astSend(text){const q=String(text||'').trim();if(!q||AST.busy)ret
 
 /* ---------- chrome ---------- */
 /* One tray, no Features/Products split. Messages and News sit right under Home. */
-const NAV_A=[['home','Home'],['messages','Messages'],['news','News'],['market','Market'],['defi','DeFi'],['callerboard','Callerboard'],['you','You'],['assistant','SI Assistant'],['bookmarks','Bookmarks'],['lists','Lists'],['promote','Promote'],['about','About'],['settings','Settings']]; // Bot hidden until the new Telegram is set up
+const NAV_A=[['home','Home'],['market','Market'],['messages','Messages'],['defi','DeFi'],['callerboard','Callerboard'],['news','News'],['you','You'],['assistant','SI Assistant'],['bookmarks','Bookmarks'],['lists','Lists'],['promote','Promote'],['about','About'],['settings','Settings']]; // Bot hidden until the new Telegram is set up
 const NAV_B=[];
 const TITLES=Object.fromEntries([...NAV_A,...NAV_B,['notifications','Notifications'],['bookmarks','Bookmarks'],['token','Token'],['community','Community'],['post','Post'],['premium','Premium'],['messages','Messages'],['admin','Admin'],['tag','Tag'],['alerts','Alerts'],['legal','Legal'],['profile','Profile'],['quotes','Quotes']]);
 P.lists=P.list;P.defi='<circle cx="12" cy="12" r="8.5"/><path d="M8 10h8l-2.5-2.5M16 14H8l2.5 2.5"/>';P.callerboard=P.leaderboard;P.you=P.profile;
@@ -2944,7 +2967,8 @@ function followsModal(h,tab){const isReal=realAuth()&&(h===S.me||(C[h]&&C[h].rea
    Points come from what a caller does in public: posting, calling, buying in, getting likes,
    reposts, replies and followers. Shown everywhere a rank shows; hover/tap for progress. */
 const TIERS=[['Novice',0],['Amateur',100],['Senior',300],['Enthusiast',700],['Professional',1500],['Expert',3000],['Leader',6000],['Veteran',12000],['Master',25000],['Ultimate',50000]];
-function xpOf(h){const mine=calls.filter(k=>k.c===h&&!k.sponsored),c=C[h]||{},pb=PUB[h]&&!PUB[h].pending?PUB[h]:null;
+const SPTS={};// verified points from the server, by handle
+function xpOf(h){if(SPTS[h]!=null)return SPTS[h];const mine=calls.filter(k=>k.c===h&&!k.sponsored),c=C[h]||{},pb=PUB[h]&&!PUB[h].pending?PUB[h]:null;
  const followers=h===S.me?(S.followers||0):pb?pb.followers||0:(c.followers||0);
  let xp=mine.reduce((a,k)=>a+5+(k.kind==='random'?0:10)+(k.buy?15:0)+(k.likes||0)+2*(k.reposts||0)+2*(k.replies||0),0)+5*Math.min(followers,1000)+Math.max(0,followers-1000);
  if(!c.real&&c.calls)xp+=Math.round(c.calls*25+(c.win||0)*c.calls/100*40);// demo callers carry their history
@@ -2956,7 +2980,7 @@ function rankChip(h){const t=tierOf(h),r=rankOf(h);
  <span class="rkpop" role="tooltip"><b>${ic('star',13,true)} ${t.name}${r?` · Leaderboard #${r}`:''}</b><span class="rkbar"><i style="width:${Math.max(4,t.pct)}%"></i></span><small>${t.next?`${t.xp.toLocaleString()} pts · ${t.need.toLocaleString()} to <b>${t.next}</b>`:`${t.xp.toLocaleString()} pts · top of the ladder`}</small>${r?'':'<small>10 calls to join the leaderboard</small>'}</span></button>`}
 function ranksModal(h){const t=tierOf(h);
  modal('Caller ranks',`${h===S.me?'You are':'@'+esc(h)+' is'} <b>${t.name}</b> with ${t.xp.toLocaleString()} points`,`<div class="ladder">${TIERS.map(([n,p],i)=>`<div class="lrow${i===t.i?' on':i<t.i?' done':''}"><span class="lstar t${i}">${ic('star',16,i<=t.i)}</span><b>${n}</b><span class="hint num">${p.toLocaleString()} pts</span>${i===t.i&&t.next?`<span class="rkbar sm"><i style="width:${Math.max(4,t.pct)}%"></i></span>`:''}</div>`).join('')}</div>
- <p class="hint" style="margin:14px 0 0;line-height:1.5">Earn points by posting (5), making calls (+10), buying into your calls (+15), likes (1), reposts and replies (2) and followers (5). The Callerboard is separate: it ranks callers with 10+ calls by win rate.</p>`)}
+ <p class="hint" style="margin:14px 0 0;line-height:1.5">Points are verified on-chain activity: 1 point per $10 you trade on Callit, +50 when your call holds 2X and +100 when it hits your target. Points unlock cashback and count toward monthly rewards and $CALLIT. The Callerboard ranks callers by win rate.</p>`)}
 
 /* ---------- PnL year to date + wallet balance (own profile and wallet) ---------- */
 function ytdSeries(){const now=new Date(),y0=new Date(now.getFullYear(),0,1).getTime(),cash=new Set([SOL_MINT,USDC_MINT]),P={};let realY=0,cost=0;const pts=[[y0,0]];
@@ -3229,6 +3253,7 @@ document.addEventListener('click',e=>{
   belldel:()=>API('/api/alerts/bell?mint='+encodeURIComponent(b.dataset.f),{method:'DELETE'}).then(()=>{BELLS.delete(b.dataset.f);AL.d=null;alLoad(1)}).catch(e=>toast(e.message)),
   wtab:()=>{S.wtab=b.dataset.f;render()},wbopen:()=>walletSheet(b.dataset.f),
   lbv:()=>{S.lbv=b.dataset.f;render();scrollTo({top:0})},
+  ptp:()=>{S.ptp=b.dataset.f;render()},
   ltab:()=>{S.ltab=b.dataset.f;try{localStorage.setItem('callit.ltab',S.ltab)}catch(_){}document.querySelectorAll('.ltabs [data-act="ltab"]').forEach(x=>{const on=x.dataset.f===S.ltab;x.classList.toggle('on',on);x.setAttribute('aria-selected',on)});document.querySelectorAll('.lpanel').forEach(p=>p.hidden=p.dataset.lp!==S.ltab);const [,,p]=location.hash.split('/');if(S.ltab==='holders'&&T[p]){const el=$('#lholders');if(el)el.innerHTML=holdersPanel(T[p])}},
   htrack:()=>{if(!S.connected)return connectModal();const a=b.dataset.f;API('/api/alerts/wallets',{body:{address:a,label:''}}).then(j=>{toast(j.live?'Tracking. You’ll get a pop-up on every swap':'Wallet saved to your tracker');AL.d=null}).catch(e=>toast(e.message))},
   ord:()=>{const k=tokPath(b.dataset.k);closeModal();setTimeout(()=>orderModal(k,b.dataset.f||'tpsl'),60)},

@@ -18,7 +18,8 @@ import {
 import { getTransferSolInstruction } from '@solana-program/system';
 import { rpc, RpcError, SOL_MINT } from '@/lib/solana/rpc';
 import { jupMany } from '@/lib/market/sources';
-import { PAYOUT } from '@/lib/fees/model';
+import { PAYOUT, cashbackMinPoints } from '@/lib/fees/model';
+import { pushTo } from '@/lib/push/send';
 
 /** SOL kept in the payout wallet for network fees. */
 const RESERVE_LAMPORTS = 2_000_000n;
@@ -120,11 +121,11 @@ export async function claim(db: SupabaseClient, me: { id: string; wallet_address
   if (!price) return { ok: false, error: 'Couldn’t get the SOL price. Try again in a minute.', status: 503 };
 
   const { data: r, error } = await db.rpc('claim_start', {
-    p_profile: me.id, p_wallet: me.wallet_address, p_min: PAYOUT.minUsd(), p_max: Math.min(PAYOUT.maxPerClaimUsd(), room),
+    p_profile: me.id, p_wallet: me.wallet_address, p_min: PAYOUT.minUsd(), p_max: Math.min(PAYOUT.maxPerClaimUsd(), room), p_cb_points: cashbackMinPoints(),
   });
-  if (error) return { ok: false, error: 'Claims aren’t set up on the server yet.', status: 503 };
+  if (error) return { ok: false, error: 'Claims aren’t set up on the server yet (migration 0015).', status: 503 };
   const row = (r as { claim_id: string; usd: number }[] | null)?.[0];
-  if (!row) return { ok: false, error: `You need at least $${PAYOUT.minUsd()} to claim, and only one claim at a time.` };
+  if (!row) return { ok: false, error: `You need at least $${PAYOUT.minUsd()} ready to claim (calls pay once they hit target), and only one claim at a time.` };
   const usd = Number(row.usd);
   const release = async (why: string) => { await db.rpc('claim_release', { p_claim: row.claim_id, p_error: why }); };
 
@@ -176,4 +177,36 @@ export async function claim(db: SupabaseClient, me: { id: string; wallet_address
     await release('build_failed');
     return { ok: false, error: 'Couldn’t send the payout. Try again.' };
   }
+}
+
+/**
+ * Pays everyone who has money ready (caller earnings on calls that hit target, unlocked cashback),
+ * biggest first, inside the daily cap. Runs every minute from /api/cron/alerts when AUTO_PAYOUTS=1,
+ * so a caller is paid about a minute after their call hits target. Never pays twice: same claim() path
+ * as the Claim button, one claim in flight per person, and pending claims are checked on-chain first.
+ */
+export async function payReady(db: SupabaseClient, budgetMs = 20_000) {
+  const t0 = Date.now();
+  const { data: pend } = await db.from('claims').select('id, signature, created_at, status').eq('status', 'pending').limit(50);
+  for (const c of pend || []) await resolvePending(db, c);
+  const issue = await payoutIssue(await isPaused(db));
+  if (issue) return { paid: 0, usd: 0, skipped: issue };
+  const { data: queue, error } = await db.rpc('payout_queue', { p_min: PAYOUT.minUsd(), p_limit: 100, p_cb_points: cashbackMinPoints() });
+  if (error) return { paid: 0, usd: 0, skipped: 'Run migration 0015 first', detail: error.message };
+  const results: { profile: string; ok: boolean; usd?: number; sig?: string; error?: string }[] = [];
+  for (const row of (queue || []) as { profile_id: string; wallet: string }[]) {
+    if (Date.now() - t0 > budgetMs) break; // the rest go on the next run
+    const r = await claim(db, { id: row.profile_id, wallet_address: row.wallet }, { wait: false });
+    results.push(r.ok ? { profile: row.profile_id, ok: true, usd: r.usd, sig: r.signature } : { profile: row.profile_id, ok: false, error: r.error });
+    if (r.ok) {
+      await pushTo(db, [row.profile_id], {
+        title: `💸 You just got paid ${'$' + r.usd.toFixed(2)}`,
+        body: `${r.sol.toFixed(4)} SOL is on its way to your Callit wallet. Call it. Get paid.`,
+        link: '#/you', tag: 'payout',
+      }).catch(() => null);
+    }
+    if (!r.ok && (r.status === 429 || r.status === 503)) break; // daily cap used up, wallet low, or paused
+  }
+  const ok = results.filter((x) => x.ok);
+  return { paid: ok.length, usd: +ok.reduce((a, x) => a + (x.usd || 0), 0).toFixed(2), results };
 }

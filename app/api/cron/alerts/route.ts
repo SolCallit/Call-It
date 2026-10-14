@@ -2,7 +2,8 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { json } from '@/lib/db/me';
 import { alertUsers, bellersOf, usd } from '@/lib/push/send';
 import { jupMany, type LiveToken } from '@/lib/market/sources';
-import { sampleCalls, settleEarnings } from '@/lib/earnings/settle';
+import { sampleCalls, settleEarnings, creditCashback, awardPoints } from '@/lib/earnings/settle';
+import { payReady } from '@/lib/payouts/payout';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -74,5 +75,8 @@ export async function GET(req: Request) {
   const samples = (calls || []).map((c) => { const t = P.get(c.mint as string), e = Number(c.entry_mc); return { id: c.id as string, x: t?.mc && e > 0 ? t.mc / e : 0 }; });
   const sampled = await sampleCalls(db, samples).catch(() => false);
   const earned = sampled ? await settleEarnings(db).catch(() => ({ credited: 0, usd: 0 })) : { credited: 0, usd: 0 };
-  return json({ ok: true, bells: bells?.length || 0, calls: calls?.length || 0, sent, earnings: earned });
+  const [cashback, points] = await Promise.all([creditCashback(db).catch(() => null), awardPoints(db).catch(() => 0)]);
+  // Instant payouts: a call that hit its target this minute gets paid this minute.
+  const paid = process.env.AUTO_PAYOUTS === '1' ? await payReady(db, 20_000).catch((e) => ({ error: String(e?.message || e) })) : { skipped: 'AUTO_PAYOUTS is not 1' };
+  return json({ ok: true, bells: bells?.length || 0, calls: calls?.length || 0, sent, earnings: earned, cashback, points, paid });
 }

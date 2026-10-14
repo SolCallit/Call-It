@@ -1,6 +1,6 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { callerShare, CALLER_MIN_X, JUP_CUT } from '@/lib/fees/model';
+import { callerShare, CALLER_MIN_X, JUP_CUT, CASHBACK_PCT, POINTS } from '@/lib/fees/model';
 
 /**
  * Feeds this minute's MC readings into each call's rolling average (posts.x_avg / peak_x).
@@ -74,4 +74,60 @@ export async function settleEarnings(db: SupabaseClient): Promise<{ credited: nu
   const { error: e2 } = await db.from('earnings').upsert(rows, { onConflict: 'tx_signature', ignoreDuplicates: true });
   if (e2) { console.warn('[earnings] insert', e2.message); return { credited: 0, usd: 0 }; }
   return { credited: rows.length, usd: rows.reduce((a, r) => a + (r.usd as number), 0) };
+}
+
+/**
+ * Buyer cashback: a slice of the fee on every verified buy, credited right away as an earnings row
+ * (kind 'cashback'). It only becomes payable once the buyer has enough points (see earning_ready).
+ * Idempotent: keyed on "cb:" + the trade signature.
+ */
+export async function creditCashback(db: SupabaseClient): Promise<{ credited: number; usd: number }> {
+  const since = new Date(Date.now() - 3 * 864e5).toISOString();
+  const { data: buys, error } = await db.from('transactions').select('signature, profile_id, fee_usd')
+    .eq('kind', 'buy').eq('verified', true).gt('fee_usd', 0).gte('created_at', since).limit(3000);
+  if (error || !buys?.length) return { credited: 0, usd: 0 };
+  const rows = (buys as { signature: string; profile_id: string; fee_usd: number }[]).map((b) => ({
+    profile_id: b.profile_id, kind: 'cashback', call_id: null, tx_signature: 'cb:' + b.signature, bought_in: false,
+    share_pct: CASHBACK_PCT, fee_usd: Number(b.fee_usd), usd: +(Number(b.fee_usd) * (1 - JUP_CUT) * (CASHBACK_PCT / 100)).toFixed(6),
+  })).filter((r) => r.usd > 0);
+  if (!rows.length) return { credited: 0, usd: 0 };
+  const { error: e2 } = await db.from('earnings').upsert(rows, { onConflict: 'tx_signature', ignoreDuplicates: true });
+  if (e2) { console.warn('[cashback]', e2.message); return { credited: 0, usd: 0 }; } // migration 0015 not run yet
+  return { credited: rows.length, usd: rows.reduce((a, r) => a + r.usd, 0) };
+}
+
+/**
+ * Points from verified facts only: trading volume through Callit, and calls that held 2X or hit target.
+ * Each source has a unique ref, so re-running never double counts.
+ */
+export async function awardPoints(db: SupabaseClient): Promise<number> {
+  const since = new Date(Date.now() - 3 * 864e5).toISOString();
+  const rows: { profile_id: string; kind: string; amount: number; ref: string; note: string }[] = [];
+  const { data: tx } = await db.from('transactions').select('signature, profile_id, kind, usd_value')
+    .in('kind', ['buy', 'sell', 'swap']).eq('verified', true).gt('usd_value', 0).gte('created_at', since).limit(5000);
+  for (const t of (tx || []) as { signature: string; profile_id: string; kind: string; usd_value: number }[]) {
+    const amt = Math.min(POINTS.perTradeCap, +(Number(t.usd_value) * POINTS.perUsd).toFixed(2));
+    if (amt > 0) rows.push({ profile_id: t.profile_id, kind: 'trade', amount: amt, ref: 't:' + t.signature, note: t.kind });
+  }
+  const { data: calls } = await db.from('posts').select('id, profile_id, token_sym, qualified_at, target_at')
+    .eq('kind', 'meme').is('deleted_at', null).not('qualified_at', 'is', null).gte('qualified_at', since).limit(2000);
+  for (const c of (calls || []) as { id: string; profile_id: string; token_sym: string | null; qualified_at: string; target_at: string | null }[]) {
+    rows.push({ profile_id: c.profile_id, kind: 'call', amount: POINTS.qualified, ref: 'q:' + c.id, note: `$${c.token_sym || '?'} held 2X` });
+    if (c.target_at) rows.push({ profile_id: c.profile_id, kind: 'call', amount: POINTS.target, ref: 'tg:' + c.id, note: `$${c.token_sym || '?'} hit target` });
+  }
+  // Targets can be hit long after 2X: pick up recent target hits too.
+  const { data: tg } = await db.from('posts').select('id, profile_id, token_sym').eq('kind', 'meme').is('deleted_at', null)
+    .not('target_at', 'is', null).gte('target_at', since).limit(2000);
+  for (const c of (tg || []) as { id: string; profile_id: string; token_sym: string | null }[]) {
+    rows.push({ profile_id: c.profile_id, kind: 'call', amount: POINTS.target, ref: 'tg:' + c.id, note: `$${c.token_sym || '?'} hit target` });
+  }
+  if (!rows.length) return 0;
+  const uniq = [...new Map(rows.map((r) => [r.ref, r])).values()];
+  let n = 0;
+  for (let i = 0; i < uniq.length; i += 500) {
+    const { error } = await db.from('points').upsert(uniq.slice(i, i + 500), { onConflict: 'ref', ignoreDuplicates: true });
+    if (error) { console.warn('[points]', error.message); return n; }
+    n += Math.min(500, uniq.length - i);
+  }
+  return n;
 }

@@ -38,7 +38,7 @@ export async function POST(req: Request) {
   if (b.action === 'connect') {
     const ok = await tg('setWebhook', {
       url: `${siteUrl()}/api/hooks/telegram`, secret_token: webhookSecret(),
-      allowed_updates: ['message', 'channel_post', 'my_chat_member'], drop_pending_updates: true,
+      allowed_updates: ['message', 'channel_post', 'my_chat_member', 'callback_query'], drop_pending_updates: true,
     });
     if (!ok) return json({ error: 'Telegram refused the webhook. Check the bot token.' }, 502);
     await tg('setMyCommands', { commands: [{ command: 'callit', description: 'Turn Callit on for this group (admins). /callit off to stop' }], scope: { type: 'all_group_chats' } });

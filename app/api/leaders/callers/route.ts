@@ -47,9 +47,12 @@ export async function GET(req: Request) {
   const { data: fol } = handles.length ? await db.from('follows').select('target_handle').in('target_handle', handles).limit(20000) : { data: [] };
   const fc = new Map<string, number>();
   (fol || []).forEach((f) => fc.set(f.target_handle, (fc.get(f.target_handle) || 0) + 1));
+  // Verified points (migration 0015). Empty until it has run.
+  const { data: pb } = await db.rpc('points_board', { p_since: new Date(0).toISOString(), p_limit: 2000 });
+  const pts = new Map(((pb || []) as { handle: string; pts: number }[]).map((r) => [r.handle, Math.floor(Number(r.pts))]));
   const callers = (profs || []).map((p) => {
     const a = by.get(p.id)!;
-    return { handle: p.handle, display_name: p.display_name, avatar_url: p.avatar_url, calls: a.calls, win: Math.round((a.wins / a.calls) * 100), avg: Math.round((a.sum / a.calls) * 10) / 10, best: Math.round(a.best * 10) / 10, pnl: Math.round(a.pnl * 100) / 100, followers: fc.get(p.handle) || 0 };
+    return { handle: p.handle, display_name: p.display_name, avatar_url: p.avatar_url, calls: a.calls, win: Math.round((a.wins / a.calls) * 100), avg: Math.round((a.sum / a.calls) * 10) / 10, best: Math.round(a.best * 10) / 10, pnl: Math.round(a.pnl * 100) / 100, followers: fc.get(p.handle) || 0, pts: pts.get(p.handle as string) ?? 0 };
   }).sort((x, y) => y.win - x.win || y.avg - x.avg || y.calls - x.calls);
   return NextResponse.json({ callers }, { headers: { 'cache-control': 'public, s-maxage=15, stale-while-revalidate=60' } });
 }

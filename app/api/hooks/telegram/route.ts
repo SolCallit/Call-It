@@ -1,16 +1,18 @@
+import { after } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { json } from '@/lib/db/me';
 import { botUsername, findMints, h, siteUrl, tg, webhookSecret } from '@/lib/telegram/bot';
 import { callFromTelegram, groupProfile, mcText } from '@/lib/telegram/calls';
+import { handleTradeDM, handleTradeCallback, buyButton, type CallbackQuery } from '@/lib/telegram/botTrade';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 type User = { id: number; is_bot?: boolean; username?: string; first_name?: string };
 type Chat = { id: number; type: 'private' | 'group' | 'supergroup' | 'channel'; title?: string };
-type Msg = { message_id: number; chat: Chat; from?: User; sender_chat?: Chat; text?: string; caption?: string };
-type Update = { message?: Msg; channel_post?: Msg; my_chat_member?: { chat: Chat; from: User; new_chat_member: { status: string } } };
+type Msg = { message_id: number; chat: Chat; from?: User; sender_chat?: Chat; text?: string; caption?: string; reply_to_message?: { text?: string } };
+type Update = { message?: Msg; channel_post?: Msg; callback_query?: CallbackQuery; my_chat_member?: { chat: Chat; from: User; new_chat_member: { status: string } } };
 
 const say = (chat_id: number, text: string, reply_to?: number) =>
   tg('sendMessage', { chat_id, text, parse_mode: 'HTML', link_preview_options: { is_disabled: true }, ...(reply_to ? { reply_parameters: { message_id: reply_to, allow_sending_without_reply: true } } : {}) });
@@ -35,6 +37,10 @@ export async function POST(req: Request) {
   if (!db) return json({ ok: true });
   const u = (await req.json().catch(() => ({}))) as Update;
   const site = siteUrl();
+  // Trades run after Telegram gets its 200, so a slow swap never makes Telegram re-send the tap.
+  const run = (p: Promise<unknown>) => after(() => p.catch((e) => console.warn('[tg-trade]', e?.message)));
+
+  if (u.callback_query) { await handleTradeCallback(db, u.callback_query, run); return json({ ok: true }); }
 
   // Bot added to a group: explain how to turn it on.
   if (u.my_chat_member) {
@@ -53,8 +59,10 @@ export async function POST(req: Request) {
 
   // ── Direct messages: account linking ──
   if (chat.type === 'private') {
-    const code = cmd && (cmd[1] === 'start' || cmd[1] === 'link') ? (cmd[2] || '').trim().toUpperCase() : '';
+    const arg = cmd && (cmd[1] === 'start' || cmd[1] === 'link') ? (cmd[2] || '').trim() : '';
+    const code = /^(c|b)_/.test(arg) ? '' : arg.toUpperCase();
     if (!code) {
+      if (m.from && (await handleTradeDM(db, m as Parameters<typeof handleTradeDM>[1], run))) return json({ ok: true });
       await say(chat.id, `Hi! To link this Telegram to Callit, open <b>You → Settings → Link Telegram</b> on ${h(site)} and tap the link it gives you.`);
       return json({ ok: true });
     }
@@ -66,6 +74,8 @@ export async function POST(req: Request) {
     await db.from('tg_users').delete().or(`tg_user_id.eq.${m.from?.id ?? 0},profile_id.eq.${c.profile_id}`);
     const { error } = await db.from('tg_users').insert({ tg_user_id: m.from!.id, profile_id: c.profile_id, username: m.from?.username ?? null });
     await db.from('tg_link_codes').delete().eq('code', code);
+    // Bot trades now post as (and pay) the real Callit account.
+    if (!error) await db.from('tg_wallets').update({ profile_id: c.profile_id }).eq('tg_user_id', m.from!.id);
     const { data: p } = await db.from('profiles').select('handle').eq('id', c.profile_id).maybeSingle();
     await say(chat.id, error ? 'Couldn’t link right now. Try again in a minute.'
       : `✅ Linked to <b>@${h(p?.handle || 'your account')}</b>.\nContract addresses you drop in Callit-enabled groups now post as your calls, and you earn from them.`);
@@ -105,7 +115,12 @@ export async function POST(req: Request) {
     });
     if (!c) continue;
     if (process.env.TELEGRAM_REPLY !== '0') {
-      await say(chat.id, `📢 <b>$${h(c.sym)}</b> called at <b>${h(mcText(c.mc))}</b> MC, now tracking on Callit.\n<a href="${site}/#/post/${c.id}">Open the call</a>${c.linked ? ` · by @${h(c.handle)}` : ''}`, m.message_id);
+      const kb = await buyButton(c.id);
+      await tg('sendMessage', {
+        chat_id: chat.id, parse_mode: 'HTML', link_preview_options: { is_disabled: true },
+        text: `📢 <b>$${h(c.sym)}</b> called at <b>${h(mcText(c.mc))}</b> MC, now tracking on Callit.\n<a href="${site}/#/post/${c.id}">Open the call</a>${c.linked ? ` · by @${h(c.handle)}` : ''}`,
+        reply_parameters: { message_id: m.message_id, allow_sending_without_reply: true }, ...(kb ? { reply_markup: { inline_keyboard: kb } } : {}),
+      });
     }
     break; // one call per message
   }
