@@ -11,6 +11,7 @@ import { fetchFeed, fetchToken, fetchTokens, searchTokens, mountChart, fmtSmall 
 import { openImageEditor } from '@/lib/media/imageEditor';
 import { walletBalances, swap as jupSwap, withdraw as doWithdraw, toBaseUnits, qrSvg, SOL_MINT, USDC_MINT, placeOrder, listOrders, cancelOrder, reportTxError } from '@/lib/wallet/client';
 import { friendlyError, isUserCancel } from '@/lib/errors';
+import { DOCS_MD } from '@/lib/docs/content';
 import { initCalls, listenForCalls, startCall, joinCall, activeCallId, CALL_ICONS } from '@/lib/chat/callClient';
 
 let booted = false;
@@ -1536,7 +1537,7 @@ function vAbout(){return `<div class="prose"><div style="margin-bottom:18px">${s
   ['wallet','Cashback for buyers','10% of Callit’s fee comes back to you on every buy. It unlocks once you reach 100 points and is paid with your earnings.'],
   ['crown','Monthly rewards','The top of the monthly Points board gets paid. The board resets to zero on the 1st of every month, so anyone who puts in the work can get in. Not everyone qualifies. Anyone can.'],
  ].map(([i,t,d])=>`<div class="hp"><span class="hpi">${ic(i,18)}</span><div><b>${t}</b><p>${d}</p></div></div>`).join('')}</div>
- <p class="hint">Rewards are paid from real trading fees, never from new deposits. <a class="lnk" href="#/legal/fees">Full fee and reward rules →</a></p>
+ <p class="hint">Rewards are paid from real trading fees, never from new deposits. <a class="lnk" href="#/transparency">See live volume, payouts and treasury →</a> · <a class="lnk" href="#/docs">Docs</a> · <a class="lnk" href="#/legal/fees">Fee rules</a></p>
  <b class="h2" style="display:block;margin:22px 0 10px">Safety &amp; trust</b>
  <div class="faq"><details><summary>Is Callit audited? Is it safe?</summary><p>Callit doesn’t hold your money. Your funds stay in your own wallet on Solana, and nothing moves unless you approve it. All trading runs through Jupiter, Solana’s most used trading aggregator, whose programs are publicly audited. Callit has no smart contract of its own holding user funds, so there is no Callit contract to audit today. If we add one later (for example $CALLIT staking), it will be reviewed before it holds any funds, and its address will be published here.</p></details><details><summary>Who controls my wallet?</summary><p>You do. Email, Google and X sign-ins get a wallet from Privy, a wallet provider used by many crypto apps. Callit never sees your private key. You can export it any time from You → Wallet and use it in Phantom, Solflare or Backpack. Phantom, Solflare and Backpack users keep using their own wallet as normal.</p></details><details><summary>Can I check what Callit does with my trades?</summary><p>Yes. Every trade is a normal Solana transaction you can look up on Solscan, including the fee. Calls are stamped with the market cap at the moment they’re posted and can’t be edited later.</p></details><details><summary>Will Callit ever ask for my seed phrase?</summary><p>Never. No one from Callit will DM you for your key, seed phrase or funds. Anyone who does is a scammer.</p></details><a class="lnk" href="#/legal/security" style="padding:8px 0 0;display:inline-block">Read Security &amp; Transparency →</a></div>
  <b class="h2" style="display:block;margin:22px 0 10px">Legal &amp; safety</b>
@@ -1677,7 +1678,7 @@ async function astSend(text){const q=String(text||'').trim();if(!q||AST.busy)ret
 /* One tray, no Features/Products split. Messages and News sit right under Home. */
 const NAV_A=[['home','Home'],['market','Market'],['messages','Messages'],['defi','DeFi'],['callerboard','Callerboard'],['news','News'],['you','You'],['assistant','SI Assistant'],['bookmarks','Bookmarks'],['lists','Lists'],['promote','Promote'],['about','About'],['settings','Settings']]; // Bot hidden until the new Telegram is set up
 const NAV_B=[];
-const TITLES=Object.fromEntries([...NAV_A,...NAV_B,['notifications','Notifications'],['bookmarks','Bookmarks'],['token','Token'],['community','Community'],['post','Post'],['premium','Premium'],['messages','Messages'],['admin','Admin'],['tag','Tag'],['alerts','Alerts'],['legal','Legal'],['profile','Profile'],['quotes','Quotes']]);
+const TITLES=Object.fromEntries([...NAV_A,...NAV_B,['notifications','Notifications'],['bookmarks','Bookmarks'],['token','Token'],['community','Community'],['post','Post'],['premium','Premium'],['messages','Messages'],['admin','Admin'],['tag','Tag'],['alerts','Alerts'],['legal','Legal'],['profile','Profile'],['quotes','Quotes'],['docs','Docs'],['transparency','Transparency']]);
 P.lists=P.list;P.defi='<circle cx="12" cy="12" r="8.5"/><path d="M8 10h8l-2.5-2.5M16 14H8l2.5 2.5"/>';P.callerboard=P.leaderboard;P.you=P.profile;
 const NAVH={stack:[],cur:location.hash||'#/home',back:false};
 function goBack(){let prev;do{prev=NAVH.stack.pop()}while(prev&&(prev===location.hash||/^#\/messages\/(?!c-|join-)[^/]+$/.test(prev)));
@@ -1735,7 +1736,7 @@ function render(){if(isPhone())document.body.classList.add('collapsed');const [,
  if(r==='community')html=vRoom(p);
  else if(r==='post')html=vPost(p);
  else if(r==='token'){const t=T[p];if(t&&tradable(t)&&p!==S.swap.from){S.swap.from=S.swap.from===p?S.swap.from:(S.swap.from===S.swap.to||!T[S.swap.from]?'SOL':S.swap.from);S.swap.to=p}html=vToken(p)}
- else html=({market:vMarket,trenches:vMarket,defi:vDefi,you:()=>{adminPing();return (S.admin?`<div class="pad" style="padding-bottom:0"><a class="btn sm primary" href="#/admin">${ic('leaderboard',15)} Admin panel</a></div>`:'')+vYou()},profile:()=>vProfile(p),callerboard:vLeaders,admin:vAdmin,promote:vPromote,about:vAbout,
+ else html=({market:vMarket,trenches:vMarket,defi:vDefi,you:()=>{adminPing();return (S.admin?`<div class="pad" style="padding-bottom:0"><a class="btn sm primary" href="#/admin">${ic('leaderboard',15)} Admin panel</a></div>`:'')+vYou()},profile:()=>vProfile(p),callerboard:vLeaders,admin:vAdmin,promote:vPromote,about:vAbout,docs:vDocs,transparency:vTransparency,
   messages:()=>vMessages(p),lists:()=>vLists(p),
   bot:vBot,settings:vSettings,news:vNews,premium:vPremium,notifications:vNotifs,assistant:vAssistant,bookmarks:vBookmarks,tag:()=>vTag(p),legal:()=>vLegal(p),alerts:vAlerts,quotes:()=>vQuotes(p)}[r]||vHome)();
  if(LCHART){LCHART();LCHART=null}
@@ -3076,8 +3077,53 @@ function draftsModal(){const ago=t=>{const m=(Date.now()-t)/6e4;return m<1?'just
     composeModal(d.kind==='perps'?'meme':d.kind,{draft:d.text,pre:d.tok?d.tok.replace(/^\$/,''):undefined})}})})}
 
 /* ---------- socials + legal ---------- */
-const LINKS={x:'',discord:'',telegram:''}; // paste Callit's real URLs here
-const socials=(cls='')=>`<div class="soc ${cls}">${[['x','X','xlogo'],['discord','Discord','discord'],['telegram','Telegram','telegram']].map(([k,l,i])=>`<a href="${LINKS[k]||'#'}" ${LINKS[k]?'target="_blank" rel="noopener"':`data-act="soclink" data-f="${l}"`} aria-label="Callit on ${l}" title="${l}">${ic(i,cls?17:20)}</a>`).join('')}</div>`;
+/* Callit's official links. X and Telegram come from Vercel env (NEXT_PUBLIC_X_URL / NEXT_PUBLIC_TELEGRAM_URL); unset = "coming soon". */
+const LINKS={x:process.env.NEXT_PUBLIC_X_URL||'',telegram:process.env.NEXT_PUBLIC_TELEGRAM_URL||'',email:'mailto:'+(process.env.NEXT_PUBLIC_CONTACT_EMAIL||'callit.app26@gmail.com'),docs:'#/docs'};
+const socials=(cls='')=>`<div class="soc ${cls}">${[['x','X','xlogo'],['telegram','Telegram','telegram'],['email','Email','mail'],['docs','Docs','docs']].map(([k,l,i])=>{const u=LINKS[k],ext=u&&/^https?:/.test(u);
+ return `<a href="${u||'#'}" ${ext?'target="_blank" rel="noopener"':u?'':`data-act="soclink" data-f="${l}"`} aria-label="Callit ${k==='email'?'email':k==='docs'?'docs':'on '+l}" title="${l}">${ic(i,cls?17:20)}</a>`}).join('')}</div>`;
+P.mail='<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M4 7l8 6 8-6"/>';
+P.docs='<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/>';
+P.eye='<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>';
+
+/* ---------- Docs: Markdown from lib/docs/content.ts, rendered here ---------- */
+function mdInline(t){return esc(t).replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>')}
+const mdCells=l=>l.replace(/^\||\|$/g,'').split(/(?<!\\)\|/).map(c=>c.trim().replace(/\\\|/g,'|'));
+const mdSlug=t=>t.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+function md(src){const L=src.split('\n'),out=[];let i=0;
+ while(i<L.length){const l=L[i];
+  if(!l.trim()){i++;continue}
+  const h=/^(#{1,3}) (.*)$/.exec(l);if(h){const n=h[1].length;out.push(n===1?'':`<h${n+1} id="d-${mdSlug(h[2])}">${mdInline(h[2])}</h${n+1}>`);i++;continue}
+  if(l.startsWith('|')){const rows=[];while(i<L.length&&L[i].startsWith('|')){if(!/^\|[\s:|-]+\|$/.test(L[i]))rows.push(mdCells(L[i]));i++}
+   out.push(`<div class="tablewrap dtable"><table><thead><tr>${rows[0].map(c=>`<th>${mdInline(c)}</th>`).join('')}</tr></thead><tbody>${rows.slice(1).map(r=>`<tr>${r.map(c=>`<td>${mdInline(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`);continue}
+  if(/^(- |\d+\. )/.test(l)){const ol=/^\d/.test(l),items=[];while(i<L.length&&/^(- |\d+\. )/.test(L[i])){items.push(L[i].replace(/^(- |\d+\. )/,''));i++}
+   out.push(`<${ol?'ol':'ul'}>${items.map(x=>`<li>${mdInline(x)}</li>`).join('')}</${ol?'ol':'ul'}>`);continue}
+  const para=[];while(i<L.length&&L[i].trim()&&!/^(#|\||- |\d+\. )/.test(L[i])){para.push(L[i]);i++}out.push(`<p>${mdInline(para.join(' '))}</p>`)}
+ return out.join('')}
+function vDocs(){const toc=[...DOCS_MD.matchAll(/^## (.*)$/gm)].map(m=>m[1]);
+ return `<div class="docs"><header class="dhero"><span class="dkick">${ic('docs',14)} Docs</span><h1>Call it. Get Paid.</h1><p>Everything about Callit: how to use it, how you get paid, the fees, the tech and the API.</p>
+ <div class="dhacts"><a class="btn primary" href="#/transparency">${ic('eye',16)} Transparency</a>${socials('sm')}</div></header>
+ <nav class="dtoc" aria-label="On this page">${toc.map(t=>`<a href="#/docs" data-act="dgo" data-f="d-${mdSlug(t)}">${esc(t)}</a>`).join('')}</nav>
+ <article class="prose dbody">${md(DOCS_MD)}</article></div>`}
+
+/* ---------- Transparency: live public numbers on volume, fees, payouts and wallets ---------- */
+const TRP={d:null,at:0,busy:0};
+function loadTrp(){if(TRP.busy||Date.now()-TRP.at<6e4)return;TRP.busy=1;fetch('/api/transparency').then(r=>r.json()).then(j=>{TRP.d=j;TRP.at=Date.now();if(currentRoute()==='transparency')render()}).catch(()=>{TRP.d=TRP.d||{ready:false}}).finally(()=>{TRP.busy=0})}
+function vTransparency(){loadTrp();const d=TRP.d;
+ const head=`<header class="dhero"><span class="dkick">${ic('eye',14)} Transparency</span><h1>Where every fee goes.</h1><p>Live numbers from verified on-chain trades and Callit’s payout ledger. Every wallet is public: check it on Solscan.</p></header>`;
+ if(!d)return `<div class="docs">${head}<div class="pad"><div class="chskel"></div><div class="chskel"></div><div class="chskel"></div></div></div>`;
+ if(!d.ready)return `<div class="docs">${head}<div class="empty"><b>Numbers are loading</b><p>Check back in a minute.</p></div></div>`;
+ const u=v=>fmtUsd(v||0),tile=(l,v,s)=>`<div class="trt"><span>${l}</span><b class="num">${v}</b>${s?`<small>${s}</small>`:''}</div>`;
+ const maxB=Math.max(...d.split.map(b=>b.usd),0.0001);
+ return `<div class="docs">${head}
+ <div class="trgrid">${tile('Trading volume',u(d.volume.all),`${u(d.volume.d30)} last 30 days · ${u(d.volume.d24)} today`)}${tile('Fees to Callit',u(d.fees.all),`After Jupiter’s ${Math.round(d.jupCut*100)}% · fee rate ${(d.feeBps/100).toFixed(2)}%`)}
+  ${tile('Paid to callers',u(d.paid.callerPaid),`${u(d.paid.callerEarned)} earned so far`)}${tile('Cashback paid',u(d.paid.cashbackPaid),`${u(d.paid.cashbackEarned)} earned by buyers`)}
+  ${tile('Volume through calls',u(d.volume.viaCalls),`${fmtK(d.volume.trades)} trades · ${fmtK(d.volume.traders)} traders`)}${tile('Waiting to be paid',u(d.paid.owed),'Unclaimed earnings and locked cashback')}</div>
+ <h2 class="trh">How fees were split</h2><p class="hint trp">Callit’s share of every fee is split by trade type. Totals are all-time.</p>
+ <div class="trsplit">${d.split.map(b=>`<div class="trb"><div class="trbh"><b>${esc(b.label)}</b><span class="num">${u(b.usd)}</span></div><span class="trbar"><i style="width:${Math.max(1.5,b.usd/maxB*100)}%"></i></span><small>${esc(b.note)} · call buys ${b.pct.call}% · other buys ${b.pct.buy}% · sells ${b.pct.sell}%</small></div>`).join('')}</div>
+ <h2 class="trh">Callit wallets</h2><p class="hint trp">Public addresses. No keys ever leave our server, and the treasury is a separate wallet only the team signs.</p>
+ <div class="trw">${d.wallets.map(w=>`<div class="trwr"><div class="grow"><b>${esc(w.label)}</b><small>${esc(w.note)}</small>${w.address?`<code>${esc(w.address)}</code>`:'<small class="muted">Published soon</small>'}</div>
+  <div class="trwv">${w.sol!=null?`<b class="num">${w.sol.toFixed(3)} SOL</b>${w.usd!=null?`<small>${u(w.usd)}</small>`:''}`:''}${w.address?`<a class="btn sm ghost" href="https://solscan.io/account/${esc(w.address)}" target="_blank" rel="noopener">Solscan ↗</a>`:''}</div></div>`).join('')}</div>
+ <p class="hint pad">Updated ${agoT(d.updatedAt)} ago. Rewards are paid from real trading fees, never from deposits. <a class="lnk" href="#/docs">Read the docs →</a></p></div>`}
 /* ---------- Legal & trust pages ----------
    Fill these in once the company is set up. Empty values fall back to neutral wording. */
 const LEGAL={entity:'Callit',email:'',law:'',updated:'6 October 2026'};
@@ -3269,6 +3315,7 @@ document.addEventListener('click',e=>{
   wtab:()=>{S.wtab=b.dataset.f;render()},wbopen:()=>walletSheet(b.dataset.f),
   lbv:()=>{S.lbv=b.dataset.f;render();scrollTo({top:0})},
   ptp:()=>{S.ptp=b.dataset.f;render()},
+  dgo:()=>{e.preventDefault();const el=document.getElementById(b.dataset.f);if(el)el.scrollIntoView({behavior:'smooth',block:'start'})},
   ltab:()=>{S.ltab=b.dataset.f;try{localStorage.setItem('callit.ltab',S.ltab)}catch(_){}document.querySelectorAll('.ltabs [data-act="ltab"]').forEach(x=>{const on=x.dataset.f===S.ltab;x.classList.toggle('on',on);x.setAttribute('aria-selected',on)});document.querySelectorAll('.lpanel').forEach(p=>p.hidden=p.dataset.lp!==S.ltab);const [,,p]=location.hash.split('/');if(S.ltab==='holders'&&T[p]){const el=$('#lholders');if(el)el.innerHTML=holdersPanel(T[p])}},
   htrack:()=>{if(!S.connected)return connectModal();const a=b.dataset.f;API('/api/alerts/wallets',{body:{address:a,label:''}}).then(j=>{toast(j.live?'Tracking. You’ll get a pop-up on every swap':'Wallet saved to your tracker');AL.d=null}).catch(e=>toast(e.message))},
   ord:()=>{const k=tokPath(b.dataset.k);closeModal();setTimeout(()=>orderModal(k,b.dataset.f||'tpsl'),60)},
