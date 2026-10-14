@@ -239,3 +239,10 @@ body:has(.chcomp) #view>.composer,body:has(.chcbar) #view>.composer{margin-top:a
 .cbbox b{font:700 14.5px/1.2 var(--body)}
 .cbbar{display:block;height:7px;border-radius:999px;background:var(--line);overflow:hidden;margin-top:4px}
 .cbbar i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--hi),var(--up));transition:width .6s ease}
+
+/* ---------- 10. About: how you get paid ---------- */
+.howpay{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.hp{display:flex;gap:12px;padding:13px 14px;border-radius:16px;background:var(--bg2);border:1px solid var(--line)}
+.hpi{flex:none;width:34px;height:34px;border-radius:11px;display:grid;place-items:center;background:color-mix(in srgb,var(--hi) 16%,transparent);color:var(--hi)}
+.hp b{display:block;font:800 15px/1.25 var(--body)}
+.hp p{margin:4px 0 0;color:var(--muted);line-height:1.5;font-size:14px}
