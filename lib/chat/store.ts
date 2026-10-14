@@ -8,10 +8,12 @@ export type Role = 'owner' | 'admin' | 'member' | 'banned';
 export type ChatRow = {
   id: string; kind: Kind; title: string | null; about: string | null; avatar_url: string | null; mint: string | null;
   owner_id: string | null; invite_code: string | null; member_count: number; last_at: string; created_at: string;
+  admins_only?: boolean; // migration 0014
 };
 export type Person = { handle: string; name: string | null; avatar: string | null };
 
-export const CHAT_COLS = 'id, kind, title, about, avatar_url, mint, owner_id, invite_code, member_count, last_at, created_at';
+// '*' so newer columns (admins_only, 0014) show up when the migration has run, and nothing breaks before it has.
+export const CHAT_COLS = '*';
 export const isUuid = (s: unknown): s is string => typeof s === 'string' && /^[0-9a-f-]{36}$/i.test(s);
 export const isCode = (s: unknown): s is string => typeof s === 'string' && /^[A-Za-z0-9]{6,16}$/.test(s);
 
@@ -101,4 +103,35 @@ export async function addMember(db: SupabaseClient, chatId: string, profileId: s
 
 export async function systemMsg(db: SupabaseClient, chatId: string, text: string) {
   await db.from('chat_messages').insert({ chat_id: chatId, profile_id: null, kind: 'system', body: text.slice(0, 200), enc: false });
+}
+
+/**
+ * Delivery receipts for the other members: [delivered_id, last_read_id] each. The browser turns
+ * these into ticks on your own messages (sent → delivered → seen). Null if unavailable.
+ */
+export async function receiptsFor(db: SupabaseClient, chatId: string, meId: string): Promise<[number, number][] | null> {
+  const base = () => db.from('chat_members').select('*').eq('chat_id', chatId).neq('role', 'banned').neq('profile_id', meId).limit(300);
+  const { data, error } = await base();
+  if (error) return null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return ((data || []) as any[]).map((r) => {
+    const read = Number(r.last_read_id) || 0;
+    return [Math.max(Number(r.delivered_id) || 0, read), read];
+  });
+}
+
+/** The call happening in this chat right now, if anyone is still on it. */
+export async function liveCall(db: SupabaseClient, chatId: string) {
+  const since = new Date(Date.now() - 45e3).toISOString();
+  const { data, error } = await db.from('chat_calls').select('id, kind, started_at, profiles:started_by(handle)')
+    .eq('chat_id', chatId).is('ended_at', null).gte('alive_at', since).order('started_at', { ascending: false }).limit(1).maybeSingle();
+  if (error || !data) return null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = data as any;
+  return { id: d.id as string, kind: d.kind as 'audio' | 'video', at: d.started_at as string, by: (d.profiles?.handle as string) || null };
+}
+
+/** Marks every chat this person is in as delivered up to its newest message. Never throws. */
+export async function markDelivered(db: SupabaseClient, profileId: string) {
+  try { await db.rpc('chat_mark_delivered', { p: profileId }); } catch { /* migration 0014 not run yet */ }
 }

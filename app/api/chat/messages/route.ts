@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireMe, maybeMe, dbOrNull, json } from '@/lib/db/me';
 import { chatKeyReady, seal } from '@/lib/chat/crypto';
 import { cleanBody, guardPublic, hostOf } from '@/lib/chat/guard';
-import { addMember, getChat, isUuid, memberOf, MSG_COLS, shapeMessages } from '@/lib/chat/store';
+import { addMember, getChat, isUuid, liveCall, memberOf, MSG_COLS, receiptsFor, shapeMessages } from '@/lib/chat/store';
 import { pushTo } from '@/lib/push/send';
 import { SUPABASE_URL } from '@/lib/config';
 
@@ -49,11 +49,20 @@ export async function GET(req: Request) {
   if (!(after > 0)) rows.reverse();
   const messages = await shapeMessages(db, id, rows, me?.id || null);
 
-  // Opening the chat reads it.
+  // Opening the chat reads it (and so it has also been delivered).
   const newest = rows.length ? rows[rows.length - 1].id : 0;
-  if (mem && newest > mem.last_read_id) await db.from('chat_members').update({ last_read_id: newest }).eq('chat_id', id).eq('profile_id', me!.id);
+  if (mem && newest > mem.last_read_id) {
+    const up = await db.from('chat_members').update({ last_read_id: newest, delivered_id: newest }).eq('chat_id', id).eq('profile_id', me!.id);
+    if (up.error) await db.from('chat_members').update({ last_read_id: newest }).eq('chat_id', id).eq('profile_id', me!.id); // before migration 0014
+  }
 
   const out: Record<string, unknown> = { messages, more: !(after > 0) && rows.length === PAGE };
+  // Every poll carries fresh receipts and the live call, so ticks turn blue and "Join call" appears without new messages.
+  if (mem && !(before > 0)) {
+    const [reads, call] = await Promise.all([receiptsFor(db, id, me!.id), liveCall(db, id)]);
+    out.reads = reads;
+    out.call = call;
+  }
   if (!(after > 0) && !(before > 0)) {
     const { data: ms } = await db.from('chat_members').select('role, profiles(handle, display_name, avatar_url)')
       .eq('chat_id', id).neq('role', 'banned').order('joined_at', { ascending: true }).limit(c.kind === 'public' ? 60 : 200);
@@ -62,7 +71,7 @@ export async function GET(req: Request) {
     const boss = mem?.role === 'owner' || mem?.role === 'admin';
     out.chat = {
       id: c.id, kind: c.kind, title: c.title, about: c.about, avatar: c.avatar_url, mint: c.mint, members: c.member_count,
-      invite: c.kind === 'public' || boss ? c.invite_code : null, role: mem?.role || null, muted: !!mem?.muted,
+      invite: c.kind === 'public' || boss ? c.invite_code : null, role: mem?.role || null, muted: !!mem?.muted, adminsOnly: !!c.admins_only,
       peer: c.kind === 'dm' ? members.find((m) => m.handle !== me?.handle) || null : null,
     };
     out.people = members;
@@ -90,6 +99,8 @@ export async function POST(req: Request) {
     mem = { role: 'member', muted: false, last_read_id: 0 };
   }
 
+  if (c.admins_only && c.kind !== 'dm' && mem.role !== 'owner' && mem.role !== 'admin') return json({ error: 'admins_only' }, 403);
+
   const isPublic = c.kind === 'public';
   if (isPublic) {
     const g = guardPublic(body, ownHosts());
@@ -114,7 +125,8 @@ export async function POST(req: Request) {
   };
   const ins = await db.from('chat_messages').insert(row).select(MSG_COLS).single();
   if (ins.error) return json({ error: 'db_write', detail: ins.error.message }, 500);
-  await db.from('chat_members').update({ last_read_id: ins.data.id }).eq('chat_id', c.id).eq('profile_id', me.id);
+  const rd = await db.from('chat_members').update({ last_read_id: ins.data.id, delivered_id: ins.data.id }).eq('chat_id', c.id).eq('profile_id', me.id);
+  if (rd.error) await db.from('chat_members').update({ last_read_id: ins.data.id }).eq('chat_id', c.id).eq('profile_id', me.id);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [message] = await shapeMessages(db, c.id, [ins.data as any], me.id);
 
@@ -140,7 +152,7 @@ export async function POST(req: Request) {
     if (!ids.length) return;
     const { data: who } = await db.from('profiles').select('avatar_url').eq('id', from.id).maybeSingle();
     // Attachments travel as [[img:url]] / [[voice:url|secs]] / [[file:url|name]] markers; show them as words.
-    const plain = text.replace(/\[\[img:[^\]]+\]\]/g, '📷 Photo').replace(/\[\[voice:[^\]]+\]\]/g, '🎤 Voice note')
+    const plain = text.replace(/\[\[img:[^\]]+\]\]/g, '📷 Photo').replace(/\[\[gif:[^\]]+\]\]/g, 'GIF').replace(/\[\[voice:[^\]]+\]\]/g, '🎤 Voice note')
       .replace(/\[\[file:[^|\]]+\|?([^\]]*)\]\]/g, (_, n) => '📎 ' + (n || 'File')).trim();
     const preview = plain.length > 90 ? plain.slice(0, 87) + '…' : plain;
     await pushTo(db, ids, {

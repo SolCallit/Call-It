@@ -11,6 +11,7 @@ import { fetchFeed, fetchToken, fetchTokens, searchTokens, mountChart, fmtSmall 
 import { openImageEditor } from '@/lib/media/imageEditor';
 import { walletBalances, swap as jupSwap, withdraw as doWithdraw, toBaseUnits, qrSvg, SOL_MINT, USDC_MINT, placeOrder, listOrders, cancelOrder, reportTxError } from '@/lib/wallet/client';
 import { friendlyError, isUserCancel } from '@/lib/errors';
+import { initCalls, listenForCalls, startCall, joinCall, activeCallId, CALL_ICONS } from '@/lib/chat/callClient';
 
 let booted = false;
 
@@ -2493,6 +2494,10 @@ function maybeOnboard(){let d=false;try{d=localStorage.getItem('callit.onboarded
 P.shield='<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6l8-3z"/><path d="M8.8 12.2l2.2 2.2 4.4-4.6"/>';
 P.users='<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.3-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 010 6.8M18 14.8c2 .7 3.2 2.5 3.5 5.2"/>';
 P.info='<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>';
+P.phone=CALL_ICONS.phone;P.vcam=CALL_ICONS.video;P.hangup=CALL_ICONS.end;
+P.tick1='<path d="M4.5 12.5l4.5 4.5L19.5 6.5"/>';P.tick2='<path d="M1.5 12.5l4.5 4.5L16.5 6.5M10.5 15.8l1.2 1.2L22.5 6.5"/>';
+P.gifb='<rect x="2.5" y="5" width="19" height="14" rx="3.5"/><path d="M9.5 10.2a2.2 2.2 0 10.1 3.6v-1.5H8.6M12.5 9.8v4.4M15.5 14.2V9.8h2.6M15.5 12h2"/>';
+P.crown='<path d="M3.5 8l4.2 3.6L12 5l4.3 6.6L20.5 8l-1.7 10.5H5.2z"/>';
 const CH={tab:(()=>{try{return localStorage.getItem('callit.ctab')==='public'?'public':'private'}catch(_){return 'private'}})(),
  inbox:null,ibusy:0,ierr:'',enc:true,disc:null,dbusy:0,dq:'',th:{},draft:{},reply:{},open:null,unread:0,dmid:{},inv:{},showInfo:null,need:new Set(),tmp:0};
 const CH_KEYISH=/\b[1-9A-HJ-NP-Za-km-z]{80,90}\b/,CH_MINT=/\b[1-9A-HJ-NP-Za-km-z]{32,44}\b/g;
@@ -2505,7 +2510,7 @@ function chErr(e){const m=String(e&&e.message||e||'');return ({
  slow_down:'Slow mode. Give it a few seconds',duplicate:'You just said that',chat_key_missing:'Private chat isn’t switched on yet (server needs CHAT_KEY)',
  not_member:'You’re not in this chat',banned:'You were removed from this group',cant_message:'This caller isn’t taking messages from you',you_blocked:'Unblock them first to message',
  user_not_found:'That caller hasn’t joined Callit yet',invite_not_found:'This invite link has expired or was reset',invite_required:'This group is invite-only',
- too_many_groups:'You’ve started 5 groups today. Try again tomorrow',title_required:'Give the group a name',cant_leave_dm:'DMs can be muted, not left'})[m]||m||'Something went wrong'}
+ too_many_groups:'You’ve started 5 groups today. Try again tomorrow',admins_only:'Only admins can send messages in this group',bad_image:'That photo couldn’t be used. Try another',run_migration_0014:'Run migration 0014 in Supabase to switch this on',not_allowed:'Only the group owner or admins can do that',title_required:'Give the group a name',cant_leave_dm:'DMs can be muted, not left'})[m]||m||'Something went wrong'}
 function chAgo(at){const d=new Date(at),m=(Date.now()-d)/6e4;if(m<1)return 'now';if(m<60)return Math.floor(m)+'m';if(m<1440)return Math.floor(m/60)+'h';
  if(m<10080)return d.toLocaleDateString(undefined,{weekday:'short'});return d.toLocaleDateString(undefined,{month:'short',day:'numeric'})}
 const chClock=at=>new Date(at).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});
@@ -2513,6 +2518,7 @@ function chDay(at){const d=new Date(at),t=new Date(),y=new Date(Date.now()-864e5
  return s(d)===s(t)?'Today':s(d)===s(y)?'Yesterday':d.toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'})}
 /* Group sigil: a raised tile tinted from the group id, with the Callit glyph for its kind. */
 function chSig(c,cls=''){if(c.kind==='dm'&&c.peer){chSeen(c.peer);return avatar(c.peer.handle,cls)}
+ if(c.avatar&&c.kind!=='dm')return `<span class="chsig ${cls} pic ${c.kind}" style="background-image:url('${esc(c.avatar)}')"><i>${ic(c.kind==='public'?'promote':'lock',11)}</i></span>`;
  if(c.mint&&T[c.mint])return `<span class="chsig ${cls} tok">${tokav(c.mint)}<i>${ic(c.kind==='public'?'promote':'lock',11)}</i></span>`;
  const w=(c.title||'G').replace(/[^A-Za-z0-9 ]/g,'').trim().split(/\s+/),ini=((w[0]||'G')[0]+(w[1]?w[1][0]:'')).toUpperCase();
  return `<span class="chsig ${cls} ${c.kind}" style="--h:${hue(c.id||c.title||'g')}"><b>${esc(ini)}</b><i>${ic(c.kind==='public'?'promote':'lock',11)}</i></span>`}
@@ -2522,7 +2528,7 @@ function chPaint(id){const r=chRoute();if(r===null||document.querySelector('#mod
  if(id&&r==='c-'+id){if(!$('#chmsgs'))return render();chMsgs(id);return}
  if(!id&&r==='')render()}
 function loadInbox(){if(!chOn()||CH.ibusy)return Promise.resolve();CH.ibusy=1;
- return API('/api/chat').then(j=>{CH.inbox=j.chats||[];CH.enc=j.encrypted!==false;CH.ierr='';CH.inbox.forEach(c=>chSeen(c.peer));chScanMints(CH.inbox.map(c=>c.last||{}));
+ return API('/api/chat').then(j=>{listenForCalls(j.ring);CH.inbox=j.chats||[];CH.enc=j.encrypted!==false;CH.ierr='';CH.inbox.forEach(c=>chSeen(c.peer));chScanMints(CH.inbox.map(c=>c.last||{}));
   CH.unread=CH.inbox.filter(c=>!c.muted).reduce((a,c)=>a+(c.unread||0),0);chBadge();
   const miss=CH.inbox.map(c=>c.mint).filter(m=>m&&!T[m]);if(miss.length)chNeed(miss)})
  .catch(e=>{CH.ierr=chErr(e)}).finally(()=>{CH.ibusy=0;chPaint()})}
@@ -2531,14 +2537,16 @@ function loadDisc(){if(CH.dbusy)return;CH.dbusy=1;const q=CH.dq;
  .catch(()=>{CH.disc=CH.disc||[]}).finally(()=>{CH.dbusy=0;const el=$('#chdisc');if(el)el.innerHTML=chDiscList();else chPaint()})}
 function chThread(id){return CH.th[id]||(CH.th[id]={chat:null,people:[],msgs:[],more:false,busy:0,err:'',last:0})}
 function loadThread(id){const t=chThread(id);if(t.busy)return;t.busy=1;
- API('/api/chat/messages?chat='+encodeURIComponent(id)).then(j=>{t.chat=j.chat;t.people=j.people||[];t.people.forEach(chSeen);t.msgs=j.messages||[];t.more=!!j.more;t.err='';
+ API('/api/chat/messages?chat='+encodeURIComponent(id)).then(j=>{t.reads=j.reads||null;t.call=j.call||null;t.chat=j.chat;t.people=j.people||[];t.people.forEach(chSeen);t.msgs=j.messages||[];t.more=!!j.more;t.err='';
   t.msgs.forEach(m=>chSeen(m.from));t.last=t.msgs.reduce((a,m)=>Math.max(a,+m.id||0),0);chScanMints(t.msgs);
   const ib=CH.inbox&&CH.inbox.find(c=>c.id===id);if(ib&&ib.unread){CH.unread=Math.max(0,CH.unread-(ib.muted?0:ib.unread));ib.unread=0;chBadge()}})
  .catch(e=>{t.err=chErr(e)}).finally(()=>{t.busy=0;const first=!$('#chmsgs');chPaint(id);if(first)chBottom(true);
   if(CH.showInfo===id&&t.chat){CH.showInfo=null;setTimeout(()=>chInfo(id),250)}})}
 function pollThread(id){const t=CH.th[id];if(!t||!t.chat||t.busy||t.polling)return;t.polling=1;
  const head=window.CallitWallet&&chOn();(head?API('/api/chat/messages?chat='+id+'&after='+t.last):fetch('/api/chat/messages?chat='+id+'&after='+t.last,{cache:'no-store'}).then(r=>r.json()))
- .then(j=>{const add=(j.messages||[]).filter(m=>!t.msgs.some(x=>x.id===m.id));if(!add.length)return;const near=chNear();
+ .then(j=>{const add=(j.messages||[]).filter(m=>!t.msgs.some(x=>x.id===m.id));
+  const sig=JSON.stringify([j.reads,j.call&&j.call.id]),was=JSON.stringify([t.reads,t.call&&t.call.id]);if('reads' in j)t.reads=j.reads;if('call' in j)t.call=j.call;
+  if(!add.length){if(sig!==was)chMsgs(id);return}const near=chNear();
   add.forEach(m=>{chSeen(m.from);const i=t.msgs.findIndex(x=>x.pend&&x.mine&&m.mine&&x.body===m.body);if(i>=0)t.msgs.splice(i,1)});
   t.msgs.push(...add);t.last=Math.max(t.last,...add.map(m=>+m.id));chScanMints(add);chPaint(id);if(near)chBottom()}).catch(()=>{}).finally(()=>{t.polling=0})}
 function olderThread(id){const t=CH.th[id];if(!t||t.busy||!t.more)return;const first=t.msgs.find(m=>!m.pend);if(!first)return;t.busy=1;
@@ -2589,10 +2597,13 @@ function vInbox(){if(chOn()&&!CH.inbox&&!CH.ibusy)loadInbox();if(CH.tab==='publi
  <p class="chfoot">${ic('shield',13)} Public groups are guarded. Links outside trusted sites, invite links and wallet-drain lines are blocked before they post.</p>`}
 
 /* ---------- thread ---------- */
-const CH_MK=/\[\[(img|voice|file):(https:\/\/[^\]|\s]+)(?:\|([^\]]*))?\]\]/g;
-function chPlain(t){return String(t||'').replace(/\[\[img:[^\]]+\]\]/g,'📷 Photo').replace(/\[\[voice:[^\]]+\]\]/g,'🎤 Voice note').replace(/\[\[file:[^|\]]+\|?([^\]]*)\]\]/g,(_,n)=>'📎 '+(n||'File')).trim()}
+const CH_MK=/\[\[(img|gif|voice|file):(https:\/\/[^\]|\s]+)(?:\|([^\]]*))?\]\]/g;
+const CH_GIFHOST=/^https:\/\/(media\d*\.tenor\.com|c\.tenor\.com|media\d*\.giphy\.com|i\.giphy\.com)\//;
+const CH_CALLMK=/^\[\[(call|callend|callmiss):([^\]|]+)(?:\|([^\]]*))?\]\]\s*/;
+function chPlain(t){return String(t||'').replace(/^\[\[callmiss:[^\]]*\]\]\s*/,'📵 ').replace(/^\[\[call(?:end)?:[^\]]*\]\]\s*/,'📞 ').replace(/\[\[gif:[^\]]+\]\]/g,'GIF').replace(/\[\[img:[^\]]+\]\]/g,'📷 Photo').replace(/\[\[voice:[^\]]+\]\]/g,'🎤 Voice note').replace(/\[\[file:[^|\]]+\|?([^\]]*)\]\]/g,(_,n)=>'📎 '+(n||'File')).trim()}
 function chMediaHTML(t){let out='';for(const m of String(t||'').matchAll(CH_MK)){const [,k,u,x]=m;
   if(k==='img')out+=`<a class="chimg" href="${esc(u)}" target="_blank" rel="noopener noreferrer"><img src="${esc(u)}" alt="Photo" loading="lazy"></a>`;
+  else if(k==='gif'){if(CH_GIFHOST.test(u))out+=`<span class="chgif"><img src="${esc(u)}" alt="GIF" loading="lazy"><i>GIF</i></span>`}
   else if(k==='voice')out+=`<div class="chvoice"><span class="chvic">${ic('mic',16)}</span><audio controls preload="metadata" src="${esc(u)}"></audio>${x?`<span class="hint num">${esc(x)}s</span>`:''}</div>`;
   else out+=`<a class="chfile" href="${esc(u)}" target="_blank" rel="noopener noreferrer">${ic('clip',16)}<span>${esc(x||'File')}</span><small>Open ↗</small></a>`}
  return out}
@@ -2612,7 +2623,7 @@ function chMsgsHTML(id){const t=CH.th[id];if(!t)return '';const grp=t.chat&&t.ch
  const list=t.msgs.filter(m=>!(m.from&&!m.mine&&(S.muted.has(m.from.handle)||S.blocked.has(m.from.handle))));
  if(!list.length)out+=`<div class="chstart">${t.chat?`<button class="chstav" data-cx="info" data-f="${id}" aria-label="Chat settings">${chSig(t.chat,'lg')}</button>`:''}<b>${t.chat?esc(chName(t.chat)):''}</b><p>${t.chat&&t.chat.kind==='dm'?'This is the start of your DMs. Encrypted, just the two of you.':t.chat&&t.chat.kind==='private'?'Private and encrypted. Invite your squad from the ⓘ menu.':'Say gm. Drop a CA. Make the call.'}</p></div>`;
  for(const m of list){const d=chDay(m.at);if(d!==day){out+=`<div class="chday"><span>${d}</span></div>`;day=d;prev=null}
-  if(m.kind==='system'){out+=`<div class="chsys">${chBodyHTML(m.body)}</div>`;prev=null;continue}
+  if(m.kind==='system'){out+=chSysHTML(t,m);prev=null;continue}
   const h=m.from?m.from.handle:'deleted',cont=prev&&prev.from&&m.from&&prev.from.handle===h&&(new Date(m.at)-new Date(prev.at))<3e5;prev=m;
   const emo=!m.deleted&&CH_EMOJI.test(String(m.body).trim()),open=CH.open===m.id;
   out+=`<div class="chm${m.mine?' me':''}${cont?' cont':''}${m.pend?' pend':''}${m.fail?' fail':''}" data-mid="${m.id}">
@@ -2620,16 +2631,30 @@ function chMsgsHTML(id){const t=CH.th[id];if(!t)return '';const grp=t.chat&&t.ch
   <div class="chw">${grp&&!m.mine&&!cont?`<a class="chn" href="#/profile/${esc(h)}">${esc(DN[h]||h)}<span class="hint">@${esc(h)}</span></a>`:''}
   <div class="chb${emo?' emo':''}${m.deleted?' del':''}${open?' on':''}" data-cx="tap" data-f="${m.id}" tabindex="0">
    ${m.reply?`<div class="chq"><b>@${esc(m.reply.from||'deleted')}</b><span>${esc(m.reply.body||'Message deleted')}</span></div>`:''}
-   <div class="chtx">${m.deleted?'Message deleted':chBodyHTML(m.body)}</div><span class="cht">${m.fail?'Not sent · tap':m.pend?'Sending…':chClock(m.at)}</span></div>
+   <div class="chtx">${m.deleted?'Message deleted':chBodyHTML(m.body)}</div><span class="cht">${m.fail?'Not sent · tap':m.pend?'Sending…':chClock(m.at)}${m.mine&&!m.fail?chTicks(t,m):''}</span></div>
   ${m.deleted?'':chDrop(m.body)}
   ${open&&!m.deleted?`<div class="chacts"><button data-cx="reply" data-f="${m.id}">${ic('reply',15)} Reply</button><button data-cx="copy" data-f="${m.id}">${ic('copy',15)} Copy</button>${m.fail?`<button data-cx="resend" data-f="${m.id}">${ic('share',15)} Retry</button>`:''}${(m.mine||boss)&&!m.pend?`<button class="dn" data-cx="del" data-f="${m.id}">${ic('trash',15)} Delete</button>`:''}</div>`:''}
   </div></div>`}
  return out}
-function chMsgs(id){const el=$('#chmsgs');if(el)el.innerHTML=chMsgsHTML(id);const rb=$('#chreply');if(rb)rb.outerHTML=chReplyBar(id)}
+/* Ticks on your own messages: one grey = sent, two grey = delivered to their device, two blue = seen.
+   In groups it turns blue once everyone has seen it (public groups: once anyone has). */
+function chTicks(t,m){if(m.pend)return `<i class="chtk wait">${ic('clock',12)}</i>`;const r=t.reads,id=+m.id;if(!r||!Number.isFinite(id))return '';
+ const n=r.length,seen=r.filter(x=>x[1]>=id).length,got=r.filter(x=>x[0]>=id).length,pub=t.chat&&t.chat.kind==='public',dm=t.chat&&t.chat.kind==='dm';
+ const st=!n?'sent':(pub?seen>0:seen===n)?'seen':(pub?got>0:got===n)?'got':'sent';
+ const tip=st==='seen'?(dm?'Seen':`Seen by ${seen}${pub?'':' of '+n}`):st==='got'?(dm?'Delivered':`Delivered to ${got}${pub?'':' of '+n}`):'Sent';
+ return `<i class="chtk ${st}" title="${tip}" aria-label="${tip}">${ic(st==='sent'?'tick1':'tick2',st==='sent'?13:16)}</i>`}
+function chSysHTML(t,m){const b=String(m.body||''),k=b.match(CH_CALLMK);if(!k)return `<div class="chsys">${chBodyHTML(b)}</div>`;
+ const [,typ,arg]=k,txt=b.replace(CH_CALLMK,''),vid=typ==='call'?(k[3]==='video'):arg==='video',live=typ==='call'&&t.call&&t.call.id===arg&&activeCallId()!==arg;
+ return `<div class="chsys chcalllog ${typ}"><span class="clic">${ic(vid?'vcam':typ==='callmiss'?'hangup':'phone',14)}</span><span>${chTextHTML(txt)}</span><span class="hint">${chClock(m.at)}</span>${live?`<button class="btn sm primary" data-cx="calljoin" data-f="${esc(arg)}" data-k="${vid?'video':'audio'}">Join</button>`:''}</div>`}
+function chCallBar(id){const t=CH.th[id],c=t&&t.call,on=c&&activeCallId()===c.id;
+ return `<div id="chcallbar"${c?'':' hidden'}>${c?`<span class="ccdot"></span><span class="grow"><b>${c.kind==='video'?'Video':'Voice'} call ${on?'· you’re on it':'in progress'}</b><span class="hint">${c.by?'Started by @'+esc(c.by)+' · ':''}${chAgo(c.at)}</span></span>
+ <button class="btn sm ${on?'ghost':'go'}" data-cx="calljoin" data-f="${esc(c.id)}" data-k="${c.kind}">${ic(c.kind==='video'?'vcam':'phone',15)} ${on?'Open':'Join'}</button>`:''}</div>`}
+function chMsgs(id){const el=$('#chmsgs');if(el)el.innerHTML=chMsgsHTML(id);const rb=$('#chreply');if(rb)rb.outerHTML=chReplyBar(id);const cb=$('#chcallbar');if(cb)cb.outerHTML=chCallBar(id)}
 function chReplyBar(id){const r=CH.reply[id];return `<div id="chreply"${r?'':' hidden'}>${r?`<span class="chrq">${ic('reply',14)}<span>Replying to <b>@${esc(r.from||'')}</b> ${esc((r.body||'').slice(0,80))}</span></span><button class="ib" data-cx="unreply" data-f="${id}" aria-label="Cancel reply">${ic('x',16)}</button>`:''}</div>`}
 function chComposer(id){const t=CH.th[id],c=t&&t.chat;if(!c)return '';
  if(!chOn())return `<div class="composer chcbar"><div class="grow"><b>Sign in to chat</b><div class="hint">${c.kind==='public'?'Anyone can read. Sign in to talk.':''}</div></div><button class="btn primary" data-act="connect">Sign in</button></div>`;
  if(c.kind==='public'&&!c.role)return `<div class="composer chcbar"><div class="grow"><b>${esc(c.title||'Public group')}</b><div class="hint">${fmtK(c.members||0)} members · guarded</div></div><button class="btn primary" data-cx="join" data-f="${id}">${ic('plus',16)} Join group</button></div>`;
+ if(c.adminsOnly&&c.kind!=='dm'&&c.role!=='owner'&&c.role!=='admin')return `<div class="composer chcbar chlocked">${ic('shield',16)}<div class="grow"><b>Only admins can send messages</b><div class="hint">You can still read, call and drop reactions in DMs.</div></div></div>`;
  const ph=c.kind==='dm'?`Message ${c.peer?'@'+c.peer.handle:''}`:c.kind==='private'?'Message the squad':'Say it in public. Drop a CA';
  return `<div class="composer chcomp">${chReplyBar(id)}<div class="chcrow"><button class="chtool chlogo" data-cx="attach" data-f="${id}" aria-label="Send a photo or file"><span class="mark" aria-hidden="true"></span><i class="chplus" aria-hidden="true">${ic('plus',11)}</i></button><div class="chfield"><textarea id="chin" class="input" rows="1" maxlength="1000" placeholder="${esc(ph)}" data-f="${id}">${esc(CH.draft[id]||'')}</textarea>
  <button class="chmic" data-cx="voice" data-f="${id}" aria-label="Record a voice note">${ic('mic',19)}</button></div>
@@ -2640,8 +2665,8 @@ function vThread(id){const t=chThread(id);if(!t.chat&&!t.busy&&!t.err)loadThread
  const c=t.chat,sub=c.kind==='dm'?(c.peer?`@${esc(c.peer.handle)} · ${ic('lock',11)} encrypted`:''):c.kind==='private'?`${fmtK(c.members)} members · ${ic('lock',11)} encrypted`:`${fmtK(c.members)} members · ${ic('shield',11)} guarded`;
  const link=c.kind==='dm'&&c.peer?`#/profile/${esc(c.peer.handle)}`:'';
  return `<div class="rhead chhead"><button class="chheadav" data-cx="info" data-f="${id}" aria-label="Chat settings">${chSig(c)}</button><div class="grow chheadt" data-cx="info" data-f="${id}"><b>${esc(chName(c))}</b><div class="hint chsub">${sub}</div></div>
- ${c.mint&&T[c.mint]?`<a class="btn sm ghost" href="#/token/${c.mint}">$${esc(T[c.mint].sym)}</a>`:''}<button class="ib chib" data-cx="info" data-f="${id}" aria-label="Chat details">${ic('info',20)}</button></div>
- <div class="msgs chmsgs" id="chmsgs"${chWpAttr(id)}>${chMsgsHTML(id)}</div>${chComposer(id)}`}
+ ${c.mint&&T[c.mint]?`<a class="btn sm ghost" href="#/token/${c.mint}">$${esc(T[c.mint].sym)}</a>`:''}${chOn()&&c.role?`<div class="chcallbtns"><button class="ib chib" data-cx="call" data-f="${id}" data-k="audio" aria-label="Voice call" title="Voice call">${ic('phone',20)}</button><button class="ib chib" data-cx="call" data-f="${id}" data-k="video" aria-label="Video call" title="Video call">${ic('vcam',21)}</button></div>`:''}<button class="ib chib" data-cx="info" data-f="${id}" aria-label="Chat details">${ic('info',20)}</button></div>
+ ${chCallBar(id)}<div class="msgs chmsgs" id="chmsgs"${chWpAttr(id)}>${chMsgsHTML(id)}</div>${chComposer(id)}`}
 function vJoin(code){const g=CH.inv[code];
  if(!g){fetch('/api/chat?invite='+encodeURIComponent(code),{cache:'no-store'}).then(r=>r.json().then(j=>({ok:r.ok,j}))).then(({ok,j})=>{CH.inv[code]=ok?j.group:{err:chErr(j.error)};chPaint()}).catch(()=>{CH.inv[code]={err:'Couldn’t open this invite'};chPaint()});
   return '<div class="chinvite"><div class="chskel big"></div></div>'}
@@ -2717,7 +2742,34 @@ function chWpOpen(id){modal('Chat wallpaper',id==='*'?'The default for all your 
 /* ---------- attachments + voice notes ---------- */
 async function chUpload(id,data,marker){toast(marker==='img'?'Sending photo…':marker==='voice'?'Sending voice note…':'Sending file…');
  try{const r=await API('/api/media',{body:{data,kind:'chat'}});return r.url}catch(e){toast(e.message||'Upload failed');return null}}
-function chAttach(id){modal('Send','',`<div class="chopts"><button class="chopt" data-cx="pickimg" data-f="${id}">${ic('image',18)}<span>Photo</span></button><button class="chopt" data-cx="pickcam" data-f="${id}">${ic('camera',18)}<span>Camera</span></button><button class="chopt" data-cx="pickfile" data-f="${id}">${ic('clip',18)}<span>File · PDF, audio or video up to 3 MB</span></button><button class="chopt" data-cx="voice" data-f="${id}">${ic('mic',18)}<span>Voice note</span></button></div>`)}
+/* The share tray: big tactile tiles, each its own colour, that cascade in. GIF and Token open in place. */
+const CH_ATT=[['pickimg','image','Photo','From gallery','#2F80ED','#56CCF2'],['pickcam','camera','Camera','Snap it now','#EB5757','#F2994A'],
+ ['gifs','gifb','GIF','Search & send','#8E54E9','#C471ED'],['tokdrop','promote','Token','Drop a CA','#11998E','#38EF7D'],
+ ['pickfile','clip','File','PDF · MP4 · 3 MB','#F2994A','#F2C94C'],['voice','mic','Voice note','Up to 2 min','#E0457B','#FF7EB3']];
+function chAttach(id){modal('Share','',`<div class="atttray">${CH_ATT.map(([a,i,l,sub,c1,c2],n)=>`<button class="atttile" data-cx="${a}" data-f="${id}" style="--c1:${c1};--c2:${c2};--n:${n}"><span class="attic">${ic(i,24)}</span><b>${l}</b><em>${sub}</em></button>`).join('')}</div>`)}
+function chGifs(id){const box=$('#modal .modal');if(!box)return;
+ box.innerHTML=`<div class="mhead attback"><button class="ib" data-cx="attach" data-f="${id}" aria-label="Back">${ic('back',18)}</button><div class="chsearch grow">${ic('search',17)}<input class="input" id="gifq" placeholder="Search GIFs" autocomplete="off" enterkeyhint="search"></div><button class="ib" data-act="close" aria-label="Close">${ic('x',18)}</button></div>
+ <div class="gifchips">${['gm','wagmi','lfg','pump it','rekt','to the moon','ngmi','wen'].map(x=>`<button class="chip" data-gq="${x}">${x}</button>`).join('')}</div>
+ <div class="gifwall" id="gifwall"></div><button class="lnk gifup" data-cx="gifup" data-f="${id}">${ic('image',15)} Upload a GIF from your device</button>`;
+ const q=$('#gifq',box),wall=$('#gifwall',box);let tm=0;
+ const load=()=>{const v=q.value.trim();wall.innerHTML=Array.from({length:9},(_,i)=>`<span class="gifsk" style="--h:${[120,90,150,100,130,85,140,110,95][i]}px"></span>`).join('');
+  fetch('/api/gifs?q='+encodeURIComponent(v)).then(r=>r.json().then(j=>({ok:r.ok,j}))).then(({ok,j})=>{if(!wall.isConnected||q.value.trim()!==v)return;
+   if(!ok||j.configured===false){wall.innerHTML=`<div class="chempty sm"><b>GIF search is off</b><p>Add a GIPHY_API_KEY in Vercel to switch it on. You can still upload a GIF.</p></div>`;return}
+   wall.innerHTML=(j.gifs||[]).map(g=>`<button class="gift" data-cx="gifsend" data-f="${id}" data-u="${esc(g.url)}" aria-label="${esc(g.title||'GIF')}"><img src="${esc(g.preview)}" alt="" loading="lazy"></button>`).join('')||`<p class="hint pad">No GIFs for “${esc(v)}”. Try another word.</p>`})
+  .catch(()=>{if(wall.isConnected)wall.innerHTML='<p class="hint pad">GIFs didn’t load. Check your connection.</p>'})};
+ q.oninput=()=>{clearTimeout(tm);tm=setTimeout(load,300)};
+ box.querySelectorAll('[data-gq]').forEach(b=>b.onclick=()=>{q.value=b.dataset.gq;load()});load();setTimeout(()=>q.focus(),40)}
+function chTokDrop(id){const box=$('#modal .modal');if(!box)return;
+ box.innerHTML=`<div class="mhead attback"><button class="ib" data-cx="attach" data-f="${id}" aria-label="Back">${ic('back',18)}</button><div class="chsearch grow">${ic('search',17)}<input class="input" id="tkq" placeholder="Token name, $ticker or CA" autocomplete="off"></div><button class="ib" data-act="close" aria-label="Close">${ic('x',18)}</button></div>
+ <p class="hint tkhint">${ic('promote',13)} Drops a live card anyone in the chat can buy or call.</p><div class="list" id="tkres"></div>`;
+ const q=$('#tkq',box),res=$('#tkres',box);let tm=0;
+ const row=t=>{const c=chgOf(t,'24h');return `<button class="li tkrow" data-cx="tksend" data-f="${id}" data-t="${esc(t.key)}">${tokav(t.key)}<div class="grow"><b>$${esc(t.sym)}</b><div class="hint num">${t.supply&&t.price?fmtSmall(mcap(t))+' MC':''}${c!=null?` · <em class="${c>=0?'up':'dn'}">${pctS(c)}</em>`:''}</div></div><span class="btn sm primary">${ic('send',13)} Drop</span></button>`};
+ const base=()=>{const l=Object.values(T).filter(t=>t&&t.key&&t.sym&&t.price).sort((a,b)=>(b.vol||0)-(a.vol||0)).slice(0,8);res.innerHTML=l.length?`<div class="chsec sm">Hot right now</div>${l.map(row).join('')}`:''};
+ q.oninput=()=>{clearTimeout(tm);const v=q.value.trim();if(v.length<2)return base();
+  if(isMintStr(v)){res.innerHTML=`<button class="li tkrow" data-cx="tksend" data-f="${id}" data-t="${esc(v)}"><div class="grow"><b>Drop this CA</b><div class="hint">${esc(short(v))}</div></div><span class="btn sm primary">${ic('send',13)} Drop</span></button>`;return}
+  res.innerHTML='<div class="chskel"></div><div class="chskel"></div>';
+  tm=setTimeout(()=>searchTokens(v).then(r=>{if(q.value.trim()!==v)return;const l=r.map(regLive).filter(Boolean).slice(0,12);res.innerHTML=l.length?l.map(row).join(''):`<p class="hint pad">No live token matches “${esc(v)}”.</p>`}).catch(()=>{res.innerHTML='<p class="hint pad">Search is unavailable right now.</p>'}),250)};
+ base();setTimeout(()=>q.focus(),40)}
 function chPick(id,accept,capture){closeModal();const inp=document.createElement('input');inp.type='file';inp.accept=accept;if(capture)inp.setAttribute('capture','environment');
  inp.onchange=()=>{const f=inp.files&&inp.files[0];if(!f)return;
   if(/^image\//.test(f.type)&&f.type!=='image/gif')return shrink(f,1600,async d=>{const u=await chUpload(id,d,'img');if(u)chSend(id,null,`[[img:${u}]]`)});
@@ -2738,20 +2790,56 @@ async function chVoice(id){closeModal();if(REC.r)return chVoiceStop(false);
 function chVoiceStop(cancel){if(!REC.r)return;REC.cancel=cancel;try{REC.r.stop()}catch(_){}}
 function chRecUI(id){const el=$('#chrec');if(!el)return;el.hidden=!id;document.querySelector('.chcomp')?.classList.toggle('rec',!!id);
  el.innerHTML=id?`<span class="chrdot"></span><b>Recording</b><span class="num" id="chrect">0:00</span><span class="grow"></span><button class="btn sm ghost" data-cx="voicex">Cancel</button><button class="btn sm primary" data-cx="voiceok">${ic('check',14)} Send</button>`:''}
-function chInfo(id){const t=CH.th[id];if(!t||!t.chat)return;const c=t.chat,boss=c.role==='owner'||c.role==='admin',url=c.invite?location.origin+'/#/messages/join-'+c.invite:'';
+function chInfo(id){const t=CH.th[id];if(!t||!t.chat)return;const c=t.chat,boss=c.role==='owner'||c.role==='admin',owner=c.role==='owner',grp=c.kind!=='dm',url=c.invite?location.origin+'/#/messages/join-'+c.invite:'';
  const ppl=t.people||[],role={owner:'Owner',admin:'Admin'};
- const pics=[];(t.msgs||[]).forEach(m=>{for(const x of String(m.body||'').matchAll(CH_MK))if(x[1]==='img')pics.push(x[2])});
- modal(esc(chName(c)),c.kind==='dm'?'Direct message · encrypted':c.kind==='private'?`Private group · ${fmtK(c.members)} members · encrypted`:`Public group · ${fmtK(c.members)} members · guarded`,
- `${c.kind==='dm'&&c.peer?`<div class="chpeer">${avatar(c.peer.handle,'lg')}<b>${esc(c.peer.name||c.peer.handle)}</b><span class="hint">@${esc(c.peer.handle)}</span><div class="chpeerb"><a class="btn sm primary" href="#/profile/${esc(c.peer.handle)}" data-act="close">${ic('profile',14)} Profile</a><button class="btn sm ghost" data-cx="mute" data-f="${id}">${ic('bell',14)} ${c.muted?'Unmute':'Mute'}</button></div></div>`:''}
- ${c.about?`<p class="chabout">${esc(c.about)}</p>`:''}
- <div class="chsec sm">${ic('palette',14)} Wallpaper</div>${chWpGrid(id)}
- ${pics.length?`<div class="chsec sm">Photos</div><div class="chpics">${pics.slice(-12).reverse().map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener noreferrer"><img src="${esc(u)}" alt="" loading="lazy"></a>`).join('')}</div>`:''}
+ const pics=[];(t.msgs||[]).forEach(m=>{for(const x of String(m.body||'').matchAll(CH_MK))if(x[1]==='img'||x[1]==='gif')pics.push(x[2])});
+ const kindL=c.kind==='dm'?`${ic('lock',12)} Direct message · encrypted`:c.kind==='private'?`${ic('lock',12)} Private group · ${fmtK(c.members)} members`:`${ic('shield',12)} Public group · ${fmtK(c.members)} members`;
+ const face=c.kind==='dm'&&c.peer?avatar(c.peer.handle,'xl'):chSig(c,'xl');
+ modal(esc(chName(c)),'',`<div class="ginfo">
+ <div class="ghero"><div class="gface">${face}${grp&&boss?`<button class="gcam" data-cx="gphoto" data-f="${id}" aria-label="Change group photo">${ic('camera',15)}</button>`:''}</div>
+  <h2>${esc(chName(c))}</h2><span class="gkind">${kindL}</span>${c.kind==='dm'&&c.peer?`<span class="hint">@${esc(c.peer.handle)}</span>`:''}
+  ${c.about?`<p class="chabout">${esc(c.about)}</p>`:grp&&boss?`<button class="lnk" data-cx="gedit" data-f="${id}">Add a description</button>`:''}
+  <div class="gacts">${chOn()&&c.role?`<button class="gact" data-cx="call" data-f="${id}" data-k="audio">${ic('phone',20)}<span>Voice</span></button><button class="gact" data-cx="call" data-f="${id}" data-k="video">${ic('vcam',20)}<span>Video</span></button>`:''}
+   <button class="gact" data-cx="mute" data-f="${id}">${ic('bell',20)}<span>${c.muted?'Unmute':'Mute'}</span></button>
+   ${c.kind==='dm'&&c.peer?`<a class="gact" href="#/profile/${esc(c.peer.handle)}" data-act="close">${ic('profile',20)}<span>Profile</span></a>`:''}
+   ${grp&&boss?`<button class="gact" data-cx="gedit" data-f="${id}">${ic('pen',20)}<span>Edit</span></button>`:''}
+   ${url?`<button class="gact" data-cx="copyinv" data-f="${esc(url)}">${ic('link',20)}<span>Invite</span></button>`:''}</div></div>
  ${url?`<div class="chinv"><span class="hint">${c.kind==='public'?'Invite link':'Invite link · anyone with it can join'}</span><div class="chinvl"><code>${esc(url.replace(/^https?:\/\//,''))}</code><button class="btn sm primary" data-cx="copyinv" data-f="${esc(url)}">${ic('copy',14)} Copy</button></div>
   <div class="chinvb">${navigator.share?`<button class="btn sm ghost" data-cx="shareinv" data-f="${esc(url)}">${ic('share',14)} Share</button>`:''}<a class="btn sm ghost" target="_blank" rel="noopener" href="https://x.com/intent/post?text=${encodeURIComponent('Join '+(c.title||'my group')+' on Callit. Call it. Get Paid.')}&url=${encodeURIComponent(url)}">Post on X</a>${boss?`<button class="btn sm ghost" data-cx="resetinv" data-f="${id}">Reset link</button>`:''}</div></div>`:''}
- <div class="chopts"><button class="chopt" data-cx="mute" data-f="${id}">${ic('bell',18)}<span>${c.muted?'Unmute':'Mute'} notifications</span></button>
- ${c.kind!=='dm'?`<button class="chopt dn" data-cx="leave" data-f="${id}">${ic('back',18)}<span>Leave group</span></button>`:''}</div>
- ${c.kind!=='dm'?`<div class="chsec sm">Members</div><div class="list">${ppl.map(p=>`<div class="li"><a href="#/profile/${esc(p.handle)}" data-act="close">${avatar(p.handle)}</a><div class="grow"><b>${esc(p.name||p.handle)}</b><div class="hint">@${esc(p.handle)}${role[p.role]?' · '+role[p.role]:''}</div></div>${boss&&p.handle!==S.me&&p.role!=='owner'?`<button class="btn sm ghost" data-cx="ban" data-f="${id}" data-h="${esc(p.handle)}">Remove</button>`:''}</div>`).join('')}</div>`:''}`)}
+ ${grp&&boss?`<div class="chsec sm">${ic('cog',14)} Group settings</div><div class="gset">
+  <button class="gsrow" data-cx="gedit" data-f="${id}">${ic('pen',18)}<span class="grow"><b>Name, photo & description</b><em>Only admins can change these</em></span>${ic('chev',16)}</button>
+  <button class="gsrow" role="switch" aria-checked="${!!c.adminsOnly}" data-cx="gadmins" data-f="${id}">${ic('shield',18)}<span class="grow"><b>Only admins can send</b><em>Turn the group into an announcement channel</em></span><span class="gsw${c.adminsOnly?' on':''}"><i></i></span></button></div>`:''}
+ <div class="chsec sm">${ic('palette',14)} Wallpaper</div>${chWpGrid(id)}
+ ${pics.length?`<div class="chsec sm">Media</div><div class="chpics">${pics.slice(-12).reverse().map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener noreferrer"><img src="${esc(u)}" alt="" loading="lazy"></a>`).join('')}</div>`:''}
+ ${grp?`<div class="chsec sm">${ic('users',14)} ${fmtK(c.members)} members</div><div class="list gmem">${ppl.map(p=>`<div class="li"><a href="#/profile/${esc(p.handle)}" data-act="close">${avatar(p.handle)}</a><div class="grow"><b>${esc(p.name||p.handle)}${p.handle===S.me?' <span class="hint">(you)</span>':''}</b><div class="hint">@${esc(p.handle)}</div></div>${role[p.role]?`<span class="grole ${p.role}">${p.role==='owner'?ic('crown',12):ic('shield',12)} ${role[p.role]}</span>`:''}
+  ${p.handle!==S.me&&p.role!=='owner'&&(owner||(boss&&p.role!=='admin'))?`<button class="ib gmore" data-cx="gmem" data-f="${id}" data-h="${esc(p.handle)}" data-r="${esc(p.role)}" aria-label="Manage @${esc(p.handle)}">${ic('more',18)}</button>`:''}</div>`).join('')}</div>`:''}
+ <div class="chopts" style="margin-top:14px">${grp?`<button class="chopt dn" data-cx="leave" data-f="${id}">${ic('back',18)}<span>Leave group</span></button>`:''}</div></div>`,m=>m.classList.add('ginfom'))}
+function chEditGroup(id){const t=CH.th[id];if(!t||!t.chat)return;const c=t.chat,D={avatar:c.avatar||'',busy:0};
+ modal('Edit group','Everyone in the group sees these.',`<div class="gedit"><div class="gface big" id="gepv"></div>
+ <div class="geb"><button class="btn sm ghost" id="geup">${ic('camera',14)} ${c.avatar?'Change photo':'Add photo'}</button><button class="btn sm ghost" id="germ"${c.avatar?'':' hidden'}>Remove</button></div>
+ <div class="field"><label for="get">Name</label><input id="get" class="input" maxlength="48" value="${esc(c.title||'')}"></div>
+ <div class="field"><label for="gea">Description <span class="hint" style="float:right" id="gen">${(c.about||'').length}/160</span></label><textarea id="gea" class="input" rows="3" maxlength="160" placeholder="The token, the narrative, the rules">${esc(c.about||'')}</textarea></div>
+ <div class="err" id="gee"></div><button class="btn primary block" id="geo">Save</button></div>`,
+ m=>{const pv=()=>{$('#gepv',m).innerHTML=chSig({...c,avatar:D.avatar,title:$('#get',m).value||c.title},'xl');$('#germ',m).hidden=!D.avatar};pv();
+  $('#get',m).oninput=pv;$('#gea',m).oninput=e=>{$('#gen',m).textContent=e.target.value.length+'/160'};
+  $('#germ',m).onclick=()=>{D.avatar='';pv()};
+  $('#geup',m).onclick=()=>{const inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.onchange=()=>{const f=inp.files&&inp.files[0];if(!f)return;
+   const b=$('#geup',m);b.disabled=true;b.textContent='Uploading…';shrink(f,640,d=>API('/api/media',{body:{data:d,kind:'group'}}).then(r=>{D.avatar=r.url;pv()}).catch(e=>toast(e.message||'Upload failed')).finally(()=>{b.disabled=false;b.innerHTML=`${ic('camera',14)} Change photo`}))};inp.click()};
+  $('#geo',m).onclick=()=>{const go=$('#geo',m),title=$('#get',m).value.trim();if(!title){$('#gee',m).textContent='Give the group a name';return}
+   go.disabled=true;go.textContent='Saving…';chPost({action:'edit',id,title,about:$('#gea',m).value.trim(),avatar:D.avatar||null})
+   .then(()=>{Object.assign(c,{title,about:$('#gea',m).value.trim()||null,avatar:D.avatar||null});const ib=CH.inbox&&CH.inbox.find(x=>x.id===id);if(ib)Object.assign(ib,{title:c.title,about:c.about,avatar:c.avatar});
+    closeModal();render();toast('Group updated');setTimeout(()=>pollThread(id),300)})
+   .catch(e=>{$('#gee',m).textContent=chErr(e);go.disabled=false;go.textContent='Save'})}})}
+function chMemMenu(id,h,r){const t=CH.th[id],owner=t&&t.chat&&t.chat.role==='owner';
+ modal('@'+esc(h),'',`<div class="chopts"><a class="chopt" href="#/profile/${esc(h)}" data-act="close">${ic('profile',18)}<span>View profile</span></a>
+ <a class="chopt" href="#/messages/${esc(h)}" data-act="close">${ic('reply',18)}<span>Message</span></a>
+ ${owner?`<button class="chopt" data-cx="grole" data-f="${id}" data-h="${esc(h)}" data-r="${r==='admin'?'member':'admin'}">${ic('shield',18)}<span>${r==='admin'?'Remove as admin':'Make admin'}</span></button>`:''}
+ <button class="chopt dn" data-cx="ban" data-f="${id}" data-h="${esc(h)}">${ic('block',18)}<span>Remove from group</span></button></div>`)}
 const chPost=(body)=>API('/api/chat',{body});
+const chChat=id=>(CH.th[id]&&CH.th[id].chat)||(CH.inbox||[]).find(c=>c.id===id)||null;
+initCalls({api:API,me:()=>S.me,toast,avatar,esc,
+ chatLabel:id=>{const c=chChat(id);return c?chName(c):null},chatFace:id=>{const c=chChat(id);return c?chSig(c,'xl'):''},isGroup:id=>{const c=chChat(id);return !!c&&c.kind!=='dm'},
+ onChange:()=>{const r=chRoute();if(r&&r.startsWith('c-'))chMsgs(r.slice(2))}});
 document.addEventListener('click',e=>{const b=e.target.closest('[data-cx]');if(!b)return;const a=b.dataset.cx,f=b.dataset.f;
  if(e.target.closest('audio,video'))return;
  const ln=e.target.closest('a,button');if(ln&&ln!==b&&b.contains(ln))return; // links inside a bubble still work
@@ -2772,6 +2860,14 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-cx]');if(!
   del:()=>{const id=chRoute().slice(2),t=CH.th[id],m=t.msgs.find(x=>String(x.id)===f);if(!m||!confirm('Delete this message for everyone?'))return;m.deleted=true;m.body='';CH.open=null;chMsgs(id);chPost({action:'delete_msg',id,msg:m.id}).catch(er=>toast(chErr(er)))},
   older:()=>olderThread(f),
   info:()=>chInfo(f),
+  call:()=>{closeModal();const t=CH.th[f];if(t&&t.call)return joinCall(t.call.id,b.dataset.k);startCall(f,b.dataset.k==='video'?'video':'audio')},
+  calljoin:()=>{closeModal();joinCall(f,b.dataset.k==='video'?'video':'audio')},
+  gifs:()=>chGifs(f),gifsend:()=>{closeModal();chSend(f,null,`[[gif:${b.dataset.u}]]`)},gifup:()=>chPick(f,'image/gif'),
+  tokdrop:()=>chTokDrop(f),tksend:()=>{closeModal();chSend(f,null,b.dataset.t)},
+  gedit:()=>{closeModal();setTimeout(()=>chEditGroup(f),10)},gphoto:()=>{closeModal();setTimeout(()=>{chEditGroup(f);setTimeout(()=>{const u=$('#geup');u&&u.click()},60)},10)},
+  gadmins:()=>{const c=CH.th[f].chat,on=!c.adminsOnly;b.disabled=true;chPost({action:'edit',id:f,adminsOnly:on}).then(()=>{c.adminsOnly=on;closeModal();render();chInfo(f);toast(on?'Only admins can send now':'Everyone can send again')}).catch(er=>{b.disabled=false;toast(chErr(er))})},
+  gmem:()=>{closeModal();setTimeout(()=>chMemMenu(f,b.dataset.h,b.dataset.r),10)},
+  grole:()=>{const h=b.dataset.h,r=b.dataset.r;chPost({action:'role',id:f,handle:h,role:r}).then(()=>{const t=CH.th[f],p=t.people.find(x=>x.handle===h);if(p)p.role=r;closeModal();chInfo(f);toast(r==='admin'?`@${h} is now an admin`:`@${h} is no longer an admin`)}).catch(er=>toast(chErr(er)))},
   attach:()=>chAttach(f),pickimg:()=>chPick(f,'image/*'),pickcam:()=>chPick(f,'image/*',1),pickfile:()=>chPick(f,'application/pdf,audio/*,video/mp4,text/plain'),
   voice:()=>chVoice(f),voicex:()=>chVoiceStop(true),voiceok:()=>chVoiceStop(false),
   wp:()=>{const w=b.dataset.w;if(w)WP[f]=w;else delete WP[f];wpSave();const r=chRoute();if(r&&r.startsWith('c-'))chWpApply(r.slice(2));b.parentElement.querySelectorAll('.wpopt').forEach(x=>x.classList.toggle('on',x===b));toast('Wallpaper set')},
@@ -2790,7 +2886,7 @@ document.addEventListener('keydown',e=>{if(e.target.id!=='chin'||e.key!=='Enter'
 let CHT=0;setInterval(()=>{if(document.hidden)return;CHT++;const r=chRoute();
  if(r&&r.startsWith('c-'))pollThread(r.slice(2));
  else if(r===''&&CHT%4===0&&chOn())loadInbox();
- if(CHT%12===1&&chOn()&&r!=='')API('/api/chat?unread=1').then(j=>{CH.unread=j.unread||0;chBadge()}).catch(()=>{})},2500);
+ if(CHT%12===1&&chOn()&&r!=='')API('/api/chat?unread=1').then(j=>{listenForCalls(j.ring);CH.unread=j.unread||0;chBadge()}).catch(()=>{})},2500);
 window.addEventListener('hashchange',()=>{CH.open=null;setTimeout(chBadge,0)});
 
 /* ---------- edit profile ---------- */

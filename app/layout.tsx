@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import './v6.css';
 import './v7.css';
+import './v8.css';
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://call-it-chi.vercel.app';
 

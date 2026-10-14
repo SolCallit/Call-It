@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
-import { requireMe, dbOrNull, json, isHandle, isMint, str } from '@/lib/db/me';
+import { requireMe, dbOrNull, json, isHandle, isMint, str, ownMediaUrl } from '@/lib/db/me';
 import { chatKeyReady } from '@/lib/chat/crypto';
-import { addMember, bodyOf, CHAT_COLS, getChat, isCode, isUuid, memberOf, newInvite, systemMsg, type ChatRow, type Kind } from '@/lib/chat/store';
+import { addMember, bodyOf, CHAT_COLS, getChat, isCode, isUuid, markDelivered, memberOf, newInvite, systemMsg, type ChatRow, type Kind } from '@/lib/chat/store';
+import { ringTopic } from '@/lib/chat/ring';
 import { cleanBody } from '@/lib/chat/guard';
 
 export const runtime = 'nodejs';
@@ -48,13 +49,15 @@ export async function GET(req: Request) {
   const ctx = await requireMe(req);
   if (ctx instanceof NextResponse) return ctx;
   const { db, me } = ctx;
+  // The app checking in means everything waiting for this person has reached their device.
+  await markDelivered(db, me.id);
   const { data, error } = await db.rpc('chat_inbox', { p: me.id });
   if (error) return json({ error: 'db_read', detail: error.message }, 500);
   const rows = (data || []) as InboxRow[];
 
   if (sp.get('unread') !== null) {
     const n = rows.filter((r) => !r.muted).reduce((a, r) => a + (r.unread || 0), 0);
-    return NextResponse.json({ unread: n }, nocache);
+    return NextResponse.json({ unread: n, ring: ringTopic(me.id) }, nocache);
   }
 
   const chats = rows.map((r) => ({
@@ -66,7 +69,7 @@ export async function GET(req: Request) {
       : null,
     lastAt: r.last_at,
   }));
-  return NextResponse.json({ chats, encrypted: chatKeyReady() }, nocache);
+  return NextResponse.json({ chats, encrypted: chatKeyReady(), ring: ringTopic(me.id) }, nocache);
 }
 
 /**
@@ -76,7 +79,8 @@ export async function GET(req: Request) {
  *  { action:'join', id? , code? }                            public by id, any group by invite code → { id }
  *  { action:'leave', id }
  *  { action:'mute', id, on }
- *  { action:'edit', id, title?, about? }                     owner/admin
+ *  { action:'edit', id, title?, about?, avatar?, adminsOnly? } owner/admin
+ *  { action:'role', id, handle, role:'admin'|'member' }      owner
  *  { action:'invite_reset', id }                             owner/admin → { invite }
  *  { action:'ban', id, handle } / { action:'unban', id, handle }  owner/admin
  *  { action:'delete_msg', id, msg }                          your own message, or any if owner/admin
@@ -197,12 +201,44 @@ export async function POST(req: Request) {
   if (!boss || c.kind === 'dm') return json({ error: 'not_allowed' }, 403);
 
   if (a === 'edit') {
-    const patch: Record<string, string | null> = {};
-    if (typeof b.title === 'string') { const t = str(b.title, 48); if (!t) return json({ error: 'title_required' }, 400); patch.title = t; }
-    if (typeof b.about === 'string') patch.about = cleanBody(b.about, 160) || null;
+    const patch: Record<string, string | boolean | null> = {};
+    const said: string[] = [];
+    if (typeof b.title === 'string') {
+      const t = str(b.title, 48);
+      if (!t) return json({ error: 'title_required' }, 400);
+      if (t !== c.title) { patch.title = t; said.push(`changed the name to “${t}”`); }
+    }
+    if (typeof b.about === 'string') { const ab = cleanBody(b.about, 160) || null; if (ab !== c.about) { patch.about = ab; said.push('updated the description'); } }
+    if (b.avatar === null || b.avatar === '') { if (c.avatar_url) { patch.avatar_url = null; said.push('removed the group photo'); } }
+    else if (b.avatar !== undefined) {
+      if (!ownMediaUrl(b.avatar) || /tenor|giphy/.test(String(b.avatar))) return json({ error: 'bad_image' }, 400);
+      patch.avatar_url = b.avatar as string; said.push('changed the group photo');
+    }
+    if (typeof b.adminsOnly === 'boolean' && b.adminsOnly !== !!c.admins_only) {
+      patch.admins_only = b.adminsOnly; said.push(b.adminsOnly ? 'set the group so only admins can send messages' : 'let everyone send messages');
+    }
     if (!Object.keys(patch).length) return json({ ok: true });
     const { error } = await db.from('chats').update(patch).eq('id', id);
+    if (error && 'admins_only' in patch) return json({ error: 'run_migration_0014' }, 503);
     if (error) return json({ error: 'db_write', detail: error.message }, 500);
+    if (said.length) await systemMsg(db, id, `@${me.handle} ${said.join(', ')}`);
+    return json({ ok: true });
+  }
+
+  if (a === 'role') {
+    // Owner only: make someone an admin, or take it back.
+    if (mine.role !== 'owner') return json({ error: 'not_allowed' }, 403);
+    const h = typeof b.handle === 'string' ? b.handle.toLowerCase() : '';
+    const to = b.role === 'admin' ? 'admin' : 'member';
+    if (!isHandle(h) || h === me.handle) return json({ error: 'invalid_handle' }, 400);
+    const { data: p } = await db.from('profiles').select('id').eq('handle', h).maybeSingle();
+    if (!p) return json({ error: 'user_not_found' }, 404);
+    const target = await memberOf(db, id, p.id as string);
+    if (!target || target.role === 'banned' || target.role === 'owner') return json({ error: 'not_allowed' }, 403);
+    if (target.role === to) return json({ ok: true });
+    const { error } = await db.from('chat_members').update({ role: to }).eq('chat_id', id).eq('profile_id', p.id);
+    if (error) return json({ error: 'db_write', detail: error.message }, 500);
+    await systemMsg(db, id, to === 'admin' ? `@${me.handle} made @${h} an admin` : `@${h} is no longer an admin`);
     return json({ ok: true });
   }
 

@@ -28,7 +28,7 @@ export async function POST(req: Request) {
   if (!m) return json({ error: 'Images only (JPG, PNG, WebP or GIF).' }, 400);
   const bytes = Buffer.from(m[2], 'base64');
   if (bytes.length > MAX) return json({ error: 'Image is over 5 MB.' }, 413);
-  const kind = b.kind === 'avatar' || b.kind === 'banner' ? b.kind : 'post';
+  const kind = b.kind === 'avatar' || b.kind === 'banner' || b.kind === 'group' ? b.kind : 'post';
   const path = `${ctx.me.id}/${kind}/${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${TYPES[m[1]]}`;
   const put = () => ctx.db.storage.from('media').upload(path, bytes, { contentType: m[1], cacheControl: '31536000', upsert: false });
   let up = await put();

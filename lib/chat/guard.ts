@@ -45,7 +45,11 @@ export function trustedHost(host: string, extra: string[] = []): boolean {
   return [...TRUSTED, ...extra].some((t) => h === t || h.endsWith('.' + t));
 }
 
+/** GIFs picked from GIF search travel as [[gif:url]] and may only point at Tenor / GIPHY media. */
+export const GIF_MARK = /\[\[gif:https:\/\/(?:media\d*\.tenor\.com|c\.tenor\.com|media\d*\.giphy\.com|i\.giphy\.com)\/[^\]\s|]+\]\]/g;
+
 export function guardPublic(text: string, extraHosts: string[] = []): GuardResult {
+  text = text.replace(GIF_MARK, ' ');
   if (KEYISH.test(text)) return { ok: false, reason: 'key' };
   for (const re of SCAM) if (re.test(text)) return { ok: false, reason: 'scam' };
   for (const m of text.matchAll(URL_RE)) {
