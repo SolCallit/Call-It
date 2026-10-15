@@ -1,45 +1,70 @@
 # Callit
 
-Crypto discovery and social calling on Solana. **Call it. Get Paid.**
+**Call it. Get Paid.** A Solana app where traders post calls on tokens, anyone can buy a call in one tap, and callers are paid in SOL when other people buy their call and it hits its target. Social feed, trading terminal and group chat in one.
+
+[Live app](https://call-it-chi.vercel.app) · [Docs](https://call-it-chi.vercel.app/#/docs) · [Transparency](https://call-it-chi.vercel.app/#/transparency) · [X](https://x.com/CallitApp_Sol)
+
+## Features
+
+- **Calls:** entry market cap stamped at posting, target and thesis, tracked in public; caller position and profit shown on every call
+- **Payouts:** callers earn a share of the fee on other people's buys and are paid automatically about a minute after the call hits target
+- **Points, cashback, monthly rewards:** points from verified on-chain activity only; buyer cashback; a monthly board that resets on the 1st
+- **Market:** live Solana tokens, Trenches, Heat classes, AI Auto filters, OG flags on copycat tokens
+- **Swaps:** Jupiter Swap V2 with slippage, speed, MEV protection and limit orders
+- **Messages:** encrypted DMs and private groups, guarded public groups, voice and video calls, read receipts, GIFs and token drops
+- **Alerts:** push alerts for callers, tokens, wallets and call milestones
+- **Telegram:** contract addresses dropped in groups become tracked calls; trading bot built and off by default
+- **Transparency:** public page with volume, fees, payouts, fee split and Callit wallets
 
 ## Stack
-Next.js (App Router) · TypeScript · React · Vercel. Backend next: Supabase, Privy, Jupiter, Helius.
+
+| Layer | Tech |
+| --- | --- |
+| App | Next.js 16, React 19, TypeScript, PWA |
+| Hosting | Vercel |
+| Auth & wallets | Privy (email, Google, X, embedded wallets), Phantom, Solflare, Backpack |
+| Chain | Solana mainnet, `@solana/kit`, Helius RPC |
+| Swaps | Jupiter Swap V2 (`/order` + `/execute`) with referral fees |
+| Data | Supabase Postgres (RLS on, server-only access), Storage, Realtime |
+| Calls | WebRTC, signalled over Supabase Realtime broadcast |
 
 ## Run locally
+
 ```bash
 npm install
-cp .env.example .env.local   # fill in keys when the backend phase starts
+cp .env.example .env.local   # fill in what you need; empty values just turn features off
 npm run dev                  # http://localhost:3000
+npm run typecheck
 ```
 
-## Structure
+Database: run each file in `supabase/migrations/` once, in order, in Supabase → SQL Editor. Every migration is safe to re-run.
+
+## Repository layout
+
 ```
-app/               routes, layout, metadata, manifest, API routes (app/api/*)
-components/        React components
-lib/legacy/        the prototype engine and shell, moved over unchanged
-public/            icons, share image, service worker
+app/                 Next.js routes, layout, styles
+  api/               server routes (one folder per area: chat, earnings, market, swap, telegram, …)
+components/          React providers and auth bridge
+lib/
+  legacy/            the app UI engine (being moved into typed React components screen by screen)
+  chat/              chat storage, encryption, public-group guard, voice/video calls
+  earnings/ payouts/ fees/   caller earnings, cashback, points, payout signing, fee model
+  telegram/          group-call bot and trading bot
+  market/ solana/ wallet/    market data, RPC, wallet client
+  docs/              in-app docs content
+supabase/migrations/ database schema, in order
+public/              icons, service worker, share image
 ```
 
-The UI currently runs from `lib/legacy/engine.ts` exactly as the prototype did.
-Each screen moves into typed React components as it gets wired to real data,
-and the legacy engine shrinks until it can be deleted.
+## How money moves
 
-## Install as an app (PWA)
-- Android / Chrome: open the site → menu → **Install app** (or the install prompt).
-- iPhone / Safari: Share → **Add to Home Screen**.
+1. A user signs a swap in their own wallet; Jupiter executes it and takes Callit's 1% referral fee.
+2. The server verifies the transaction on-chain before recording it.
+3. Every minute a job prices calls, updates each call's rolling-average multiple, credits earnings, cashback and points, and pays everyone whose call hit target from the payout wallet.
+4. Each payout is reserved in the database and its signature saved before sending, so no one is paid twice.
 
-## Deploy
-Vercel → Project → Settings → Build & Deployment → Framework Preset: **Next.js**.
+Full fee split and live totals: [Transparency](https://call-it-chi.vercel.app/#/transparency).
 
-## Auth + database (phase 1)
-- **Privy** handles sign-in (email, Google, X, Solana wallets) and creates an embedded Solana wallet for new users.
-- After sign-in the browser calls `POST /api/session` with the Privy token. The server verifies it, reads the user's linked accounts from Privy, and creates or loads their row in Supabase `profiles`.
-- `PATCH /api/profile` saves name, bio, website and X handle.
-- Database schema lives in `supabase/migrations/`. Run each file once in Supabase → SQL Editor.
+## Security
 
-## Chat (migration 0011)
-- **Private**: DMs and invite-only groups. Message bodies are encrypted at rest (AES-256-GCM, one key per chat derived from `CHAT_KEY`). Server-side encryption, not end-to-end.
-- **Public**: anyone can find, read and join. On send, links outside trusted sites, chat invite links, wallet-drain lines and private-key-shaped strings are blocked; slow mode is 5 messages / 15s.
-- Live updates by polling (2.5s in an open chat), so no socket server is needed.
-- Env: `CHAT_KEY` = 64 hex characters (32 random bytes). Set it once and never change it, or old private messages can't be opened.
-- API: `app/api/chat` (inbox, discover, invites, group actions) and `app/api/chat/messages` (read, poll, send).
+Non-custodial: user funds stay in user wallets. See [SECURITY.md](SECURITY.md) to report a vulnerability.
