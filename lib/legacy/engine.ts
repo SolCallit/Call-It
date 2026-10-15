@@ -2788,7 +2788,7 @@ function chAttach(id){modal('Share','',`<div class="atttray">${CH_ATT.map(([a,i,
 function chGifs(id){const box=$('#modal .modal');if(!box)return;
  box.innerHTML=`<div class="mhead attback"><button class="ib" data-cx="attach" data-f="${id}" aria-label="Back">${ic('back',18)}</button><div class="chsearch grow">${ic('search',17)}<input class="input" id="gifq" placeholder="Search GIFs" autocomplete="off" enterkeyhint="search"></div><button class="ib" data-act="close" aria-label="Close">${ic('x',18)}</button></div>
  <div class="gifchips">${['gm','wagmi','lfg','pump it','rekt','to the moon','ngmi','wen'].map(x=>`<button class="chip" data-gq="${x}">${x}</button>`).join('')}</div>
- <div class="gifwall" id="gifwall"></div><button class="lnk gifup" data-cx="gifup" data-f="${id}">${ic('image',15)} Upload a GIF from your device</button>`;
+ <div class="gifwall" id="gifwall"></div><div class="giffoot"><button class="lnk gifup" data-cx="gifup" data-f="${id}">${ic('image',15)} Upload a GIF from your device</button><span class="gifby">Powered by GIPHY</span></div>`;
  const q=$('#gifq',box),wall=$('#gifwall',box);let tm=0;
  const load=()=>{const v=q.value.trim();wall.innerHTML=Array.from({length:9},(_,i)=>`<span class="gifsk" style="--h:${[120,90,150,100,130,85,140,110,95][i]}px"></span>`).join('');
   fetch('/api/gifs?q='+encodeURIComponent(v)).then(r=>r.json().then(j=>({ok:r.ok,j}))).then(({ok,j})=>{if(!wall.isConnected||q.value.trim()!==v)return;

@@ -292,3 +292,6 @@ body:has(.chcomp) #view>.composer,body:has(.chcbar) #view>.composer{margin-top:a
 .trwr code{font:500 11.5px/1.3 ui-monospace,Menlo,monospace;color:var(--text);opacity:.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .trwv{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:none;text-align:right}
 .trwv b{font:800 15px/1 var(--display)}
+.giffoot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px}
+.giffoot .gifup{margin:0}
+.gifby{font:800 11px/1 var(--body);letter-spacing:.04em;color:var(--muted);text-transform:uppercase}
