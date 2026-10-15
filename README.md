@@ -65,6 +65,10 @@ public/              icons, service worker, share image
 
 Full fee split and live totals: [Transparency](https://call-it-chi.vercel.app/#/transparency).
 
+## License
+
+[Business Source License 1.1](LICENSE): read, audit and build on the code; personal and research use allowed; no competing commercial copies until **2029-10-15**, when it becomes MIT. The live site shows the commit it was built from in its footer.
+
 ## Security
 
 Non-custodial: user funds stay in user wallets. See [SECURITY.md](SECURITY.md) to report a vulnerability.
