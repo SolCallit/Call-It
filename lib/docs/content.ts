@@ -131,6 +131,8 @@ Base URL: the Callit site. Responses are JSON. **Signed-in** routes need the hea
 
 ### Public
 
+No key needed. Full machine-readable spec: \`/openapi.json\` (OpenAPI 3.1).
+
 | Method & path | What it returns |
 |---|---|
 | \`GET /api/market/list\` | Live token lists (movers, new, traded, organic) |
@@ -143,6 +145,7 @@ Base URL: the Callit site. Responses are JSON. **Signed-in** routes need the hea
 | \`GET /api/leaders/callers?window=7d\\|30d\\|All time\` | Callerboard |
 | \`GET /api/points?period=month\\|all\` | Points board and monthly rewards status |
 | \`GET /api/transparency\` | Volume, fees, payouts, fee split, Callit wallets |
+| \`GET /api/og/today\` | Today's numbers as a 1200×630 card image |
 | \`GET /api/news\` | Crypto news |
 | \`GET /api/calls/peak\` | Peak multiple for calls |
 | \`GET /api/health\` | Service status |

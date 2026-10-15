@@ -37,8 +37,9 @@ export async function GET() {
   }
   const mode = (t: Tx): Mode => t.kind === 'sell' ? 'sell' : t.kind === 'buy' && t.call_ref && owners.has(t.call_ref) && owners.get(t.call_ref) !== t.profile_id ? 'call' : 'buy';
 
-  const d30 = Date.now() - 30 * 864e5, d1 = Date.now() - 864e5;
-  const tot = { vol: 0, trades: 0, fees: 0, vol30: 0, fees30: 0, vol24: 0, viaCalls: 0 };
+  const d30 = Date.now() - 30 * 864e5, d1 = Date.now() - 864e5; // d1 used for the ledger below too
+  const tot = { vol: 0, trades: 0, fees: 0, vol30: 0, fees30: 0, vol24: 0, fees24: 0, trades24: 0, viaCalls: 0 };
+  const traders24 = new Set<string>();
   const traders = new Set<string>();
   const alloc = Object.fromEntries(BUCKETS.map((b) => [b.key, 0])) as Record<Bucket, number>;
   for (const t of txs) {
@@ -46,19 +47,22 @@ export async function GET() {
     tot.vol += usd; tot.trades++; tot.fees += net; traders.add(t.profile_id);
     if (m === 'call') tot.viaCalls += usd;
     if (at >= d30) { tot.vol30 += usd; tot.fees30 += net; }
-    if (at >= d1) tot.vol24 += usd;
+    if (at >= d1) { tot.vol24 += usd; tot.fees24 += net; tot.trades24++; traders24.add(t.profile_id); }
     const s = split(net, m);
     for (const b of BUCKETS) alloc[b.key] += s[b.key];
   }
 
   // What was actually earned and paid, from the ledger (not the model).
   const { data: earn } = await db.from('earnings').select('usd, kind, claim_id').limit(200_000);
-  const { data: sent } = await db.from('claims').select('id, usd').eq('status', 'sent').limit(200_000);
+  const { data: sent } = await db.from('claims').select('id, usd, created_at').eq('status', 'sent').limit(200_000);
   const sentIds = new Set((sent || []).map((c) => c.id as string));
-  const led = { callerEarned: 0, cashbackEarned: 0, callerPaid: 0, cashbackPaid: 0, owed: 0 };
+  const sent24 = new Set((sent || []).filter((c) => Date.parse(c.created_at as string) >= d1).map((c) => c.id as string));
+  const led = { callerEarned: 0, cashbackEarned: 0, callerPaid: 0, cashbackPaid: 0, owed: 0, callerPaid24: 0, cashbackPaid24: 0 };
   for (const e of (earn || []) as { usd: number; kind?: string; claim_id: string | null }[]) {
     const v = Number(e.usd), cb = e.kind === 'cashback', paid = !!e.claim_id && sentIds.has(e.claim_id);
-    if (cb) { led.cashbackEarned += v; if (paid) led.cashbackPaid += v; } else { led.callerEarned += v; if (paid) led.callerPaid += v; }
+    const p24 = !!e.claim_id && sent24.has(e.claim_id);
+    if (cb) { led.cashbackEarned += v; if (paid) led.cashbackPaid += v; if (p24) led.cashbackPaid24 += v; }
+    else { led.callerEarned += v; if (paid) led.callerPaid += v; if (p24) led.callerPaid24 += v; }
     if (!e.claim_id) led.owed += v;
   }
   const { count: payees } = await db.from('claims').select('profile_id', { count: 'exact', head: true }).eq('status', 'sent');
@@ -74,8 +78,8 @@ export async function GET() {
 
   return NextResponse.json({
     ready: true, updatedAt: new Date().toISOString(), feeBps: liveFeeBps(), jupCut: JUP_CUT,
-    volume: { all: tot.vol, d30: tot.vol30, d24: tot.vol24, viaCalls: tot.viaCalls, trades: tot.trades, traders: traders.size },
-    fees: { all: tot.fees, d30: tot.fees30 },
+    volume: { all: tot.vol, d30: tot.vol30, d24: tot.vol24, viaCalls: tot.viaCalls, trades: tot.trades, traders: traders.size, trades24: tot.trades24, traders24: traders24.size },
+    fees: { all: tot.fees, d30: tot.fees30, d24: tot.fees24 },
     split: BUCKETS.map((b) => ({ key: b.key, label: b.label, note: b.note, pct: { call: b.call, buy: b.buy, sell: b.sell }, usd: alloc[b.key] })),
     paid: { ...led, total: led.callerPaid + led.cashbackPaid, payouts: payees || 0 },
     wallets: [

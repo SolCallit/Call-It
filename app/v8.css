@@ -295,3 +295,6 @@ body:has(.chcomp) #view>.composer,body:has(.chcbar) #view>.composer{margin-top:a
 .giffoot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px}
 .giffoot .gifup{margin:0}
 .gifby{font:800 11px/1 var(--body);letter-spacing:.04em;color:var(--muted);text-transform:uppercase}
+.trshare{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 16px 10px;padding:14px;border-radius:18px;border:1px solid color-mix(in srgb,var(--up) 40%,var(--line));background:color-mix(in srgb,var(--up) 8%,var(--bg2))}
+.trshare .grow{flex:1;min-width:180px;display:flex;flex-direction:column;gap:3px}
+.trshare b{font:800 16px/1.2 var(--display)}

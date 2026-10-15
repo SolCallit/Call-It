@@ -3114,7 +3114,11 @@ function vTransparency(){loadTrp();const d=TRP.d;
  if(!d.ready)return `<div class="docs">${head}<div class="empty"><b>Numbers are loading</b><p>Check back in a minute.</p></div></div>`;
  const u=v=>fmtUsd(v||0),tile=(l,v,s)=>`<div class="trt"><span>${l}</span><b class="num">${v}</b>${s?`<small>${s}</small>`:''}</div>`;
  const maxB=Math.max(...d.split.map(b=>b.usd),0.0001);
+ const site=location.origin,num=v=>fmtUsd(v||0);
+ const tweet=`Callit, last 24h 📣\n\n💸 Paid to callers: ${num(d.paid.callerPaid24)}\n🔁 Cashback to buyers: ${num(d.paid.cashbackPaid24)}\n📊 Volume: ${num(d.volume.d24)}\n\nVerified on-chain. Call it. Get Paid.`;
  return `<div class="docs">${head}
+ <div class="trshare"><div class="grow"><b>Today’s numbers</b><span class="hint">${num(d.paid.callerPaid24)} to callers · ${num(d.paid.cashbackPaid24)} cashback · ${num(d.volume.d24)} volume</span></div>
+  <a class="btn primary" target="_blank" rel="noopener" href="https://x.com/intent/post?text=${encodeURIComponent(tweet)}&url=${encodeURIComponent(site+'/today')}">${ic('xlogo',15)} Post on X</a><a class="btn ghost" href="/api/og/today" target="_blank" rel="noopener">${ic('image',15)} Card</a></div>
  <div class="trgrid">${tile('Trading volume',u(d.volume.all),`${u(d.volume.d30)} last 30 days · ${u(d.volume.d24)} today`)}${tile('Fees to Callit',u(d.fees.all),`After Jupiter’s ${Math.round(d.jupCut*100)}% · fee rate ${(d.feeBps/100).toFixed(2)}%`)}
   ${tile('Paid to callers',u(d.paid.callerPaid),`${u(d.paid.callerEarned)} earned so far`)}${tile('Cashback paid',u(d.paid.cashbackPaid),`${u(d.paid.cashbackEarned)} earned by buyers`)}
   ${tile('Volume through calls',u(d.volume.viaCalls),`${fmtK(d.volume.trades)} trades · ${fmtK(d.volume.traders)} traders`)}${tile('Waiting to be paid',u(d.paid.owed),'Unclaimed earnings and locked cashback')}</div>
@@ -3123,7 +3127,7 @@ function vTransparency(){loadTrp();const d=TRP.d;
  <h2 class="trh">Callit wallets</h2><p class="hint trp">Public addresses. No keys ever leave our server, and the treasury is a separate wallet only the team signs.</p>
  <div class="trw">${d.wallets.map(w=>`<div class="trwr"><div class="grow"><b>${esc(w.label)}</b><small>${esc(w.note)}</small>${w.address?`<code>${esc(w.address)}</code>`:'<small class="muted">Published soon</small>'}</div>
   <div class="trwv">${w.sol!=null?`<b class="num">${w.sol.toFixed(3)} SOL</b>${w.usd!=null?`<small>${u(w.usd)}</small>`:''}`:''}${w.address?`<a class="btn sm ghost" href="https://solscan.io/account/${esc(w.address)}" target="_blank" rel="noopener">Solscan ↗</a>`:''}</div></div>`).join('')}</div>
- <p class="hint pad">Updated ${agoT(d.updatedAt)} ago. Rewards are paid from real trading fees, never from deposits. <a class="lnk" href="#/docs">Read the docs →</a></p></div>`}
+ <p class="hint pad">Updated ${agoT(d.updatedAt)} ago. Rewards are paid from real trading fees, never from deposits. <a class="lnk" href="#/docs">Read the docs →</a> · <a class="lnk" href="/openapi.json" target="_blank" rel="noopener">Public API (OpenAPI)</a></p></div>`}
 /* ---------- Legal & trust pages ----------
    Fill these in once the company is set up. Empty values fall back to neutral wording. */
 const LEGAL={entity:'Callit',email:'',law:'',updated:'6 October 2026'};

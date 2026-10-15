@@ -1,0 +1,639 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Callit Public API",
+    "version": "1.0.0",
+    "description": "Read-only public API for Callit: live Solana market data, calls, leaderboards, points and transparency numbers. No key needed. Please keep to about 60 requests per minute per IP; heavier use may be rate limited. Signed-in and admin routes are not part of this spec.",
+    "contact": {
+      "email": "callit.app26@gmail.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://call-it-chi.vercel.app"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Market"
+    },
+    {
+      "name": "Calls"
+    },
+    {
+      "name": "Leaderboards"
+    },
+    {
+      "name": "Transparency"
+    },
+    {
+      "name": "News"
+    },
+    {
+      "name": "System"
+    }
+  ],
+  "paths": {
+    "/api/market/list": {
+      "get": {
+        "tags": [
+          "Market"
+        ],
+        "summary": "Live token lists",
+        "responses": {
+          "200": {
+            "description": "JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited"
+          }
+        },
+        "parameters": [
+          {
+            "name": "feed",
+            "in": "query",
+            "required": false,
+            "description": "Which list",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "movers",
+                "new",
+                "traded",
+                "organic"
+              ]
+            }
+          },
+          {
+            "name": "interval",
+            "in": "query",
+            "required": false,
+            "description": "Window",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "5m",
+                "1h",
+                "6h",
+                "24h"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/api/market/search": {
+      "get": {
+        "tags": [
+          "Market"
+        ],
+        "summary": "Search tokens by name, ticker or contract address",
+        "responses": {
+          "200": {
+            "description": "JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Search text",
+            "schema": {
+              "type": "string"
+            },
+            "example": "bonk"
+          }
+        ]
+      }
+    },
+    "/api/market/token/{mint}": {
+      "get": {
+        "tags": [
+          "Market"
+        ],
+        "summary": "One token: price, market cap, liquidity, holders, audit flags, socials",
+        "responses": {
+          "200": {
+            "description": "JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mint",
+            "in": "path",
+            "required": true,
+            "description": "Solana token mint address",
+            "schema": {
+              "type": "string"
+            },
+            "example": "So11111111111111111111111111111111111111112"
+          }
+        ]
+      }
+    },
+    "/api/market/tokens": {
+      "get": {
+        "tags": [
+          "Market"
+        ],
+        "summary": "Several tokens at once (max 50)",
+        "responses": {
+          "200": {
+            "description": "JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mints",
+            "in": "query",
+            "required": true,
+            "description": "Comma-separated mint addresses",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/market/chart": {
+      "get": {
+        "tags": [
+          "Market"
+        ],
+        "summary": "Price candles",
+        "responses": {
+          "200": {
+            "description": "JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mint",
+            "in": "query",
+            "required": false,
+            "description": "Token mint",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pool",
+            "in": "query",
+            "required": false,
+            "description": "Pair address",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tf",
+            "in": "query",
+            "required": false,
+            "description": "Timeframe",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1m",
+                "5m",
+                "15m",
+                "1h",
+                "4h",
+                "1d"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/api/market/pairs/{mint}": {
+      "get": {
+        "tags": [
+          "Market"
+        ],
+        "summary": "Every trading pool for a token, plus its description",
+        "responses": {
+          "200": {
+            "description": "JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mint",
+            "in": "path",
+            "required": true,
+            "description": "Solana token mint address",
+            "schema": {
+              "type": "string"
+            },
+            "example": "So11111111111111111111111111111111111111112"
+          }
+        ]
+      }
+    },
+    "/api/market/risk/{mint}": {
+      "get": {
+        "tags": [
+          "Market"
+        ],
+        "summary": "Risk data: Dex paid, launch bundle %, top holders",
+        "responses": {
+          "200": {
+            "description": "JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mint",
+            "in": "path",
+            "required": true,
+            "description": "Solana token mint address",
+            "schema": {
+              "type": "string"
+            },
+            "example": "So11111111111111111111111111111111111111112"
+          }
+        ]
+      }
+    },
+    "/api/posts": {
+      "get": {
+        "tags": [
+          "Calls"
+        ],
+        "summary": "Feed posts and calls",
+        "responses": {
+          "200": {
+            "description": "JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited"
+          }
+        },
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "description": "Post type",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "meme",
+                "perps",
+                "random"
+              ]
+            }
+          },
+          {
+            "name": "handle",
+            "in": "query",
+            "required": false,
+            "description": "Only this caller's posts",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "required": false,
+            "description": "Hashtag",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "description": "ISO timestamp, for paging",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Max results",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "description": "Calls are posts with kind=meme. Each call carries its token, entry market cap, target and thesis."
+      }
+    },
+    "/api/calls/peak": {
+      "get": {
+        "tags": [
+          "Calls"
+        ],
+        "summary": "Peak multiple reached by each call",
+        "responses": {
+          "200": {
+            "description": "JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited"
+          }
+        },
+        "parameters": [
+          {
+            "name": "ids",
+            "in": "query",
+            "required": true,
+            "description": "Comma-separated call ids",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/leaders/callers": {
+      "get": {
+        "tags": [
+          "Leaderboards"
+        ],
+        "summary": "Callerboard: callers ranked by win rate, then average return",
+        "responses": {
+          "200": {
+            "description": "JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited"
+          }
+        },
+        "parameters": [
+          {
+            "name": "window",
+            "in": "query",
+            "required": false,
+            "description": "Time window",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "7d",
+                "30d",
+                "All time"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/api/leaders/trades": {
+      "get": {
+        "tags": [
+          "Leaderboards"
+        ],
+        "summary": "Top 10 realized wins of the last 7 days",
+        "responses": {
+          "200": {
+            "description": "JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited"
+          }
+        }
+      }
+    },
+    "/api/points": {
+      "get": {
+        "tags": [
+          "Leaderboards"
+        ],
+        "summary": "Points board and monthly rewards status",
+        "responses": {
+          "200": {
+            "description": "JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited"
+          }
+        },
+        "parameters": [
+          {
+            "name": "period",
+            "in": "query",
+            "required": false,
+            "description": "Board period",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "month",
+                "all"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/api/transparency": {
+      "get": {
+        "tags": [
+          "Transparency"
+        ],
+        "summary": "Volume, fees, payouts to callers and buyers, fee split by bucket, and Callit's public wallets",
+        "responses": {
+          "200": {
+            "description": "JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited"
+          }
+        },
+        "description": "All numbers come from trades verified on-chain and Callit's payout ledger. Cached for 2 minutes."
+      }
+    },
+    "/api/og/today": {
+      "get": {
+        "tags": [
+          "Transparency"
+        ],
+        "summary": "Today's numbers as a 1200x630 PNG card",
+        "responses": {
+          "200": {
+            "description": "PNG image",
+            "content": {
+              "image/png": {}
+            }
+          }
+        }
+      }
+    },
+    "/api/news": {
+      "get": {
+        "tags": [
+          "News"
+        ],
+        "summary": "Crypto headlines, social trending, or the economic calendar",
+        "responses": {
+          "200": {
+            "description": "JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited"
+          }
+        },
+        "parameters": [
+          {
+            "name": "tab",
+            "in": "query",
+            "required": false,
+            "description": "Which list",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "recent",
+                "trending",
+                "calendar"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/api/health": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Service status",
+        "responses": {
+          "200": {
+            "description": "JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited"
+          }
+        }
+      }
+    }
+  }
+}
