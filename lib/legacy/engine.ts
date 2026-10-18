@@ -11,6 +11,7 @@ import { fetchFeed, fetchToken, fetchTokens, searchTokens, mountChart, fmtSmall 
 import { openImageEditor } from '@/lib/media/imageEditor';
 import { walletBalances, swap as jupSwap, withdraw as doWithdraw, toBaseUnits, qrSvg, SOL_MINT, USDC_MINT, placeOrder, listOrders, cancelOrder, reportTxError } from '@/lib/wallet/client';
 import { friendlyError, isUserCancel } from '@/lib/errors';
+import { privateConfig } from '@/lib/privacy/config';
 import { DOCS_MD } from '@/lib/docs/content';
 import { initCalls, listenForCalls, startCall, joinCall, activeCallId, CALL_ICONS } from '@/lib/chat/callClient';
 
@@ -637,9 +638,9 @@ function loadBalances(){if(!REALW()||BALBUSY)return;BALBUSY=1;const who=S.addr;
   if(miss.length)fetchTokens(miss.slice(0,50)).then(l=>{l.forEach(regLive);balRender()}).catch(()=>{});
   if(changed)balRender()}).catch(e=>console.warn('[callit] balances',e)).finally(()=>{BALBUSY=0})}
 /* Same toast as txRun, driven by a real transaction. run(step) resolves to the signature. */
-function realTx(desc,run,done){const el=$('#txt');let sig='';
- const draw=(st,msg)=>{el.className='txt show '+st;el.innerHTML=`<span class="txi">${st==='ok'?ic('check',18):st==='bad'?ic('x',18):'<i class="spin"></i>'}</span><div class="grow"><b>${esc(desc)}</b><span class="hint">${esc(msg)}</span></div>${st==='ok'&&sig?`<a class="lnk" href="https://solscan.io/tx/${sig}" target="_blank" rel="noopener noreferrer">View</a>`:st==='bad'&&!/Not enough|cancelled|isn.t connected|Sign in again/.test(msg)?'<button class="lnk" id="txretry">Retry</button>':''}<button class="ib" id="txx" aria-label="Dismiss">${ic('x',16)}</button>`;
-  $('#txx').onclick=()=>el.classList.remove('show');const r=$('#txretry');if(r)r.onclick=()=>realTx(desc,run,done)};
+function realTx(desc,run,done,link){const el=$('#txt');let sig='';const url=link||(x=>`https://solscan.io/tx/${x}`);
+ const draw=(st,msg)=>{el.className='txt show '+st;el.innerHTML=`<span class="txi">${st==='ok'?ic('check',18):st==='bad'?ic('x',18):'<i class="spin"></i>'}</span><div class="grow"><b>${esc(desc)}</b><span class="hint">${esc(msg)}</span></div>${st==='ok'&&sig?`<a class="lnk" href="${url(sig)}" target="_blank" rel="noopener noreferrer">View</a>`:st==='bad'&&!/Not enough|cancelled|isn.t connected|Sign in again/.test(msg)?'<button class="lnk" id="txretry">Retry</button>':''}<button class="ib" id="txx" aria-label="Dismiss">${ic('x',16)}</button>`;
+  $('#txx').onclick=()=>el.classList.remove('show');const r=$('#txretry');if(r)r.onclick=()=>realTx(desc,run,done,link)};
  clearTimeout(el._h);draw('wait','Preparing…');
  run(m=>draw('wait',m)).then(s=>{sig=s||'';draw('ok',sig?`Confirmed · ${sig.slice(0,4)}…${sig.slice(-4)}`:'Done');el._h=setTimeout(()=>el.classList.remove('show'),9000);done&&done(true);loadBalances();setTimeout(loadBalances,5000)})
   .catch(e=>{const m=e&&e.name==='TxError'?e.message:friendlyError(e);if(!isUserCancel(e))reportTxError(/^withdraw/i.test(desc)?'withdraw':'swap',e,S.addr);draw('bad',isUserCancel(e)?'You cancelled it. Nothing was sent.':m);done&&done(false)})}
@@ -2101,7 +2102,7 @@ function withdrawModal(){if(!S.connected)return connectModal(()=>withdrawModal()
  const held=Object.keys(S.bal).filter(k=>S.bal[k]>0&&T[k]).sort((a,b)=>usd(b,S.bal[b])-usd(a,S.bal[a]));
  if(!held.length)return modal('Withdraw','',`<div class="empty" style="padding:18px 8px"><b>Nothing to withdraw yet</b><p>Deposit SOL or a Solana token first.</p><button class="btn primary" data-act="deposit">Deposit</button></div>`);
  modal('Withdraw','Send from your Callit wallet to any Solana address, like Phantom or an exchange.',
- `<div class="field"><label for="st">Token</label><select id="st" class="input">${held.map(k=>`<option value="${esc(k)}">${esc(symOf(k))} (${fmtAmt(S.bal[k])})</option>`).join('')}</select></div>
+ `${pvSeg(0)}<div class="field"><label for="st">Token</label><select id="st" class="input">${held.map(k=>`<option value="${esc(k)}">${esc(symOf(k))} (${fmtAmt(S.bal[k])})</option>`).join('')}</select></div>
  <div class="field"><label for="sa">To address</label><input id="sa" class="input" placeholder="Solana address" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
  <div class="field"><label for="sv">Amount</label><div style="display:flex;gap:8px"><input id="sv" class="input num" inputmode="decimal" placeholder="0"><button class="mx lg" id="smax">Max</button></div></div>
  <p class="hint" style="margin:-4px 0 10px">Only send to a Solana address. If it's an exchange, make sure it accepts this token on Solana. Transfers can't be reversed.</p>
@@ -2119,6 +2120,61 @@ function withdrawModal(){if(!S.connected)return connectModal(()=>withdrawModal()
    let base;try{base=baseOf(k,a)}catch(err){return toast(err.message)}
    realTx(desc,step=>doWithdraw({from:S.addr,to,mint:k==='SOL'?'SOL':mintOf(k),amount:base},step).then(r=>{
     logTx({k:'Withdrew',kind:'withdraw',label:`${fmtAmt(a)} ${sy} to ${short(to)}`,signature:r.signature,in_mint:k==='SOL'?SOL_MINT:mintOf(k),in_amount:a,to_address:to,usd_value:T[k]&&T[k].price?a*T[k].price:null});if(r.pending)toast('Sent. Confirmation is taking longer than usual');return r.signature}))}})}
+/* ---------- Private Withdraw (Umbra shielded pool; logic in lib/privacy/umbra.ts) ----------
+ * Shield: the user's wallet moves tokens into the shared pool, locked to the address they typed.
+ * Release: a throwaway key + Umbra's relayer pay that address, so the Callit wallet never shows up there.
+ * Runs on its own network (NEXT_PUBLIC_PRIVATE_WITHDRAW=devnet|mainnet); off when unset. */
+const PCFG=privateConfig();
+const pvMod=()=>import('@/lib/privacy/umbra');
+const pvLink=sig=>PCFG?PCFG.explorer(sig):`https://solscan.io/tx/${sig}`;
+const pvSeg=on=>PCFG?`<div class="seg pvseg" role="tablist"><button class="${on?'':'on'}" role="tab" aria-selected="${!on}" data-act="withdraw">Standard</button><button class="${on?'on':''}" role="tab" aria-selected="${!!on}" data-act="pwithdraw">${ic('lock',14)} Private</button></div>`:'';
+const PV={hold:true};
+function pwithdrawModal(){if(!S.connected)return connectModal(()=>pwithdrawModal());if(!PCFG)return withdrawModal();
+ if(!REALW())return toast('Sign in with your wallet to withdraw privately.');const dev=PCFG.network==='devnet';
+ modal('Withdraw privately',`The receiver gets paid, but your Callit wallet isn’t in that transaction.${dev?' <span class="pvdev">Devnet test</span>':''}`,
+ `${pvSeg(1)}<div id="pvbody"><div class="empty" style="padding:22px 8px"><i class="spin"></i><p>Loading private balances…</p></div></div>`,m=>pvLoad(m,dev))}
+function pvLoad(m,dev){pvMod().then(mod=>Promise.all([mod.privateBalances(S.addr),mod.supportedSyms()]).then(([bal,syms])=>{if(!m.isConnected)return;
+ const toks=PCFG.tokens.filter(t=>syms.includes(t.sym));const has=toks.filter(t=>bal[t.sym]&&bal[t.sym].raw>0n);
+ const maxUi=sym=>{const b=bal[sym];if(!b)return 0;const v=b.token.native?b.ui-mod.SOL_FEE_RESERVE:b.ui;return Math.max(0,Math.floor(v*1e6)/1e6)};
+ const body=$('#pvbody',m);
+ if(!has.length){body.innerHTML=`<div class="empty" style="padding:18px 8px"><b>Nothing to withdraw privately${dev?' on devnet':''}</b><p>${dev?`This is a devnet test. Get free devnet SOL at <a class="lnk" href="https://faucet.solana.com" target="_blank" rel="noopener noreferrer">faucet.solana.com</a> and send it to your Callit address:`:'Private withdraw supports '+toks.map(t=>t.sym).join(', ')+'. Swap a memecoin to SOL first.'}</p>${dev?`<p class="num pvaddr">${esc(S.addr)}</p><button class="btn block" data-act="copy" data-v="${esc(S.addr)}">Copy address</button>`:''}<button class="btn ghost block" id="pvre" style="margin-top:8px">Refresh</button></div>${pvPendingBlock()}`;
+  $('#pvre',m).onclick=()=>{body.innerHTML='<div class="empty" style="padding:22px 8px"><i class="spin"></i></div>';pvLoad(m,dev)};pvPendingWire(m,mod);return}
+ body.innerHTML=`<div class="field"><label for="pvt">Token</label><select id="pvt" class="input">${has.map(t=>`<option value="${esc(t.sym)}">${esc(t.sym)} (${fmtAmt(bal[t.sym].ui)})</option>`).join('')}</select></div>
+ <div class="field"><label for="pva">To address</label><input id="pva" class="input" placeholder="Solana address" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+ <div class="field"><label for="pvv">Amount</label><div style="display:flex;gap:8px"><input id="pvv" class="input num" inputmode="decimal" placeholder="0"><button class="mx lg" id="pvmax">Max</button></div></div>
+ <div class="field"><label>Release</label><div class="seg pvwhen"><button data-w="hold" class="${PV.hold?'on':''}">Hold, release later</button><button data-w="now" class="${PV.hold?'':'on'}">Release now</button></div>
+ <p class="hint pvtip" id="pvtip"></p></div>
+ <p class="hint" id="pvsol" style="margin:-4px 0 10px"></p>
+ <div class="err" id="pverr"></div><button class="btn primary block" id="pvgo">${ic('lock',16)} Shield &amp; withdraw privately</button>
+ ${pvPendingBlock()}`;
+ const tip=()=>{$('#pvtip',m).textContent=PV.hold?'Most private. Your funds wait in the pool; release them from Pending below whenever you like. Waiting hours and using a round amount makes the two sides hard to match.':'Fastest, but the shield and the payout land seconds apart with almost the same amount, so a careful watcher could match them.'};
+ const solNote=()=>{const t=toks.find(x=>x.sym===$('#pvt',m).value);$('#pvsol',m).textContent=t&&t.native?'SOL arrives as wrapped SOL (wSOL). Phantom and Solflare can unwrap it; most exchanges can’t, so use USDC for exchanges.':'A small pool and relayer fee comes out of the amount. You also need a little SOL for the network fee.'};
+ tip();solNote();skin(m);
+ m.querySelectorAll('.pvwhen button').forEach(b=>b.onclick=()=>{PV.hold=b.dataset.w==='hold';m.querySelectorAll('.pvwhen button').forEach(x=>x.classList.toggle('on',x===b));tip()});
+ $('#pvt',m).onchange=solNote;$('#pvmax',m).onclick=()=>{$('#pvv',m).value=maxUi($('#pvt',m).value)};
+ $('#pvgo',m).onclick=()=>{const sym=$('#pvt',m).value,to=$('#pva',m).value.trim(),a=parseFloat($('#pvv',m).value),e=$('#pverr',m),t=toks.find(x=>x.sym===sym);
+  if(!t)return e.textContent='Pick a token.';
+  if(!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(to))return e.textContent='That isn’t a valid Solana address. Check it and try again.';
+  if(to===S.addr)return e.textContent='That’s your own Callit wallet. Paste a different address.';
+  if(!(a>0))return e.textContent='Enter an amount above zero.';
+  if(a>maxUi(sym)+1e-12)return e.textContent=t.native?`Keep ${mod.SOL_FEE_RESERVE} SOL for fees. You can shield up to ${maxUi(sym)} SOL.`:`You only have ${fmtAmt(bal[sym].ui)} ${sym}.`;
+  if(!t.native&&(bal.SOL?bal.SOL.ui:0)<0.005)return e.textContent='You need a little SOL (about 0.005) for network fees.';
+  let base;try{base=BigInt(toBaseUnits(a,t.decimals))}catch(err){return e.textContent=err.message}
+  const hold=PV.hold,desc=`Withdraw ${fmtAmt(a)} ${sym} privately`;closeModal();
+  realTx(desc,step=>mod.privateWithdraw({owner:S.addr,to,sym,amount:base,releaseNow:!hold},step).then(r=>{
+   // Never store the destination: linking sender and receiver is exactly what this hides.
+   if(!dev)logTx({k:'Withdrew privately',kind:'withdraw',label:`${fmtAmt(a)} ${sym} privately`,signature:r.shieldSig,in_mint:t.mint,in_amount:a,to_address:null,usd_value:null});
+   else S.activity.unshift({k:'Withdrew privately (devnet)',d:`${fmtAmt(a)} ${sym}`,t:'Just now'});
+   if(hold)toast('Shielded. Release it from Withdraw → Private → Pending when you’re ready.');
+   return r.releaseSigs[0]||r.shieldSig}),null,pvLink)};
+ pvPendingWire(m,mod)})).catch(err=>{if(!m.isConnected)return;$('#pvbody',m).innerHTML=`<div class="empty" style="padding:18px 8px"><b>Private withdraw is unavailable right now</b><p>${esc(friendlyError(err))}</p><button class="btn block" data-act="pwithdraw">Try again</button></div>`})}
+function pvPendingBlock(){return `<div class="pvpend"><div class="pvph"><b>Pending</b><button class="lnk" id="pvchk">Check</button></div><div id="pvlist"><p class="hint" style="margin:0">Shielded funds waiting to be released show here. Checking asks your wallet for a signature.</p></div></div>`}
+function pvPendingWire(m,mod){const b=$('#pvchk',m);if(!b)return;b.onclick=()=>{const L=$('#pvlist',m);L.innerHTML='<p class="hint" style="margin:0"><i class="spin"></i> Scanning the pool…</p>';
+ mod.pendingNotes(S.addr).then(list=>{if(!m.isConnected)return;
+  L.innerHTML=list.length?list.map((n,i)=>`<div class="li pvnote"><div class="grow"><b class="num">${fmtAmt(n.amount)} ${esc(n.sym)}</b><div class="hint">to ${esc(short(n.to))}</div></div><button class="btn sm primary" data-pvi="${i}">Release</button></div>`).join(''):'<p class="hint" style="margin:0">Nothing pending.</p>';
+  L.querySelectorAll('[data-pvi]').forEach(x=>x.onclick=()=>{const n=list[+x.dataset.pvi];closeModal();
+   realTx(`Release ${fmtAmt(n.amount)} ${n.sym} privately`,step=>mod.releaseNotes(S.addr,[n],step).then(s=>s[0]),null,pvLink)})})
+ .catch(err=>{if(!m.isConnected)return;L.innerHTML=`<p class="err" style="margin:0">${esc(isUserCancel(err)?'You cancelled the signature.':friendlyError(err))}</p>`})}}
 function depositModal(){if(!S.connected)return connectModal(()=>depositModal());const ok=isMintStr(S.addr);
  modal('Deposit','Send SOL, USDC or any Solana token to your Callit wallet. Only use the Solana network.',ok?`<div style="text-align:center">${qrSvg(S.addr)}<p class="num" style="overflow-wrap:anywhere;font-size:13px;margin:12px 0">${esc(S.addr)}</p><button class="btn primary block" data-act="copy" data-v="${esc(S.addr)}">Copy address</button><p class="hint" style="margin:12px 0 0">Funds show up here automatically within a few seconds of landing.</p></div>`
   :`<div class="empty" style="padding:18px 8px"><b>Your wallet is still being set up</b><p>Give it a few seconds, then try again.</p></div>`)}
@@ -3452,7 +3508,7 @@ document.addEventListener('click',e=>{
    toast(on?`$${symOf(t)} added to your watchlist`:`$${symOf(t)} removed from your watchlist`);
    if(b.closest('#modal')||b.closest('.pbar')||b.closest('.trow')){document.querySelectorAll(`[data-act="track"][data-t="${CSS.escape(t)}"]`).forEach(x=>{if(x.classList.contains('wrm'))return;x.classList.toggle('on',on);x.setAttribute('aria-pressed',on);const sv=x.querySelector('svg');if(sv)sv.setAttribute('fill',on?'currentColor':'none')});return}
    render()},
-  withdraw:()=>withdrawModal(),send:()=>withdrawModal(),receive:()=>depositModal(),deposit:()=>depositModal(),
+  withdraw:()=>withdrawModal(),pwithdraw:()=>pwithdrawModal(),send:()=>withdrawModal(),receive:()=>depositModal(),deposit:()=>depositModal(),
   ltf:()=>{S.ltf=b.dataset.f;S.ltfUser=1;render()},lsrc:()=>{S.lsrc=S.lsrc==='callit'?'dex':'callit';try{localStorage.setItem('callit.lsrc',S.lsrc)}catch(_){}render()},lmode:()=>{S.lmode=b.dataset.f;render()},lretry:()=>{(lfIds(S.tt,filOf(S.tt))||[]).forEach(id=>{LIVE.err[id]=0;loadFeed(id)});render()},ltokretry:()=>{LIVE.tokErr[b.dataset.t]=0;render()},
   tside:()=>{const w=S.swap,t=b.dataset.t;if(b.dataset.f==='sell'){w.from=t;w.to='SOL'}else{w.from='SOL';w.to=t}w.amt='';renderSwaps()},
   flip:()=>{const w=S.swap;[w.from,w.to]=[w.to,w.from];w.amt='';renderSwaps()},

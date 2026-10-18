@@ -65,14 +65,14 @@ export default function AuthBridge() {
     window.CallitWallet = {
       addresses: authenticated ? wallets.map((w) => w.address) : [],
       token: () => getAccessToken(),
-      signTx: async (tx, owner) => {
+      signTx: async (tx, owner, chain = 'solana:mainnet') => {
         if (!authenticated || !wallets.length) throw new Error('No wallet connected. Sign in again.');
         // Sign with the exact wallet the transaction was built for. Falling back to another
         // wallet produces a signature the network rejects, so say what's wrong instead.
         const w = owner ? wallets.find((x) => x.address === owner) : wallets[0];
         if (!w) throw new Error(`Wallet ${owner!.slice(0, 4)}…${owner!.slice(-4)} isn't connected in this browser. Reconnect it, or sign in again.`);
         try {
-          const { signedTransaction } = await signTransaction({ transaction: b64ToBytes(tx), wallet: w, chain: 'solana:mainnet' });
+          const { signedTransaction } = await signTransaction({ transaction: b64ToBytes(tx), wallet: w, chain });
           return bytesToB64(signedTransaction);
         } catch (e) {
           console.error('[callit] sign failed', w.address, e);
@@ -84,6 +84,13 @@ export default function AuthBridge() {
         const w = (owner && wallets.find((x) => x.address === owner)) || wallets[0];
         if (!authenticated || !w) throw new Error('No wallet connected. Sign in again.');
         const { signature } = await signMessage({ message: new TextEncoder().encode(text), wallet: w });
+        return bytesToB64(signature);
+      },
+      // Raw-bytes signature, for Private Withdraw's key derivation. Same wallet rules as signMsg.
+      signBytes: async (b64, owner) => {
+        const w = (owner && wallets.find((x) => x.address === owner)) || wallets[0];
+        if (!authenticated || !w) throw new Error('No wallet connected. Sign in again.');
+        const { signature } = await signMessage({ message: b64ToBytes(b64), wallet: w });
         return bytesToB64(signature);
       },
       // Wallets Privy made for this user (email / Google / X sign-ins). Privy v3 flags them on

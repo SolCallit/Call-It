@@ -298,3 +298,15 @@ body:has(.chcomp) #view>.composer,body:has(.chcbar) #view>.composer{margin-top:a
 .trshare{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 16px 10px;padding:14px;border-radius:18px;border:1px solid color-mix(in srgb,var(--up) 40%,var(--line));background:color-mix(in srgb,var(--up) 8%,var(--bg2))}
 .trshare .grow{flex:1;min-width:180px;display:flex;flex-direction:column;gap:3px}
 .trshare b{font:800 16px/1.2 var(--display)}
+
+/* Private Withdraw */
+.pvseg{display:flex;width:100%;margin:0 0 14px}
+.pvseg button{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.pvwhen{display:flex;width:100%}
+.pvwhen button{flex:1}
+.pvtip{margin:8px 0 0}
+.pvdev{display:inline-block;margin-left:4px;padding:1px 8px;border-radius:999px;font:800 11px/1.6 var(--body);letter-spacing:.03em;text-transform:uppercase;background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent);vertical-align:1px}
+.pvaddr{overflow-wrap:anywhere;font-size:13px;margin:8px 0}
+.pvpend{margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
+.pvph{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.pvnote{align-items:center}
