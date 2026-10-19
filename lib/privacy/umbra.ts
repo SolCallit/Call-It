@@ -53,6 +53,9 @@ const TOKEN_PROGRAM = address('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
 /** Keep this much SOL in the wallet for network fees when shielding SOL. */
 export const SOL_FEE_RESERVE = 0.01;
 
+/** Shown when shielding worked but the release didn't. The engine never offers Retry on this one. */
+export const SHIELDED_MSG = 'Shielded and safe in the pool. Release it from Withdraw → Private → Pending.';
+
 export class PrivateError extends Error {
   constructor(message: string, public stage: string, public raw?: unknown) {
     super(message);
@@ -108,6 +111,9 @@ function bridgeSigner(owner: string, chain: 'solana:mainnet' | 'solana:devnet'):
   return signer as unknown as IUmbraSigner;
 }
 
+/** Same-origin proxy URL for Umbra's indexer / relayer (see app/api/umbra). */
+const proxied = (svc: 'indexer' | 'relayer') => `${window.location.origin}/api/umbra/${svc}`;
+
 let CACHE: { owner: string; net: string; client: IUmbraClient; registered: boolean } | null = null;
 
 async function client(owner: string): Promise<{ c: IUmbraClient; cfg: PrivateConfig }> {
@@ -119,7 +125,8 @@ async function client(owner: string): Promise<{ c: IUmbraClient; cfg: PrivateCon
     network: cfg.network,
     rpcUrl: cfg.rpc,
     rpcSubscriptionsUrl: cfg.ws,
-    indexerApiEndpoint: cfg.indexer,
+    // Umbra's APIs don't allow Callit's origin (CORS), so go through our same-origin proxy.
+    indexerApiEndpoint: proxied('indexer'),
   });
   CACHE = { owner, net: cfg.network, client: c, registered: false };
   return { c, cfg };
@@ -175,7 +182,7 @@ export async function supportedSyms(): Promise<string[]> {
   const cfg = cfgOrThrow();
   try {
     const { getUmbraRelayer } = await import('@umbra-privacy/sdk/relayer');
-    const r = await getUmbraRelayer({ apiEndpoint: cfg.relayer }).getSupportedMints();
+    const r = await getUmbraRelayer({ apiEndpoint: proxied('relayer') }).getSupportedMints();
     const live = new Set(r.mints);
     return cfg.tokens.filter((t) => live.has(t.mint)).map((t) => t.sym);
   } catch {
@@ -299,7 +306,7 @@ export async function releaseNotes(owner: string, notes: PendingNote[], step: (m
   const [{ getSelfBurnableStealthPoolNoteIntoATABurnerFunction }, { getClaimSelfClaimableUtxoIntoPublicBalanceProver }, { getUmbraRelayer }] =
     await Promise.all([import('@umbra-privacy/sdk/burn'), import('@umbra-privacy/sdk/zk-prover'), import('@umbra-privacy/sdk/relayer')]);
   if (!c.fetchBatchMerkleProof) throw new PrivateError('Private pool is unreachable right now. Try again shortly.', 'release');
-  const relayer = getUmbraRelayer({ apiEndpoint: cfg.relayer });
+  const relayer = getUmbraRelayer({ apiEndpoint: proxied('relayer') });
   const burn = getSelfBurnableStealthPoolNoteIntoATABurnerFunction(
     { client: c },
     {
@@ -359,17 +366,21 @@ export async function privateWithdraw(
   const shieldSig = String(res.createUtxoSignature);
   if (!p.releaseNow) return { shieldSig, releaseSigs: [] };
 
-  step('Waiting for the pool to index your note…');
-  let mine: PendingNote[] = [];
-  for (let i = 0; i < 20 && !mine.length; i++) {
-    await new Promise((r) => setTimeout(r, 3000));
-    mine = (await pendingNotes(p.owner)).filter((n) => n.to === p.to && n.sym === p.sym);
+  // From here the funds are already safe in the pool. Any failure must NOT offer a full retry
+  // (that would shield a second time); it points the user to Pending instead.
+  try {
+    step('Waiting for the pool to index your note…');
+    let mine: PendingNote[] = [];
+    for (let i = 0; i < 20 && !mine.length; i++) {
+      await new Promise((r) => setTimeout(r, 3000));
+      mine = (await pendingNotes(p.owner)).filter((n) => n.to === p.to && n.sym === p.sym);
+    }
+    if (!mine.length) throw new Error('not indexed yet');
+    const releaseSigs = await releaseNotes(p.owner, [mine[mine.length - 1]], step);
+    return { shieldSig, releaseSigs };
+  } catch (e) {
+    throw new PrivateError(SHIELDED_MSG, 'release', e);
   }
-  if (!mine.length) {
-    throw new PrivateError('Shielded. The pool is slow to index it, so release it from “Pending” in a minute.', 'index');
-  }
-  const releaseSigs = await releaseNotes(p.owner, [mine[mine.length - 1]], step);
-  return { shieldSig, releaseSigs };
 }
 
 /** Forget the in-memory Umbra session (on sign-out or wallet switch). */
