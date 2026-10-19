@@ -2138,7 +2138,7 @@ function pvLoad(m){pvMod().then(mod=>Promise.all([mod.walletBalances(S.addr),mod
  const wMax=sym=>{const t=toks.find(x=>x.sym===sym),v=(wb[sym]||0)-(t&&t.native?mod.SOL_FEE_RESERVE:0);return Math.max(0,Math.floor(v*1e6)/1e6)};
  const pMax=sym=>Math.floor(pb(sym)*1e6)/1e6;
  const feeOf=(sym,a)=>{const k=sym.toLowerCase(),rent=fee.rent[k]||0;return a*fee.rate+rent};
- const balCard=priv?`<div class="pvbal"><span class="pvbalh">${ic('lock',14)} Private balance</span><div class="pvbalrow">${toks.map(t=>`<div><b class="num">${fmtAmt(pb(t.sym))}</b><small>${esc(t.sym)}</small></div>`).join('')}</div></div>`
+ const balCard=priv?`<div class="pvbal"><span class="pvbalh">${ic('lock',14)} Private balance</span><div class="pvbalrow">${toks.map(t=>`<div><b class="num">${fmtAmt(pb(t.sym))}</b><small>${esc(t.sym)}</small></div>`).join('')}</div>${mod.scannedFull(S.addr)?'':'<p class="hint" style="margin:8px 0 0">Used Privacy Cash before with this wallet? <button class="lnk" id="pvfull">Find older funds</button> (slow, scans the whole pool)</p>'}</div>`
   :`<div class="pvbal"><span class="pvbalh">${ic('lock',14)} Private balance</span><p class="hint" style="margin:6px 0 10px">Hidden until you unlock it. Unlocking is one free signature, not a transaction.</p><button class="btn block" id="pvunlock">Show private balance</button></div>`;
  const tokOpts=(src)=>toks.map(t=>`<option value="${esc(t.sym)}">${esc(t.sym)} (${fmtAmt(src==='w'?(wb[t.sym]||0):pb(t.sym))})</option>`).join('');
  const shieldForm=`<div class="field"><label for="pvt">Token</label><select id="pvt" class="input">${tokOpts('w')}</select></div>
@@ -2156,7 +2156,9 @@ function pvLoad(m){pvMod().then(mod=>Promise.all([mod.walletBalances(S.addr),mod
   <div id="pvform">${PV.mode==='shield'?shieldForm:sendForm}</div>
   <p class="hint pvfoot">Powered by Privacy Cash. Your private balance also shows on privacycash.org with this same wallet.</p>`;
  skin(m);
- const un=$('#pvunlock',m);if(un)un.onclick=()=>{un.disabled=true;un.textContent='Approve in your wallet…';mod.privateBalances(S.addr).then(p=>{PV.priv=p;pvLoad(m)}).catch(e=>{un.disabled=false;un.textContent='Show private balance';toast(isUserCancel(e)?'You cancelled the signature.':friendlyError(e))})};
+ const scan=(btn,label,full)=>{btn.disabled=true;mod.privateBalances(S.addr,msg=>{if(btn.isConnected)btn.textContent=msg},full).then(p=>{PV.priv=p;if(m.isConnected)pvLoad(m)}).catch(e=>{if(btn.isConnected){btn.disabled=false;btn.textContent=label}toast(isUserCancel(e)?'You cancelled the signature.':e&&e.name==='TxError'?e.message:friendlyError(e))})};
+ const un=$('#pvunlock',m);if(un)un.onclick=()=>{un.textContent='Approve in your wallet…';scan(un,'Show private balance',false)};
+ const fu=$('#pvfull',m);if(fu)fu.onclick=()=>{fu.textContent='Scanning… keep this open';scan(fu,'Find older funds',true)};
  m.querySelectorAll('.pvmode button').forEach(b=>b.onclick=()=>{PV.mode=b.dataset.m;pvLoad(m)});
  const e=$('#pverr',m),sel=$('#pvt',m),T0=()=>toks.find(x=>x.sym===sel.value);
  if(PV.mode==='shield'){

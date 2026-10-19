@@ -86,18 +86,59 @@ async function unlock(owner: string, step: (m: string) => void) {
   const l = await libs();
   if (SESSION?.owner === owner) return { l, enc: SESSION.enc };
   step('Approve the private balance signature (free)…');
-  const sig = b64ToBytes(await wallet().signMsg(SIGN_MESSAGE, owner));
+  const sig = b64ToBytes(await Promise.race([
+    wallet().signMsg(SIGN_MESSAGE, owner),
+    new Promise<never>((_, rej) => setTimeout(() => rej(new PrivateError('Your wallet didn’t answer. Open it, then try again.', 'sign')), 120_000)),
+  ]));
   const enc = new l.pc.EncryptionService();
   enc.deriveEncryptionKeyFromSignature(sig);
   SESSION = { owner, enc };
   return { l, enc };
 }
 
+/**
+ * The pool has ~1M notes, and finding yours means downloading and trial-decrypting all of them
+ * (minutes on a phone). A wallet that has never used Privacy Cash has nothing in that history, so on
+ * first use we start scanning from the pool's current end. `fullHistory` scans everything instead,
+ * for wallets that used privacycash.org before.
+ */
+const FAST_KEY = (owner: string) => `callit.pc.faststart.${owner}`;
+async function fastStart(l: Libs, owner: string, fullHistory: boolean) {
+  const pk = new l.web3.PublicKey(owner);
+  const pid = l.pc.localstorageKey; // PROGRAM_ID prefix + key, same as the SDK uses
+  const { getAssociatedTokenAddress } = await import('@solana/spl-token');
+  const keys: { key: string; token: string | null }[] = [{ key: 'fetch_offset' + pid(pk), token: null }];
+  for (const t of PRIVATE_TOKENS) {
+    if (t.native) continue;
+    const ata = await getAssociatedTokenAddress(new l.web3.PublicKey(t.mint), pk);
+    keys.push({ key: 'fetch_offset' + pid(ata), token: l.pc.getRelayerTokenName(t.sym.toLowerCase()) });
+  }
+  if (fullHistory) {
+    for (const k of keys) localStorage.removeItem(k.key);
+    localStorage.setItem(FAST_KEY(owner), 'full');
+    return;
+  }
+  if (localStorage.getItem(FAST_KEY(owner))) return; // already decided for this wallet on this device
+  await Promise.all(keys.map(async (k) => {
+    if (localStorage.getItem(k.key)) return;
+    const q = `start=0&end=1${k.token ? `&token=${k.token}` : ''}`;
+    const r = await fetch(`/api/privacy/relayer/utxos/range?${q}`, { cache: 'no-store' });
+    const j = (await r.json().catch(() => ({}))) as { total?: number };
+    if (r.ok && typeof j.total === 'number' && j.total > 0) localStorage.setItem(k.key, String(j.total));
+  }));
+  localStorage.setItem(FAST_KEY(owner), 'fast');
+}
+
+/** Whether this device skipped old pool history for this wallet (see fastStart). */
+export const scannedFull = (owner: string) => localStorage.getItem(FAST_KEY(owner)) === 'full';
+
 export type PrivateBalances = Record<string, { ui: number; token: PrivateToken }>;
 
 /** Private (shielded) balances. Asks for the unlock signature the first time. */
-export async function privateBalances(owner: string, step: (m: string) => void = () => {}): Promise<PrivateBalances> {
+export async function privateBalances(owner: string, step: (m: string) => void = () => {}, fullHistory = false): Promise<PrivateBalances> {
   const { l, enc } = await unlock(owner, step);
+  step(fullHistory ? 'Scanning the whole pool… this can take several minutes' : 'Checking your private balance…');
+  await fastStart(l, owner, fullHistory);
   const conn = connection(l);
   const publicKey = new l.web3.PublicKey(owner);
   const out: PrivateBalances = {};
@@ -148,6 +189,7 @@ const tok = (sym: string) => {
 export async function shield(p: { owner: string; sym: string; amount: number }, step: (m: string) => void): Promise<string> {
   const t = tok(p.sym);
   const { l, enc } = await unlock(p.owner, step);
+  await fastStart(l, p.owner, false);
   const conn = connection(l);
   const publicKey = new l.web3.PublicKey(p.owner);
   const transactionSigner = async (tx: import('@solana/web3.js').VersionedTransaction) => {
@@ -170,6 +212,7 @@ export async function sendPrivately(
 ): Promise<{ tx: string; fee: number; partial: boolean }> {
   const t = tok(p.sym);
   const { l, enc } = await unlock(p.owner, step);
+  await fastStart(l, p.owner, false);
   const conn = connection(l);
   const publicKey = new l.web3.PublicKey(p.owner);
   let recipient: import('@solana/web3.js').PublicKey;
