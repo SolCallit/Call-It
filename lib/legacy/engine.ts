@@ -11,7 +11,7 @@ import { fetchFeed, fetchToken, fetchTokens, searchTokens, mountChart, fmtSmall 
 import { openImageEditor } from '@/lib/media/imageEditor';
 import { walletBalances, swap as jupSwap, withdraw as doWithdraw, toBaseUnits, qrSvg, SOL_MINT, USDC_MINT, placeOrder, listOrders, cancelOrder, reportTxError } from '@/lib/wallet/client';
 import { friendlyError, isUserCancel } from '@/lib/errors';
-import { privateConfig } from '@/lib/privacy/config';
+import { PRIVATE_ON, PRIVATE_TOKENS } from '@/lib/privacy/config';
 import { DOCS_MD } from '@/lib/docs/content';
 import { initCalls, listenForCalls, startCall, joinCall, activeCallId, CALL_ICONS } from '@/lib/chat/callClient';
 
@@ -611,7 +611,7 @@ function xcardImage(d,fname,mode,url,text){const W=1200,H=630,c=document.createE
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2200)}
 function fakeSig(){const a='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';let s='';for(let i=0;i<88;i++)s+=a[Math.floor(Math.random()*a.length)];return s}
 function txRun(desc,apply,opt={}){const el=$('#txt'),sig=fakeSig();let step=0;
- const draw=(st,msg)=>{el.className='txt show '+st;el.innerHTML=`<span class="txi">${st==='ok'?ic('check',18):st==='bad'?ic('x',18):'<i class="spin"></i>'}</span><div class="grow"><b>${esc(desc)}</b><span class="hint">${msg}</span></div>${st==='ok'?`<button class="lnk" data-act="copy" data-v="${sig}">Copy tx</button>`:st==='bad'&&!/Not enough|cancelled|isn.t connected|Sign in again|safe in the pool|already released/.test(msg)?'<button class="lnk" id="txretry">Retry</button>':''}<button class="ib" id="txx" aria-label="Dismiss">${ic('x',16)}</button>`;
+ const draw=(st,msg)=>{el.className='txt show '+st;el.innerHTML=`<span class="txi">${st==='ok'?ic('check',18):st==='bad'?ic('x',18):'<i class="spin"></i>'}</span><div class="grow"><b>${esc(desc)}</b><span class="hint">${msg}</span></div>${st==='ok'?`<button class="lnk" data-act="copy" data-v="${sig}">Copy tx</button>`:st==='bad'&&!/Not enough|cancelled|isn.t connected|Sign in again/.test(msg)?'<button class="lnk" id="txretry">Retry</button>':''}<button class="ib" id="txx" aria-label="Dismiss">${ic('x',16)}</button>`;
   $('#txx').onclick=()=>el.classList.remove('show');const r=$('#txretry');if(r)r.onclick=()=>txRun(desc,apply,opt)};
  clearTimeout(el._h);draw('wait','Approve in your wallet…');
  setTimeout(()=>{if(!navigator.onLine){draw('bad','You’re offline. Nothing was sent.');return}draw('wait','Sending to Solana…');
@@ -639,7 +639,7 @@ function loadBalances(){if(!REALW()||BALBUSY)return;BALBUSY=1;const who=S.addr;
   if(changed)balRender()}).catch(e=>console.warn('[callit] balances',e)).finally(()=>{BALBUSY=0})}
 /* Same toast as txRun, driven by a real transaction. run(step) resolves to the signature. */
 function realTx(desc,run,done,link){const el=$('#txt');let sig='';const url=link||(x=>`https://solscan.io/tx/${x}`);
- const draw=(st,msg)=>{el.className='txt show '+st;el.innerHTML=`<span class="txi">${st==='ok'?ic('check',18):st==='bad'?ic('x',18):'<i class="spin"></i>'}</span><div class="grow"><b>${esc(desc)}</b><span class="hint">${esc(msg)}</span></div>${st==='ok'&&sig?`<a class="lnk" href="${url(sig)}" target="_blank" rel="noopener noreferrer">View</a>`:st==='bad'&&!/Not enough|cancelled|isn.t connected|Sign in again/.test(msg)?'<button class="lnk" id="txretry">Retry</button>':''}<button class="ib" id="txx" aria-label="Dismiss">${ic('x',16)}</button>`;
+ const draw=(st,msg)=>{el.className='txt show '+st;el.innerHTML=`<span class="txi">${st==='ok'?ic('check',18):st==='bad'?ic('x',18):'<i class="spin"></i>'}</span><div class="grow"><b>${esc(desc)}</b><span class="hint">${esc(msg)}</span></div>${st==='ok'&&sig?`<a class="lnk" href="${url(sig)}" target="_blank" rel="noopener noreferrer">View</a>`:st==='bad'&&!/Not enough|cancelled|isn.t connected|Sign in again|safe in your private balance/.test(msg)?'<button class="lnk" id="txretry">Retry</button>':''}<button class="ib" id="txx" aria-label="Dismiss">${ic('x',16)}</button>`;
   $('#txx').onclick=()=>el.classList.remove('show');const r=$('#txretry');if(r)r.onclick=()=>realTx(desc,run,done,link)};
  clearTimeout(el._h);draw('wait','Preparing…');
  run(m=>draw('wait',m)).then(s=>{sig=s||'';draw('ok',sig?`Confirmed · ${sig.slice(0,4)}…${sig.slice(-4)}`:'Done');el._h=setTimeout(()=>el.classList.remove('show'),9000);done&&done(true);loadBalances();setTimeout(loadBalances,5000)})
@@ -2120,61 +2120,74 @@ function withdrawModal(){if(!S.connected)return connectModal(()=>withdrawModal()
    let base;try{base=baseOf(k,a)}catch(err){return toast(err.message)}
    realTx(desc,step=>doWithdraw({from:S.addr,to,mint:k==='SOL'?'SOL':mintOf(k),amount:base},step).then(r=>{
     logTx({k:'Withdrew',kind:'withdraw',label:`${fmtAmt(a)} ${sy} to ${short(to)}`,signature:r.signature,in_mint:k==='SOL'?SOL_MINT:mintOf(k),in_amount:a,to_address:to,usd_value:T[k]&&T[k].price?a*T[k].price:null});if(r.pending)toast('Sent. Confirmation is taking longer than usual');return r.signature}))}})}
-/* ---------- Private Withdraw (Umbra shielded pool; logic in lib/privacy/umbra.ts) ----------
- * Shield: the user's wallet moves tokens into the shared pool, locked to the address they typed.
- * Release: a throwaway key + Umbra's relayer pay that address, so the Callit wallet never shows up there.
- * Runs on its own network (NEXT_PUBLIC_PRIVATE_WITHDRAW=devnet|mainnet); off when unset. */
-const PCFG=privateConfig();
-const pvMod=()=>import('@/lib/privacy/umbra');
-const pvLink=sig=>PCFG?PCFG.explorer(sig):`https://solscan.io/tx/${sig}`;
-const pvSeg=on=>PCFG?`<div class="seg pvseg" role="tablist"><button class="${on?'':'on'}" role="tab" aria-selected="${!on}" data-act="withdraw">Standard</button><button class="${on?'on':''}" role="tab" aria-selected="${!!on}" data-act="pwithdraw">${ic('lock',14)} Private</button></div>`:'';
-const PV={hold:true};
-function pwithdrawModal(){if(!S.connected)return connectModal(()=>pwithdrawModal());if(!PCFG)return withdrawModal();
- if(!REALW())return toast('Sign in with your wallet to withdraw privately.');const dev=PCFG.network==='devnet';
- modal('Withdraw privately',`The receiver gets paid, but your Callit wallet isn’t in that transaction.${dev?' <span class="pvdev">Devnet test</span>':''}`,
- `${pvSeg(1)}<div id="pvbody"><div class="empty" style="padding:22px 8px"><i class="spin"></i><p>Loading private balances…</p></div></div>`,m=>pvLoad(m,dev))}
-function pvLoad(m,dev){pvMod().then(mod=>Promise.all([mod.privateBalances(S.addr),mod.supportedSyms()]).then(([bal,syms])=>{if(!m.isConnected)return;
- const toks=PCFG.tokens.filter(t=>syms.includes(t.sym));const has=toks.filter(t=>bal[t.sym]&&bal[t.sym].raw>0n);
- const maxUi=sym=>{const b=bal[sym];if(!b)return 0;const v=b.token.native?b.ui-mod.SOL_FEE_RESERVE:b.ui;return Math.max(0,Math.floor(v*1e6)/1e6)};
- const body=$('#pvbody',m);
- if(!has.length){body.innerHTML=`<div class="empty" style="padding:18px 8px"><b>Nothing to withdraw privately${dev?' on devnet':''}</b><p>${dev?`This is a devnet test. Get free devnet SOL at <a class="lnk" href="https://faucet.solana.com" target="_blank" rel="noopener noreferrer">faucet.solana.com</a> and send it to your Callit address:`:'Private withdraw supports '+toks.map(t=>t.sym).join(', ')+'. Swap a memecoin to SOL first.'}</p>${dev?`<p class="num pvaddr">${esc(S.addr)}</p><button class="btn block" data-act="copy" data-v="${esc(S.addr)}">Copy address</button>`:''}<button class="btn ghost block" id="pvre" style="margin-top:8px">Refresh</button></div>${pvPendingBlock()}`;
-  $('#pvre',m).onclick=()=>{body.innerHTML='<div class="empty" style="padding:22px 8px"><i class="spin"></i></div>';pvLoad(m,dev)};pvPendingWire(m,mod);return}
- body.innerHTML=`<div class="field"><label for="pvt">Token</label><select id="pvt" class="input">${has.map(t=>`<option value="${esc(t.sym)}">${esc(t.sym)} (${fmtAmt(bal[t.sym].ui)})</option>`).join('')}</select></div>
+/* ---------- Private Withdraw (Privacy Cash shielded pool; logic in lib/privacy/privacycash.ts) ----------
+ * Shield: the user's wallet deposits into a private balance only they can read.
+ * Send privately: a zero-knowledge proof + Privacy Cash's relayer pays any address; the Callit wallet isn't in it.
+ * Off unless NEXT_PUBLIC_PRIVATE_WITHDRAW=on. */
+const PVON=PRIVATE_ON;
+const pvMod=()=>import('@/lib/privacy/privacycash');
+const pvSeg=on=>PVON?`<div class="seg pvseg" role="tablist"><button class="${on?'':'on'}" role="tab" aria-selected="${!on}" data-act="withdraw">Standard</button><button class="${on?'on':''}" role="tab" aria-selected="${!!on}" data-act="pwithdraw">${ic('lock',14)} Private</button></div>`:'';
+const PV={mode:null,then:'keep',priv:null};
+function pwithdrawModal(){if(!S.connected)return connectModal(()=>pwithdrawModal());if(!PVON)return withdrawModal();
+ if(!REALW())return toast('Sign in with your wallet to withdraw privately.');
+ modal('Withdraw privately','Shield into your private balance, then send to any address. Your Callit wallet isn’t in the payout.',
+ `${pvSeg(1)}<div id="pvbody"><div class="empty" style="padding:22px 8px"><i class="spin"></i><p>Loading…</p></div></div>`,m=>pvLoad(m))}
+function pvLoad(m){pvMod().then(mod=>Promise.all([mod.walletBalances(S.addr),mod.feeInfo(),mod.isUnlocked(S.addr)?mod.privateBalances(S.addr).catch(()=>null):Promise.resolve(PV.priv)]).then(([wb,fee,priv])=>{if(!m.isConnected)return;
+ PV.priv=priv;const toks=PRIVATE_TOKENS;const pb=sym=>priv&&priv[sym]?priv[sym].ui:0;const anyPriv=toks.some(t=>pb(t.sym)>0);
+ if(!PV.mode)PV.mode=anyPriv?'send':'shield';
+ const wMax=sym=>{const t=toks.find(x=>x.sym===sym),v=(wb[sym]||0)-(t&&t.native?mod.SOL_FEE_RESERVE:0);return Math.max(0,Math.floor(v*1e6)/1e6)};
+ const pMax=sym=>Math.floor(pb(sym)*1e6)/1e6;
+ const feeOf=(sym,a)=>{const k=sym.toLowerCase(),rent=fee.rent[k]||0;return a*fee.rate+rent};
+ const balCard=priv?`<div class="pvbal"><span class="pvbalh">${ic('lock',14)} Private balance</span><div class="pvbalrow">${toks.map(t=>`<div><b class="num">${fmtAmt(pb(t.sym))}</b><small>${esc(t.sym)}</small></div>`).join('')}</div></div>`
+  :`<div class="pvbal"><span class="pvbalh">${ic('lock',14)} Private balance</span><p class="hint" style="margin:6px 0 10px">Hidden until you unlock it. Unlocking is one free signature, not a transaction.</p><button class="btn block" id="pvunlock">Show private balance</button></div>`;
+ const tokOpts=(src)=>toks.map(t=>`<option value="${esc(t.sym)}">${esc(t.sym)} (${fmtAmt(src==='w'?(wb[t.sym]||0):pb(t.sym))})</option>`).join('');
+ const shieldForm=`<div class="field"><label for="pvt">Token</label><select id="pvt" class="input">${tokOpts('w')}</select></div>
+ <div class="field"><label for="pvv">Amount to shield</label><div style="display:flex;gap:8px"><input id="pvv" class="input num" inputmode="decimal" placeholder="0"><button class="mx lg" id="pvmax">Max</button></div></div>
+ <div class="field"><label>Then</label><div class="seg pvwhen"><button data-w="keep" class="${PV.then==='keep'?'on':''}">Keep it private</button><button data-w="send" class="${PV.then==='send'?'on':''}">Send now</button></div>
+ <p class="hint pvtip" id="pvtip"></p></div>
+ <div class="field" id="pvtof" ${PV.then==='send'?'':'hidden'}><label for="pva">To address</label><input id="pva" class="input" placeholder="Solana address" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+ <div class="err" id="pverr"></div><button class="btn primary block" id="pvgo">${ic('lock',16)} Shield</button>`;
+ const sendForm=`<div class="field"><label for="pvt">From private balance</label><select id="pvt" class="input">${tokOpts('p')}</select></div>
  <div class="field"><label for="pva">To address</label><input id="pva" class="input" placeholder="Solana address" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
  <div class="field"><label for="pvv">Amount</label><div style="display:flex;gap:8px"><input id="pvv" class="input num" inputmode="decimal" placeholder="0"><button class="mx lg" id="pvmax">Max</button></div></div>
- <div class="field"><label>Release</label><div class="seg pvwhen"><button data-w="hold" class="${PV.hold?'on':''}">Hold, release later</button><button data-w="now" class="${PV.hold?'':'on'}">Release now</button></div>
- <p class="hint pvtip" id="pvtip"></p></div>
- <p class="hint" id="pvsol" style="margin:-4px 0 10px"></p>
- <div class="err" id="pverr"></div><button class="btn primary block" id="pvgo">${ic('lock',16)} Shield &amp; withdraw privately</button>
- ${pvPendingBlock()}`;
- const tip=()=>{$('#pvtip',m).textContent=PV.hold?'Most private. Your funds wait in the pool; release them from Pending below whenever you like. Waiting hours and using a round amount makes the two sides hard to match.':'Fastest, but the shield and the payout land seconds apart with almost the same amount, so a careful watcher could match them.'};
- const solNote=()=>{const t=toks.find(x=>x.sym===$('#pvt',m).value);$('#pvsol',m).textContent=t&&t.native?'SOL arrives as wrapped SOL (wSOL). Phantom and Solflare can unwrap it; most exchanges can’t, so use USDC for exchanges.':'A small pool and relayer fee comes out of the amount. You also need a little SOL for the network fee.'};
- tip();solNote();skin(m);
- m.querySelectorAll('.pvwhen button').forEach(b=>b.onclick=()=>{PV.hold=b.dataset.w==='hold';m.querySelectorAll('.pvwhen button').forEach(x=>x.classList.toggle('on',x===b));tip()});
- $('#pvt',m).onchange=solNote;$('#pvmax',m).onclick=()=>{$('#pvv',m).value=maxUi($('#pvt',m).value)};
- $('#pvgo',m).onclick=()=>{const sym=$('#pvt',m).value,to=$('#pva',m).value.trim(),a=parseFloat($('#pvv',m).value),e=$('#pverr',m),t=toks.find(x=>x.sym===sym);
-  if(!t)return e.textContent='Pick a token.';
-  if(!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(to))return e.textContent='That isn’t a valid Solana address. Check it and try again.';
-  if(to===S.addr)return e.textContent='That’s your own Callit wallet. Paste a different address.';
-  if(!(a>0))return e.textContent='Enter an amount above zero.';
-  if(a>maxUi(sym)+1e-12)return e.textContent=t.native?`Keep ${mod.SOL_FEE_RESERVE} SOL for fees. You can shield up to ${maxUi(sym)} SOL.`:`You only have ${fmtAmt(bal[sym].ui)} ${sym}.`;
-  if(!t.native&&(bal.SOL?bal.SOL.ui:0)<0.005)return e.textContent='You need a little SOL (about 0.005) for network fees.';
-  let base;try{base=BigInt(toBaseUnits(a,t.decimals))}catch(err){return e.textContent=err.message}
-  const hold=PV.hold,desc=`Withdraw ${fmtAmt(a)} ${sym} privately`;closeModal();
-  realTx(desc,step=>mod.privateWithdraw({owner:S.addr,to,sym,amount:base,releaseNow:!hold},step).then(r=>{
+ <p class="hint" id="pvfee" style="margin:-4px 0 10px"></p>
+ <div class="err" id="pverr"></div><button class="btn primary block" id="pvgo">${ic('send',16)} Send privately</button>`;
+ $('#pvbody',m).innerHTML=`${balCard}<div class="seg pvmode"><button data-m="shield" class="${PV.mode==='shield'?'on':''}">Shield</button><button data-m="send" class="${PV.mode==='send'?'on':''}">Send privately</button></div>
+  <div id="pvform">${PV.mode==='shield'?shieldForm:sendForm}</div>
+  <p class="hint pvfoot">Powered by Privacy Cash. Your private balance also shows on privacycash.org with this same wallet.</p>`;
+ skin(m);
+ const un=$('#pvunlock',m);if(un)un.onclick=()=>{un.disabled=true;un.textContent='Approve in your wallet…';mod.privateBalances(S.addr).then(p=>{PV.priv=p;pvLoad(m)}).catch(e=>{un.disabled=false;un.textContent='Show private balance';toast(isUserCancel(e)?'You cancelled the signature.':friendlyError(e))})};
+ m.querySelectorAll('.pvmode button').forEach(b=>b.onclick=()=>{PV.mode=b.dataset.m;pvLoad(m)});
+ const e=$('#pverr',m),sel=$('#pvt',m),T0=()=>toks.find(x=>x.sym===sel.value);
+ if(PV.mode==='shield'){
+  const tip=()=>{$('#pvtip',m).textContent=PV.then==='keep'?'Most private. Send it out later from “Send privately”. Waiting a while and sending a different amount makes it hard to match.':'Faster, but the deposit and the payout land a minute apart with almost the same amount, so a careful watcher could match them.';$('#pvtof',m).hidden=PV.then!=='send'};tip();
+  m.querySelectorAll('.pvwhen button').forEach(b=>b.onclick=()=>{PV.then=b.dataset.w;m.querySelectorAll('.pvwhen button').forEach(x=>x.classList.toggle('on',x===b));tip()});
+  $('#pvmax',m).onclick=()=>{$('#pvv',m).value=wMax(sel.value)};
+  $('#pvgo',m).onclick=()=>{const t=T0(),a=parseFloat($('#pvv',m).value),send=PV.then==='send',to=send?$('#pva',m).value.trim():'';
+   if(!(a>0))return e.textContent='Enter an amount above zero.';
+   if(a>wMax(t.sym)+1e-12)return e.textContent=t.native?`Keep ${mod.SOL_FEE_RESERVE} SOL for fees. You can shield up to ${wMax('SOL')} SOL.`:`You only have ${fmtAmt(wb[t.sym]||0)} ${t.sym}.`;
+   if(!t.native&&(wb.SOL||0)<0.005)return e.textContent='You need a little SOL (about 0.005) for network fees.';
+   if(send){if(!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(to))return e.textContent='That isn’t a valid Solana address. Check it and try again.';
+    if(to===S.addr)return e.textContent='That’s your own Callit wallet. Paste a different address.';
+    if(a<t.min)return e.textContent=`Private sends start at ${t.min} ${t.sym}.`;}
+   closeModal();
+   const log=sig=>logTx({k:'Shielded',kind:'withdraw',label:`${fmtAmt(a)} ${t.sym} to private balance`,signature:sig,in_mint:t.mint,in_amount:a,to_address:null,usd_value:null});
+   if(!send)return realTx(`Shield ${fmtAmt(a)} ${t.sym}`,step=>mod.shield({owner:S.addr,sym:t.sym,amount:a},step).then(sig=>{log(sig);PV.mode='send';return sig}));
+   realTx(`Withdraw ${fmtAmt(a)} ${t.sym} privately`,step=>mod.shieldAndSend({owner:S.addr,sym:t.sym,amount:a,to},step).then(r=>{log(r.shieldTx);S.activity.unshift({k:'Sent privately',d:`${fmtAmt(a)} ${t.sym}`,t:'Just now'});return r.sendTx}))};
+ }else{
+  const feeLine=()=>{const t=T0(),a=parseFloat($('#pvv',m).value)||0,f=feeOf(t.sym,a);$('#pvfee',m).textContent=`Fee about ${fmtAmt(f)} ${t.sym} (${(fee.rate*100).toFixed(2)}% + ${fmtAmt(fee.rent[t.sym.toLowerCase()]||0)} ${t.sym}). Minimum ${t.min} ${t.sym}.${t.native?'':' Arrives as '+t.sym+'.'}`};feeLine();
+  sel.onchange=feeLine;$('#pvv',m).oninput=feeLine;$('#pvmax',m).onclick=()=>{$('#pvv',m).value=pMax(sel.value);feeLine()};
+  $('#pvgo',m).onclick=()=>{const t=T0(),to=$('#pva',m).value.trim(),a=parseFloat($('#pvv',m).value);
+   if(!priv)return e.textContent='Unlock your private balance first.';
+   if(!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(to))return e.textContent='That isn’t a valid Solana address. Check it and try again.';
+   if(to===S.addr)return e.textContent='That’s your own Callit wallet. Use Standard withdraw, or paste a different address.';
+   if(!(a>0))return e.textContent='Enter an amount above zero.';
+   if(a<t.min)return e.textContent=`Private sends start at ${t.min} ${t.sym}.`;
+   if(a>pMax(t.sym)+1e-12)return e.textContent=`Your private balance is ${fmtAmt(pb(t.sym))} ${t.sym}.`;
+   closeModal();
    // Never store the destination: linking sender and receiver is exactly what this hides.
-   if(!dev)logTx({k:'Withdrew privately',kind:'withdraw',label:`${fmtAmt(a)} ${sym} privately`,signature:r.shieldSig,in_mint:t.mint,in_amount:a,to_address:null,usd_value:null});
-   else S.activity.unshift({k:'Withdrew privately (devnet)',d:`${fmtAmt(a)} ${sym}`,t:'Just now'});
-   if(hold)toast('Shielded. Release it from Withdraw → Private → Pending when you’re ready.');
-   return r.releaseSigs[0]||r.shieldSig}),null,pvLink)};
- pvPendingWire(m,mod)})).catch(err=>{if(!m.isConnected)return;$('#pvbody',m).innerHTML=`<div class="empty" style="padding:18px 8px"><b>Private withdraw is unavailable right now</b><p>${esc(friendlyError(err))}</p><button class="btn block" data-act="pwithdraw">Try again</button></div>`})}
-function pvPendingBlock(){return `<div class="pvpend"><div class="pvph"><b>Pending</b><button class="lnk" id="pvchk">Check</button></div><div id="pvlist"><p class="hint" style="margin:0">Shielded funds waiting to be released show here. Checking asks your wallet for a signature.</p></div></div>`}
-function pvPendingWire(m,mod){const b=$('#pvchk',m);if(!b)return;b.onclick=()=>{const L=$('#pvlist',m);L.innerHTML='<p class="hint" style="margin:0"><i class="spin"></i> Scanning the pool…</p>';
- mod.pendingNotes(S.addr).then(list=>{if(!m.isConnected)return;
-  L.innerHTML=list.length?list.map((n,i)=>`<div class="li pvnote"><div class="grow"><b class="num">${fmtAmt(n.amount)} ${esc(n.sym)}</b><div class="hint">to ${esc(short(n.to))}</div></div><button class="btn sm primary" data-pvi="${i}">Release</button></div>`).join(''):'<p class="hint" style="margin:0">Nothing pending.</p>';
-  L.querySelectorAll('[data-pvi]').forEach(x=>x.onclick=()=>{const n=list[+x.dataset.pvi];closeModal();
-   realTx(`Release ${fmtAmt(n.amount)} ${n.sym} privately`,step=>mod.releaseNotes(S.addr,[n],step).then(s=>s[0]),null,pvLink)})})
- .catch(err=>{if(!m.isConnected)return;L.innerHTML=`<p class="err" style="margin:0">${esc(isUserCancel(err)?'You cancelled the signature.':friendlyError(err))}</p>`})}}
+   realTx(`Send ${fmtAmt(a)} ${t.sym} privately`,step=>mod.sendPrivately({owner:S.addr,sym:t.sym,amount:a,to},step).then(r=>{S.activity.unshift({k:'Sent privately',d:`${fmtAmt(a)} ${t.sym}`,t:'Just now'});PV.priv=null;if(r.partial)toast('Sent part of it. Your private balance didn’t cover the full amount plus fees.');return r.tx}))};
+ }})).catch(err=>{if(!m.isConnected)return;$('#pvbody',m).innerHTML=`<div class="empty" style="padding:18px 8px"><b>Private withdraw is unavailable right now</b><p>${esc(isUserCancel(err)?'You cancelled the signature.':friendlyError(err))}</p><button class="btn block" data-act="pwithdraw">Try again</button></div>`})}
 function depositModal(){if(!S.connected)return connectModal(()=>depositModal());const ok=isMintStr(S.addr);
  modal('Deposit','Send SOL, USDC or any Solana token to your Callit wallet. Only use the Solana network.',ok?`<div style="text-align:center">${qrSvg(S.addr)}<p class="num" style="overflow-wrap:anywhere;font-size:13px;margin:12px 0">${esc(S.addr)}</p><button class="btn primary block" data-act="copy" data-v="${esc(S.addr)}">Copy address</button><p class="hint" style="margin:12px 0 0">Funds show up here automatically within a few seconds of landing.</p></div>`
   :`<div class="empty" style="padding:18px 8px"><b>Your wallet is still being set up</b><p>Give it a few seconds, then try again.</p></div>`)}

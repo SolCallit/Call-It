@@ -4,7 +4,11 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   // The commit this build came from, shown in the footer so anyone can match the live site to the public code.
-  env: { NEXT_PUBLIC_BUILD_SHA: (process.env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 7) },
+  env: {
+    NEXT_PUBLIC_BUILD_SHA: (process.env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 7),
+    // Private Withdraw: the Privacy Cash SDK reaches its relayer through Callit's same-origin proxy.
+    NEXT_PUBLIC_RELAYER_API_URL: '/api/privacy/relayer',
+  },
   async headers() {
     return [
       {

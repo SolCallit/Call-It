@@ -310,3 +310,11 @@ body:has(.chcomp) #view>.composer,body:has(.chcbar) #view>.composer{margin-top:a
 .pvpend{margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
 .pvph{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
 .pvnote{align-items:center}
+.pvmode{display:flex;width:100%;margin:4px 0 14px}
+.pvmode button{flex:1}
+.pvbal{padding:12px 14px;border:1px solid var(--line);border-radius:16px;margin-bottom:14px;background:var(--bg2)}
+.pvbalh{display:flex;align-items:center;gap:6px;font:700 12.5px/1 var(--body);color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.pvbalrow{display:flex;gap:18px;margin-top:8px;flex-wrap:wrap}
+.pvbalrow div{display:flex;align-items:baseline;gap:4px}
+.pvbalrow b{font:800 18px/1.1 var(--display)}
+.pvfoot{margin:12px 0 0;text-align:center}

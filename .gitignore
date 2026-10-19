@@ -7,3 +7,6 @@ out
 *.tsbuildinfo
 next-env.d.ts
 .vercel
+
+# Private Withdraw circuit, copied from node_modules by scripts/privacy-assets.mjs
+/public/circuit2/
