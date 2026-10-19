@@ -11,6 +11,7 @@ import { fetchFeed, fetchToken, fetchTokens, searchTokens, mountChart, fmtSmall 
 import { openImageEditor } from '@/lib/media/imageEditor';
 import { walletBalances, swap as jupSwap, withdraw as doWithdraw, toBaseUnits, qrSvg, SOL_MINT, USDC_MINT, placeOrder, listOrders, cancelOrder, reportTxError } from '@/lib/wallet/client';
 import { friendlyError, isUserCancel } from '@/lib/errors';
+import { PRIVATE_ON, PRIVATE_TOKENS } from '@/lib/privacy/config';
 import { DOCS_MD } from '@/lib/docs/content';
 import { initCalls, listenForCalls, startCall, joinCall, activeCallId, CALL_ICONS } from '@/lib/chat/callClient';
 
@@ -637,12 +638,12 @@ function loadBalances(){if(!REALW()||BALBUSY)return;BALBUSY=1;const who=S.addr;
   if(miss.length)fetchTokens(miss.slice(0,50)).then(l=>{l.forEach(regLive);balRender()}).catch(()=>{});
   if(changed)balRender()}).catch(e=>console.warn('[callit] balances',e)).finally(()=>{BALBUSY=0})}
 /* Same toast as txRun, driven by a real transaction. run(step) resolves to the signature. */
-function realTx(desc,run,done){const el=$('#txt');let sig='';
- const draw=(st,msg)=>{el.className='txt show '+st;el.innerHTML=`<span class="txi">${st==='ok'?ic('check',18):st==='bad'?ic('x',18):'<i class="spin"></i>'}</span><div class="grow"><b>${esc(desc)}</b><span class="hint">${esc(msg)}</span></div>${st==='ok'&&sig?`<a class="lnk" href="https://solscan.io/tx/${sig}" target="_blank" rel="noopener noreferrer">View</a>`:st==='bad'&&!/Not enough|cancelled|isn.t connected|Sign in again/.test(msg)?'<button class="lnk" id="txretry">Retry</button>':''}<button class="ib" id="txx" aria-label="Dismiss">${ic('x',16)}</button>`;
-  $('#txx').onclick=()=>el.classList.remove('show');const r=$('#txretry');if(r)r.onclick=()=>realTx(desc,run,done)};
+function realTx(desc,run,done,link){const el=$('#txt');let sig='';const url=link||(x=>`https://solscan.io/tx/${x}`);
+ const draw=(st,msg)=>{el.className='txt show '+st;el.innerHTML=`<span class="txi">${st==='ok'?ic('check',18):st==='bad'?ic('x',18):'<i class="spin"></i>'}</span><div class="grow"><b>${esc(desc)}</b><span class="hint">${esc(msg)}</span></div>${st==='ok'&&sig?`<a class="lnk" href="${url(sig)}" target="_blank" rel="noopener noreferrer">View</a>`:st==='bad'&&!/Not enough|cancelled|isn.t connected|Sign in again|safe in your private balance|Added and safe/.test(msg)?'<button class="lnk" id="txretry">Retry</button>':''}<button class="ib" id="txx" aria-label="Dismiss">${ic('x',16)}</button>`;
+  $('#txx').onclick=()=>el.classList.remove('show');const r=$('#txretry');if(r)r.onclick=()=>realTx(desc,run,done,link)};
  clearTimeout(el._h);draw('wait','Preparing…');
  run(m=>draw('wait',m)).then(s=>{sig=s||'';draw('ok',sig?`Confirmed · ${sig.slice(0,4)}…${sig.slice(-4)}`:'Done');el._h=setTimeout(()=>el.classList.remove('show'),9000);done&&done(true);loadBalances();setTimeout(loadBalances,5000)})
-  .catch(e=>{const m=e&&e.name==='TxError'?e.message:friendlyError(e);if(!isUserCancel(e))reportTxError(/^withdraw/i.test(desc)?'withdraw':'swap',e,S.addr);draw('bad',isUserCancel(e)?'You cancelled it. Nothing was sent.':m);done&&done(false)})}
+  .catch(e=>{const m=e&&e.name==='TxError'?e.message:friendlyError(e);if(!isUserCancel(e)&&!/privately|private balance/i.test(desc))reportTxError(/^withdraw/i.test(desc)?'withdraw':'swap',e,S.addr);draw('bad',isUserCancel(e)?'You cancelled it. Nothing was sent.':m);done&&done(false)})}
 /* Swap settings, saved on this device. Speed = priority fee cap; front-running protection = Jito tip. */
 const SPEED={auto:0,fast:1e5,turbo:1e6,ultra:5e6};
 const SWS=(()=>{const d={slip:0,speed:'auto',mev:false,tip:'0.001'};try{return {...d,...JSON.parse(localStorage.getItem('callit.swapset')||'{}')}}catch(_){return d}})();if(SWS.slip)S.slip=SWS.slip;
@@ -2099,9 +2100,9 @@ function settingsModal(){const th=document.documentElement.dataset.theme||'syste
  <div class="field"><label>Sidebar</label><div class="seg"><button class="${col?'':'on'}" data-act="setside" data-f="open">Expanded</button><button class="${col?'on':''}" data-act="setside" data-f="closed">Icons only</button></div></div>`)}
 function withdrawModal(){if(!S.connected)return connectModal(()=>withdrawModal());const real=REALW();
  const held=Object.keys(S.bal).filter(k=>S.bal[k]>0&&T[k]).sort((a,b)=>usd(b,S.bal[b])-usd(a,S.bal[a]));
- if(!held.length)return modal('Withdraw','',`<div class="empty" style="padding:18px 8px"><b>Nothing to withdraw yet</b><p>Deposit SOL or a Solana token first.</p><button class="btn primary" data-act="deposit">Deposit</button></div>`);
+ if(!held.length)return modal('Withdraw','',`${pvSeg(0)}<div class="empty" style="padding:18px 8px"><b>Nothing to withdraw yet</b><p>Deposit SOL or a Solana token first.</p><button class="btn primary" data-act="deposit">Deposit</button></div>`);
  modal('Withdraw','Send from your Callit wallet to any Solana address, like Phantom or an exchange.',
- `<div class="field"><label for="st">Token</label><select id="st" class="input">${held.map(k=>`<option value="${esc(k)}">${esc(symOf(k))} (${fmtAmt(S.bal[k])})</option>`).join('')}</select></div>
+ `${pvSeg(0)}<div class="field"><label for="st">Token</label><select id="st" class="input">${held.map(k=>`<option value="${esc(k)}">${esc(symOf(k))} (${fmtAmt(S.bal[k])})</option>`).join('')}</select></div>
  <div class="field"><label for="sa">To address</label><input id="sa" class="input" placeholder="Solana address" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
  <div class="field"><label for="sv">Amount</label><div style="display:flex;gap:8px"><input id="sv" class="input num" inputmode="decimal" placeholder="0"><button class="mx lg" id="smax">Max</button></div></div>
  <p class="hint" style="margin:-4px 0 10px">Only send to a Solana address. If it's an exchange, make sure it accepts this token on Solana. Transfers can't be reversed.</p>
@@ -2119,6 +2120,77 @@ function withdrawModal(){if(!S.connected)return connectModal(()=>withdrawModal()
    let base;try{base=baseOf(k,a)}catch(err){return toast(err.message)}
    realTx(desc,step=>doWithdraw({from:S.addr,to,mint:k==='SOL'?'SOL':mintOf(k),amount:base},step).then(r=>{
     logTx({k:'Withdrew',kind:'withdraw',label:`${fmtAmt(a)} ${sy} to ${short(to)}`,signature:r.signature,in_mint:k==='SOL'?SOL_MINT:mintOf(k),in_amount:a,to_address:to,usd_value:T[k]&&T[k].price?a*T[k].price:null});if(r.pending)toast('Sent. Confirmation is taking longer than usual');return r.signature}))}})}
+/* ---------- Private Withdraw (Privacy Cash shielded pool; logic in lib/privacy/privacycash.ts) ----------
+ * Shield: the user's wallet deposits into a private balance only they can read.
+ * Send privately: a zero-knowledge proof + Privacy Cash's relayer pays any address; the Callit wallet isn't in it.
+ * Off unless NEXT_PUBLIC_PRIVATE_WITHDRAW=on. */
+const PVON=PRIVATE_ON;
+const pvMod=()=>import('@/lib/privacy/privacycash');
+const pvSeg=on=>PVON?`<div class="seg pvseg" role="tablist"><button class="${on?'':'on'}" role="tab" aria-selected="${!on}" data-act="withdraw">Standard</button><button class="${on?'on':''}" role="tab" aria-selected="${!!on}" data-act="pwithdraw">${ic('lock',14)} Private</button></div>`:'';
+const PV={mode:null,then:'keep',priv:null};
+function pwithdrawModal(){if(!S.connected)return connectModal(()=>pwithdrawModal());if(!PVON)return withdrawModal();
+ if(!REALW())return toast('Sign in with your wallet to withdraw privately.');
+ modal('Withdraw privately','Step 1: add funds to your private balance. Step 2: send from it to any address. The receiver never sees your Callit wallet.',
+ `${pvSeg(1)}<div id="pvbody"><div class="empty" style="padding:22px 8px"><i class="spin"></i><p>Loading…</p></div></div>`,m=>pvLoad(m))}
+function pvLoad(m){pvMod().then(mod=>Promise.all([mod.walletBalances(S.addr),mod.feeInfo(),mod.isUnlocked(S.addr)?mod.privateBalances(S.addr).catch(()=>null):Promise.resolve(PV.priv),mod.callitFee()]).then(([wb,fee,priv,cf])=>{if(!m.isConnected)return;
+ PV.priv=priv;const toks=PRIVATE_TOKENS;const pb=sym=>priv&&priv[sym]?priv[sym].ui:0;const anyPriv=toks.some(t=>pb(t.sym)>0);
+ if(!PV.mode)PV.mode=anyPriv?'send':'shield';
+ const cfSol=cf?cf.sol:0;const wMax=sym=>{const t=toks.find(x=>x.sym===sym),v=(wb[sym]||0)-(t&&t.native?mod.SOL_FEE_RESERVE+cfSol:0);return Math.max(0,Math.floor(v*1e6)/1e6)};
+ const pMax=sym=>Math.floor(pb(sym)*1e6)/1e6;
+ const feeOf=(sym,a)=>{const k=sym.toLowerCase(),rent=fee.rent[k]||0;return a*fee.rate+rent};
+ const balCard=priv?`<div class="pvbal"><span class="pvbalh">${ic('lock',14)} Private balance</span><div class="pvbalrow">${toks.map(t=>`<div><b class="num">${fmtAmt(pb(t.sym))}</b><small>${esc(t.sym)}</small></div>`).join('')}</div>${mod.scannedFull(S.addr)?'':'<p class="hint" style="margin:8px 0 0">Used Privacy Cash before with this wallet? <button class="lnk" id="pvfull">Find older funds</button> (slow, scans the whole pool)</p>'}</div>`
+  :`<div class="pvbal"><span class="pvbalh">${ic('lock',14)} Private balance</span><p class="hint" style="margin:6px 0 10px">Hidden until you unlock it. Unlocking is one free signature, not a transaction.</p><button class="btn block" id="pvunlock">Show private balance</button></div>`;
+ const tokOpts=(src)=>toks.map(t=>`<option value="${esc(t.sym)}">${esc(t.sym)} (${fmtAmt(src==='w'?(wb[t.sym]||0):pb(t.sym))})</option>`).join('');
+ const shieldForm=`<div class="field"><label for="pvt">Token</label><select id="pvt" class="input">${tokOpts('w')}</select></div>
+ <div class="field"><label for="pvv">Amount to add to your private balance</label><div style="display:flex;gap:8px"><input id="pvv" class="input num" inputmode="decimal" placeholder="0"><button class="mx lg" id="pvmax">Max</button></div></div>
+ <div class="field"><label>Then</label><div class="seg pvwhen"><button data-w="keep" class="${PV.then==='keep'?'on':''}">Just add it</button><button data-w="send" class="${PV.then==='send'?'on':''}">Add &amp; send now</button></div>
+ <p class="hint pvtip" id="pvtip"></p></div>
+ ${cf?`<p class="hint pvcfee">Fees: Callit privacy fee <b>$${cf.usd.toFixed(2)}</b> (${fmtAmt(cf.sol)} SOL, one extra approval). Privacy Cash takes ${(fee.rate*100).toFixed(2)}% + ${fmtAmt(fee.rent.sol||0)} SOL when the funds are sent out.</p>`:''}
+ <div class="field" id="pvtof" ${PV.then==='send'?'':'hidden'}><label for="pva">To address</label><input id="pva" class="input" placeholder="Solana address" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+ <div class="err" id="pverr"></div><button class="btn primary block" id="pvgo">${ic('lock',16)} ${PV.then==='send'?'Add &amp; send privately':'Add to private balance'}</button>`;
+ const sendForm=`<div class="field"><label for="pvt">From private balance</label><select id="pvt" class="input">${tokOpts('p')}</select></div>
+ <div class="field"><label for="pva">To address</label><input id="pva" class="input" placeholder="Solana address" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+ <div class="field"><label for="pvv">Amount</label><div style="display:flex;gap:8px"><input id="pvv" class="input num" inputmode="decimal" placeholder="0"><button class="mx lg" id="pvmax">Max</button></div></div>
+ <p class="hint" id="pvfee" style="margin:-4px 0 10px"></p>
+ <div class="err" id="pverr"></div><button class="btn primary block" id="pvgo">${ic('send',16)} Send privately</button>`;
+ $('#pvbody',m).innerHTML=`${balCard}<div class="seg pvmode"><button data-m="shield" class="${PV.mode==='shield'?'on':''}">1. Add funds</button><button data-m="send" class="${PV.mode==='send'?'on':''}">2. Send privately</button></div>
+  <div id="pvform">${PV.mode==='shield'?shieldForm:sendForm}</div>
+  <p class="hint pvfoot">Powered by Privacy Cash. Your private balance also shows on privacycash.org with this same wallet.</p>`;
+ skin(m);
+ const scan=(btn,label,full)=>{btn.disabled=true;mod.privateBalances(S.addr,msg=>{if(btn.isConnected)btn.textContent=msg},full).then(p=>{PV.priv=p;if(m.isConnected)pvLoad(m)}).catch(e=>{if(btn.isConnected){btn.disabled=false;btn.textContent=label}toast(isUserCancel(e)?'You cancelled the signature.':e&&e.name==='TxError'?e.message:friendlyError(e))})};
+ const un=$('#pvunlock',m);if(un)un.onclick=()=>{un.textContent='Approve in your wallet…';scan(un,'Show private balance',false)};
+ const fu=$('#pvfull',m);if(fu)fu.onclick=()=>{fu.textContent='Scanning… keep this open';scan(fu,'Find older funds',true)};
+ m.querySelectorAll('.pvmode button').forEach(b=>b.onclick=()=>{PV.mode=b.dataset.m;pvLoad(m)});
+ const e=$('#pverr',m),sel=$('#pvt',m),T0=()=>toks.find(x=>x.sym===sel.value);
+ if(PV.mode==='shield'){
+  const tip=()=>{$('#pvtip',m).textContent=PV.then==='keep'?'Moves funds from your Callit wallet into your private balance. Then use “2. Send privately” to pay any address. Waiting a while before sending, and sending a different amount, keeps it hardest to trace.':'Adds it and pays the address right away. Faster, but the two land a minute apart with almost the same amount, so a careful watcher could match them.';$('#pvtof',m).hidden=PV.then!=='send'};tip();
+  m.querySelectorAll('.pvwhen button').forEach(b=>b.onclick=()=>{PV.then=b.dataset.w;m.querySelectorAll('.pvwhen button').forEach(x=>x.classList.toggle('on',x===b));$('#pvgo',m).innerHTML=`${ic('lock',16)} ${PV.then==='send'?'Add &amp; send privately':'Add to private balance'}`;tip()});
+  $('#pvmax',m).onclick=()=>{$('#pvv',m).value=wMax(sel.value)};
+  $('#pvgo',m).onclick=()=>{const t=T0(),a=parseFloat($('#pvv',m).value),send=PV.then==='send',to=send?$('#pva',m).value.trim():'';
+   if(!(a>0))return e.textContent='Enter an amount above zero.';
+   if(a>wMax(t.sym)+1e-12)return e.textContent=t.native?`Keep ${mod.SOL_FEE_RESERVE} SOL for fees. You can shield up to ${wMax('SOL')} SOL.`:`You only have ${fmtAmt(wb[t.sym]||0)} ${t.sym}.`;
+   if(!t.native&&(wb.SOL||0)<0.005+cfSol)return e.textContent=`You need a little SOL (about ${fmtAmt(0.005+cfSol)}) for network${cf?' and privacy':''} fees.`;
+   if(send){if(!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(to))return e.textContent='That isn’t a valid Solana address. Check it and try again.';
+    if(to===S.addr)return e.textContent='That’s your own Callit wallet. Paste a different address.';
+    if(a<t.min)return e.textContent=`Private sends start at ${t.min} ${t.sym}.`;}
+   closeModal();
+   const log=sig=>logTx({k:'Added to private balance',kind:'withdraw',label:`${fmtAmt(a)} ${t.sym}`,signature:sig,in_mint:t.mint,in_amount:a,to_address:null,usd_value:null});
+   if(!send)return realTx(`Add ${fmtAmt(a)} ${t.sym} to private balance`,step=>mod.shield({owner:S.addr,sym:t.sym,amount:a},step).then(sig=>{log(sig);PV.mode='send';return sig}));
+   realTx(`Withdraw ${fmtAmt(a)} ${t.sym} privately`,step=>mod.shieldAndSend({owner:S.addr,sym:t.sym,amount:a,to},step).then(r=>{log(r.shieldTx);S.activity.unshift({k:'Sent privately',d:`${fmtAmt(a)} ${t.sym}`,t:'Just now'});return r.sendTx}))};
+ }else{
+  const feeLine=()=>{const t=T0(),a=parseFloat($('#pvv',m).value)||0,f=feeOf(t.sym,a);$('#pvfee',m).textContent=`Fee about ${fmtAmt(f)} ${t.sym} (${(fee.rate*100).toFixed(2)}% + ${fmtAmt(fee.rent[t.sym.toLowerCase()]||0)} ${t.sym}). Minimum ${t.min} ${t.sym}.${t.native?'':' Arrives as '+t.sym+'.'}`};feeLine();
+  sel.onchange=feeLine;$('#pvv',m).oninput=feeLine;$('#pvmax',m).onclick=()=>{$('#pvv',m).value=pMax(sel.value);feeLine()};
+  $('#pvgo',m).onclick=()=>{const t=T0(),to=$('#pva',m).value.trim(),a=parseFloat($('#pvv',m).value);
+   if(!priv)return e.textContent='Unlock your private balance first.';
+   if(!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(to))return e.textContent='That isn’t a valid Solana address. Check it and try again.';
+   if(to===S.addr)return e.textContent='That’s your own Callit wallet. Use Standard withdraw, or paste a different address.';
+   if(!(a>0))return e.textContent='Enter an amount above zero.';
+   if(a<t.min)return e.textContent=`Private sends start at ${t.min} ${t.sym}.`;
+   if(a>pMax(t.sym)+1e-12)return e.textContent=`Your private balance is ${fmtAmt(pb(t.sym))} ${t.sym}.`;
+   closeModal();
+   // Never store the destination: linking sender and receiver is exactly what this hides.
+   realTx(`Send ${fmtAmt(a)} ${t.sym} privately`,step=>mod.sendPrivately({owner:S.addr,sym:t.sym,amount:a,to},step).then(r=>{S.activity.unshift({k:'Sent privately',d:`${fmtAmt(a)} ${t.sym}`,t:'Just now'});PV.priv=null;if(r.partial)toast('Sent part of it. Your private balance didn’t cover the full amount plus fees.');return r.tx}))};
+ }})).catch(err=>{if(!m.isConnected)return;$('#pvbody',m).innerHTML=`<div class="empty" style="padding:18px 8px"><b>Private withdraw is unavailable right now</b><p>${esc(isUserCancel(err)?'You cancelled the signature.':friendlyError(err))}</p><button class="btn block" data-act="pwithdraw">Try again</button></div>`})}
 function depositModal(){if(!S.connected)return connectModal(()=>depositModal());const ok=isMintStr(S.addr);
  modal('Deposit','Send SOL, USDC or any Solana token to your Callit wallet. Only use the Solana network.',ok?`<div style="text-align:center">${qrSvg(S.addr)}<p class="num" style="overflow-wrap:anywhere;font-size:13px;margin:12px 0">${esc(S.addr)}</p><button class="btn primary block" data-act="copy" data-v="${esc(S.addr)}">Copy address</button><p class="hint" style="margin:12px 0 0">Funds show up here automatically within a few seconds of landing.</p></div>`
   :`<div class="empty" style="padding:18px 8px"><b>Your wallet is still being set up</b><p>Give it a few seconds, then try again.</p></div>`)}
@@ -3452,7 +3524,7 @@ document.addEventListener('click',e=>{
    toast(on?`$${symOf(t)} added to your watchlist`:`$${symOf(t)} removed from your watchlist`);
    if(b.closest('#modal')||b.closest('.pbar')||b.closest('.trow')){document.querySelectorAll(`[data-act="track"][data-t="${CSS.escape(t)}"]`).forEach(x=>{if(x.classList.contains('wrm'))return;x.classList.toggle('on',on);x.setAttribute('aria-pressed',on);const sv=x.querySelector('svg');if(sv)sv.setAttribute('fill',on?'currentColor':'none')});return}
    render()},
-  withdraw:()=>withdrawModal(),send:()=>withdrawModal(),receive:()=>depositModal(),deposit:()=>depositModal(),
+  withdraw:()=>withdrawModal(),pwithdraw:()=>pwithdrawModal(),send:()=>withdrawModal(),receive:()=>depositModal(),deposit:()=>depositModal(),
   ltf:()=>{S.ltf=b.dataset.f;S.ltfUser=1;render()},lsrc:()=>{S.lsrc=S.lsrc==='callit'?'dex':'callit';try{localStorage.setItem('callit.lsrc',S.lsrc)}catch(_){}render()},lmode:()=>{S.lmode=b.dataset.f;render()},lretry:()=>{(lfIds(S.tt,filOf(S.tt))||[]).forEach(id=>{LIVE.err[id]=0;loadFeed(id)});render()},ltokretry:()=>{LIVE.tokErr[b.dataset.t]=0;render()},
   tside:()=>{const w=S.swap,t=b.dataset.t;if(b.dataset.f==='sell'){w.from=t;w.to='SOL'}else{w.from='SOL';w.to=t}w.amt='';renderSwaps()},
   flip:()=>{const w=S.swap;[w.from,w.to]=[w.to,w.from];w.amt='';renderSwaps()},

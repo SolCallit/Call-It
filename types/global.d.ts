@@ -28,8 +28,11 @@ declare global {
     CallitWallet?: {
       addresses: string[];
       token: () => Promise<string | null>;
-      signTx: (base64Tx: string, owner?: string) => Promise<string>;
+      /** chain only matters for Private Withdraw testing on devnet; everything else is mainnet. */
+      signTx: (base64Tx: string, owner?: string, chain?: 'solana:mainnet' | 'solana:devnet') => Promise<string>;
       signMsg: (text: string, owner?: string) => Promise<string>;
+      /** Signs raw bytes (base64 in, base64 signature out). Used to derive the Private Withdraw key. */
+      signBytes?: (base64Message: string, owner?: string) => Promise<string>;
       /** Wallets Privy created for the user (email / Google / X sign-ins). */
       embedded?: string[];
       /** Opens Privy's secure export window for an embedded wallet. Callit never sees the key. */
