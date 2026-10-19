@@ -50,6 +50,27 @@ export const cashbackMinPoints = () => num(process.env.CASHBACK_MIN_POINTS, 100)
  */
 export const POINTS = { perUsd: 0.1, perTradeCap: 1000, qualified: 50, target: 100 };
 
+/**
+ * Milestone points: a call earns each tier once, as its rolling-average X (peak_x, wick-proof) climbs.
+ * Money share stays capped (CALLER_CAP); runners are rewarded in points instead. Points convert from a
+ * fixed season pool, so a 10,000X call takes a bigger slice of that pool but never costs Callit more.
+ * 2X is POINTS.qualified above. Totals: 10X = 500, 100X = 5,750, 1,000X = 40,750, 10,000X = 140,750.
+ * Tiers from 25X up also need the token's rolling-average MC to reach MOONSHOT_MIN_MC, so a caller
+ * can't farm them by pumping a dust-cap token they launched.
+ */
+export const MILESTONES: { x: number; pts: number }[] = [
+  { x: 5, pts: 150 },
+  { x: 10, pts: 300 },
+  { x: 25, pts: 750 },
+  { x: 50, pts: 1500 },
+  { x: 100, pts: 3000 },
+  { x: 500, pts: 10000 },
+  { x: 1000, pts: 25000 },
+  { x: 10000, pts: 100000 },
+];
+export const MOONSHOT_FROM_X = 25;
+export const moonshotMinMc = () => num(process.env.MOONSHOT_MIN_MC, 250_000);
+
 /** Claim limits (USD). Payouts stay off until PAYOUTS_ON=1 and a payout wallet is set. */
 export const PAYOUT = {
   minUsd: () => num(process.env.PAYOUT_MIN_USD, 1),

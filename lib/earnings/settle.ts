@@ -1,6 +1,6 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { callerShare, CALLER_MIN_X, JUP_CUT, CASHBACK_PCT, POINTS } from '@/lib/fees/model';
+import { callerShare, CALLER_MIN_X, JUP_CUT, CASHBACK_PCT, POINTS, MILESTONES, MOONSHOT_FROM_X, moonshotMinMc } from '@/lib/fees/model';
 
 /**
  * Feeds this minute's MC readings into each call's rolling average (posts.x_avg / peak_x).
@@ -120,6 +120,19 @@ export async function awardPoints(db: SupabaseClient): Promise<number> {
     .not('target_at', 'is', null).gte('target_at', since).limit(2000);
   for (const c of (tg || []) as { id: string; profile_id: string; token_sym: string | null }[]) {
     rows.push({ profile_id: c.profile_id, kind: 'call', amount: POINTS.target, ref: 'tg:' + c.id, note: `$${c.token_sym || '?'} hit target` });
+  }
+  // Milestone points (5X … 10,000X). Runners can take weeks, so look back further than 3 days.
+  const { data: runs } = await db.from('posts').select('id, profile_id, token_sym, peak_x, entry_mc')
+    .eq('kind', 'meme').is('deleted_at', null).gte('peak_x', MILESTONES[0].x)
+    .gte('created_at', new Date(Date.now() - 120 * 864e5).toISOString()).limit(3000);
+  const minMc = moonshotMinMc();
+  for (const c of (runs || []) as { id: string; profile_id: string; token_sym: string | null; peak_x: number; entry_mc: number | null }[]) {
+    const px = Number(c.peak_x), peakMc = Number(c.entry_mc || 0) * px;
+    for (const m of MILESTONES) {
+      if (px < m.x) break;
+      if (m.x >= MOONSHOT_FROM_X && !(peakMc >= minMc)) break;
+      rows.push({ profile_id: c.profile_id, kind: 'call', amount: m.pts, ref: `m${m.x}:` + c.id, note: `$${c.token_sym || '?'} held ${m.x.toLocaleString('en-US')}X` });
+    }
   }
   if (!rows.length) return 0;
   const uniq = [...new Map(rows.map((r) => [r.ref, r])).values()];
