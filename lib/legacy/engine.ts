@@ -639,7 +639,7 @@ function loadBalances(){if(!REALW()||BALBUSY)return;BALBUSY=1;const who=S.addr;
   if(changed)balRender()}).catch(e=>console.warn('[callit] balances',e)).finally(()=>{BALBUSY=0})}
 /* Same toast as txRun, driven by a real transaction. run(step) resolves to the signature. */
 function realTx(desc,run,done,link){const el=$('#txt');let sig='';const url=link||(x=>`https://solscan.io/tx/${x}`);
- const draw=(st,msg)=>{el.className='txt show '+st;el.innerHTML=`<span class="txi">${st==='ok'?ic('check',18):st==='bad'?ic('x',18):'<i class="spin"></i>'}</span><div class="grow"><b>${esc(desc)}</b><span class="hint">${esc(msg)}</span></div>${st==='ok'&&sig?`<a class="lnk" href="${url(sig)}" target="_blank" rel="noopener noreferrer">View</a>`:st==='bad'&&!/Not enough|cancelled|isn.t connected|Sign in again|safe in your private balance/.test(msg)?'<button class="lnk" id="txretry">Retry</button>':''}<button class="ib" id="txx" aria-label="Dismiss">${ic('x',16)}</button>`;
+ const draw=(st,msg)=>{el.className='txt show '+st;el.innerHTML=`<span class="txi">${st==='ok'?ic('check',18):st==='bad'?ic('x',18):'<i class="spin"></i>'}</span><div class="grow"><b>${esc(desc)}</b><span class="hint">${esc(msg)}</span></div>${st==='ok'&&sig?`<a class="lnk" href="${url(sig)}" target="_blank" rel="noopener noreferrer">View</a>`:st==='bad'&&!/Not enough|cancelled|isn.t connected|Sign in again|safe in your private balance|Added and safe/.test(msg)?'<button class="lnk" id="txretry">Retry</button>':''}<button class="ib" id="txx" aria-label="Dismiss">${ic('x',16)}</button>`;
   $('#txx').onclick=()=>el.classList.remove('show');const r=$('#txretry');if(r)r.onclick=()=>realTx(desc,run,done,link)};
  clearTimeout(el._h);draw('wait','Preparing…');
  run(m=>draw('wait',m)).then(s=>{sig=s||'';draw('ok',sig?`Confirmed · ${sig.slice(0,4)}…${sig.slice(-4)}`:'Done');el._h=setTimeout(()=>el.classList.remove('show'),9000);done&&done(true);loadBalances();setTimeout(loadBalances,5000)})
@@ -2130,7 +2130,7 @@ const pvSeg=on=>PVON?`<div class="seg pvseg" role="tablist"><button class="${on?
 const PV={mode:null,then:'keep',priv:null};
 function pwithdrawModal(){if(!S.connected)return connectModal(()=>pwithdrawModal());if(!PVON)return withdrawModal();
  if(!REALW())return toast('Sign in with your wallet to withdraw privately.');
- modal('Withdraw privately','Shield into your private balance, then send to any address. Your Callit wallet isn’t in the payout.',
+ modal('Withdraw privately','Step 1: add funds to your private balance. Step 2: send from it to any address. The receiver never sees your Callit wallet.',
  `${pvSeg(1)}<div id="pvbody"><div class="empty" style="padding:22px 8px"><i class="spin"></i><p>Loading…</p></div></div>`,m=>pvLoad(m))}
 function pvLoad(m){pvMod().then(mod=>Promise.all([mod.walletBalances(S.addr),mod.feeInfo(),mod.isUnlocked(S.addr)?mod.privateBalances(S.addr).catch(()=>null):Promise.resolve(PV.priv)]).then(([wb,fee,priv])=>{if(!m.isConnected)return;
  PV.priv=priv;const toks=PRIVATE_TOKENS;const pb=sym=>priv&&priv[sym]?priv[sym].ui:0;const anyPriv=toks.some(t=>pb(t.sym)>0);
@@ -2142,17 +2142,17 @@ function pvLoad(m){pvMod().then(mod=>Promise.all([mod.walletBalances(S.addr),mod
   :`<div class="pvbal"><span class="pvbalh">${ic('lock',14)} Private balance</span><p class="hint" style="margin:6px 0 10px">Hidden until you unlock it. Unlocking is one free signature, not a transaction.</p><button class="btn block" id="pvunlock">Show private balance</button></div>`;
  const tokOpts=(src)=>toks.map(t=>`<option value="${esc(t.sym)}">${esc(t.sym)} (${fmtAmt(src==='w'?(wb[t.sym]||0):pb(t.sym))})</option>`).join('');
  const shieldForm=`<div class="field"><label for="pvt">Token</label><select id="pvt" class="input">${tokOpts('w')}</select></div>
- <div class="field"><label for="pvv">Amount to shield</label><div style="display:flex;gap:8px"><input id="pvv" class="input num" inputmode="decimal" placeholder="0"><button class="mx lg" id="pvmax">Max</button></div></div>
- <div class="field"><label>Then</label><div class="seg pvwhen"><button data-w="keep" class="${PV.then==='keep'?'on':''}">Keep it private</button><button data-w="send" class="${PV.then==='send'?'on':''}">Send now</button></div>
+ <div class="field"><label for="pvv">Amount to add to your private balance</label><div style="display:flex;gap:8px"><input id="pvv" class="input num" inputmode="decimal" placeholder="0"><button class="mx lg" id="pvmax">Max</button></div></div>
+ <div class="field"><label>Then</label><div class="seg pvwhen"><button data-w="keep" class="${PV.then==='keep'?'on':''}">Just add it</button><button data-w="send" class="${PV.then==='send'?'on':''}">Add &amp; send now</button></div>
  <p class="hint pvtip" id="pvtip"></p></div>
  <div class="field" id="pvtof" ${PV.then==='send'?'':'hidden'}><label for="pva">To address</label><input id="pva" class="input" placeholder="Solana address" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
- <div class="err" id="pverr"></div><button class="btn primary block" id="pvgo">${ic('lock',16)} Shield</button>`;
+ <div class="err" id="pverr"></div><button class="btn primary block" id="pvgo">${ic('lock',16)} ${PV.then==='send'?'Add &amp; send privately':'Add to private balance'}</button>`;
  const sendForm=`<div class="field"><label for="pvt">From private balance</label><select id="pvt" class="input">${tokOpts('p')}</select></div>
  <div class="field"><label for="pva">To address</label><input id="pva" class="input" placeholder="Solana address" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
  <div class="field"><label for="pvv">Amount</label><div style="display:flex;gap:8px"><input id="pvv" class="input num" inputmode="decimal" placeholder="0"><button class="mx lg" id="pvmax">Max</button></div></div>
  <p class="hint" id="pvfee" style="margin:-4px 0 10px"></p>
  <div class="err" id="pverr"></div><button class="btn primary block" id="pvgo">${ic('send',16)} Send privately</button>`;
- $('#pvbody',m).innerHTML=`${balCard}<div class="seg pvmode"><button data-m="shield" class="${PV.mode==='shield'?'on':''}">Shield</button><button data-m="send" class="${PV.mode==='send'?'on':''}">Send privately</button></div>
+ $('#pvbody',m).innerHTML=`${balCard}<div class="seg pvmode"><button data-m="shield" class="${PV.mode==='shield'?'on':''}">1. Add funds</button><button data-m="send" class="${PV.mode==='send'?'on':''}">2. Send privately</button></div>
   <div id="pvform">${PV.mode==='shield'?shieldForm:sendForm}</div>
   <p class="hint pvfoot">Powered by Privacy Cash. Your private balance also shows on privacycash.org with this same wallet.</p>`;
  skin(m);
@@ -2162,8 +2162,8 @@ function pvLoad(m){pvMod().then(mod=>Promise.all([mod.walletBalances(S.addr),mod
  m.querySelectorAll('.pvmode button').forEach(b=>b.onclick=()=>{PV.mode=b.dataset.m;pvLoad(m)});
  const e=$('#pverr',m),sel=$('#pvt',m),T0=()=>toks.find(x=>x.sym===sel.value);
  if(PV.mode==='shield'){
-  const tip=()=>{$('#pvtip',m).textContent=PV.then==='keep'?'Most private. Send it out later from “Send privately”. Waiting a while and sending a different amount makes it hard to match.':'Faster, but the deposit and the payout land a minute apart with almost the same amount, so a careful watcher could match them.';$('#pvtof',m).hidden=PV.then!=='send'};tip();
-  m.querySelectorAll('.pvwhen button').forEach(b=>b.onclick=()=>{PV.then=b.dataset.w;m.querySelectorAll('.pvwhen button').forEach(x=>x.classList.toggle('on',x===b));tip()});
+  const tip=()=>{$('#pvtip',m).textContent=PV.then==='keep'?'Moves funds from your Callit wallet into your private balance. Then use “2. Send privately” to pay any address. Waiting a while before sending, and sending a different amount, keeps it hardest to trace.':'Adds it and pays the address right away. Faster, but the two land a minute apart with almost the same amount, so a careful watcher could match them.';$('#pvtof',m).hidden=PV.then!=='send'};tip();
+  m.querySelectorAll('.pvwhen button').forEach(b=>b.onclick=()=>{PV.then=b.dataset.w;m.querySelectorAll('.pvwhen button').forEach(x=>x.classList.toggle('on',x===b));$('#pvgo',m).innerHTML=`${ic('lock',16)} ${PV.then==='send'?'Add &amp; send privately':'Add to private balance'}`;tip()});
   $('#pvmax',m).onclick=()=>{$('#pvv',m).value=wMax(sel.value)};
   $('#pvgo',m).onclick=()=>{const t=T0(),a=parseFloat($('#pvv',m).value),send=PV.then==='send',to=send?$('#pva',m).value.trim():'';
    if(!(a>0))return e.textContent='Enter an amount above zero.';
@@ -2173,8 +2173,8 @@ function pvLoad(m){pvMod().then(mod=>Promise.all([mod.walletBalances(S.addr),mod
     if(to===S.addr)return e.textContent='That’s your own Callit wallet. Paste a different address.';
     if(a<t.min)return e.textContent=`Private sends start at ${t.min} ${t.sym}.`;}
    closeModal();
-   const log=sig=>logTx({k:'Shielded',kind:'withdraw',label:`${fmtAmt(a)} ${t.sym} to private balance`,signature:sig,in_mint:t.mint,in_amount:a,to_address:null,usd_value:null});
-   if(!send)return realTx(`Shield ${fmtAmt(a)} ${t.sym}`,step=>mod.shield({owner:S.addr,sym:t.sym,amount:a},step).then(sig=>{log(sig);PV.mode='send';return sig}));
+   const log=sig=>logTx({k:'Added to private balance',kind:'withdraw',label:`${fmtAmt(a)} ${t.sym}`,signature:sig,in_mint:t.mint,in_amount:a,to_address:null,usd_value:null});
+   if(!send)return realTx(`Add ${fmtAmt(a)} ${t.sym} to private balance`,step=>mod.shield({owner:S.addr,sym:t.sym,amount:a},step).then(sig=>{log(sig);PV.mode='send';return sig}));
    realTx(`Withdraw ${fmtAmt(a)} ${t.sym} privately`,step=>mod.shieldAndSend({owner:S.addr,sym:t.sym,amount:a,to},step).then(r=>{log(r.shieldTx);S.activity.unshift({k:'Sent privately',d:`${fmtAmt(a)} ${t.sym}`,t:'Just now'});return r.sendTx}))};
  }else{
   const feeLine=()=>{const t=T0(),a=parseFloat($('#pvv',m).value)||0,f=feeOf(t.sym,a);$('#pvfee',m).textContent=`Fee about ${fmtAmt(f)} ${t.sym} (${(fee.rate*100).toFixed(2)}% + ${fmtAmt(fee.rent[t.sym.toLowerCase()]||0)} ${t.sym}). Minimum ${t.min} ${t.sym}.${t.native?'':' Arrives as '+t.sym+'.'}`};feeLine();

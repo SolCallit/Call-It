@@ -29,7 +29,7 @@ export class PrivateError extends Error {
 }
 
 /** Shown when shielding worked but the send didn't. The engine never offers Retry on this one. */
-export const SHIELDED_MSG = 'Shielded and safe in your private balance. Send it from Withdraw → Private.';
+export const SHIELDED_MSG = 'Added and safe in your private balance. Send it from Withdraw → Private → 2. Send privately.';
 
 /** Keep this much SOL in the wallet for fees when shielding SOL. */
 export const SOL_FEE_RESERVE = 0.01;
@@ -193,7 +193,7 @@ export async function shield(p: { owner: string; sym: string; amount: number }, 
   const conn = connection(l);
   const publicKey = new l.web3.PublicKey(p.owner);
   const transactionSigner = async (tx: import('@solana/web3.js').VersionedTransaction) => {
-    step('Shielding… approve in your wallet');
+    step('Adding to your private balance… approve in your wallet');
     const signed = await wallet().signTx(bytesToB64(tx.serialize()), p.owner, 'solana:mainnet');
     return l.web3.VersionedTransaction.deserialize(b64ToBytes(signed));
   };
