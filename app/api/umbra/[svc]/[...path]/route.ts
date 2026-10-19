@@ -39,8 +39,9 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ svc: string; pa
       status: r.status,
       headers: { 'content-type': r.headers.get('content-type') || 'application/octet-stream', 'cache-control': 'no-store' },
     });
-  } catch {
-    return NextResponse.json({ error: 'The private pool is unreachable right now. Try again shortly.' }, { status: 502 });
+  } catch (e) {
+    const c = (e as { cause?: { code?: string; hostname?: string } }).cause;
+    return NextResponse.json({ error: 'The private pool is unreachable right now. Try again shortly.', detail: c?.code || (e as Error).name }, { status: 502 });
   }
 }
 
