@@ -31,7 +31,7 @@ export const DOCS_MD = `# Callit Docs
 
 ## Points, cashback and monthly rewards
 
-- **Points** come only from verified on-chain activity: **1 point per $10** traded on Callit, **+50** when your call holds 2X, **+100** when it hits your target. Likes, follows and alt accounts can't farm points.
+- **Points** come only from verified on-chain activity: **1 point per $10** traded on Callit, **+50** when your call holds 2X, **+100** when it hits your target, and milestone points as it keeps running: **+150** at 5X, **+300** at 10X, **+750** at 25X, **+1,500** at 50X, **+3,000** at 100X, **+10,000** at 500X, **+25,000** at 1,000X and **+100,000** at 10,000X (25X and up need the token to reach $250K market cap). No buys needed for call points. Likes, follows and alt accounts can't farm points.
 - **Cashback:** buyers get **10% of Callit's fee** back on every buy. It unlocks at **100 points** and is paid with your earnings.
 - **Monthly rewards:** the top of the monthly **Points** board gets paid. The monthly board resets on the 1st, so anyone who puts in the work can get in. Lifetime points keep counting for ranks and cashback.
 - Points also count toward $CALLIT rewards when it launches.
