@@ -2100,7 +2100,7 @@ function settingsModal(){const th=document.documentElement.dataset.theme||'syste
  <div class="field"><label>Sidebar</label><div class="seg"><button class="${col?'':'on'}" data-act="setside" data-f="open">Expanded</button><button class="${col?'on':''}" data-act="setside" data-f="closed">Icons only</button></div></div>`)}
 function withdrawModal(){if(!S.connected)return connectModal(()=>withdrawModal());const real=REALW();
  const held=Object.keys(S.bal).filter(k=>S.bal[k]>0&&T[k]).sort((a,b)=>usd(b,S.bal[b])-usd(a,S.bal[a]));
- if(!held.length)return modal('Withdraw','',`<div class="empty" style="padding:18px 8px"><b>Nothing to withdraw yet</b><p>Deposit SOL or a Solana token first.</p><button class="btn primary" data-act="deposit">Deposit</button></div>`);
+ if(!held.length)return modal('Withdraw','',`${pvSeg(0)}<div class="empty" style="padding:18px 8px"><b>Nothing to withdraw yet</b><p>Deposit SOL or a Solana token first.</p><button class="btn primary" data-act="deposit">Deposit</button></div>`);
  modal('Withdraw','Send from your Callit wallet to any Solana address, like Phantom or an exchange.',
  `${pvSeg(0)}<div class="field"><label for="st">Token</label><select id="st" class="input">${held.map(k=>`<option value="${esc(k)}">${esc(symOf(k))} (${fmtAmt(S.bal[k])})</option>`).join('')}</select></div>
  <div class="field"><label for="sa">To address</label><input id="sa" class="input" placeholder="Solana address" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
