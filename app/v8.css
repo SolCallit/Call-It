@@ -318,3 +318,4 @@ body:has(.chcomp) #view>.composer,body:has(.chcbar) #view>.composer{margin-top:a
 .pvbalrow div{display:flex;align-items:baseline;gap:4px}
 .pvbalrow b{font:800 18px/1.1 var(--display)}
 .pvfoot{margin:12px 0 0;text-align:center}
+.pvcfee{margin:-4px 0 12px;padding:8px 10px;border-radius:12px;background:var(--bg2)}

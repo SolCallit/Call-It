@@ -185,7 +185,50 @@ const tok = (sym: string) => {
   return t;
 };
 
-/** Moves `amount` (UI units) from the Callit wallet into the private balance. The user signs one transaction. */
+/** Callit's privacy fee (USD, charged in SOL to the treasury when adding funds). Null when not configured. */
+export type CallitFee = { usd: number; sol: number; lamports: number; treasury: string } | null;
+export async function callitFee(): Promise<CallitFee> {
+  const [f, c] = await Promise.all([
+    fetch('/api/privacy/fee', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null) as Promise<{ treasury: string | null; usd: number } | null>,
+    fetch('/api/privacy/relayer/config', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null) as Promise<{ prices?: { sol?: number } } | null>,
+  ]);
+  const price = Number(c?.prices?.sol);
+  if (!f?.treasury || !(f.usd > 0) || !(price > 0)) return null;
+  const sol = f.usd / price;
+  return { usd: f.usd, sol, lamports: Math.ceil(sol * 1e9), treasury: f.treasury };
+}
+
+/** A fee paid for a deposit that then failed is reused by the next attempt (within 30 min) instead of charged again. */
+const FEE_CREDIT = (owner: string) => `callit.pc.feecredit.${owner}`;
+const hasFeeCredit = (owner: string) => {
+  try { return Date.now() - Number(localStorage.getItem(FEE_CREDIT(owner)) || 0) < 30 * 60_000; } catch { return false; }
+};
+const setFeeCredit = (owner: string, on: boolean) => {
+  try { if (on) localStorage.setItem(FEE_CREDIT(owner), String(Date.now())); else localStorage.removeItem(FEE_CREDIT(owner)); } catch { /* storage blocked */ }
+};
+
+async function payFee(l: Libs, owner: string, fee: NonNullable<CallitFee>, step: (m: string) => void) {
+  const conn = connection(l);
+  const from = new l.web3.PublicKey(owner);
+  const { blockhash } = await conn.getLatestBlockhash('confirmed');
+  const msg = new l.web3.TransactionMessage({
+    payerKey: from,
+    recentBlockhash: blockhash,
+    instructions: [l.web3.SystemProgram.transfer({ fromPubkey: from, toPubkey: new l.web3.PublicKey(fee.treasury), lamports: fee.lamports })],
+  }).compileToV0Message();
+  step(`Callit privacy fee ($${fee.usd.toFixed(2)})… approve in your wallet`);
+  const signed = await wallet().signTx(bytesToB64(new l.web3.VersionedTransaction(msg).serialize()), owner, 'solana:mainnet');
+  const sig = await conn.sendRawTransaction(b64ToBytes(signed), { preflightCommitment: 'confirmed' });
+  for (let i = 0; i < 40; i++) {
+    const st = (await conn.getSignatureStatuses([sig])).value[0];
+    if (st?.err) throw new PrivateError('The privacy fee didn’t go through. Nothing was added.', 'fee', st.err);
+    if (st?.confirmationStatus === 'confirmed' || st?.confirmationStatus === 'finalized') return sig;
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  throw new PrivateError('Solana is slow right now. Check your balance before trying again.', 'fee');
+}
+
+/** Moves `amount` (UI units) from the Callit wallet into the private balance. The user signs the fee, then the deposit. */
 export async function shield(p: { owner: string; sym: string; amount: number }, step: (m: string) => void): Promise<string> {
   const t = tok(p.sym);
   const { l, enc } = await unlock(p.owner, step);
@@ -197,11 +240,17 @@ export async function shield(p: { owner: string; sym: string; amount: number }, 
     const signed = await wallet().signTx(bytesToB64(tx.serialize()), p.owner, 'solana:mainnet');
     return l.web3.VersionedTransaction.deserialize(b64ToBytes(signed));
   };
+  const fee = await callitFee();
+  if (fee && !hasFeeCredit(p.owner)) {
+    await payFee(l, p.owner, fee, step);
+    setFeeCredit(p.owner, true);
+  }
   step('Preparing your private deposit (this takes a few seconds)…');
   const common = { lightWasm: l.lightWasm, connection: conn, keyBasePath: KEY_BASE, publicKey, transactionSigner, storage: localStorage, encryptionService: enc };
   const r = t.native
     ? await l.pc.deposit({ ...common, amount_in_lamports: Math.floor(p.amount * 1e9) })
     : await l.pc.depositSPL({ ...common, mintAddress: t.mint, base_units: Math.floor(p.amount * 10 ** t.decimals) });
+  setFeeCredit(p.owner, false); // fee used
   return r.tx;
 }
 

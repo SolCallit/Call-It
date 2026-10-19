@@ -2132,10 +2132,10 @@ function pwithdrawModal(){if(!S.connected)return connectModal(()=>pwithdrawModal
  if(!REALW())return toast('Sign in with your wallet to withdraw privately.');
  modal('Withdraw privately','Step 1: add funds to your private balance. Step 2: send from it to any address. The receiver never sees your Callit wallet.',
  `${pvSeg(1)}<div id="pvbody"><div class="empty" style="padding:22px 8px"><i class="spin"></i><p>Loading…</p></div></div>`,m=>pvLoad(m))}
-function pvLoad(m){pvMod().then(mod=>Promise.all([mod.walletBalances(S.addr),mod.feeInfo(),mod.isUnlocked(S.addr)?mod.privateBalances(S.addr).catch(()=>null):Promise.resolve(PV.priv)]).then(([wb,fee,priv])=>{if(!m.isConnected)return;
+function pvLoad(m){pvMod().then(mod=>Promise.all([mod.walletBalances(S.addr),mod.feeInfo(),mod.isUnlocked(S.addr)?mod.privateBalances(S.addr).catch(()=>null):Promise.resolve(PV.priv),mod.callitFee()]).then(([wb,fee,priv,cf])=>{if(!m.isConnected)return;
  PV.priv=priv;const toks=PRIVATE_TOKENS;const pb=sym=>priv&&priv[sym]?priv[sym].ui:0;const anyPriv=toks.some(t=>pb(t.sym)>0);
  if(!PV.mode)PV.mode=anyPriv?'send':'shield';
- const wMax=sym=>{const t=toks.find(x=>x.sym===sym),v=(wb[sym]||0)-(t&&t.native?mod.SOL_FEE_RESERVE:0);return Math.max(0,Math.floor(v*1e6)/1e6)};
+ const cfSol=cf?cf.sol:0;const wMax=sym=>{const t=toks.find(x=>x.sym===sym),v=(wb[sym]||0)-(t&&t.native?mod.SOL_FEE_RESERVE+cfSol:0);return Math.max(0,Math.floor(v*1e6)/1e6)};
  const pMax=sym=>Math.floor(pb(sym)*1e6)/1e6;
  const feeOf=(sym,a)=>{const k=sym.toLowerCase(),rent=fee.rent[k]||0;return a*fee.rate+rent};
  const balCard=priv?`<div class="pvbal"><span class="pvbalh">${ic('lock',14)} Private balance</span><div class="pvbalrow">${toks.map(t=>`<div><b class="num">${fmtAmt(pb(t.sym))}</b><small>${esc(t.sym)}</small></div>`).join('')}</div>${mod.scannedFull(S.addr)?'':'<p class="hint" style="margin:8px 0 0">Used Privacy Cash before with this wallet? <button class="lnk" id="pvfull">Find older funds</button> (slow, scans the whole pool)</p>'}</div>`
@@ -2145,6 +2145,7 @@ function pvLoad(m){pvMod().then(mod=>Promise.all([mod.walletBalances(S.addr),mod
  <div class="field"><label for="pvv">Amount to add to your private balance</label><div style="display:flex;gap:8px"><input id="pvv" class="input num" inputmode="decimal" placeholder="0"><button class="mx lg" id="pvmax">Max</button></div></div>
  <div class="field"><label>Then</label><div class="seg pvwhen"><button data-w="keep" class="${PV.then==='keep'?'on':''}">Just add it</button><button data-w="send" class="${PV.then==='send'?'on':''}">Add &amp; send now</button></div>
  <p class="hint pvtip" id="pvtip"></p></div>
+ ${cf?`<p class="hint pvcfee">Fees: Callit privacy fee <b>$${cf.usd.toFixed(2)}</b> (${fmtAmt(cf.sol)} SOL, one extra approval). Privacy Cash takes ${(fee.rate*100).toFixed(2)}% + ${fmtAmt(fee.rent.sol||0)} SOL when the funds are sent out.</p>`:''}
  <div class="field" id="pvtof" ${PV.then==='send'?'':'hidden'}><label for="pva">To address</label><input id="pva" class="input" placeholder="Solana address" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
  <div class="err" id="pverr"></div><button class="btn primary block" id="pvgo">${ic('lock',16)} ${PV.then==='send'?'Add &amp; send privately':'Add to private balance'}</button>`;
  const sendForm=`<div class="field"><label for="pvt">From private balance</label><select id="pvt" class="input">${tokOpts('p')}</select></div>
@@ -2168,7 +2169,7 @@ function pvLoad(m){pvMod().then(mod=>Promise.all([mod.walletBalances(S.addr),mod
   $('#pvgo',m).onclick=()=>{const t=T0(),a=parseFloat($('#pvv',m).value),send=PV.then==='send',to=send?$('#pva',m).value.trim():'';
    if(!(a>0))return e.textContent='Enter an amount above zero.';
    if(a>wMax(t.sym)+1e-12)return e.textContent=t.native?`Keep ${mod.SOL_FEE_RESERVE} SOL for fees. You can shield up to ${wMax('SOL')} SOL.`:`You only have ${fmtAmt(wb[t.sym]||0)} ${t.sym}.`;
-   if(!t.native&&(wb.SOL||0)<0.005)return e.textContent='You need a little SOL (about 0.005) for network fees.';
+   if(!t.native&&(wb.SOL||0)<0.005+cfSol)return e.textContent=`You need a little SOL (about ${fmtAmt(0.005+cfSol)}) for network${cf?' and privacy':''} fees.`;
    if(send){if(!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(to))return e.textContent='That isn’t a valid Solana address. Check it and try again.';
     if(to===S.addr)return e.textContent='That’s your own Callit wallet. Paste a different address.';
     if(a<t.min)return e.textContent=`Private sends start at ${t.min} ${t.sym}.`;}

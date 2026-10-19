@@ -45,6 +45,15 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ svc: string; pa
   const { svc, path: parts = [] } = await ctx.params;
   if (!burst(`privacy:${svc}:${clientIp(req)}`, 300, 60_000)) return NextResponse.json({ error: 'Too many requests. Slow down a little.' }, { status: 429 });
   if (svc === 'rpc') return rpc(req);
+  if (svc === 'fee') {
+    // Callit's privacy fee, charged in SOL to the treasury when a user adds funds. Off if no treasury is set.
+    const t = (process.env.TREASURY_WALLET || '').trim();
+    const usd = Number(process.env.PRIVATE_FEE_USD ?? 0.4);
+    return NextResponse.json(
+      { treasury: /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(t) ? t : null, usd: Number.isFinite(usd) && usd > 0 ? usd : 0 },
+      { headers: { 'cache-control': 'no-store' } },
+    );
+  }
   if (svc !== 'relayer') return NextResponse.json({ error: 'not_allowed' }, { status: 404 });
 
   const path = parts.join('/');
