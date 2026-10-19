@@ -643,7 +643,7 @@ function realTx(desc,run,done,link){const el=$('#txt');let sig='';const url=link
   $('#txx').onclick=()=>el.classList.remove('show');const r=$('#txretry');if(r)r.onclick=()=>realTx(desc,run,done,link)};
  clearTimeout(el._h);draw('wait','Preparing…');
  run(m=>draw('wait',m)).then(s=>{sig=s||'';draw('ok',sig?`Confirmed · ${sig.slice(0,4)}…${sig.slice(-4)}`:'Done');el._h=setTimeout(()=>el.classList.remove('show'),9000);done&&done(true);loadBalances();setTimeout(loadBalances,5000)})
-  .catch(e=>{const m=e&&e.name==='TxError'?e.message:friendlyError(e);if(!isUserCancel(e))reportTxError(/^withdraw/i.test(desc)?'withdraw':'swap',e,S.addr);draw('bad',isUserCancel(e)?'You cancelled it. Nothing was sent.':m);done&&done(false)})}
+  .catch(e=>{const m=e&&e.name==='TxError'?e.message:friendlyError(e);if(!isUserCancel(e)&&!/privately|private balance/i.test(desc))reportTxError(/^withdraw/i.test(desc)?'withdraw':'swap',e,S.addr);draw('bad',isUserCancel(e)?'You cancelled it. Nothing was sent.':m);done&&done(false)})}
 /* Swap settings, saved on this device. Speed = priority fee cap; front-running protection = Jito tip. */
 const SPEED={auto:0,fast:1e5,turbo:1e6,ultra:5e6};
 const SWS=(()=>{const d={slip:0,speed:'auto',mev:false,tip:'0.001'};try{return {...d,...JSON.parse(localStorage.getItem('callit.swapset')||'{}')}}catch(_){return d}})();if(SWS.slip)S.slip=SWS.slip;
