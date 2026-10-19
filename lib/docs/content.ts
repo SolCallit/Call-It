@@ -66,8 +66,15 @@ Swaps route through **Jupiter** (best price across Solana). Settings for slippag
 ### Alerts
 Push alerts for callers you follow, token price bells, outside-wallet tracking and call milestones (2X, 3X, 5X…).
 
+### Private Withdraw
+Send money out of Callit without the receiver seeing your Callit wallet. Built on **Privacy Cash**, a zero-knowledge shielded pool on Solana.
+1. **Add funds** to your private balance (SOL, USDC or USDT). You approve it in your wallet.
+2. **Send privately** to any address. A zero-knowledge proof spends your private balance and Privacy Cash's relayer pays the address, so your wallet isn't in that transaction.
+
+Your private balance is encrypted notes only your wallet can read. Unlocking it is one free signature, and the same balance shows on privacycash.org with the same wallet, so your funds never depend on Callit staying up. For the most privacy, wait a while between adding and sending, and send a different amount.
+
 ### You
-Profile and wallet in one: balances, deposit, withdraw, send, history, **Caller earnings** (with Claim), cashback progress, export your private key, link Telegram.
+Profile and wallet in one: balances, deposit, withdraw (standard or private), send, history, **Caller earnings** (with Claim), cashback progress, export your private key, link Telegram.
 
 ### Telegram
 Add the Callit bot to a group and an admin sends **/callit**. Every contract address dropped after that becomes a tracked call on Callit. Link your Telegram in **You** so calls post as you and pay you. A Telegram **trading bot** is built and launches after the app.
@@ -89,6 +96,15 @@ The trading fee is **1%** on swaps made through Callit, taken in the same transa
 
 Whatever a caller doesn't take (for example a 5% caller) stays in Treasury & growth. Solana network fees go to the network, not Callit.
 
+**Withdrawals**
+
+| | Callit fee | Other fees |
+|---|---|---|
+| Standard withdraw | **Free** | Solana network fee (~0.00001 SOL) |
+| Private withdraw | **$0.40** in SOL when you add funds, to the Callit treasury | Privacy Cash: 0.35% + a small flat fee (0.006 SOL, or ~$0.62 for USDC/USDT) when you send |
+
+Every fee is shown before you approve.
+
 The **Transparency** page shows live totals: volume, fees, what's been paid to callers and buyers, how fees were allocated, and every Callit wallet with its balance and a Solscan link.
 
 ## Security
@@ -96,6 +112,7 @@ The **Transparency** page shows live totals: volume, fees, what's been paid to c
 - **Non-custodial.** Your funds stay in your own wallet. Nothing moves unless you approve it. Export your key any time from **You**.
 - Trades are normal Solana transactions you can look up on Solscan, fee included.
 - Calls are stamped at posting time and can't be edited.
+- **Private withdrawals:** Callit never stores where private sends go. The private balance key is derived in your browser from a wallet signature and never leaves it. Proofs are generated on your device.
 - Callit staff will never ask for your seed phrase or private key.
 - Payouts are sent from a dedicated payout wallet that holds only payout SOL. The treasury is a separate wallet only the team signs.
 
@@ -108,6 +125,8 @@ The **Transparency** page shows live totals: volume, fees, what's been paid to c
 | Auth & wallets | Privy (email, Google, X, embedded Solana wallets), Phantom / Solflare / Backpack |
 | Blockchain | Solana mainnet, @solana/kit, Helius RPC |
 | Swaps | Jupiter Swap V2 (Meta-Aggregator: /order + /execute) with referral fees |
+| Tokens | SPL Token and **Token-2022**: balances, transfers and withdrawals for both, plus Token-2022 transfer-tax detection from on-chain mint extensions |
+| Privacy | **Privacy Cash** shielded pool: Groth16 zero-knowledge proofs (snarkjs) generated in the browser, Poseidon hashing (Light Protocol WASM), relayer-paid withdrawals |
 | Market data | Jupiter token data, DexScreener pairs, PumpPortal live launches |
 | Database | Supabase Postgres with row level security (all reads and writes go through the server) |
 | Storage | Supabase Storage (public media, private chat files with signed links) |
@@ -123,7 +142,8 @@ The **Transparency** page shows live totals: volume, fees, what's been paid to c
 2. API routes verify the token, then read and write Supabase with the server key. Browsers can't touch the database directly.
 3. Swaps: the server asks Jupiter for an order, the user's wallet signs it, Jupiter executes it, and the server records the trade after checking it on-chain.
 4. Every minute a job prices recent calls, updates each call's rolling-average X, credits caller earnings, cashback and points, and pays everyone whose call hit target.
-5. Payouts are signed by the payout wallet. Each claim is reserved in the database first and its signature saved before sending, so nobody is ever paid twice.
+5. Private withdrawals: the browser derives the private balance key from a wallet signature, builds the zero-knowledge proof itself, and talks to Privacy Cash's relayer and Solana through Callit's pass-through routes, which don't log requests.
+6. Payouts are signed by the payout wallet. Each claim is reserved in the database first and its signature saved before sending, so nobody is ever paid twice.
 
 ## API
 

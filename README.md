@@ -14,6 +14,7 @@
 - **Messages:** encrypted DMs and private groups, guarded public groups, voice and video calls, read receipts, GIFs and token drops
 - **Alerts:** push alerts for callers, tokens, wallets and call milestones
 - **Telegram:** contract addresses dropped in groups become tracked calls; trading bot built and off by default
+- **Private Withdraw:** add funds to a private balance, then send to any address without your Callit wallet showing up (Privacy Cash zero-knowledge pool)
 - **Transparency:** public page with volume, fees, payouts, fee split and Callit wallets
 
 ## Stack
@@ -25,6 +26,8 @@
 | Auth & wallets | Privy (email, Google, X, embedded wallets), Phantom, Solflare, Backpack |
 | Chain | Solana mainnet, `@solana/kit`, Helius RPC |
 | Swaps | Jupiter Swap V2 (`/order` + `/execute`) with referral fees |
+| Tokens | SPL Token + Token-2022 (balances, transfers, transfer-tax detection) |
+| Privacy | Privacy Cash shielded pool (browser-side Groth16 ZK proofs) for Private Withdraw |
 | Data | Supabase Postgres (RLS on, server-only access), Storage, Realtime |
 | Calls | WebRTC, signalled over Supabase Realtime broadcast |
 
