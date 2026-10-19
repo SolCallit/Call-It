@@ -49,8 +49,11 @@ const ENDPOINTS: Record<PrivateNet, { rpc: string; indexer: string; relayer: str
 export function privateConfig() {
   if (!PRIVATE_NET) return null;
   const e = ENDPOINTS[PRIVATE_NET];
-  const rpc = (process.env.NEXT_PUBLIC_PRIVATE_RPC_URL || '').trim() || e.rpc;
-  const ws = (process.env.NEXT_PUBLIC_PRIVATE_WS_URL || '').trim() || rpc.replace(/^http/, 'ws');
+  const custom = (process.env.NEXT_PUBLIC_PRIVATE_RPC_URL || '').trim();
+  // Without a custom RPC, HTTP calls go through Callit's /api/umbra/rpc (server-side Helius key);
+  // WebSocket subscriptions can't be proxied on Vercel, so they use the public endpoint.
+  const rpc = custom || (typeof window !== 'undefined' ? `${window.location.origin}/api/umbra/rpc` : e.rpc);
+  const ws = (process.env.NEXT_PUBLIC_PRIVATE_WS_URL || '').trim() || (custom || e.rpc).replace(/^http/, 'ws');
   return {
     network: PRIVATE_NET,
     rpc,
