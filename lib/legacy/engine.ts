@@ -11,7 +11,7 @@ import { fetchFeed, fetchToken, fetchTokens, searchTokens, mountChart, fmtSmall 
 import { openImageEditor } from '@/lib/media/imageEditor';
 import { walletBalances, swap as jupSwap, withdraw as doWithdraw, toBaseUnits, qrSvg, SOL_MINT, USDC_MINT, placeOrder, listOrders, cancelOrder, reportTxError } from '@/lib/wallet/client';
 import { friendlyError, isUserCancel } from '@/lib/errors';
-import { PRIVATE_ON, PRIVATE_TOKENS } from '@/lib/privacy/config';
+import { PRIVATE_ON, PRIVATE_BETA, PRIVATE_TOKENS } from '@/lib/privacy/config';
 import { DOCS_MD } from '@/lib/docs/content';
 import { initCalls, listenForCalls, startCall, joinCall, activeCallId, CALL_ICONS } from '@/lib/chat/callClient';
 
@@ -2125,11 +2125,15 @@ function withdrawModal(){if(!S.connected)return connectModal(()=>withdrawModal()
  * Shield: the user's wallet deposits into a private balance only they can read.
  * Send privately: a zero-knowledge proof + Privacy Cash's relayer pays any address; the Callit wallet isn't in it.
  * Off unless NEXT_PUBLIC_PRIVATE_WITHDRAW=on. */
-const PVON=PRIVATE_ON;
+const PVACC={};/* beta access per wallet: true/false, undefined = unknown */
+const pvOn=()=>PRIVATE_ON||(PRIVATE_BETA&&PVACC[S.addr]===true);
+/* Beta: ask once per wallet, then reopen the withdraw sheet if it's still showing. */
+function pvCheck(){if(!PRIVATE_BETA||!S.addr||PVACC[S.addr]!==undefined)return;const a=S.addr;PVACC[a]=null;
+ fetch(`/api/privacy/access?wallet=${encodeURIComponent(a)}`,{cache:'no-store'}).then(r=>r.json()).then(j=>{PVACC[a]=!!(j&&j.allowed);if(PVACC[a]&&$('#modal .pvseg.soon'))withdrawModal()}).catch(()=>{PVACC[a]=false})}
 const pvMod=()=>import('@/lib/privacy/privacycash');
-const pvSeg=on=>PVON?`<div class="seg pvseg" role="tablist"><button class="${on?'':'on'}" role="tab" aria-selected="${!on}" data-act="withdraw">Standard</button><button class="${on?'on':''}" role="tab" aria-selected="${!!on}" data-act="pwithdraw">${ic('lock',14)} Private</button></div>`:'';
+const pvSeg=on=>{pvCheck();if(!pvOn())return `<div class="seg pvseg soon"><button class="on">Standard</button><button data-act="pvsoon" aria-disabled="true">${ic('lock',14)} Private <span class="pvsoonb">Coming soon</span></button></div>`;return `<div class="seg pvseg" role="tablist"><button class="${on?'':'on'}" role="tab" aria-selected="${!on}" data-act="withdraw">Standard</button><button class="${on?'on':''}" role="tab" aria-selected="${!!on}" data-act="pwithdraw">${ic('lock',14)} Private</button></div>`};
 const PV={mode:null,then:'keep',priv:null};
-function pwithdrawModal(){if(!S.connected)return connectModal(()=>pwithdrawModal());if(!PVON)return withdrawModal();
+function pwithdrawModal(){if(!S.connected)return connectModal(()=>pwithdrawModal());if(!pvOn())return withdrawModal();
  if(!REALW())return toast('Sign in with your wallet to withdraw privately.');
  modal('Withdraw privately','Step 1: add funds to your private balance. Step 2: send from it to any address. The receiver never sees your Callit wallet.',
  `${pvSeg(1)}<div id="pvbody"><div class="empty" style="padding:22px 8px"><i class="spin"></i><p>Loading…</p></div></div>`,m=>pvLoad(m))}
@@ -3525,7 +3529,7 @@ document.addEventListener('click',e=>{
    toast(on?`$${symOf(t)} added to your watchlist`:`$${symOf(t)} removed from your watchlist`);
    if(b.closest('#modal')||b.closest('.pbar')||b.closest('.trow')){document.querySelectorAll(`[data-act="track"][data-t="${CSS.escape(t)}"]`).forEach(x=>{if(x.classList.contains('wrm'))return;x.classList.toggle('on',on);x.setAttribute('aria-pressed',on);const sv=x.querySelector('svg');if(sv)sv.setAttribute('fill',on?'currentColor':'none')});return}
    render()},
-  withdraw:()=>withdrawModal(),pwithdraw:()=>pwithdrawModal(),send:()=>withdrawModal(),receive:()=>depositModal(),deposit:()=>depositModal(),
+  withdraw:()=>withdrawModal(),pwithdraw:()=>pwithdrawModal(),pvsoon:()=>toast('Private withdrawals are coming soon. Send to any address without your wallet showing up.'),send:()=>withdrawModal(),receive:()=>depositModal(),deposit:()=>depositModal(),
   ltf:()=>{S.ltf=b.dataset.f;S.ltfUser=1;render()},lsrc:()=>{S.lsrc=S.lsrc==='callit'?'dex':'callit';try{localStorage.setItem('callit.lsrc',S.lsrc)}catch(_){}render()},lmode:()=>{S.lmode=b.dataset.f;render()},lretry:()=>{(lfIds(S.tt,filOf(S.tt))||[]).forEach(id=>{LIVE.err[id]=0;loadFeed(id)});render()},ltokretry:()=>{LIVE.tokErr[b.dataset.t]=0;render()},
   tside:()=>{const w=S.swap,t=b.dataset.t;if(b.dataset.f==='sell'){w.from=t;w.to='SOL'}else{w.from='SOL';w.to=t}w.amt='';renderSwaps()},
   flip:()=>{const w=S.swap;[w.from,w.to]=[w.to,w.from];w.amt='';renderSwaps()},

@@ -319,3 +319,5 @@ body:has(.chcomp) #view>.composer,body:has(.chcbar) #view>.composer{margin-top:a
 .pvbalrow b{font:800 18px/1.1 var(--display)}
 .pvfoot{margin:12px 0 0;text-align:center}
 .pvcfee{margin:-4px 0 12px;padding:8px 10px;border-radius:12px;background:var(--bg2)}
+.pvseg.soon button[aria-disabled]{opacity:.75}
+.pvsoonb{margin-left:4px;padding:1px 7px;border-radius:999px;font:800 10px/1.6 var(--body);letter-spacing:.03em;text-transform:uppercase;background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent)}

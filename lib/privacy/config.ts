@@ -1,7 +1,7 @@
 /**
  * Private Withdraw settings (Privacy Cash, mainnet only).
  *
- * NEXT_PUBLIC_PRIVATE_WITHDRAW   off (default) | on   ("mainnet" also means on)
+ * NEXT_PUBLIC_PRIVATE_WITHDRAW   off (default, shows "coming soon") | beta (allowlisted wallets) | on
  *
  * Privacy Cash has no devnet, so test with small amounts. Keep it off in Production until tested.
  */
@@ -10,6 +10,8 @@ export type PrivateToken = { sym: string; mint: string; decimals: number; native
 
 const RAW = (process.env.NEXT_PUBLIC_PRIVATE_WITHDRAW || '').trim().toLowerCase();
 export const PRIVATE_ON = RAW === 'on' || RAW === 'mainnet' || RAW === '1' || RAW === 'true';
+/** beta: only wallets in PRIVATE_BETA_WALLETS (server env, comma separated) get the Private tab; everyone else sees "coming soon". */
+export const PRIVATE_BETA = RAW === 'beta';
 
 export const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 

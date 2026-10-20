@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PRIVATE_ON, PC_RELAYER } from '@/lib/privacy/config';
+import { PRIVATE_BETA, PRIVATE_ON, PC_RELAYER } from '@/lib/privacy/config';
 import { burst, clientIp } from '@/lib/ratelimit';
 import { rpcUrl } from '@/lib/solana/rpc';
 
@@ -41,8 +41,14 @@ async function rpc(req: NextRequest) {
 }
 
 async function handle(req: NextRequest, ctx: { params: Promise<{ svc: string; path?: string[] }> }) {
-  if (!PRIVATE_ON) return NextResponse.json({ error: 'Private withdraw is off' }, { status: 404 });
+  if (!PRIVATE_ON && !PRIVATE_BETA) return NextResponse.json({ error: 'Private withdraw is off' }, { status: 404 });
   const { svc, path: parts = [] } = await ctx.params;
+  if (svc === 'access') {
+    // Beta: is this wallet on the tester list? Only decides whether the tab shows; every action is still signed by the user.
+    const w = (req.nextUrl.searchParams.get('wallet') || '').trim();
+    const list = (process.env.PRIVATE_BETA_WALLETS || '').split(',').map((x) => x.trim()).filter(Boolean);
+    return NextResponse.json({ allowed: PRIVATE_ON || (!!w && list.includes(w)) }, { headers: { 'cache-control': 'no-store' } });
+  }
   if (!burst(`privacy:${svc}:${clientIp(req)}`, 300, 60_000)) return NextResponse.json({ error: 'Too many requests. Slow down a little.' }, { status: 429 });
   if (svc === 'rpc') return rpc(req);
   if (svc === 'fee') {
