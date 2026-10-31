@@ -1,0 +1,12 @@
+/* Electric Border from React Bits (https://reactbits.dev), MIT + Commons Clause, see ./LICENSE.md */
+.electric-border {
+  position: relative;
+  isolation: isolate;
+}
+
+.electric-border__canvas {
+  position: absolute;
+  z-index: 1;
+  display: block;
+  pointer-events: none;
+}

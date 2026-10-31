@@ -1509,16 +1509,16 @@ function vProfile(h){if(!h&&S.connected)h=S.me;if(h&&h===S.me&&realAuth()&&Date.
  ${P.bio?`<p class="pbio">${esc(P.bio)}</p>`:me?`<p class="pbio muted">Add a bio so people know what you call. <button class="lnk" data-act="editprof" style="padding:0">Add bio</button></p>`:''}
  <div class="pmeta">${P.web?`<a href="${esc(/^https?:/.test(P.web)?P.web:'https://'+P.web)}" target="_blank" rel="noopener">${ic('globe',15)} ${esc(P.web.replace(/^https?:\/\//,''))}</a>`:''}${P.x?`<a href="https://x.com/${esc(P.x.replace('@',''))}" target="_blank" rel="noopener">${ic('xlogo',14)} @${esc(P.x.replace('@',''))}</a>`:''}<span>${ic('wallet',15)} ${me&&S.addr?short(S.addr):'Solana caller'}</span></div>
  <div class="pfollow"><button data-act="follows" data-h="${h}" data-f="following"><b>${fmtK(fg)}</b> Following</button><button data-act="follows" data-h="${h}" data-f="followers"><b>${fmtK(fr)}</b> Followers</button>${rankChip(h)}</div>
- ${holoCallerCard(h,nm)}
+ ${techCallerCard(h,nm)}
  <div class="pdash">${me?ytdCard():''}
  <div class="pstats p6 num">${(()=>{const st=statsOf(h);return `<div><span>All-time PnL</span><b class="${st.n?(st.pnl>=0?'up':'down'):''}">${st.n?money(st.pnl):'—'}</b></div><div><span>Volume</span><b>${st.vol?fmtUsd(st.vol):'—'}</b></div>`})()}<div><span>Win rate</span><b>${c.calls?c.win+'%':'—'}</b></div><div><span>Avg return</span><b>${c.calls?fmtPct(c.avg):'—'}</b></div><div><span>Calls</span><b>${c.calls}</b></div><div><span>Best call</span><b>${c.best?fmtPct(c.best):'—'}</b></div></div></div></div>
  <div class="tabs" style="position:static">${[['calls','Calls'],['holdings','Holdings'],['activity','Activity']].map(([k,l])=>`<button class="${(S.ptab||'calls')===k?'on':''}" data-act="ptab" data-f="${k}">${l}</button>`).join('')}</div>
  <div id="feed">${ptabBody(h,me)||mine.map(post).join('')||`<div class="empty"><b>No calls yet</b>${me?'<p>Your calls and their performance show up here.</p><button class="btn primary" data-act="newcall">Make a call</button>':''}</div>`}</div>`}
 
-/* Caller card: a holographic trading card per caller (React Bits Holo Card, see components/fx). Rank sets the foil. */
-function holoCallerCard(h,nm){const c=C[h]||{},r=rankOf(h),t=tierOf(h),av=(h===S.me&&PROF.avatar)||AVURL[h]||'';
+/* Caller card: a dark tech card per caller (React Bits Electric Border + Letter Glitch, see components/fx). Rank sets the current. */
+function techCallerCard(h,nm){const c=C[h]||{},r=rankOf(h),t=tierOf(h),av=(h===S.me&&PROF.avatar)||AVURL[h]||'';
  const d={handle:h,name:nm,avatar:av,rank:r||null,tier:t.name,win:c.calls?c.win:null,calls:c.calls||0,best:c.calls?c.best:null,avg:c.calls?c.avg:null};
- return `<div class="ccsec"><div data-island="caller" data-key="${esc(h)}" data-props="${esc(JSON.stringify(d))}"></div><div class="ccacts"><button class="btn sm" data-act="sharecard" data-h="${esc(h)}">${ic('share',15)} Share card</button><span class="hint">Tap the card to flip it</span></div></div>`}
+ return `<div class="ccsec"><div data-island="caller" data-key="${esc(h)}" data-props="${esc(JSON.stringify(d))}"></div><div class="ccacts"><button class="btn sm" data-act="sharecard" data-h="${esc(h)}">${ic('share',15)} Share card</button></div></div>`}
 
 function vPromote(){const PK={ads:['Ad board','Your product card rotates through the feed ad slots and the ad board.'],boost:['Feed boost','Pinned in For you for 24 hours.'],spotlight:['Caller spotlight','One top-10 caller covers your project.'],launch:['Launch push','Three top callers cover your launch day.']};
  return `<div class="pad"><p class="muted" style="margin:0 0 16px;max-width:560px">Announce a launch or product on any chain. Promotions are labelled sponsored and never count toward a caller's ranking.</p>

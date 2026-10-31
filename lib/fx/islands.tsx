@@ -65,9 +65,8 @@ export function mountIslands(scope: ParentNode | null) {
 
 /** Share a caller card as a picture (phone share sheet), or download it where sharing files isn't supported. */
 export async function shareCard(handle: string) {
-  const url = CARD_ART.get(handle);
-  if (!url) return false;
-  const blob = await (await fetch(url)).blob();
+  const blob = CARD_ART.get(handle);
+  if (!blob) return false;
   const file = new File([blob], `callit-${handle}-card.jpg`, { type: 'image/jpeg' });
   const text = `@${handle} on Callit · Call it. Get Paid.`;
   const link = `${location.origin}/#/profile/${encodeURIComponent(handle)}`;
