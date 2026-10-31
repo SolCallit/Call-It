@@ -306,7 +306,7 @@ let PINAT=0;function loadPinned(){if(Date.now()-PINAT<20000)return;PINAT=Date.no
 function loadPosts(){loadPinned();if(PBUSY)return;PBUSY=1;API('/api/posts?limit=60').then(j=>{if(mergePosts(j.posts||[])&&['home','profile','lists','callerboard'].includes(currentRoute()))render();setTimeout(peakSync,800)}).catch(()=>{}).finally(()=>{PBUSY=0})}
 function loadMe(){if(!SYNC())return;API('/api/me').then(j=>{
   S.following=new Set(j.following||[]);S.muted=new Set(j.muted||[]);S.blocked=new Set(j.blocked||[]);S.lists=j.lists||[];S.followers=j.followers||0;
-  if(j.watchlist&&j.watchlist.length)S.watch=new Set(j.watchlist);
+  if(Array.isArray(j.watchlist))S.watch=new Set(j.watchlist);
   if(Array.isArray(j.bookmarks)){const local=[...S.bm].filter(x=>!j.bookmarks.includes(x));S.bm=new Set([...j.bookmarks,...local]);saveBm();local.forEach(ref=>bg('/api/social',{action:'bookmark',ref,on:true}))}
   const R={};(j.reactions||[]).forEach(x=>{(R[x.post_ref]=R[x.post_ref]||{})[x.kind]=1});
   calls.forEach(k=>{const r=R[String(k.id)];if(!r)return;if(r.like&&!k.liked){k.liked=true;if(!k.srv)k.likes++}if(r.repost&&!k.reposted){k.reposted=true;if(!k.srv)k.reposts++}});
@@ -3152,8 +3152,11 @@ function renameMe(o,n){if(!o||o===n)return;S.me=n;if(C[o]){C[n]={...C[o],h:n};de
  calls.forEach(k=>{if(k.c===o)k.c=n});Object.values(REPLIES).forEach(l=>l.forEach(x=>{if(x.h===o)x.h=n}));if(S.profile)S.profile.handle=n}
 
 /* ---------- drafts (this device) ---------- */
-const DRAFTS=(()=>{try{return JSON.parse(localStorage.getItem('callit.drafts')||'[]')||[]}catch(_){return []}})();
-const saveDrafts=()=>{try{localStorage.setItem('callit.drafts',JSON.stringify(DRAFTS.slice(0,30)))}catch(_){}};
+/* Drafts stay on this device, one list per account (callit.drafts:<account>), so another account on the same phone never sees them. */
+const DKEY=o=>'callit.drafts'+(o?':'+o:'');
+let DOWN=(()=>{try{return localStorage.getItem('callit.owner')||''}catch(_){return ''}})();
+const DRAFTS=(()=>{try{return JSON.parse(localStorage.getItem(DKEY(DOWN))||'[]')||[]}catch(_){return []}})();
+const saveDrafts=()=>{try{localStorage.setItem(DKEY(DOWN),JSON.stringify(DRAFTS.slice(0,30)))}catch(_){}};
 function addDraft(kind,text,tok){text=(text||'').trim();tok=(tok||'').trim();if(!text&&!tok)return false;
  const dup=DRAFTS.findIndex(d=>d.text===text&&d.kind===kind&&(d.tok||'')===tok);if(dup>=0)DRAFTS.splice(dup,1);
  DRAFTS.unshift({id:Date.now()+''+Math.floor(Math.random()*99),kind,text,tok,at:Date.now()});saveDrafts();return true}
@@ -3361,13 +3364,32 @@ function installApp(){if(deferredInstall){deferredInstall.prompt();deferredInsta
 if(isIOS()&&!isStandalone())setTimeout(()=>{if(S.connected)showInstallBar()},4000);
 
 /* ---------- real sign-in (Privy) ---------- */
+/* What this app keeps on the phone for an account (bookmarks, drafts, recent searches, notify-me list, likes and watchlist
+   on screen) belongs to that account only. Another account signing in on the same device starts clean and inherits nothing;
+   before this, a new account's first sign-in copied the last account's bookmarks into its own. owner '' = signed out. */
+const ownerOf=p=>String((p&&(p.id||p.wallet_address||p.handle))||'');
+function scopeLocal(owner){let prev='';try{prev=localStorage.getItem('callit.owner')||''}catch(_){}
+ if(!prev){try{prev=ownerOf(JSON.parse(localStorage.getItem('callit.lastProfile')||'null'))}catch(_){}
+  // first run with account tags: drafts saved before belong to the last account that signed in here; unknown owner → dropped
+  try{const lg=localStorage.getItem('callit.drafts');if(lg!=null){if(prev&&!localStorage.getItem(DKEY(prev)))localStorage.setItem(DKEY(prev),lg);localStorage.removeItem('callit.drafts')}}catch(_){}}
+ if(prev!==owner){S.bm=new Set();saveBm();S.notifyOn={};S.premium=null;S.stakeWait=false;
+  try{['callit.notify','callit.premium','callit.recent'].forEach(k=>localStorage.removeItem(k))}catch(_){}
+  S.watch=new Set();S.following=new Set();S.followers=0;S.muted=new Set();S.blocked=new Set();S.lists=[];S.ledger=[];S.activity=[];
+  calls.forEach(k=>{if(k.liked){k.liked=false;if(!k.srv)k.likes=Math.max(0,k.likes-1)}if(k.reposted){k.reposted=false;if(!k.srv)k.reposts=Math.max(0,k.reposts-1)}});
+  DRAFTS.length=0;try{DRAFTS.push(...(JSON.parse(localStorage.getItem(DKEY(owner))||'[]')||[]))}catch(_){}}
+ DOWN=owner;try{owner?localStorage.setItem('callit.owner',owner):localStorage.removeItem('callit.owner')}catch(_){}}
 window.callitApplySession=(p,o={})=>{
- if(!p){try{localStorage.removeItem('callit.lastProfile');localStorage.removeItem('callit.profile')}catch(_){}PROF={};window.__callitRestored=0;if(S.connected){S.connected=false;S.addr='';S.me='';S.profile=null;toast('Signed out')}render();return}
+ if(!p){const was=S.connected;scopeLocal('');try{localStorage.removeItem('callit.lastProfile');localStorage.removeItem('callit.profile')}catch(_){}PROF={};window.__callitRestored=0;
+  if(was){S.connected=false;S.addr='';S.me='';S.profile=null;
+   // Signing out reloads to a clean page, so nothing of this account (messages, earnings, alerts, admin views) stays in memory for the next one.
+   try{sessionStorage.setItem('callit.bye','1')}catch(_){}setTimeout(()=>location.reload(),80);return}
+  render();return}
+ scopeLocal(ownerOf(p));
  try{localStorage.setItem('callit.lastProfile',JSON.stringify(p))}catch(_){}
  const first=!S.connected,prevAddr=S.addr;if(first)nextArtOnLogin();S.connected=true;S.profile=p;S.me=p.handle;S.addr=p.wallet_address||'';
  if(realAuth()&&S.addr!==prevAddr){S.bal={SOL:0};S.activity=[];S.balAt=0;for(const k in RAW)delete RAW[k];S.swap.amt=''}
  C[S.me]=C[S.me]||{h:S.me,win:0,avg:0,calls:0,best:0,followers:0};
- const owner=String(p.id||p.wallet_address||p.handle||'');if(PROF._o!==owner)PROF={_o:owner};/* never show another account's picture, banner or bio */
+ const owner=ownerOf(p);if(PROF._o!==owner)PROF={_o:owner};/* never show another account's picture, banner or bio */
  PROF={...PROF,name:p.display_name??PROF.name??'',bio:p.bio??PROF.bio??'',web:p.website??PROF.web??'',x:p.x_handle??PROF.x??'',avatar:p.avatar_url||PROF.avatar,banner:p.banner_url||PROF.banner};saveProf();
  // Only close the sign-in sheet. Session re-syncs (token refresh, embedded wallet arriving a moment
  // after load) used to close whatever was open, which is why the Buy sheet kept snapping shut.
@@ -3382,6 +3404,7 @@ window.callitWalletChanged=()=>{if(REALW())loadBalances()};
 if(realAuth()&&!S.connected&&!window.__callitPendingSession)try{const v=JSON.parse(localStorage.getItem('callit.lastProfile')||'null'),live=Object.keys(localStorage).some(k=>/^privy:.*token/.test(k));
  if(v&&v.handle&&live){window.__callitRestored=1;window.callitApplySession(v,{restore:1})}}catch(_){}
 if(window.__callitPendingSession){const q=window.__callitPendingSession;delete window.__callitPendingSession;window.callitApplySession(q.p,q.opts)}
+try{if(sessionStorage.getItem('callit.bye')){sessionStorage.removeItem('callit.bye');setTimeout(()=>toast('Signed out'),400)}}catch(_){}
 
 /* ---------- events ---------- */
 /* Moves a toggle's thumb to the tapped option before the screen redraws, so it visibly slides. */
