@@ -9,7 +9,7 @@ type WelcomeTarget = {
   signupMethod: 'email' | 'google' | 'twitter' | 'wallet' | null;
 };
 
-const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://call-it-chi.vercel.app';
+const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.callit.buzz';
 
 /**
  * Welcomes a brand-new user:

@@ -5,7 +5,7 @@ import './v7.css';
 import './v8.css';
 import './v9.css';
 
-const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://call-it-chi.vercel.app';
+const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.callit.buzz';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),

@@ -30,7 +30,7 @@ export function botUsername(): Promise<string | null> {
   return usernameP;
 }
 
-export const siteUrl = () => (process.env.PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://call-it-chi.vercel.app').replace(/\/$/, '');
+export const siteUrl = () => (process.env.PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://www.callit.buzz').replace(/\/$/, '');
 
 /** HTML-escape for Telegram's parse_mode=HTML. */
 export const h = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

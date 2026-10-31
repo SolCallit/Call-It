@@ -15,7 +15,7 @@ const TRUSTED = [
   'x.com', 'twitter.com', 'dexscreener.com', 'solscan.io', 'solana.fm', 'birdeye.so', 'pump.fun',
   'jup.ag', 'gmgn.ai', 'axiom.trade', 'rugcheck.xyz', 'bubblemaps.io', 'coingecko.com',
   'coinmarketcap.com', 'youtube.com', 'youtu.be', 'github.com', 'tradingview.com', 'meteora.ag',
-  'raydium.io', 'orca.so', 'phantom.com', 'solflare.com', 'call-it-chi.vercel.app',
+  'raydium.io', 'orca.so', 'phantom.com', 'solflare.com', 'callit.buzz', 'www.callit.buzz', 'call-it-chi.vercel.app',
 ];
 
 const TLDS = 'com|io|xyz|app|net|org|so|fun|ag|ai|trade|gg|me|co|link|site|online|live|cc|to|finance|money|pro|club|vip|top|info|biz|dev|sh|lol|meme|world|tech|network|exchange|claims?|gift|website|page';

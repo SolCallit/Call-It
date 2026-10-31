@@ -2,7 +2,7 @@
 
 **Call it. Get Paid.** A Solana app where traders post calls on tokens, anyone can buy a call in one tap, and callers are paid in SOL when other people buy their call and it hits its target. Social feed, trading terminal and group chat in one.
 
-[Live app](https://call-it-chi.vercel.app) · [Docs](https://call-it-chi.vercel.app/#/docs) · [Transparency](https://call-it-chi.vercel.app/#/transparency) · [X](https://x.com/CallitApp_Sol)
+[Live app](https://callit.buzz) · [Docs](https://callit.buzz/#/docs) · [Transparency](https://callit.buzz/#/transparency) · [X](https://x.com/CallitApp_Sol)
 
 ## Features
 
@@ -66,7 +66,7 @@ public/              icons, service worker, share image
 3. Every minute a job prices calls, updates each call's rolling-average multiple, credits earnings, cashback and points, and pays everyone whose call hit target from the payout wallet.
 4. Each payout is reserved in the database and its signature saved before sending, so no one is paid twice.
 
-Full fee split and live totals: [Transparency](https://call-it-chi.vercel.app/#/transparency).
+Full fee split and live totals: [Transparency](https://callit.buzz/#/transparency).
 
 ## License
 

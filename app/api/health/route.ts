@@ -33,7 +33,7 @@ export async function GET(req: Request) {
   let privy_login: Record<string, unknown> | string = 'unchecked';
   try {
     const r = await fetch(`https://auth.privy.io/api/v1/apps/${PRIVY_APP_ID}`, {
-      headers: { 'privy-app-id': PRIVY_APP_ID, origin: process.env.NEXT_PUBLIC_SITE_URL || 'https://call-it-chi.vercel.app' },
+      headers: { 'privy-app-id': PRIVY_APP_ID, origin: process.env.NEXT_PUBLIC_SITE_URL || 'https://www.callit.buzz' },
       cache: 'no-store',
     });
     if (!r.ok) privy_login = `http_${r.status}`;

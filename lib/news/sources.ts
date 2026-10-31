@@ -23,7 +23,7 @@ export type NewsItem = {
 export type Kind = 'crypto' | 'economy' | 'global' | 'tech' | 'sports' | 'entertainment' | 'social';
 export type Platform = 'news' | 'x' | 'reddit' | 'hackernews' | 'youtube' | 'bluesky' | 'coingecko' | 'google';
 
-const UA = 'Mozilla/5.0 (compatible; CallitNews/1.0; +https://call-it-chi.vercel.app)';
+const UA = 'Mozilla/5.0 (compatible; CallitNews/1.0; +https://www.callit.buzz)';
 const get = (url: string, init: RequestInit = {}, ms = 6000) =>
   fetch(url, { ...init, headers: { 'user-agent': UA, accept: '*/*', ...(init.headers || {}) }, signal: AbortSignal.timeout(ms), next: { revalidate: 300 } });
 

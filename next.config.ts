@@ -9,6 +9,14 @@ const nextConfig: NextConfig = {
     // Private Withdraw: the Privacy Cash SDK reaches its relayer through Callit's same-origin proxy.
     NEXT_PUBLIC_RELAYER_API_URL: '/api/privacy/relayer',
   },
+  // Old address -> callit.buzz. Pages only: /api keeps answering on both hosts so webhooks and
+  // crons pointed at the old URL keep working. Switched on with REDIRECT_OLD_HOST=1 once Privy
+  // allows the new domain (otherwise people would land where sign-in fails).
+  async redirects() {
+    if (process.env.REDIRECT_OLD_HOST !== '1') return [];
+    const site = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.callit.buzz').replace(/\/$/, '');
+    return [{ source: '/:path((?!api/).*)', has: [{ type: 'host', value: 'call-it-chi.vercel.app' }], destination: `${site}/:path`, permanent: false }];
+  },
   async headers() {
     return [
       {
