@@ -3041,7 +3041,7 @@ function editProfile(focus){const D={...PROF,handle:S.me};let hOk=true,hT=0;
   $('#epsave',m).onclick=()=>{keep();const err=$('#eperr',m),btn=$('#epsave',m),nh=D.handle;
    if(nh!==S.me&&!/^[a-z0-9_]{3,20}$/.test(nh))return err.textContent='Usernames are 3–20 characters: letters, numbers and _.';
    if(nh!==S.me&&!hOk)return err.textContent=hs.textContent==='Checking…'?'Still checking that username…':'That username isn’t available.';
-   const commit=()=>{const {handle,...rest}=D;const old=PROF;PROF=rest;if(!saveProf()){PROF=old;err.textContent='That image is too large to save. Try a smaller one.';return false}return true};
+   const commit=()=>{const {handle,...rest}=D;const old=PROF;PROF={...rest,_o:old._o};if(!saveProf()){PROF=old;err.textContent='That image is too large to save. Try a smaller one.';return false}return true};
    if(!(realAuth()&&window.CallitAuth)){if(!commit())return;if(nh!==S.me)renameMe(S.me,nh);closeModal();toast('Profile updated');return render()}
    btn.disabled=true;btn.textContent='Saving…';err.textContent='';
    const up=(u,kind)=>u&&/^data:/.test(u)?upMedia([u],kind).then(a=>a[0]):Promise.resolve(u||null);
@@ -3362,11 +3362,12 @@ if(isIOS()&&!isStandalone())setTimeout(()=>{if(S.connected)showInstallBar()},400
 
 /* ---------- real sign-in (Privy) ---------- */
 window.callitApplySession=(p,o={})=>{
- if(!p){try{localStorage.removeItem('callit.lastProfile')}catch(_){}window.__callitRestored=0;if(S.connected){S.connected=false;S.addr='';S.me='';S.profile=null;toast('Signed out')}render();return}
+ if(!p){try{localStorage.removeItem('callit.lastProfile');localStorage.removeItem('callit.profile')}catch(_){}PROF={};window.__callitRestored=0;if(S.connected){S.connected=false;S.addr='';S.me='';S.profile=null;toast('Signed out')}render();return}
  try{localStorage.setItem('callit.lastProfile',JSON.stringify(p))}catch(_){}
  const first=!S.connected,prevAddr=S.addr;if(first)nextArtOnLogin();S.connected=true;S.profile=p;S.me=p.handle;S.addr=p.wallet_address||'';
  if(realAuth()&&S.addr!==prevAddr){S.bal={SOL:0};S.activity=[];S.balAt=0;for(const k in RAW)delete RAW[k];S.swap.amt=''}
  C[S.me]=C[S.me]||{h:S.me,win:0,avg:0,calls:0,best:0,followers:0};
+ const owner=String(p.id||p.wallet_address||p.handle||'');if(PROF._o!==owner)PROF={_o:owner};/* never show another account's picture, banner or bio */
  PROF={...PROF,name:p.display_name??PROF.name??'',bio:p.bio??PROF.bio??'',web:p.website??PROF.web??'',x:p.x_handle??PROF.x??'',avatar:p.avatar_url||PROF.avatar,banner:p.banner_url||PROF.banner};saveProf();
  // Only close the sign-in sheet. Session re-syncs (token refresh, embedded wallet arriving a moment
  // after load) used to close whatever was open, which is why the Buy sheet kept snapping shut.
