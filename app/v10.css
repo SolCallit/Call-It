@@ -1,0 +1,28 @@
+/* v10: React Bits holo cards (caller card on every profile, Callit card on the wallet) */
+
+.island { display: flex; justify-content: center; width: 100%; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---------- caller card ---------- */
+.ccsec { display: flex; flex-direction: column; align-items: center; gap: 12px; margin: 18px 0 8px; }
+.ccsec [data-island] { display: flex; justify-content: center; width: 100%; min-height: 120px; }
+.ccsec .holo-card { width: min(300px, 78vw); }
+.ccacts { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
+.ccacts .hint { font-size: 12.5px; }
+
+/* ---------- Callit card (wallet) ---------- */
+.wcwrap { margin: 0 0 14px; }
+.wcwrap [data-island] { display: flex; justify-content: center; width: 100%; max-width: 430px; margin: 0 auto; aspect-ratio: 1.585; }
+.wcwrap .holo-card { width: 100%; }
+.cwc-ov { position: absolute; inset: 0; container-type: inline-size; color: #fff; font-family: 'Schibsted Grotesk', system-ui, sans-serif; }
+.cwc-lab { position: absolute; left: 6.1%; top: 40.5%; display: flex; align-items: center; gap: 2.4cqw; font: 700 3.5cqw/1 'Schibsted Grotesk', system-ui, sans-serif; color: rgba(222, 236, 250, 0.86); }
+.cwc-live { display: inline-flex; align-items: center; gap: 1.2cqw; color: #3ddc97; font-weight: 800; }
+.cwc-live i { width: 1.6cqw; height: 1.6cqw; border-radius: 50%; background: #3ddc97; box-shadow: 0 0 0 0.8cqw rgba(61, 220, 151, 0.18); }
+.cwc-val { position: absolute; left: 5.4%; top: 47%; font-family: 'Bricolage Grotesque', 'Schibsted Grotesk', sans-serif; letter-spacing: -0.03em; text-shadow: 0 0.4cqw 2.4cqw rgba(0, 0, 0, 0.35); }
+.cwc-chg { position: absolute; left: 6.1%; top: 69.5%; font: 800 3.4cqw/1 'Schibsted Grotesk', system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+.cwc-chg.up { color: #3ddc97; }
+.cwc-chg.down { color: #ff6b81; }
+.cwc-chg span { color: rgba(222, 236, 250, 0.7); font-weight: 600; margin-left: 0.9cqw; }
+
+/* the holdings board under the card no longer repeats the big number */
+.pboard .pbtop .pbchg { margin: 0; }

@@ -4,6 +4,7 @@ import './v6.css';
 import './v7.css';
 import './v8.css';
 import './v9.css';
+import './v10.css';
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.callit.buzz';
 
