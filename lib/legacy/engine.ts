@@ -13,6 +13,7 @@ import { walletBalances, swap as jupSwap, withdraw as doWithdraw, toBaseUnits, q
 import { friendlyError, isUserCancel } from '@/lib/errors';
 import { PRIVATE_ON, PRIVATE_BETA, PRIVATE_TOKENS } from '@/lib/privacy/config';
 import { DOCS_MD } from '@/lib/docs/content';
+import { walletArt, artSeed, nextArtOnLogin } from '@/lib/legacy/art';
 import { initCalls, listenForCalls, startCall, joinCall, activeCallId, CALL_ICONS } from '@/lib/chat/callClient';
 
 let booted = false;
@@ -1427,7 +1428,7 @@ function pboard(rows,tot){const d24=rows.reduce((a,[k,amt])=>{const t=T[k],v=usd
  const segs=rows.map(([k,a])=>({k,v:usd(k,a)||0})).filter(x=>x.v>0),top=segs.slice(0,4),rest=segs.slice(4).reduce((a,x)=>a+x.v,0);
  const col=k=>k==='SOL'?'#9B7BFF':k==='USDC'?'#4DA8FF':`hsl(${hue(symOf(k))} 62% 52%)`;
  const st=statsOf(S.me);
- return `<div class="pboard ${up?'is-up':'is-down'}"><i class="pbglow" aria-hidden="true"></i>
+ return `<div class="pboard ${up?'is-up':'is-down'}">${walletArt(artSeed(),0)}<i class="pbglow" aria-hidden="true"></i>
  <div class="pbtop"><span class="pblab">Portfolio</span><span class="stlive"><i></i>Live</span></div>
  <div class="pbval num${fl}" aria-live="polite">${tot<1e6?'$'+tot.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):fmtUsd(tot)}</div>
  <div class="pbchg num"><span class="${up?'up':'down'}">${ic(up?'up':'down',13)} ${money(d24)} (${fmtPct(p24)})</span><span class="muted">today</span>${st.n?`<span class="pbdot"></span><span class="${st.pnl>=0?'up':'down'}">${money(st.pnl)}</span><span class="muted">all-time</span>`:''}</div>
@@ -1440,7 +1441,8 @@ function vWallet(){if(!S.connected)return `<div class="empty"><b class="h2">No w
  const rows=Object.entries(S.bal).filter(([k,a])=>a>0&&T[k]).sort((x,y)=>(usd(y[0],y[1])||0)-(usd(x[0],x[1])||0)),tot=rows.reduce((s,[k,a])=>s+(usd(k,a)||0),0);
  const wc=['earn','keys'].includes(S.wcard)?S.wcard:'pf';
  const card=wc==='earn'?(earnCard()||`<div class="earn"><div class="earnt"><span class="earnic">${ic('crown',18)}</span><b>Caller earnings</b></div><p class="hint earnempty">Earnings show here once you’re signed in.</p></div>`):wc==='keys'?(keysCard()+`<p class="hint wkeyx">Callit is non-custodial. Every trade, withdrawal and claim is signed by you.</p>`):pboard(rows,tot);
- return `<div class="pad"><div class="wcsw">${vseg('wcard',[['pf','Portfolio','wallet'],['earn','Earnings','crown'],['keys','Keys','lock']],wc,'Wallet view')}</div><div class="wcbody">${card}</div>
+ const cardArt=wc==='pf'?card:card.replace(/^(\s*<(?:section|div) class="(?:earn|keyscard)[^"]*"[^>]*>)/,(m)=>m+walletArt(artSeed(),wc==='earn'?1:2));
+ return `<div class="pad wpage"><div class="wbg" aria-hidden="true">${walletArt(artSeed(),4,'art wbgart')}</div><div class="wcsw">${vseg('wcard',[['pf','Portfolio','wallet'],['earn','Earnings','crown'],['keys','Keys','lock']],wc,'Wallet view')}</div><div class="wcbody">${cardArt}</div>
  <div class="acts2 acts3"><button class="btn primary" data-act="deposit">${ic('down',16)} Deposit</button><button class="btn" data-act="withdraw">${ic('up',16)} Withdraw</button><a class="btn" href="#/swap">${ic('swap',16)} Swap</a></div>
  <div class="list">${(()=>{const B=pnlBook();return rows.map(([k,a])=>{const x=posPnl(k,B);return holdRow(k,a,usd(k,a)||0,x?x.pnl:null,x?x.pct:null,1)}).join('')})()}</div>
  <div id="walords">${ordersList()}</div><b class="h2" style="display:block;margin:22px 0 4px">History</b><div class="list">${S.activity.map(a=>`<div class="li"><div class="grow"><b>${esc(a.k)}</b><div class="hint">${esc(a.t)}${a.sig?` · <a class="lnk" href="https://solscan.io/tx/${a.sig}" target="_blank" rel="noopener noreferrer">View</a>`:''}</div></div><div class="r num">${esc(a.d)}</div></div>`).join('')||'<div class="empty" style="padding:18px 8px"><b>No history yet</b><p>Deposits, trades and withdrawals show up here.</p></div>'}</div></div>`}
@@ -1774,11 +1776,18 @@ const closeModal=()=>{const m=$('#modal');
 const realAuth=()=>!!window.__callitRealAuth;
 let pendingNext=null;
 function realLogin(via,opts,next){pendingNext=next||null;closeModal();if(window.CallitAuth&&window.CallitAuth.login)window.CallitAuth.login(via,opts);else toast('Sign-in is loading, try again in a second')}
+/* Sign-in: a floating card. Every button still goes through Privy (embedded wallets for email/Google/X,
+   connect + a free signature for Phantom/Solflare/Backpack); this is only the look. */
+const AUTH_WAYS=[['Email','<span class="aic aic-mail"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7 8 6 8-6"/></svg></span>'],
+ ['Google',()=>`<span class="aic aic-g">${G_ICON}</span>`],['X',()=>`<span class="aic aic-x">${ic('xlogo',16)}</span>`]];
+const AUTH_WALLETS=[['Phantom','/brands/phantom.svg'],['Solflare','/brands/solflare.svg'],['Backpack','/brands/backpack.png']];
 function connectModal(next,mode){modal(mode==='up'?'Create your Callit account':mode==='in'?'Welcome back':'Sign in to Callit',mode==='up'?'Pick a way in. We create a Solana wallet for you, and you own the keys.':mode==='in'?'Sign in the same way you signed up.':'New here? We create a Solana wallet for you. You own the keys.',
- `${['Email','Google','X'].map(l=>`<button class="opt" data-connect="${l}"><span class="tokav" style="background:var(--hi)">${l[0]}</span>Continue with ${l}</button>`).join('')}
- <div class="divider">or use your own wallet</div>${['Phantom','Solflare','Backpack'].map(w=>`<button class="opt" data-connect="${w}">${tokav(w)}${w}</button>`).join('')}`,
- m=>m.addEventListener('click',e=>{const b=e.target.closest('[data-connect]');if(!b)return;signIn(b.dataset.connect,next)}))}
-function signIn(via,next,opts){if(realAuth())return realLogin(via,opts,next);S.connected=true;S.addr='CaLL'+Math.random().toString(36).slice(2,10)+'x9Qp2HkWm4Tz7VbN1sRdE3';S.me='caller_'+S.addr.slice(4,8);
+ `<div class="authways">${AUTH_WAYS.map(([l,i])=>`<button class="opt aopt" data-connect="${l}">${typeof i==='function'?i():i}<span class="grow">Continue with ${l}</span>${ic('chev',16)}</button>`).join('')}</div>
+ <div class="divider">or use your own wallet</div>
+ <div class="authwallets">${AUTH_WALLETS.map(([w,src])=>`<button class="awal" data-connect="${w}"><img src="${src}" alt="" width="40" height="40" decoding="async"><span>${w}</span></button>`).join('')}</div>
+ <p class="authfoot">${ic('lock',12)} Non-custodial. Callit never sees your keys.</p>`,
+ m=>{m.classList.add('authm');m.insertAdjacentHTML('afterbegin','<i class="authglow" aria-hidden="true"></i>');m.addEventListener('click',e=>{const b=e.target.closest('[data-connect]');if(!b)return;signIn(b.dataset.connect,next)})})}
+function signIn(via,next,opts){if(realAuth())return realLogin(via,opts,next);nextArtOnLogin();S.connected=true;S.addr='CaLL'+Math.random().toString(36).slice(2,10)+'x9Qp2HkWm4Tz7VbN1sRdE3';S.me='caller_'+S.addr.slice(4,8);
   C[S.me]={h:S.me,win:0,avg:0,calls:0,best:0,followers:0};closeModal();try{localStorage.setItem('callit.session',JSON.stringify({addr:S.addr,me:S.me}))}catch(_){}
   toast(['Phantom','Solflare','Backpack'].includes(via)?`${via} connected`:'Signed in. Your wallet is ready');render();next?next():maybeOnboard()}
 
@@ -3268,29 +3277,32 @@ function vLegal(p){const k=DOCS[p]?p:'terms';
 /* ---------- landing ---------- */
 const G_ICON='<svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>';
 const MEGA='<svg class="lmega" viewBox="0 0 240 200" aria-hidden="true"><g fill="none" stroke-linejoin="round" stroke-linecap="round"><path class="o" d="M44 78h30v48H44a12 12 0 01-12-12V90a12 12 0 0112-12zM74 80c36-6 66-20 92-44v132c-26-24-56-38-92-44zM88 126l14 50h24l-10-47"/><ellipse class="o" cx="170" cy="102" rx="22" ry="68"/><path class="o" d="M166 78c10 2 14 12 14 24s-4 22-14 24"/><path class="i" d="M44 78h30v48H44a12 12 0 01-12-12V90a12 12 0 0112-12zM74 80c36-6 66-20 92-44v132c-26-24-56-38-92-44zM88 126l14 50h24l-10-47"/><ellipse class="i" cx="170" cy="102" rx="22" ry="68"/><path class="i" d="M166 78c10 2 14 12 14 24s-4 22-14 24"/></g></svg>';
-/* Live-calls ticker on the landing page: the thing X doesn't have. */
-const LX_TICK_A=[['c','fadedpixel','GLORP','+$519.90'],['g','GLORP','+346.6%'],['m','KFSH','$1.84M MC'],['c','lagosape','KFSH','+$355.10'],['f','+0.42 SOL','caller fees'],['g','DOTB','+113.9%'],['c','quietmoney','GLORP','+$60.55'],['g','NIMB','+64.2%']];
-const LX_TICK_B=[['n','minnie_sol','DOTB','3m'],['g','KFSH','+118.4%'],['m','GLORP','$21.4M MC'],['c','minnie_sol','DOTB','+$45.55'],['n','dr_liquidity','NIMB','8m'],['g','MOTH','+213%'],['f','+1.8 SOL','paid to callers today'],['m','NIMB','$412K MC']];
+/* Landing ticker + floating chips: live Solana tokens only (market cap and price moves, never made up).
+   Real caller wins and payouts join once we launch and pay out: flip LX_SHOW_CALLS. */
+const LX_SHOW_CALLS=false;
 function lxChip(x){const [k,a,b,v]=x;
- if(k==='g')return `<span class="tk">${tokav(a)}<b>$${esc(symOf(a))}</b><em class="up">${ic('up',12)}${esc(b)}</em></span>`;
- if(k==='m')return `<span class="tk">${tokav(a)}<b>$${esc(symOf(a))}</b><i>${esc(b)}</i></span>`;
- if(k==='c')return `<span class="tk">${avatar(a)}<b>@${esc(a)}</b><i>called $${esc(symOf(b))}</i><em class="${String(v).startsWith('−')?'down':'up'}">${esc(v)}</em></span>`;
+ if(k==='t'){const t=T[a];if(!t)return '';const up=(t.chg||0)>=0;return `<span class="tk">${tokav(a)}<b>$${esc(t.sym)}</b><i>${esc(fmtSmall(mcap(t)))} MC</i><em class="${up?'up':'down'}">${ic(up?'up':'down',12)}${esc(fmtPct(t.chg))}</em></span>`}
  if(k==='n')return `<span class="tk"><span class="tklive"></span>${avatar(a)}<b>@${esc(a)}</b><i>called $${esc(symOf(b))} · ${v==='now'?'just now':esc(v)+' ago'}</i></span>`;
  return `<span class="tk tkfee"><em class="up">${esc(a)}</em><i>${esc(b)}</i></span>`}
-/* Landing ticker: live movers and real calls only. Until data arrives it shows what Callit does, never made-up trades. */
-function lxLive(row){const mv=(LIVE.feeds['movers:1h']||[]).map(k=>T[k]).filter(t=>t&&t.live&&t.price&&!NOT_MEME.has(String(t.sym).toUpperCase())),out=[];
- const rc=calls.filter(k=>k.kind==='meme'&&T[k.t]&&nums(k)).slice(0,6);
- mv.slice(row*6,row*6+6).forEach((t,i)=>{out.push(i%2?['m',t.key,fmtUsd(mcap(t))+' MC']:['g',t.key,fmtPct(t.chg)])});
- rc.slice(row*3,row*3+3).forEach((k,i)=>out.splice(i*2+1,0,['n',k.c,k.t,k.ago==='now'?'now':k.ago]));
+const lxToks=()=>pickLive().filter(t=>t.chg!=null&&isFinite(t.chg));
+function lxLive(row){const tk=lxToks(),out=[];
+ const list=row?tk.slice(0,24).filter((_,i)=>i%2):[...tk].sort((a,b)=>b.chg-a.chg).slice(0,12);
+ list.slice(0,12).forEach(t=>out.push(['t',t.key]));
+ if(LX_SHOW_CALLS){const rc=calls.filter(k=>k.kind==='meme'&&k.real&&T[k.t]&&nums(k)).slice(row*3,row*3+3);rc.forEach((k,i)=>out.splice(i*2+1,0,['n',k.c,k.t,k.ago==='now'?'now':k.ago]))}
  if(out.length<4)return row?[['f','Call it','paid at target'],['f','Every call','tracked in public'],['f','Win rate','on the Callerboard'],['f','Non-custodial','your keys, your coins']]
   :[['f','Call it.','Get Paid.'],['f','Entry stamped','at live market cap'],['f','Swap in-app','routed by Jupiter'],['f','Follow callers','you trust']];
  return out}
+/* Floating chips around the logo and in the background: the hottest live tokens right now. */
+function lxFx(){const g=[...lxToks()].filter(t=>t.chg>0).sort((a,b)=>b.chg-a.chg).slice(0,11),p=t=>`${ic('up',13)}$${esc(t.sym)} ${esc(fmtPct(t.chg))}`,m=t=>`$${esc(t.sym)} ${esc(fmtSmall(mcap(t)))} MC`;
+ const logo=g.length>=4?`<span class="fx lxs l">${p(g[0])}</span><span class="fx m lxs l2">${m(g[1])}</span>`:'',logoR=g.length>=4?`<span class="fx m lxs r">${m(g[2])}</span><span class="fx lxs r2">${p(g[3])}</span>`:'';
+ const bg=g.slice(4,11).map((t,i)=>`<span class="fx ${i%2?'m':'p'} ${'abcdefg'[i]}">${i%2?m(t):p(t)}</span>`).join('');
+ return {logo,logoR,bg}}
 function lxTicker(items,cls){const row=items.map(lxChip).join('');
  return `<div class="lxtick${cls}" aria-hidden="true"><div class="lxtrack">${row}${row}</div></div>`}
-function landingHTML(){const yr=new Date().getFullYear();
+function landingHTML(){const yr=new Date().getFullYear(),FX=lxFx();
  return `<div class="lx-top">${lxTicker(lxLive(0),'')}<button class="ib ltheme" data-act="theme" aria-label="Switch light or dark">${ic('sun',18)}</button></div>
- <div class="lfx" aria-hidden="true">${[['+347%','p a'],['$1.84M MC','m b'],['+118%','p c'],['$21.4M MC','m d'],['+64%','p e'],['$412K MC','m f'],['+213%','p g']].map(([t,c])=>`<span class="fx ${c}">${c[0]==='p'?ic('up',14):''}${t}</span>`).join('')}</div>
- <main class="lx"><div class="lxlogo"><span class="fx lxs l">${ic('up',13)}+347%</span><span class="fx lxs l2 fee">+0.42 SOL</span><span class="mark lxmark" role="img" aria-label="Callit"></span><span class="fx m lxs r">$1.84M MC</span><span class="fx lxs r2">${ic('up',13)}+118%</span></div>
+ <div class="lfx" aria-hidden="true">${FX.bg}</div>
+ <main class="lx"><div class="lxlogo">${FX.logo}<span class="mark lxmark" role="img" aria-label="Callit"></span>${FX.logoR}</div>
   <h1>Call it.<br>Get Paid.</h1>
   <p class="lx-sub">Crypto calls, tracked in public. Join today.</p>
   <div class="lx-auth">
@@ -3352,7 +3364,7 @@ if(isIOS()&&!isStandalone())setTimeout(()=>{if(S.connected)showInstallBar()},400
 window.callitApplySession=(p,o={})=>{
  if(!p){try{localStorage.removeItem('callit.lastProfile')}catch(_){}window.__callitRestored=0;if(S.connected){S.connected=false;S.addr='';S.me='';S.profile=null;toast('Signed out')}render();return}
  try{localStorage.setItem('callit.lastProfile',JSON.stringify(p))}catch(_){}
- const first=!S.connected,prevAddr=S.addr;S.connected=true;S.profile=p;S.me=p.handle;S.addr=p.wallet_address||'';
+ const first=!S.connected,prevAddr=S.addr;if(first)nextArtOnLogin();S.connected=true;S.profile=p;S.me=p.handle;S.addr=p.wallet_address||'';
  if(realAuth()&&S.addr!==prevAddr){S.bal={SOL:0};S.activity=[];S.balAt=0;for(const k in RAW)delete RAW[k];S.swap.amt=''}
  C[S.me]=C[S.me]||{h:S.me,win:0,avg:0,calls:0,best:0,followers:0};
  PROF={...PROF,name:p.display_name??PROF.name??'',bio:p.bio??PROF.bio??'',web:p.website??PROF.web??'',x:p.x_handle??PROF.x??'',avatar:p.avatar_url||PROF.avatar,banner:p.banner_url||PROF.banner};saveProf();
@@ -3613,12 +3625,15 @@ function remapDemo(cands){const map={};DEMO_KEYS.forEach((k,i)=>{if(cands[i]&&T[
  COMMS.forEach(c=>{if(c.sym&&map[c.sym]){const o=T[c.sym],n=T[map[c.sym]];c.name=c.name.replace(o.name.split(' ')[0],n.name.length>18?n.sym:n.name);c.desc=sw(c.desc);c.sym=n.key}});
  for(const id in MSG)MSG[id].forEach(m=>m[1]=sw(m[1]));
  NOTIFS.forEach(n=>{if(n.real)return;n.t=sw(n.t).replace(/\. It's up \S+ since/,'');if(n.sym&&map[n.sym]){n.sym=map[n.sym];const t=T[n.sym];n.t=n.id===5?`$${t.sym} is ${pctS(chgOf(t,'24h'))} in 24h. It's on your watchlist`:`$${t.sym} is trading at ${fmtSmall(mcap(t))} market cap`}const g=(n.go||'').split('/');if(g[1]==='token'&&map[g[2]])n.go='#/token/'+map[g[2]]});
- const live24=k=>{const t=T[k];return t?pctS(chgOf(t,'24h')):''};
- [LX_TICK_A,LX_TICK_B].forEach(L=>L.forEach(x=>{if(x[0]==='g'&&map[x[1]]){x[1]=map[x[1]];x[2]=live24(x[1])}else if(x[0]==='m'&&map[x[1]]){x[1]=map[x[1]];x[2]=fmtSmall(mcap(T[x[1]]))+' MC'}
-  else if((x[0]==='c'||x[0]==='n')&&map[x[2]]){x[2]=map[x[2]];if(x[0]==='c'){const k=calls.find(c=>c.c===x[1]&&c.t===x[2]&&c.buy),n=k&&nums(k);if(n)x[3]=money(n.pnl)}}}));
- for(const L of [LX_TICK_A,LX_TICK_B])for(let i=L.length-1;i>=0;i--)if(L[i][0]==='g'&&!String(L[i][2]).startsWith('+'))L.splice(i,1);
  DEMO_KEYS.forEach(k=>{delete T[k]});['MOTH','ORBIT'].forEach(k=>S.watch.delete(k))}
-function refreshLandingTicks(){const el=$('#landing');if(!el||el.hidden)return;const ts=el.querySelectorAll('.lxtick');if(ts[0])ts[0].outerHTML=lxTicker(LX_TICK_A,'');if(ts[1])ts[1].outerHTML=lxTicker(LX_TICK_B,' rev')}
+function refreshLandingTicks(){const el=$('#landing');if(!el||el.hidden)return;const ts=el.querySelectorAll('.lxtick');
+ if(ts[0]&&!ts[0].matches(':hover'))ts[0].outerHTML=lxTicker(lxLive(0),'');if(ts[1]&&!ts[1].matches(':hover'))ts[1].outerHTML=lxTicker(lxLive(1),' rev');
+ const FX=lxFx(),bg=el.querySelector('.lfx'),lg=el.querySelector('.lxlogo');if(bg)bg.innerHTML=FX.bg;
+ if(lg){lg.querySelectorAll('.fx').forEach(x=>x.remove());const mk=lg.querySelector('.lxmark');if(mk){mk.insertAdjacentHTML('beforebegin',FX.logo);mk.insertAdjacentHTML('afterend',FX.logoR)}}}
+/* Keep the landing numbers live while someone is looking at it. */
+const LX_FEEDS=['traded:24h','movers:1h','organic:24h'];
+const pullLxFeeds=()=>Promise.allSettled(LX_FEEDS.map(id=>{const [f,iv]=id.split(':');return fetchFeed(f,iv).then(l=>{LIVE.feeds[id]=l.map(regLive).filter(Boolean).map(t=>t.key);LIVE.err[id]=0;LIVE.at[id]=Date.now()})}));
+setInterval(()=>{const el=$('#landing');if(document.hidden||!el||el.hidden)return;pullLxFeeds().then(refreshLandingTicks)},90000);
 /* Batch-refresh every token that has a call on it so feed numbers stay live. */
 let CTBUSY=0;
 function refreshCallTokens(){if(CTBUSY)return;const ms=[...new Set([...calls,...S.queued].map(k=>k.t))].filter(k=>T[k]&&T[k].live);if(!ms.length)return;CTBUSY=1;
@@ -3627,7 +3642,7 @@ let BOOT_TRIES=0;
 function liveBoot(){BOOT_TRIES++;const ids=['traded:24h','movers:1h','organic:24h'];
  fetchToken('So11111111111111111111111111111111111111112').then(x=>{if(x&&x.price){T.SOL.price=x.price;if(x.chg&&x.chg.h24!=null)T.SOL.chg=x.chg.h24;renderSwapsSoft()}}).catch(()=>{});
  Promise.allSettled(ids.map(id=>{const [f,iv]=id.split(':');return fetchFeed(f,iv).then(l=>{LIVE.feeds[id]=l.map(regLive).filter(Boolean).map(t=>t.key);LIVE.err[id]=0;LIVE.at[id]=Date.now()})})).then(()=>{
-  const c=pickLive();
+  const c=pickLive();refreshLandingTicks();
   if(c.length>=8&&DEMO_KEYS.some(k=>T[k])){remapDemo(c);S.live='ok';queueDemoCalls();refreshLandingTicks();if(!document.querySelector('.sheet.open')&&!$('#modal').innerHTML)render();else S.dirty=1}
   else if(S.live!=='ok'){if(S.live==='wait'){S.live='demo';queueDemoCalls();render()}if(BOOT_TRIES<4)setTimeout(liveBoot,15000)}})}
 /* @mention autocomplete in every composer and reply box. */

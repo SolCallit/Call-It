@@ -1,0 +1,73 @@
+/* v9: floating sign-in card, wallet art, live landing chips */
+
+/* ---------- Sign-in: a floating card, on every screen size ---------- */
+.scrim:has(.authm){backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);background:rgba(4,12,20,.62)}
+.modal.authm{position:relative;overflow:hidden;width:min(420px,100%);padding:26px 22px 18px;border-radius:26px;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--hi) 12%,var(--bg)),var(--bg) 48%);
+  border:1px solid color-mix(in srgb,var(--hi) 30%,var(--line));
+  box-shadow:0 1px 0 rgba(255,255,255,.06) inset,0 30px 80px -24px rgba(0,0,0,.7),0 0 0 6px color-mix(in srgb,var(--hi) 6%,transparent);
+  animation:authin .32s var(--spring)}
+@keyframes authin{from{opacity:0;transform:translateY(14px) scale(.96)}to{opacity:1;transform:none}}
+.authglow{position:absolute;left:50%;top:-150px;width:380px;height:270px;transform:translateX(-50%);border-radius:50%;pointer-events:none;
+  background:radial-gradient(closest-side,color-mix(in srgb,var(--hi) 34%,transparent),transparent)}
+.modal.authm>:not(.authglow){position:relative}
+.modal.authm .sub{margin-bottom:16px}
+.authways{display:flex;flex-direction:column;gap:9px}
+.opt.aopt{margin:0;min-height:54px;padding:9px 14px 9px 10px;gap:12px}
+.aopt .grow{flex:1}
+.aopt>svg:last-child{transform:rotate(180deg);color:var(--muted);transition:transform .15s,color .15s}
+.aopt:hover>svg:last-child{color:var(--hi);transform:rotate(180deg) translateX(-2px)}
+.aic{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;flex:none;box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.aic-mail{background:linear-gradient(135deg,#4DA8FF,#7C5CFF);color:#fff}
+.aic-g{background:#fff}
+.aic-x{background:#000;color:#fff;box-shadow:0 0 0 1px rgba(255,255,255,.2) inset,0 2px 6px rgba(0,0,0,.25)}
+.modal.authm .divider{margin:18px 0 12px}
+.authwallets{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.awal{display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 6px 12px;border-radius:18px;border:1.5px solid var(--line);
+  background:var(--bg2);color:var(--text);font-weight:700;font-size:13.5px;cursor:pointer;box-shadow:var(--raise);
+  transition:transform .08s ease,box-shadow .08s ease,border-color .15s}
+.awal img{width:42px;height:42px;border-radius:12px;box-shadow:0 4px 12px -4px rgba(0,0,0,.5)}
+.awal:hover{border-color:var(--hi)}
+.awal:active{transform:translateY(2px);box-shadow:var(--raise-sm)}
+.awal:focus-visible,.aopt:focus-visible{outline:2px solid var(--hi);outline-offset:2px}
+.authfoot{display:flex;align-items:center;justify-content:center;gap:6px;margin:16px 0 0;font-size:12px;color:var(--muted)}
+@media (max-width:760px){
+  .scrim:has(.authm){align-items:center;padding:16px;bottom:0}
+  .scrim:has(.authm) .modal.authm{width:100%;max-width:420px;border-radius:26px;max-height:calc(100dvh - 32px);padding:22px 18px 16px}
+}
+/* the "Confirm it's your wallet" step floats too */
+.wsi-back{align-items:center;padding:16px}
+.wsi{border-radius:26px}
+
+/* ---------- Wallet art: a new scene every sign-in ---------- */
+.art{--art-cut:var(--bg2);position:absolute;inset:0;width:100%;height:100%;pointer-events:none;opacity:var(--art-o,.38);
+  -webkit-mask-image:linear-gradient(100deg,transparent 14%,rgba(0,0,0,.42) 46%,#000 82%);mask-image:linear-gradient(100deg,transparent 14%,rgba(0,0,0,.42) 46%,#000 82%)}
+[data-theme="light"] .art{--art-o:.26}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]) .art{--art-o:.26}}
+
+.pboard{border-color:color-mix(in srgb,var(--hi) 22%,var(--line));
+  background:radial-gradient(120% 90% at 100% 0%,color-mix(in srgb,var(--hi) 14%,transparent),transparent 60%),linear-gradient(160deg,color-mix(in srgb,var(--hi) 8%,var(--bg2)),var(--bg2) 60%)}
+.pboard>:not(.art):not(.pbglow){position:relative;z-index:1}
+.pboard .pbglow{z-index:0}
+.pbytd .ytd{background:color-mix(in srgb,var(--bg) 38%,transparent);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);border-color:color-mix(in srgb,var(--line) 80%,transparent)}
+.pboard .pbempty{text-shadow:0 1px 8px var(--bg2)}
+
+.earn,.keyscard{position:relative;overflow:hidden;isolation:isolate}
+.earn>:not(.art),.keyscard>:not(.art){position:relative;z-index:1}
+.keyscard{border-color:color-mix(in srgb,var(--hi) 20%,var(--line));min-height:88px;
+  background:linear-gradient(160deg,color-mix(in srgb,#9B7BFF 10%,var(--bg2)),var(--bg2) 62%)}
+.keyscard .art{--art-o:.4}
+
+/* soft scene behind the whole wallet page */
+.wpage{position:relative;isolation:isolate}
+.wbg{position:absolute;left:0;right:0;top:-12px;height:520px;z-index:-1;pointer-events:none;overflow:hidden;
+  -webkit-mask-image:linear-gradient(180deg,#000 10%,transparent 92%);mask-image:linear-gradient(180deg,#000 10%,transparent 92%)}
+.wbg .wbgart{opacity:calc(var(--art-o,.38) * .5);-webkit-mask-image:none;mask-image:none;filter:blur(1.2px) saturate(1.15);transform:scale(1.08)}
+
+/* action row: a touch of glass so it sits on the art */
+.wpage .acts2 .btn:not(.primary){background:color-mix(in srgb,var(--bg2) 82%,transparent);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+
+/* ---------- Landing: live token chips ---------- */
+.tk em.down{color:var(--down)}
+.tk i{font-variant-numeric:tabular-nums}
+.fx{transition:opacity .4s}
