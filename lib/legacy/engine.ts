@@ -317,7 +317,7 @@ function txRow(t){const K={buy:'Bought',sell:'Sold',swap:'Swapped',withdraw:'Wit
  const d=Date.parse(t.created_at),m=(Date.now()-d)/6e4;
  return {k:K[t.kind]||t.kind,d:t.label||'',t:m<1?'Just now':m<60?Math.round(m)+'m ago':m<1440?Math.round(m/60)+'h ago':new Date(d).toLocaleDateString(),sig:t.signature}}
 /* Records a real on-chain transaction to the user's account (and stamps a call's buy-in). */
-function logTx(rec){S.activity.unshift({k:rec.k,d:rec.label,t:'Just now',sig:rec.signature});(S.ledger=S.ledger||[]).unshift({...rec,created_at:new Date().toISOString()});bg('/api/transactions',rec)}
+function logTx(rec){S.activity.unshift({k:rec.k,d:rec.label,t:'Just now',sig:rec.signature});(S.ledger=S.ledger||[]).unshift({...rec,created_at:new Date().toISOString()});bg('/api/transactions',rec);setTimeout(refreshOverlay,50)}
 /* ---------- PnL (average cost) from the user's own trade ledger. SOL and USDC count as cash. ---------- */
 function pnlBook(){const P={},cash=new Set([SOL_MINT,USDC_MINT]);let real=0,vol=0;
  [...(S.ledger||[])].reverse().forEach(t=>{const u=+t.usd_value||0,ia=+t.in_amount||0,oa=+t.out_amount||0;
@@ -707,7 +707,30 @@ function realSwap(from,to,amt,desc,done,opt={}){let base;try{base=baseOf(from,am
  realTx(desc,step=>jupSwap({inputMint:mintOf(from),outputMint:mintOf(to),amount:base,taker:S.addr,slippageBps:S.slip?Math.round(S.slip*100):undefined,...swFees()},step).then(r=>{
   const od=decOf(to),got=r.outAmount&&od!=null?Number(r.outAmount)/10**od:null;
   const kind=from==='SOL'?'buy':to==='SOL'?'sell':'swap',pf=T[from]&&T[from].price;
-  logTx({k:{buy:'Bought',sell:'Sold',swap:'Swapped'}[kind],kind,label:`${fmtAmt(amt)} ${symOf(from)} → ${got!=null?fmtAmt(got)+' ':''}${symOf(to)}`,signature:r.signature,in_mint:mintOf(from),in_amount:amt,out_mint:mintOf(to),out_amount:got,usd_value:pf?amt*pf:null,call_ref:opt.callRef!=null?String(opt.callRef):null});if(opt.after)setTimeout(()=>{try{opt.after(r)}catch(e){console.warn(e)}},1800);return r.signature}),done)}
+  const res=kind==='sell'?sellResult(from,+amt,got,pf):null;
+  logTx({k:{buy:'Bought',sell:'Sold',swap:'Swapped'}[kind],kind,label:`${fmtAmt(amt)} ${symOf(from)} → ${got!=null?fmtAmt(got)+' ':''}${symOf(to)}`,signature:r.signature,in_mint:mintOf(from),in_amount:amt,out_mint:mintOf(to),out_amount:got,usd_value:pf?amt*pf:null,call_ref:opt.callRef!=null?String(opt.callRef):null});if(opt.after)setTimeout(()=>{try{opt.after(r)}catch(e){console.warn(e)}},1800);if(res)setTimeout(()=>resultPop(res),700);return r.signature}),done)}
+/* ---------- Sell result: realized PnL against your average cost, confetti on a win ---------- */
+function sellResult(key,amt,gotSol,pf){const p=pnlBook().P[mintOf(key)],t=T[key];if(!p||!(p.amt>0)||!(amt>0)||!t)return null;
+ const q=Math.min(amt,p.amt),avg=p.cost/p.amt,cost=avg*q,sp=T.SOL&&T.SOL.price,proceeds=gotSol!=null&&sp?gotSol*sp:pf?amt*pf:0;if(!(cost>0)||!(proceeds>0))return null;
+ const mc=mcap(t);return {key,sym:symOf(key),cost,proceeds,pnl:proceeds-cost,pct:(proceeds/cost-1)*100,x:proceeds/cost,entryMc:t.price?avg*mc/t.price:0,exitMc:mc,full:amt>=p.amt*.999}}
+function resultPop(r){const win=r.pnl>=0,sy=esc(r.sym);
+ $('#modal').innerHTML=`<div class="scrim" data-act="close"><div class="pnlpop ${win?'win':'loss'}" role="dialog" aria-modal="true" aria-label="${win?'Win':'Trade closed'} on $${sy}">
+  <div class="pnlhd">${tokav(r.key)}<span class="grow"><b>${r.full?'Closed':'Took profit on'} $${sy}</b><small>${win?(r.x>=2?'Called it.':'Locked in.'):'On to the next one.'}</small></span><span class="pnltag">${win?'WIN':'LOSS'}</span></div>
+  <div class="pnlbig num">${money(r.pnl)}</div>
+  <div class="pnlchips"><span class="num">${fmtPct(r.pct)}</span><span class="num">${r.x.toFixed(r.x>=10?1:2)}X</span></div>
+  <div class="pnlrow"><div><small>Entry MC</small><b class="num">${fmtSmall(r.entryMc)}</b></div><div aria-hidden="true">${ic('chev',16)}</div><div><small>Exit MC</small><b class="num">${fmtSmall(r.exitMc)}</b></div></div>
+  <div class="pnlrow sub"><div><small>Cost</small><b class="num">${fmtUsd(r.cost)}</b></div><div></div><div><small>Got back</small><b class="num">${fmtUsd(r.proceeds)}</b></div></div>
+  <div class="pnlact"><button class="btn ghost" data-act="close">Done</button><button class="btn primary" id="pnlshare">${ic('xlogo',15)} Share</button></div></div></div>`;
+ requestAnimationFrame(()=>{const x=$('#modal .pnlpop');x&&x.classList.add('in')});
+ $('#pnlshare').onclick=()=>{closeModal();shareModal({h:S.me,name:nameOf(S.me),tag:'REALIZED',head:`@${S.me}'s $${sy}`,label:'Realized PnL',big:money(r.pnl),up:win,sub:`${fmtUsd(r.cost)} → ${fmtUsd(r.proceeds)}`,chips:[fmtPct(r.pct),r.x.toFixed(2)+'X'],tok:tokav(r.key),tokLab:'$'+sy},SITE+'/#/token/'+encodeURIComponent(r.key),'callit-win-'+r.sym,win?`Took ${fmtPct(r.pct)} on $${r.sym} with Callit 📣`:`My $${r.sym} trade on Callit`)};
+ if(win){try{navigator.vibrate&&navigator.vibrate([24,40,60])}catch(_){}confetti(r.x>=2?220:120)}}
+/* Tiny canvas confetti: no dependency, skipped with reduced motion. */
+function confetti(n){if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;const c=document.createElement('canvas'),dpr=Math.min(2,devicePixelRatio||1),W=innerWidth,H=innerHeight;
+ c.className='confetti';c.width=W*dpr;c.height=H*dpr;c.setAttribute('aria-hidden','true');document.body.appendChild(c);const g=c.getContext('2d');if(!g){c.remove();return}g.scale(dpr,dpr);
+ const cols=[cssv('--up','#3DDC97'),cssv('--hi','#4DA8FF'),'#FFD166','#FFFFFF','#B48CFF'],P=Array.from({length:n},(_,i)=>{const L=i%2===0,a=(L?-60:-120)*Math.PI/180+(Math.random()-.5)*.9,v=9+Math.random()*9;
+  return {x:L?0:W,y:H*.75,vx:Math.cos(a)*v,vy:Math.sin(a)*v,r:Math.random()*6.28,vr:(Math.random()-.5)*.35,w:6+Math.random()*6,h:3+Math.random()*4,c:cols[i%cols.length]}});
+ const t0=performance.now();const f=now=>{const el=now-t0;g.clearRect(0,0,W,H);P.forEach(p=>{p.vy+=.28;p.vx*=.99;p.x+=p.vx;p.y+=p.vy;p.r+=p.vr;g.save();g.globalAlpha=Math.max(0,1-el/2600);g.translate(p.x,p.y);g.rotate(p.r);g.fillStyle=p.c;g.fillRect(-p.w/2,-p.h/2,p.w,p.h);g.restore()});
+  if(el<2600)requestAnimationFrame(f);else c.remove()};requestAnimationFrame(f)}
 const perf=k=>{const t=T[k.t];return !t||t.prelaunch||!k.entry?null:(mcap(t)/k.entry-1)*100};
 function chart(seed,up,w=600,h=190){const r=rng(seed);let y=up?.25:.75,p=[];for(let i=0;i<72;i++){y+=(r()-.5)*.11+(up?.008:-.008);y=Math.min(.95,Math.max(.05,y));p.push(y)}
  const d=p.map((v,i)=>`${i?'L':'M'}${(i/71*w).toFixed(1)},${(h-v*h).toFixed(1)}`).join('');
@@ -1311,7 +1334,7 @@ const QUOTES={'So11111111111111111111111111111111111111112':'SOL','EPjFWdd5AufqS
 function pairChip(t){const q=t.L&&t.L.quote;if(!q||!q.mint||QUOTES[q.mint]==='SOL')return '';const sym=QUOTES[q.mint]||q.sym||'?',stock=/x$/.test(sym)&&sym.length<=6&&!QUOTES[q.mint];
  return ` <a class="chain pairchip${stock?' stock':''}" href="#/token/${esc(q.mint)}" title="Trades against ${esc(sym)}. Buys route through ${esc(sym)} automatically.">${stock?'📈 ':''}Paired · ${esc(sym)}</a>`}
 function vLiveToken(t){const key=t.key,tr=S.watch.has(key),on=calls.filter(k=>k.t===key),L=t.L||{},ch=(L.chg||{}).h24;
- S.ltf=S.ltf&&S.ltfUser?S.ltf:((t.ageH||0)<.5?'1m':'15m');S.lmode=S.lmode||'mc';if(!S.ltab){try{S.ltab=localStorage.getItem('callit.ltab')||'calls'}catch(_){S.ltab='calls'}}const lt=LTABS.some(x=>x[0]===S.ltab)?S.ltab:'calls';if(!S.lsrc){try{S.lsrc=localStorage.getItem('callit.lsrc')||'dex'}catch(_){S.lsrc='dex'}}
+ S.ltf=S.ltf&&S.ltfUser?S.ltf:((t.ageH||0)<.5?'1m':'15m');S.lmode=S.lmode||'mc';if(!S.ltab){try{S.ltab=localStorage.getItem('callit.ltab')||'calls'}catch(_){S.ltab='calls'}}const lt=LTABS.some(x=>x[0]===S.ltab)?S.ltab:'calls';{let sv=null;try{sv=localStorage.getItem('callit.lsrc')}catch(_){}S.lsrc=sv||(hasActivity(key)?'callit':'dex')}
  return `<div class="pad" style="padding-bottom:0"><div style="display:flex;align-items:center;gap:12px">${tokav(key)}<div style="flex:1;min-width:0"><b class="h2">${esc(t.name)}</b>${L.verified?`<span class="vbadge" title="Verified on Jupiter">${ic('check',11)}</span>`:''} <span class="muted">$${esc(t.sym)}</span>
  <div><span class="chain">Solana</span>${t.lp?` <span class="chain lpchip">${esc(t.lp)}</span>`:''}${pairChip(t)} <button class="copyca" data-act="copy" data-v="${esc(t.ca)}">${short(t.ca)} ${ic('copy',13)}</button></div></div>
  ${(()=>{if(S.connected&&!AL.d)alLoad();const bo=BELLS.has(key);return `<button class="ib bellb ${bo?'on':''}" data-act="bell" data-t="${key}" aria-label="${bo?'Edit':'Set'} alerts for $${esc(t.sym)}" title="Alerts">${ic('bell',18)}</button>`})()}<button class="btn sm ${tr?'primary':'ghost'}" data-act="track" data-t="${key}">${ic('star',15,tr)} ${tr?'On watchlist':'Watchlist'}</button></div>
@@ -1768,7 +1791,23 @@ function mountLiveChart(){const el=$('#lchart');if(!el)return;const t=T[el.datas
  el.classList.remove('dsx');if(!t.pool)return;
  const msg=$('#lchartmsg');
  LCHART=mountChart(el,{pool:t.pool,mint:t.key,tf:S.ltf,factor:S.lmode==='mc'&&t.supply?t.supply:1,
-  onState:st=>{if(!msg)return;msg.hidden=st==='ok';msg.textContent=st==='loading'?'Loading chart…':st==='empty'?'No trades in this timeframe yet.':'Chart is unavailable right now.'}})}
+  onState:st=>{if(!msg)return;msg.hidden=st==='ok';msg.textContent=st==='loading'?'Loading chart…':st==='empty'?'No trades in this timeframe yet.':'Chart is unavailable right now.'}});
+ LCHART.overlay(chartOverlay(t.key))}
+/* Your activity on the Callit chart: avg entry, open orders (limit / TP / SL / trailing), your buys and sells, and calls on this token. */
+const cssv=(v,f)=>getComputedStyle(document.documentElement).getPropertyValue(v).trim()||f;
+function hasActivity(key){const m=mintOf(key);return (S.bal[key]||0)>0||(ORD.list||[]).some(o=>o.inputMint===m||o.outputMint===m)||(S.ledger||[]).some(x=>x.in_mint===m||x.out_mint===m)}
+function chartOverlay(key){const m=mintOf(key),UP=cssv('--up','#3DDC97'),DN=cssv('--down','#FF6B8A'),HI=cssv('--hi','#4DA8FF'),MU=cssv('--muted','#8FA6BA'),lines=[],marks=[];
+ const p=pnlBook().P[m];if(p&&p.amt>0&&(S.bal[key]||0)>0)lines.push({price:p.cost/p.amt,title:'Avg entry',color:HI,dashed:false});
+ (ORD.list||[]).filter(o=>o.inputMint===m||o.outputMint===m).forEach(o=>{const buy=o.outputMint===m;
+  if(o.orderType==='oco'){lines.push({price:o.tpPriceUsd,title:'TP',color:UP});lines.push({price:o.slPriceUsd,title:'SL',color:DN});return}
+  if(o.trailingBps){if(o.triggerPriceUsd)lines.push({price:o.triggerPriceUsd,title:`Trail ${Math.round(o.trailingBps/100)}%`,color:DN});return}
+  lines.push({price:o.triggerPriceUsd,title:buy?'Limit buy':o.triggerCondition==='below'?'SL':'TP',color:buy?HI:o.triggerCondition==='below'?DN:UP})});
+ (S.ledger||[]).forEach(x=>{const tm=Math.floor(Date.parse(x.created_at)/1000);if(!tm)return;
+  if(x.out_mint===m&&(x.kind==='buy'||x.kind==='swap'))marks.push({time:tm,kind:'buy'});else if(x.in_mint===m&&(x.kind==='sell'||x.kind==='swap'))marks.push({time:tm,kind:'sell'})});
+ const cs=calls.filter(k=>k.t===key&&k.born&&!k.sponsored).sort((a,b)=>b.born-a.born),mine=cs.filter(k=>k.c===S.me),rest=cs.filter(k=>k.c!==S.me).slice(0,10);
+ [...mine,...rest].forEach(k=>marks.push({time:Math.floor(k.born/1000),kind:'call',mine:k.c===S.me,text:k.c===S.me?'📣 You':'📣'}));
+ void MU;return {lines,marks}}
+function refreshOverlay(){const el=$('#lchart');if(LCHART&&LCHART.overlay&&el&&el.dataset.mint)try{LCHART.overlay(chartOverlay(el.dataset.mint))}catch(e){console.warn('[callit] overlay',e)}}
 /* Keep live screens fresh. Paused when the tab is hidden. Market + open token every 6s, call tokens every 9s. */
 let LTICK=0;setInterval(()=>{if(document.hidden)return;LTICK++;const [,r,p]=location.hash.split('/');
  if(r==='market'&&LTICK%2===0&&!document.querySelector('.sheet.open')){(lfIds(S.tt,filOf(S.tt))||[]).forEach(id=>loadFeed(id))}
@@ -1988,7 +2027,7 @@ const tokPath=k=>k==='SOL'?SOL_MINT:k==='USDC'?USDC_MINT:k;
 const ORD={list:null,busy:0,at:0};
 function loadOrders(force){if(!REALW()||!S.addr||ORD.busy||(!force&&Date.now()-ORD.at<15e3))return;ORD.busy=1;
  listOrders(S.addr,'active').then(l=>{ORD.list=l}).catch(()=>{ORD.list=ORD.list||[]}).finally(()=>{ORD.busy=0;ORD.at=Date.now();
-  const tk=$('#tokords');if(tk){const [,,p]=location.hash.split('/');tk.innerHTML=ordersList(p)}const wo=$('#walords');if(wo)wo.innerHTML=ordersList()})}
+  const tk=$('#tokords');if(tk){const [,,p]=location.hash.split('/');tk.innerHTML=ordersList(p)}const wo=$('#walords');if(wo)wo.innerHTML=ordersList();refreshOverlay()})}
 const parseMc=v=>{const g=String(v||'').trim().toUpperCase().replace(/[$,\s]/g,'');const n=parseFloat(g);return isFinite(n)&&n>0?n*(g.endsWith('B')?1e9:g.endsWith('M')?1e6:g.endsWith('K')?1e3:1):0};
 const mcOfPrice=(mint,p)=>{const t=T[mint];return t&&t.price&&p?mcap(t)*p/t.price:0};
 function ordLabel(o){const cash=m=>m===SOL_MINT||m===USDC_MINT,buy=cash(o.inputMint),tok=buy?o.outputMint:o.inputMint;

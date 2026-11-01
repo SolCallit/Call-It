@@ -100,3 +100,24 @@
 
 /* megaphone over the tech backgrounds: brighter than soft-light, which disappears on navy */
 .xcard[data-sty="flux"] .xwm, .xcard[data-sty="fluxblue"] .xwm, .xcard[data-sty="terminal"] .xwm, .xcard[data-sty="glitch"] .xwm, .xcard[data-sty="grid"] .xwm, .xcard[data-sty="dither"] .xwm { opacity: 0.22 !important; mix-blend-mode: normal; z-index: 0; }
+
+/* Sell result: realized PnL pop-up. Wins get confetti (engine.ts confetti()). */
+.pnlpop{position:relative;width:min(400px,calc(100vw - 32px));margin:auto;align-self:center;background:var(--bg2);border:1px solid var(--line);border-radius:24px;padding:22px 20px 18px;box-shadow:0 30px 80px rgba(0,0,0,.5);transform:translateY(16px) scale(.96);opacity:0;transition:transform .32s cubic-bezier(.2,.9,.3,1.25),opacity .2s ease}
+.pnlpop.in{transform:none;opacity:1}
+.pnlpop.win{border-color:color-mix(in srgb,var(--up) 45%,var(--line));box-shadow:0 30px 80px rgba(0,0,0,.5),0 0 0 1px color-mix(in srgb,var(--up) 20%,transparent),0 0 60px color-mix(in srgb,var(--up) 18%,transparent)}
+.pnlhd{display:flex;align-items:center;gap:12px}
+.pnlhd b{display:block;font-size:16px}.pnlhd small{color:var(--muted);font-size:13px}
+.pnltag{font:700 11px/1 'JetBrains Mono',monospace;letter-spacing:.12em;padding:7px 10px;border-radius:999px}
+.win .pnltag{background:color-mix(in srgb,var(--up) 16%,transparent);color:var(--up)}
+.loss .pnltag{background:color-mix(in srgb,var(--down) 14%,transparent);color:var(--down)}
+.pnlbig{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:52px;letter-spacing:-.03em;line-height:1;margin:22px 0 10px;text-align:center}
+.win .pnlbig{color:var(--up)}.loss .pnlbig{color:var(--down)}
+.pnlchips{display:flex;justify-content:center;gap:8px;margin-bottom:18px}
+.pnlchips span{padding:6px 12px;border-radius:999px;border:1px solid var(--line);font-weight:700;font-size:14px}
+.pnlrow{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;padding:12px 14px;border-radius:14px;background:var(--bg);margin-bottom:8px}
+.pnlrow>div:last-child{text-align:right}.pnlrow>div:nth-child(2){color:var(--muted);display:flex;transform:rotate(180deg)}
+.pnlrow small{display:block;color:var(--muted);font-size:12px;margin-bottom:2px}.pnlrow b{font-size:16px}
+.pnlrow.sub b{font-size:14px;font-weight:600}
+.pnlact{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.confetti{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:9999}
+@media (prefers-reduced-motion:reduce){.pnlpop{transition:none}}

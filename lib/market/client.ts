@@ -1,14 +1,21 @@
 'use client';
 
-import { CandlestickSeries, ColorType, HistogramSeries, createChart, type IChartApi, type UTCTimestamp } from 'lightweight-charts';
+import { CandlestickSeries, ColorType, HistogramSeries, LineStyle, createChart, createSeriesMarkers, type IChartApi, type IPriceLine, type SeriesMarker, type Time, type UTCTimestamp } from 'lightweight-charts';
 
 export type ChartTf = '1m' | '5m' | '15m' | '1h' | '4h' | '1d';
 /** How often candles are re-pulled. Between pulls, tick() moves the last candle with the live price. */
 const POLL: Record<ChartTf, number> = { '1m': 5e3, '5m': 10e3, '15m': 15e3, '1h': 30e3, '4h': 60e3, '1d': 120e3 };
 const BUCKET: Record<ChartTf, number> = { '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '4h': 14400, '1d': 86400 };
 
-/** Cleanup function, plus tick(price) to stream the live price into the newest candle. */
-export type LiveChart = (() => void) & { tick: (price: number) => void };
+/** A level drawn across the chart (avg entry, TP, SL, limit). Price is raw USD per token. */
+export type ChartLine = { price: number; title: string; color: string; dashed?: boolean };
+/** A marker on a candle: your buys/sells and calls made on this token. Time is unix seconds. */
+export type ChartMark = { time: number; kind: 'buy' | 'sell' | 'call'; text?: string; mine?: boolean };
+export type ChartOverlay = { lines: ChartLine[]; marks: ChartMark[] };
+
+/** Cleanup function, plus tick(price) to stream the live price into the newest candle,
+ *  and overlay() to draw the user's own activity on top. */
+export type LiveChart = (() => void) & { tick: (price: number) => void; overlay: (o: ChartOverlay) => void };
 
 export async function fetchFeed(feed: string, interval = '1h') {
   const r = await fetch(`/api/market/list?feed=${feed}&interval=${interval}`);
@@ -70,7 +77,7 @@ export function mountChart(
 
   chart = createChart(el, {
     autoSize: true,
-    layout: { background: { type: ColorType.Solid, color: 'transparent' }, textColor: text, fontSize: 11, attributionLogo: false },
+    layout: { background: { type: ColorType.Solid, color: 'transparent' }, textColor: text, fontSize: 11, attributionLogo: true },
     grid: { vertLines: { color: 'transparent' }, horzLines: { color: line } },
     rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.1, bottom: 0.22 } },
     timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false, rightOffset: 4 },
@@ -82,6 +89,9 @@ export function mountChart(
     upColor: up, downColor: down, borderUpColor: up, borderDownColor: down, wickUpColor: up, wickDownColor: down,
     priceFormat: { type: 'custom', formatter: (v: number) => fmtSmall(v), minMove: 1e-12 },
   });
+  const markers = createSeriesMarkers(candles, []);
+  let lines: IPriceLine[] = [];
+  let ov: ChartOverlay | null = null;
   const vol = chart.addSeries(HistogramSeries, { priceFormat: { type: 'volume' }, priceScaleId: 'vol', lastValueVisible: false, priceLineVisible: false });
   chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
 
@@ -111,6 +121,7 @@ export function mountChart(
       else last = { time: z[0], open: z[1], high: z[2], low: z[3], close: z[4] };
       vol.setData(list.map(([t, o, , , c, v]) => ({ time: t as UTCTimestamp, value: v, color: c >= o ? up + '66' : down + '66' })));
       if (first) chart.timeScale().fitContent();
+      if (first && ov) drawMarks(ov);
       first = false;
       opts.onState?.('ok');
     } catch {
@@ -124,6 +135,34 @@ export function mountChart(
   };
   load();
   timer = setInterval(() => { if (!document.hidden) load(); }, POLL[opts.tf]);
+
+  const size = BUCKET[opts.tf];
+  const accent = css('--hi', '#4DA8FF');
+  function drawMarks(o: ChartOverlay) {
+    const ms: SeriesMarker<Time>[] = o.marks
+      .filter((m) => m.time > 0)
+      .sort((a, b) => a.time - b.time)
+      .map((m) => ({
+        time: (m.time - (m.time % size)) as UTCTimestamp,
+        position: m.kind === 'buy' ? 'belowBar' : 'aboveBar',
+        shape: m.kind === 'buy' ? 'arrowUp' : m.kind === 'sell' ? 'arrowDown' : 'circle',
+        color: m.kind === 'buy' ? up : m.kind === 'sell' ? down : m.mine ? accent : text,
+        text: m.text ?? (m.kind === 'buy' ? 'B' : m.kind === 'sell' ? 'S' : ''),
+        size: m.kind === 'call' ? 0.8 : 1,
+      }));
+    try { markers.setMarkers(ms); } catch { /* torn down */ }
+  }
+  const overlay = (o: ChartOverlay) => {
+    if (dead || !chart) return;
+    ov = o;
+    const f = opts.factor || 1;
+    lines.forEach((l) => { try { candles.removePriceLine(l); } catch { /* gone */ } });
+    lines = o.lines.filter((l) => l.price > 0 && Number.isFinite(l.price)).map((l) => candles.createPriceLine({
+      price: l.price * f, color: l.color, lineWidth: 1, lineStyle: l.dashed === false ? LineStyle.Solid : LineStyle.Dashed,
+      axisLabelVisible: true, title: l.title,
+    }));
+    drawMarks(o);
+  };
 
   const stop = () => {
     dead = true;
@@ -139,5 +178,5 @@ export function mountChart(
     else last = { ...last, high: Math.max(last.high, price), low: Math.min(last.low, price), close: price };
     try { put(last); } catch { /* chart was torn down mid-tick */ }
   };
-  return Object.assign(stop, { tick });
+  return Object.assign(stop, { tick, overlay });
 }
