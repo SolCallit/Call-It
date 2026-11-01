@@ -13,9 +13,10 @@ import { createRoot, type Root } from 'react-dom/client';
 import type { ComponentType } from 'react';
 import CallerCard, { CARD_ART } from '@/components/fx/CallerCard';
 import WalletFx from '@/components/fx/WalletFx';
+import ShareFlux from '@/components/fx/ShareFlux';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const REGISTRY: Record<string, ComponentType<any>> = { caller: CallerCard, wfx: WalletFx };
+const REGISTRY: Record<string, ComponentType<any>> = { caller: CallerCard, wfx: WalletFx, xflux: ShareFlux };
 
 interface Island {
   host: HTMLDivElement;

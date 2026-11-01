@@ -535,7 +535,8 @@ function xcardHTML(d){return `<div class="xstage"><div class="xhead">${d.head}</
    ${d.stats?`<div class="xstats">${d.stats.map(([l,v])=>`<div><span>${l}</span><b class="num">${v}</b></div>`).join('')}</div>`:''}${d.chips&&d.chips.length?`<div class="xchips">${d.chips.map(c=>`<span>${c}</span>`).join('')}</div>`:''}</div>
   <div class="xbot"><span class="xwho">${avatar(d.h,'md')}<span><b>${esc(d.name)}</b><small>@${esc(d.h)}</small></span></span>${d.tok?`<span class="xtok">${d.tok}<b>${d.tokLab||''}</b></span>`:''}</div></div>
  <div class="xfoot"><span><span class="mark"></span>Call it. Get Paid.</span><span>${SITE_HOST}</span></div></div>`}
-const XSTYLES=[['mega','Callit'],['terminal','Terminal'],['glitch','Glitch'],['grid','Grid'],['dither','Dither'],['mono','Mono']];
+const XSTYLES=[['mega','Callit'],['flux','Flux'],['fluxblue','Flux Blue'],['terminal','Terminal'],['glitch','Glitch'],['grid','Grid'],['dither','Dither'],['mono','Mono']];
+const XFLUX={flux:1,fluxblue:1};
 const XSTY=()=>{try{const v=localStorage.getItem('callit.xsty');return XSTYLES.some(x=>x[0]===v)?v:'mega'}catch(_){return 'mega'}};
 /* Share card backgrounds in the style of React Bits Faulty Terminal, Letter Glitch, Grid Scan and Dither (navy). */
 const XBGS={terminal:1,glitch:1,grid:1,dither:1};
@@ -556,7 +557,9 @@ function xbgDraw(g,st,x0,y0,w,h,col){let sd=7;const rnd=()=>{sd=(sd*16807)%21474
 const XBGC={};
 function xbgURL(st,col,w=780,h=440){const k=st+col+w;if(XBGC[k])return XBGC[k];const c=document.createElement('canvas');c.width=w;c.height=h;xbgDraw(c.getContext('2d'),st,0,0,w,h,col);return XBGC[k]=c.toDataURL('image/jpeg',.88)}
 function paintX(m,d){const card=m.querySelector('.xcard');if(!card||d.theme)return;const col=d.up===false?'#FF6B8A':d.up==null?'#4DA8FF':'#3DDC97',art=card.querySelector('.xart');
- if(art)art.style.backgroundImage=XBGS[d.sty]?`url(${xbgURL(d.sty,col)})`:'';
+ if(art){art.style.backgroundImage=XBGS[d.sty]?`url(${xbgURL(d.sty,col)})`:'';
+  if(XFLUX[d.sty]){let ph=art.querySelector('[data-island]');if(!ph){ph=document.createElement('div');ph.dataset.island='xflux';ph.dataset.key='share';art.appendChild(ph)}ph.dataset.props=JSON.stringify({v:d.sty});if(window.__callitIslands)window.__callitIslands(art)}
+  else art.replaceChildren()}
  m.querySelectorAll('.xsty i').forEach(i=>{if(XBGS[i.dataset.sty]&&!i.style.backgroundImage)i.style.backgroundImage=`url(${xbgURL(i.dataset.sty,col,216,144)})`})}
 function shareModal(d,url,fname,text){url=refURL(url);if(!d.theme)d.sty=XSTY();modal('Share','',`${xcardHTML(d)}
  ${d.theme?'':`<div class="xstys" role="radiogroup" aria-label="Card style">${XSTYLES.map(([k,l])=>`<button type="button" role="radio" aria-checked="${d.sty===k}" class="xsty${d.sty===k?' on':''}" data-sty="${k}"><i data-sty="${k}"></i><span>${l}</span></button>`).join('')}</div>`}
@@ -607,12 +610,15 @@ function xcardImage(d,fname,mode,url,text){const W=1200,H=630,c=document.createE
    else if(TH.pat==='burst'){const bx=cx+cw*.8,by=cy+ch*1.1;g.globalAlpha=.06;for(let a=0;a<360;a+=12){const r1=a*Math.PI/180,r2=(a+4)*Math.PI/180;g.beginPath();g.moveTo(bx,by);g.lineTo(bx+Math.cos(r1)*1400,by+Math.sin(r1)*1400);g.lineTo(bx+Math.cos(r2)*1400,by+Math.sin(r2)*1400);g.closePath();g.fill()}}
    else for(let i=-ch;i<cw;i+=6){g.beginPath();g.moveTo(cx+i,cy);g.lineTo(cx+i+ch,cy+ch);g.stroke()}
    g.globalAlpha=1}
-  else{const st=d.sty||'mega';if(XBGS[st])xbgDraw(g,st,cx,cy,cw,ch,col);const AR={aurora:[['#22D3EE',.0],['#8B5CF6',.55],['#22C55E',1]],sunset:[['#F97316',0],['#EC4899',.6],['#7C3AED',1]],ocean:[['#0EA5E9',0],['#1E3A8A',.7],['#0B1B27',1]],neon:[['#4DA8FF',0],['#0B1B27',.5],['#3DDC97',1]]}[st];
+  else{const st=d.sty||'mega';if(XBGS[st])xbgDraw(g,st,cx,cy,cw,ch,col);
+   if(XFLUX[st]){g.fillStyle='#06101b';g.fillRect(cx,cy,cw,ch);const fc=document.querySelector('#modal .xart canvas');if(fc&&fc.width){const s2=Math.max(cw/fc.width,ch/fc.height),dw=fc.width*s2,dh=fc.height*s2;try{g.drawImage(fc,cx+(cw-dw)/2,cy+(ch-dh)/2,dw,dh)}catch(_){}}
+    const fs=g.createRadialGradient(cx+cw/2,cy+ch/2,20,cx+cw/2,cy+ch/2,cw*.55);fs.addColorStop(0,'rgba(6,16,27,.6)');fs.addColorStop(1,'rgba(6,16,27,0)');g.fillStyle=fs;g.fillRect(cx,cy,cw,ch)}
+   const AR={aurora:[['#22D3EE',.0],['#8B5CF6',.55],['#22C55E',1]],sunset:[['#F97316',0],['#EC4899',.6],['#7C3AED',1]],ocean:[['#0EA5E9',0],['#1E3A8A',.7],['#0B1B27',1]],neon:[['#4DA8FF',0],['#0B1B27',.5],['#3DDC97',1]]}[st];
    if(AR){g.globalAlpha=st==='neon'?.35:.5;const ag=g.createLinearGradient(cx,cy,cx+cw,cy+ch);AR.forEach(([c2,o])=>ag.addColorStop(o,c2));g.fillStyle=ag;g.fillRect(cx,cy,cw,ch);g.globalAlpha=1}
    if(st==='neon'){g.globalAlpha=.12;g.strokeStyle='#4DA8FF';for(let x=cx;x<cx+cw;x+=40){g.beginPath();g.moveTo(x,cy);g.lineTo(x,cy+ch);g.stroke()}for(let y=cy;y<cy+ch;y+=40){g.beginPath();g.moveTo(cx,y);g.lineTo(cx+cw,y);g.stroke()}g.globalAlpha=1}
    const og=g.createRadialGradient(cx+cw*.85,cy+ch*.9,10,cx+cw*.85,cy+ch*.9,520);og.addColorStop(0,col+'55');og.addColorStop(1,col+'00');g.fillStyle=og;g.fillRect(cx,cy,cw,ch)}
   const sh=g.createLinearGradient(cx,cy,cx+cw,cy+ch);sh.addColorStop(.25,'rgba(255,255,255,0)');sh.addColorStop(.42,'rgba(255,255,255,.09)');sh.addColorStop(.5,'rgba(255,255,255,0)');g.fillStyle=sh;g.fillRect(cx,cy,cw,ch);
-  if(mega&&!TH){const mh=st2=>st2==='mono'||XBGS[st2]?.12:.24;g.globalAlpha=mh(d.sty);const mw=420,hh=mw*mega.height/mega.width;g.drawImage(mega,cx+cw-mw+40,cy+ch-hh+60,mw,hh);g.globalAlpha=1}
+  if(mega&&!TH){const mh=st2=>st2==='mono'?.12:.24;g.globalAlpha=XBGS[d.sty]||XFLUX[d.sty]?0:mh(d.sty);const mw=420,hh=mw*mega.height/mega.width;g.drawImage(mega,cx+cw-mw+40,cy+ch-hh+60,mw,hh);g.globalAlpha=1}
   else if(logo){g.globalAlpha=.07;g.drawImage(logo,cx+cw-330,cy+ch-330,380,380);g.globalAlpha=1}
   const ac=g.createLinearGradient(cx,0,cx+cw,0);ac.addColorStop(0,col+'00');ac.addColorStop(.5,col);ac.addColorStop(1,col+'00');g.fillStyle=ac;g.fillRect(cx,cy,cw,3);
   g.restore();g.strokeStyle='rgba(255,255,255,.14)';g.lineWidth=2;rr(cx+1,cy+1,cw-2,ch-2,35);g.stroke();
