@@ -88,14 +88,15 @@
 
 /* ---------- share card styles: tech backgrounds (drawn in lib/legacy/engine.ts xbgDraw) ---------- */
 .xcard[data-sty="terminal"] .xart, .xcard[data-sty="glitch"] .xart, .xcard[data-sty="grid"] .xart, .xcard[data-sty="dither"] .xart { background-size: cover; background-position: center; }
-.xcard[data-sty="terminal"] .xwm, .xcard[data-sty="glitch"] .xwm, .xcard[data-sty="grid"] .xwm, .xcard[data-sty="dither"] .xwm { opacity: 0.12 !important; mix-blend-mode: normal; }
 .xsty i[data-sty="terminal"], .xsty i[data-sty="glitch"], .xsty i[data-sty="grid"], .xsty i[data-sty="dither"] { background-color: #06101b; background-size: cover; background-position: center; }
 
-/* Flux share styles: live React Bits Flux Lines; no megaphone watermark on any background style */
-.xcard:not([data-sty="mega"]):not([data-sty="mono"]) .xwm { display: none !important; }
+/* Flux share styles: live React Bits Flux Lines. The megaphone sits over every background (original design). */
 .xart > [data-island], .xart .island, .xart .xflux { position: absolute; inset: 0; width: 100%; height: 100%; }
 .xcard[data-sty="flux"] .xart, .xcard[data-sty="fluxblue"] .xart { background: #06101b; overflow: hidden; border-radius: inherit; }
 .xcard[data-sty="flux"] .xart::after, .xcard[data-sty="fluxblue"] .xart::after { content: ''; position: absolute; inset: 0; background: radial-gradient(55% 60% at 50% 50%, rgba(6, 16, 27, 0.6), rgba(6, 16, 27, 0) 100%); }
 .xsty i[data-sty="flux"], .xsty i[data-sty="fluxblue"] { background-color: #06101b; background-size: cover; background-position: center; }
 .xsty i[data-sty="flux"] { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 54 36'><g fill='none' stroke-linecap='round'><path d='M-2 9 C10 2 16 16 28 9 S46 3 56 10' stroke='%23e3f3ff' stroke-width='1.6'/><path d='M-2 20 C9 14 18 27 30 19 S47 15 56 22' stroke='%237cc4ff' stroke-width='2.2'/><path d='M-2 30 C12 25 20 35 32 29 S48 27 56 31' stroke='%23ffffff' stroke-width='1.2' opacity='.7'/></g></svg>"); }
 .xsty i[data-sty="fluxblue"] { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 54 36'><g fill='none' stroke-linecap='round'><path d='M-2 9 C10 2 16 16 28 9 S46 3 56 10' stroke='%23bfe6ff' stroke-width='1.4'/><path d='M-2 20 C9 14 18 27 30 19 S47 15 56 22' stroke='%234DA8FF' stroke-width='2.4'/><path d='M-2 30 C12 25 20 35 32 29 S48 27 56 31' stroke='%23123a63' stroke-width='2'/></g></svg>"); }
+
+/* megaphone over the tech backgrounds: brighter than soft-light, which disappears on navy */
+.xcard[data-sty="flux"] .xwm, .xcard[data-sty="fluxblue"] .xwm, .xcard[data-sty="terminal"] .xwm, .xcard[data-sty="glitch"] .xwm, .xcard[data-sty="grid"] .xwm, .xcard[data-sty="dither"] .xwm { opacity: 0.22 !important; mix-blend-mode: normal; z-index: 0; }
