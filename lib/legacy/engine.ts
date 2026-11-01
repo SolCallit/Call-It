@@ -551,7 +551,14 @@ function shareModal(d,url,fname,text){url=refURL(url);if(!d.theme)d.sty=XSTY();m
 function shareSheet(id){const k=postBy(id);if(!k)return;const d=cardOf(k),url=postURL(id);
  const text=k.perp?`${k.c} called ${k.perp.side} ${k.perp.m} ${+k.perp.lev}x. ${d.big} ROE so far. Tracked on Callit`:catOf(k)==='random'?`${k.c} on Callit`:d.n!=null?`${k.c} called $${symOf(k.t)} at ${fmtUsd(k.entry)} MC. It's ${fmtPct(d.n)} since. Tracked on Callit`:`${k.c} is calling $${symOf(k.t)} on Callit`;
  shareModal(d,url,`callit-${k.perp?k.perp.m:k.t||'post'}`,text)}
-function shareProfile(h){const d=cardOfProfile(h);shareModal(d,profileURL(h),'callit-'+h,h===S.me?'My calls, tracked live on Callit':`Follow @${h}'s calls on Callit`);if(!PUB[h])loadPub(h)}
+function shareProfile(h){if(!PUB[h])loadPub(h);const me=h===S.me,P=me?PROF:pubP(h),nm=P.name||DN[h]||h,url=refURL(profileURL(h)),text=me?'My calls, tracked live on Callit':`Follow @${h}'s calls on Callit`;
+ modal('Share','',`${techCallerCard(h,nm)}
+ <div class="shlink"><span class="num">${esc(url.replace(/^https?:\/\//,''))}</span><button class="btn sm primary" data-act="copy" data-v="${esc(url)}" data-m="Link copied">${ic('copy',14)} Copy</button></div>
+ ${S.connected?`<div class="shrefl">${ic('people',14)} <b>Your referral link</b><span>Anyone who joins from it is yours.</span></div><div class="shlink shref"><span class="num">${esc(inviteURL().replace(/^https?:\/\//,''))}</span><button class="btn sm ghost" data-act="copyinvite">${ic('copy',14)} Copy</button></div>`:''}
+ <div class="shacts"><a class="btn primary" target="_blank" rel="noopener" href="https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}">${ic('xlogo',15)} Post on X</a>
+ <button class="btn ghost" id="xsave">${ic('image',16)} Save card</button>${navigator.share?`<button class="btn ghost" id="xnative">${ic('share',16)} More…</button>`:''}</div>`,
+ m=>{if(window.__callitIslands)window.__callitIslands(m);const go=mode=>window.__callitShareCard&&window.__callitShareCard(h,mode,url,text).then(ok=>{if(!ok)toast('Card is still loading. Try again in a second')});
+  $('#xsave',m).onclick=()=>go('dl');const nv=$('#xnative',m);if(nv)nv.onclick=()=>go('native')})}
 /* 1200x630 image of the same card, for X / Telegram / saving. */
 function xcardImage(d,fname,mode,url,text){const W=1200,H=630,c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d'),F='system-ui,-apple-system,Segoe UI,sans-serif';
  const col=d.up===false?'#FF6B8A':d.up==null?'#4DA8FF':'#3DDC97',PR=!!d.stats,TH=d.theme;
@@ -1423,15 +1430,17 @@ function vLeadersOld(){return topCalls()+`<div class="pad" style="display:flex;j
 
 /* Live portfolio board: total that flashes on every tick, today's move, allocation bar, YTD line. */
 let WPREV=null;
+/* React Bits terminal screen behind a wallet panel (components/fx/WalletFx). */
+const wfx=k=>`<div class="wfx" aria-hidden="true" data-island="wfx" data-key="${k}" data-props='{"kind":"${k}"}'></div>`;
 function pboard(rows,tot){const d24=rows.reduce((a,[k,amt])=>{const t=T[k],v=usd(k,amt)||0,c=t&&t.chg!=null&&isFinite(t.chg)?t.chg:0;return a+(v-v/(1+c/100))},0),
  base=tot-d24,p24=base>0?d24/base*100:0,up=d24>=0,fl=WPREV==null||Math.abs(tot-WPREV)<.005?'':tot>WPREV?' fl-up':' fl-dn';WPREV=tot;
  const segs=rows.map(([k,a])=>({k,v:usd(k,a)||0})).filter(x=>x.v>0),top=segs.slice(0,4),rest=segs.slice(4).reduce((a,x)=>a+x.v,0);
  const col=k=>k==='SOL'?'#9B7BFF':k==='USDC'?'#4DA8FF':`hsl(${hue(symOf(k))} 62% 52%)`;
  const st=statsOf(S.me);
- const wcard={name:nameOf(S.me)||S.me,addr:S.addr||'',total:tot,d24,p24};
- return `<div class="wcwrap"><div data-island="wallet" data-key="me" data-props="${esc(JSON.stringify(wcard))}"><span class="sr">Portfolio ${tot<1e6?'$'+tot.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):fmtUsd(tot)}</span></div></div>
- <div class="pboard ${up?'is-up':'is-down'}">${walletArt(artSeed(),0)}<i class="pbglow" aria-hidden="true"></i>
- <div class="pbtop"><span class="pblab">Holdings</span>${st.n?`<span class="pbchg num"><span class="${st.pnl>=0?'up':'down'}">${money(st.pnl)}</span><span class="muted">all-time</span></span>`:''}</div>
+ return `<div class="pboard ${up?'is-up':'is-down'}">${wfx('pf')}
+ <div class="pbtop"><span class="pblab">Portfolio</span><span class="stlive"><i></i>Live</span></div>
+ <div class="pbval num${fl}" aria-live="polite">${tot<1e6?'$'+tot.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):fmtUsd(tot)}</div>
+ <div class="pbchg num"><span class="${up?'up':'down'}">${ic(up?'up':'down',13)} ${money(d24)} (${fmtPct(p24)})</span><span class="muted">today</span>${st.n?`<span class="pbdot"></span><span class="${st.pnl>=0?'up':'down'}">${money(st.pnl)}</span><span class="muted">all-time</span>`:''}</div>
  ${segs.length?`<div class="pbbar" role="img" aria-label="Allocation">${top.map(x=>`<i style="flex:${x.v};background:${col(x.k)}"></i>`).join('')}${rest?`<i style="flex:${rest};background:var(--muted)"></i>`:''}</div>
  <div class="pbleg">${top.map(x=>`<span><i style="background:${col(x.k)}"></i>${esc(symOf(x.k))} <b class="num">${Math.round(x.v/tot*100)}%</b></span>`).join('')}${rest?`<span><i style="background:var(--muted)"></i>Other <b class="num">${Math.round(rest/tot*100)}%</b></span>`:''}</div>`
  :`<p class="pbempty muted">Deposit SOL or USDC to start. Your holdings show up here live.</p>`}
@@ -1441,7 +1450,7 @@ function vWallet(){if(!S.connected)return `<div class="empty"><b class="h2">No w
  const rows=Object.entries(S.bal).filter(([k,a])=>a>0&&T[k]).sort((x,y)=>(usd(y[0],y[1])||0)-(usd(x[0],x[1])||0)),tot=rows.reduce((s,[k,a])=>s+(usd(k,a)||0),0);
  const wc=['earn','keys'].includes(S.wcard)?S.wcard:'pf';
  const card=wc==='earn'?(earnCard()||`<div class="earn"><div class="earnt"><span class="earnic">${ic('crown',18)}</span><b>Caller earnings</b></div><p class="hint earnempty">Earnings show here once you’re signed in.</p></div>`):wc==='keys'?(keysCard()+`<p class="hint wkeyx">Callit is non-custodial. Every trade, withdrawal and claim is signed by you.</p>`):pboard(rows,tot);
- const cardArt=wc==='pf'?card:card.replace(/^(\s*<(?:section|div) class="(?:earn|keyscard)[^"]*"[^>]*>)/,(m)=>m+walletArt(artSeed(),wc==='earn'?1:2));
+ const cardArt=wc==='pf'?card:card.replace(/^(\s*<(?:section|div) class="(?:earn|keyscard)[^"]*"[^>]*>)/,(m)=>m+wfx(wc));
  return `<div class="pad wpage"><div class="wbg" aria-hidden="true">${walletArt(artSeed(),4,'art wbgart')}</div><div class="wcsw">${vseg('wcard',[['pf','Portfolio','wallet'],['earn','Earnings','crown'],['keys','Keys','lock']],wc,'Wallet view')}</div><div class="wcbody">${cardArt}</div>
  <div class="acts2 acts3"><button class="btn primary" data-act="deposit">${ic('down',16)} Deposit</button><button class="btn" data-act="withdraw">${ic('up',16)} Withdraw</button><a class="btn" href="#/swap">${ic('swap',16)} Swap</a></div>
  <div class="list">${(()=>{const B=pnlBook();return rows.map(([k,a])=>{const x=posPnl(k,B);return holdRow(k,a,usd(k,a)||0,x?x.pnl:null,x?x.pct:null,1)}).join('')})()}</div>
@@ -1509,7 +1518,6 @@ function vProfile(h){if(!h&&S.connected)h=S.me;if(h&&h===S.me&&realAuth()&&Date.
  ${P.bio?`<p class="pbio">${esc(P.bio)}</p>`:me?`<p class="pbio muted">Add a bio so people know what you call. <button class="lnk" data-act="editprof" style="padding:0">Add bio</button></p>`:''}
  <div class="pmeta">${P.web?`<a href="${esc(/^https?:/.test(P.web)?P.web:'https://'+P.web)}" target="_blank" rel="noopener">${ic('globe',15)} ${esc(P.web.replace(/^https?:\/\//,''))}</a>`:''}${P.x?`<a href="https://x.com/${esc(P.x.replace('@',''))}" target="_blank" rel="noopener">${ic('xlogo',14)} @${esc(P.x.replace('@',''))}</a>`:''}<span>${ic('wallet',15)} ${me&&S.addr?short(S.addr):'Solana caller'}</span></div>
  <div class="pfollow"><button data-act="follows" data-h="${h}" data-f="following"><b>${fmtK(fg)}</b> Following</button><button data-act="follows" data-h="${h}" data-f="followers"><b>${fmtK(fr)}</b> Followers</button>${rankChip(h)}</div>
- ${techCallerCard(h,nm)}
  <div class="pdash">${me?ytdCard():''}
  <div class="pstats p6 num">${(()=>{const st=statsOf(h);return `<div><span>All-time PnL</span><b class="${st.n?(st.pnl>=0?'up':'down'):''}">${st.n?money(st.pnl):'—'}</b></div><div><span>Volume</span><b>${st.vol?fmtUsd(st.vol):'—'}</b></div>`})()}<div><span>Win rate</span><b>${c.calls?c.win+'%':'—'}</b></div><div><span>Avg return</span><b>${c.calls?fmtPct(c.avg):'—'}</b></div><div><span>Calls</span><b>${c.calls}</b></div><div><span>Best call</span><b>${c.best?fmtPct(c.best):'—'}</b></div></div></div></div>
  <div class="tabs" style="position:static">${[['calls','Calls'],['holdings','Holdings'],['activity','Activity']].map(([k,l])=>`<button class="${(S.ptab||'calls')===k?'on':''}" data-act="ptab" data-f="${k}">${l}</button>`).join('')}</div>
@@ -1518,7 +1526,7 @@ function vProfile(h){if(!h&&S.connected)h=S.me;if(h&&h===S.me&&realAuth()&&Date.
 /* Caller card: a dark tech card per caller (React Bits Electric Border + Letter Glitch, see components/fx). Rank sets the current. */
 function techCallerCard(h,nm){const c=C[h]||{},r=rankOf(h),t=tierOf(h),av=(h===S.me&&PROF.avatar)||AVURL[h]||'';
  const d={handle:h,name:nm,avatar:av,rank:r||null,tier:t.name,win:c.calls?c.win:null,calls:c.calls||0,best:c.calls?c.best:null,avg:c.calls?c.avg:null};
- return `<div class="ccsec"><div data-island="caller" data-key="${esc(h)}" data-props="${esc(JSON.stringify(d))}"></div><div class="ccacts"><button class="btn sm" data-act="sharecard" data-h="${esc(h)}">${ic('share',15)} Share card</button></div></div>`}
+ return `<div class="ccsec"><div data-island="caller" data-key="${esc(h)}" data-props="${esc(JSON.stringify(d))}"></div></div>`}
 
 function vPromote(){const PK={ads:['Ad board','Your product card rotates through the feed ad slots and the ad board.'],boost:['Feed boost','Pinned in For you for 24 hours.'],spotlight:['Caller spotlight','One top-10 caller covers your project.'],launch:['Launch push','Three top callers cover your launch day.']};
  return `<div class="pad"><p class="muted" style="margin:0 0 16px;max-width:560px">Announce a launch or product on any chain. Promotions are labelled sponsored and never count toward a caller's ranking.</p>
@@ -3456,7 +3464,6 @@ document.addEventListener('click',e=>{
   nread:()=>{const n=NOTIFS.find(x=>x.id==b.dataset.f);if(n){if(n.real&&n.unread&&window.CallitAuth&&window.CallitAuth.markRead)window.CallitAuth.markRead([n.id]);n.unread=0}closeModal();chrome(currentRoute())},
   nall:()=>{if(NOTIFS.some(n=>n.real&&n.unread)&&window.CallitAuth&&window.CallitAuth.markRead)window.CallitAuth.markRead('all');NOTIFS.forEach(n=>n.unread=0);toast('All caught up');render()},nt:()=>{S.nt=b.dataset.f;render()},
   gopremium:()=>{location.hash='#/premium'},plan:()=>{S.plan=b.dataset.f;render()},payvia:()=>{S.payvia=b.dataset.f;render()},
-  sharecard:()=>{const h=b.dataset.h;if(!window.__callitShareCard)return;window.__callitShareCard(h).then(ok=>{if(!ok)toast('Card is still loading. Try again in a second')})},
   notify:()=>{const f=b.dataset.f;if(!S.connected)return connectModal();S.notifyOn=S.notifyOn||{};S.notifyOn[f]=1;if(f==='stake')S.stakeWait=true;try{localStorage.setItem('callit.notify',JSON.stringify(S.notifyOn))}catch(_){}toast(`We'll let you know when ${SOONF[f]||'it'} opens`);render()},
   astsend:()=>astSend(($('#astin')||{}).value),
   astnew:()=>{AST.msgs=[];AST.err='';render()},

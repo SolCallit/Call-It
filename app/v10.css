@@ -1,4 +1,4 @@
-/* v10: dark tech cards from React Bits (caller card on every profile, Callit card on the wallet) */
+/* v10: React Bits — caller card in the profile share sheet, terminal screen behind the wallet panels */
 
 .island { display: flex; justify-content: center; width: 100%; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -14,9 +14,8 @@
 .t-hud i:nth-child(4) { right: 0; bottom: 0; border-right-width: 1.5px; border-bottom-width: 1.5px; }
 
 /* ---------- caller card ---------- */
-.ccsec { display: flex; flex-direction: column; align-items: center; gap: 14px; margin: 22px 0 10px; }
+.ccsec { display: flex; flex-direction: column; align-items: center; gap: 14px; }
 .ccsec [data-island] { display: flex; justify-content: center; width: 100%; min-height: 120px; }
-.ccacts { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
 
 .tc { width: min(300px, 78vw); }
 .tc-card { position: relative; aspect-ratio: 5 / 7; border-radius: 18px; overflow: hidden; background: #04080f; container-type: inline-size; color: #fff; --t-hud: color-mix(in srgb, var(--tc-line) 70%, transparent); }
@@ -58,39 +57,31 @@
 .tc-foot { margin-top: 4.6cqw; align-self: stretch; height: 4cqw; display: flex; align-items: center; justify-content: space-between; font: 600 2.8cqw/1 var(--mono); letter-spacing: 0.2em; color: #8fa6ba; }
 .tc-foot img { width: 5cqw; height: 5cqw; opacity: 0.9; }
 
-/* ---------- Callit card (wallet) ---------- */
-.wcwrap { margin: 4px 0 18px; }
-.wcwrap [data-island] { display: flex; justify-content: center; width: 100%; max-width: 430px; margin: 0 auto; aspect-ratio: 1.585; }
-.tw { width: 100%; }
-.tw-card { position: relative; aspect-ratio: 1.585; border-radius: 20px; overflow: hidden; background: #04080f; container-type: inline-size; color: #fff; }
-.tw-bg { position: absolute; inset: 0; }
-.tw-scrim { position: absolute; inset: 0; pointer-events: none;
+/* ---------- wallet panels: React Bits Faulty Terminal behind Portfolio, Earnings and Keys ---------- */
+.pboard > .wfx, .earn > .wfx, .keyscard > .wfx { position: absolute !important; inset: 0; z-index: 0 !important; pointer-events: none; border-radius: inherit; overflow: hidden; }
+.wfx .island, .wfx-screen { width: 100%; height: 100%; }
+.wfx::after { content: ''; position: absolute; inset: 0; pointer-events: none;
   background:
-    repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 0 1px, transparent 1px 4px),
-    linear-gradient(100deg, rgba(3, 7, 13, 0.88) 0%, rgba(3, 7, 13, 0.58) 55%, rgba(3, 7, 13, 0.2) 100%); }
-.tw-ov { position: absolute; inset: 0; z-index: 2; padding: 6cqw 6.4cqw; display: flex; flex-direction: column; pointer-events: none; }
-.tw-head { display: flex; align-items: center; gap: 2.4cqw; }
-.tw-logo { width: 7.4cqw; height: 7.4cqw; border-radius: 2.1cqw; background: #0b1b27; display: grid; place-items: center; box-shadow: 0 0 0 1px rgba(77, 168, 255, 0.45), 0 0 4cqw rgba(77, 168, 255, 0.35); }
-.tw-logo img { width: 62%; height: 62%; }
-.tw-head b { font: 800 4.8cqw/1 'Bricolage Grotesque', 'Schibsted Grotesk', sans-serif; letter-spacing: -0.01em; }
-.tw-net { margin-left: auto; font: 600 2.5cqw/1 var(--mono); letter-spacing: 0.25em; color: #7fc1ff; }
-.tw-lab { margin-top: auto; display: flex; align-items: center; gap: 2cqw; font: 600 2.6cqw/1 var(--mono); letter-spacing: 0.2em; color: #7f97ad; }
-.tw-live { display: inline-flex; align-items: center; gap: 1.2cqw; color: #3ddc97; }
-.tw-live i { width: 1.4cqw; height: 1.4cqw; border-radius: 50%; background: #3ddc97; box-shadow: 0 0 0 0.7cqw rgba(61, 220, 151, 0.18), 0 0 2cqw #3ddc97; animation: tw-pulse 2s ease-in-out infinite; }
-@keyframes tw-pulse { 50% { opacity: 0.45; } }
-.tw-val { margin-top: 1.6cqw; font-family: 'Bricolage Grotesque', 'Schibsted Grotesk', sans-serif; letter-spacing: -0.03em; text-shadow: 0 0 5.6cqw rgba(77, 168, 255, 0.4); }
-.tw-chg { margin-top: 1.4cqw; font: 600 3.1cqw/1 var(--mono); font-variant-numeric: tabular-nums; }
-.tw-chg.up { color: #3ddc97; }
-.tw-chg.down { color: #ff6b8a; }
-.tw-chg span { color: #7f97ad; margin-left: 1.4cqw; }
-.tw-foot { margin-top: 3.6cqw; display: flex; align-items: center; gap: 4cqw; font: 600 2.8cqw/1 var(--mono); letter-spacing: 0.18em; color: #a9c3dc; }
-.tw-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.tw-foot span:last-child { margin-left: auto; flex: none; }
+    repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.022) 0 1px, transparent 1px 4px),
+    linear-gradient(105deg, rgba(7, 17, 28, 0.9) 0%, rgba(7, 17, 28, 0.62) 50%, rgba(7, 17, 28, 0.25) 100%); }
+.pboard:has(> .wfx), .earn:has(> .wfx), .keyscard:has(> .wfx) { background: #07111c; border-color: color-mix(in srgb, #4da8ff 34%, transparent); box-shadow: 0 0 0 1px rgba(77, 168, 255, 0.08), 0 18px 40px -22px rgba(77, 168, 255, 0.45); }
+.pboard:has(> .wfx) .pbglow { display: none; }
+.pboard .pblab { font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.2em; text-transform: uppercase; color: #8fb6db; }
+.pboard .pbtop .stlive { font-family: var(--mono); letter-spacing: 0.14em; text-transform: uppercase; font-size: 11px; }
+.pboard .pbval { text-shadow: 0 0 26px rgba(77, 168, 255, 0.35); }
+.pboard .pbaddr { font-family: var(--mono); }
+.pboard .pbytd .ytd { background: rgba(7, 17, 28, 0.55); }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .wfx { opacity: 0.3; } :root:not([data-theme="dark"]) .wfx::after { background: linear-gradient(105deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.4)); }
+  :root:not([data-theme="dark"]) .pboard:has(> .wfx), :root:not([data-theme="dark"]) .earn:has(> .wfx), :root:not([data-theme="dark"]) .keyscard:has(> .wfx) { background: var(--bg2); } }
+[data-theme="light"] .wfx { opacity: 0.3; }
+[data-theme="light"] .wfx::after { background: linear-gradient(105deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.4)); }
+[data-theme="light"] .pboard:has(> .wfx), [data-theme="light"] .earn:has(> .wfx), [data-theme="light"] .keyscard:has(> .wfx) { background: var(--bg2); }
+
+/* ---------- caller card in the share sheet ---------- */
+.modal .ccsec { margin: 4px 0 16px; }
 
 @media (prefers-reduced-motion: reduce) {
-  .tc-scan, .tc-ring, .tw-live i { animation: none; }
+  .tc-scan, .tc-ring { animation: none; }
   .tc-scan { display: none; }
 }
 
-/* the holdings board under the card no longer repeats the big number */
-.pboard .pbtop .pbchg { margin: 0; }

@@ -12,10 +12,10 @@
 import { createRoot, type Root } from 'react-dom/client';
 import type { ComponentType } from 'react';
 import CallerCard, { CARD_ART } from '@/components/fx/CallerCard';
-import WalletCard from '@/components/fx/WalletCard';
+import WalletFx from '@/components/fx/WalletFx';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const REGISTRY: Record<string, ComponentType<any>> = { caller: CallerCard, wallet: WalletCard };
+const REGISTRY: Record<string, ComponentType<any>> = { caller: CallerCard, wfx: WalletFx };
 
 interface Island {
   host: HTMLDivElement;
@@ -63,20 +63,18 @@ export function mountIslands(scope: ParentNode | null) {
   }
 }
 
-/** Share a caller card as a picture (phone share sheet), or download it where sharing files isn't supported. */
-export async function shareCard(handle: string) {
+/** Save or share a caller card picture. "native" opens the phone's share sheet (falls back to saving), "dl" saves it. */
+export async function shareCard(handle: string, mode: 'native' | 'dl' = 'native', link?: string, text?: string) {
   const blob = CARD_ART.get(handle);
   if (!blob) return false;
   const file = new File([blob], `callit-${handle}-card.jpg`, { type: 'image/jpeg' });
-  const text = `@${handle} on Callit · Call it. Get Paid.`;
-  const link = `${location.origin}/#/profile/${encodeURIComponent(handle)}`;
   const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
-  if (nav.canShare?.({ files: [file] })) {
+  if (mode === 'native' && nav.canShare?.({ files: [file] })) {
     try {
-      await nav.share({ files: [file], text, url: link });
+      await nav.share({ files: [file], text: text || `@${handle} on Callit · Call it. Get Paid.`, url: link || `${location.origin}/#/profile/${encodeURIComponent(handle)}` });
       return true;
     } catch {
-      return false;
+      return true; // closed the share sheet
     }
   }
   const a = document.createElement('a');
