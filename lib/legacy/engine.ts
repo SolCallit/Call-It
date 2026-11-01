@@ -145,7 +145,9 @@ const prefApply=()=>{if(typeof document==='undefined')return;document.body.class
 /* Referral: anyone arriving from someone's share link is remembered as theirs. */
 (()=>{try{const u=new URL(location.href),r=(u.searchParams.get('ref')||'').replace(/[^A-Za-z0-9_]/g,'').slice(0,30);if(r){if(!localStorage.getItem('callit.ref'))localStorage.setItem('callit.ref',r);u.searchParams.delete('ref');history.replaceState(null,'',u.pathname+(u.search||'')+u.hash)}}catch(_){}})();
 const refURL=u=>{if(!S||!S.connected||!S.me)return u;const [a,h='']=String(u).split('#');return a.replace(/[?&]ref=[^&#]*/,'')+(a.includes('?')?'&':'?')+'ref='+encodeURIComponent(S.me)+(h?'#'+h:'')};
-const inviteURL=()=>location.origin+'/?ref='+encodeURIComponent(S.me||'');
+/* Shared links always point at the real site, never a preview or old vercel.app host. */
+const SITE='https://callit.buzz',SITE_HOST='callit.buzz';
+const inviteURL=()=>SITE+'/?ref='+encodeURIComponent(S.me||'');
 const ic=(k,s=22,fill=false)=>`<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="${fill?'currentColor':'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[k]}</svg>`;
 
 /* ---------- mock data ---------- */
@@ -516,7 +518,7 @@ function vLists(id){if(!S.connected)return `<div class="empty"><b class="h2">You
  ${S.lists.length?`<div class="list">${S.lists.map(l=>`<a class="li" href="#/lists/${l.id}"><span class="lsic">${ic('list',18)}</span><div class="grow"><b>${esc(l.name)}</b><div class="hint">${l.members.length} caller${l.members.length===1?'':'s'}</div></div>${ic('chev',16)}</a>`).join('')}</div>`:'<div class="empty"><b>No lists yet</b></div>'}</div>`}
 
 /* ---------- share cards ---------- */
-function profileURL(h){return location.href.split('#')[0]+'#/profile/'+encodeURIComponent(h)}
+function profileURL(h){return SITE+'/#/profile/'+encodeURIComponent(h)}
 function cardOf(k){const n=k.perp?perpNums(k):nums(k),tag=`CALL #${String(k.id).replace(/-/g,'').slice(0,6).toUpperCase()}`,base={h:k.c,name:nameOf(k.c),tag};
  if(catOf(k)==='random')return {...base,head:`@${k.c} on Callit`,label:'',quote:k.thesis||'📷',up:null,chips:[]};
  if(k.perp){const p=k.perp,L=p.side==='long';return {...base,head:`@${k.c} called ${L?'a long':'a short'} on ${p.m}`,label:n&&n.liqd?'Liquidated':'Return on equity',n:n?n.roe:null,big:n?fmtPct(n.roe):'—',up:n?n.up:null,
@@ -532,9 +534,30 @@ function xcardHTML(d){return `<div class="xstage"><div class="xhead">${d.head}</
   <div class="xmid">${d.label?`<span class="xlab">${d.label}</span>`:''}${d.quote!=null?`<p class="xquote">“${esc(d.quote.length>160?d.quote.slice(0,157)+'…':d.quote)}”</p>`:`<b class="xbig num"${d.n!=null?` data-count="${d.n.toFixed(1)}"`:''}>${d.n!=null?fmtPct(0):d.big}</b>`}${d.sub?`<span class="xsub num">${d.sub}</span>`:''}
    ${d.stats?`<div class="xstats">${d.stats.map(([l,v])=>`<div><span>${l}</span><b class="num">${v}</b></div>`).join('')}</div>`:''}${d.chips&&d.chips.length?`<div class="xchips">${d.chips.map(c=>`<span>${c}</span>`).join('')}</div>`:''}</div>
   <div class="xbot"><span class="xwho">${avatar(d.h,'md')}<span><b>${esc(d.name)}</b><small>@${esc(d.h)}</small></span></span>${d.tok?`<span class="xtok">${d.tok}<b>${d.tokLab||''}</b></span>`:''}</div></div>
- <div class="xfoot"><span><span class="mark"></span>Call it. Get Paid.</span><span>${esc(location.host)}</span></div></div>`}
-const XSTYLES=[['mega','Callit'],['aurora','Aurora'],['sunset','Sunset'],['ocean','Ocean'],['mono','Mono'],['neon','Neon']];
-const XSTY=()=>{try{return localStorage.getItem('callit.xsty')||'mega'}catch(_){return 'mega'}};
+ <div class="xfoot"><span><span class="mark"></span>Call it. Get Paid.</span><span>${SITE_HOST}</span></div></div>`}
+const XSTYLES=[['mega','Callit'],['terminal','Terminal'],['glitch','Glitch'],['grid','Grid'],['dither','Dither'],['mono','Mono']];
+const XSTY=()=>{try{const v=localStorage.getItem('callit.xsty');return XSTYLES.some(x=>x[0]===v)?v:'mega'}catch(_){return 'mega'}};
+/* Share card backgrounds in the style of React Bits Faulty Terminal, Letter Glitch, Grid Scan and Dither (navy). */
+const XBGS={terminal:1,glitch:1,grid:1,dither:1};
+function xbgDraw(g,st,x0,y0,w,h,col){let sd=7;const rnd=()=>{sd=(sd*16807)%2147483647;return sd/2147483647},B='#4DA8FF';
+ g.save();g.beginPath();g.rect(x0,y0,w,h);g.clip();g.fillStyle='#06101b';g.fillRect(x0,y0,w,h);
+ if(st==='terminal'){const c=Math.max(8,w/90);for(let y=0;y<h;y+=c)for(let x=0;x<w;x+=c){const u=x/w,v=y/h,f=Math.sin(u*7.1+Math.sin(v*5.3)*1.7)+Math.sin(v*6.2-u*3.1)+Math.sin((u+v)*4.4+1.3),a=Math.max(0,f-.6)/2.4;if(a<=.02)continue;
+  g.globalAlpha=Math.min(1,a*1.6)*(.3+.7*u);g.fillStyle=rnd()<.05?col:B;g.fillRect(x0+x+c*.18,y0+y+c*.18,c*.64,c*.64)}}
+ else if(st==='glitch'){const fs=Math.max(10,w/62),cw=fs*.9,lh=fs*1.45,CH='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#$%&*+=<>/{}';g.font=`600 ${fs}px ui-monospace,Menlo,Consolas,monospace`;g.textAlign='center';g.textBaseline='middle';
+  for(let y=lh/2;y<h;y+=lh)for(let x=cw/2;x<w;x+=cw){const hot=rnd()<.07;g.globalAlpha=hot?.55+rnd()*.4:.1+rnd()*.14;g.fillStyle=hot?(rnd()<.35?col:rnd()<.5?'#7df9ff':B):'#7f9fc2';g.fillText(CH[(rnd()*CH.length)|0],x0+x,y0+y)}}
+ else if(st==='grid'){const cx=x0+w*.5,cy=y0+h*.5,iw=w*.3,ih=h*.3,L=(a,b,c,d,al)=>{g.globalAlpha=al;g.beginPath();g.moveTo(a,b);g.lineTo(c,d);g.stroke()};g.strokeStyle=B;g.lineWidth=Math.max(1,w/600);
+  for(let i=0;i<=12;i++){const t=i/12;L(x0+w*t,y0,cx-iw/2+iw*t,cy-ih/2,.24);L(x0+w*t,y0+h,cx-iw/2+iw*t,cy+ih/2,.3);L(x0,y0+h*t,cx-iw/2,cy-ih/2+ih*t,.22);L(x0+w,y0+h*t,cx+iw/2,cy-ih/2+ih*t,.22)}
+  for(let k=1;k<8;k++){const q=Math.pow(k/8,1.6),rw=iw+(w-iw)*q,rh=ih+(h-ih)*q;g.globalAlpha=.18;g.strokeRect(cx-rw/2,cy-rh/2,rw,rh)}g.globalAlpha=.2;g.strokeRect(cx-iw/2,cy-ih/2,iw,ih);
+  const sy=y0+h*.7,sg=g.createLinearGradient(0,sy-h*.14,0,sy);sg.addColorStop(0,'rgba(77,168,255,0)');sg.addColorStop(1,'rgba(77,168,255,.38)');g.globalAlpha=1;g.fillStyle=sg;g.fillRect(x0,sy-h*.14,w,h*.14);g.globalAlpha=.85;g.fillStyle=B;g.fillRect(x0,sy-1.5,w,3)}
+ else if(st==='dither'){const p=Math.max(3,Math.round(w/260)),M=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5],pal=['','#0d2a52','#1d4f99','#3a7fd6'];
+  for(let y=0;y<h;y+=p)for(let x=0;x<w;x+=p){const u=x/w,v=y/h;let f=.5+.25*Math.sin(u*6+Math.sin(v*4)*2)+.2*Math.sin(v*7-u*2+1)+.12*Math.sin((u-v)*11);f=Math.max(0,Math.min(.999,f*1.05-.12));
+   const lv=Math.min(3,Math.floor(f*3+(M[((y/p)&3)*4+((x/p)&3)]+.5)/16));if(!lv)continue;g.globalAlpha=1;g.fillStyle=pal[lv];g.fillRect(x0+x,y0+y,p,p)}}
+ g.globalAlpha=1;const vg=g.createLinearGradient(x0,y0,x0+w,y0);vg.addColorStop(0,'rgba(6,16,27,.8)');vg.addColorStop(.55,'rgba(6,16,27,.4)');vg.addColorStop(1,'rgba(6,16,27,.08)');g.fillStyle=vg;g.fillRect(x0,y0,w,h);g.restore()}
+const XBGC={};
+function xbgURL(st,col,w=780,h=440){const k=st+col+w;if(XBGC[k])return XBGC[k];const c=document.createElement('canvas');c.width=w;c.height=h;xbgDraw(c.getContext('2d'),st,0,0,w,h,col);return XBGC[k]=c.toDataURL('image/jpeg',.88)}
+function paintX(m,d){const card=m.querySelector('.xcard');if(!card||d.theme)return;const col=d.up===false?'#FF6B8A':d.up==null?'#4DA8FF':'#3DDC97',art=card.querySelector('.xart');
+ if(art)art.style.backgroundImage=XBGS[d.sty]?`url(${xbgURL(d.sty,col)})`:'';
+ m.querySelectorAll('.xsty i').forEach(i=>{if(XBGS[i.dataset.sty]&&!i.style.backgroundImage)i.style.backgroundImage=`url(${xbgURL(i.dataset.sty,col,216,144)})`})}
 function shareModal(d,url,fname,text){url=refURL(url);if(!d.theme)d.sty=XSTY();modal('Share','',`${xcardHTML(d)}
  ${d.theme?'':`<div class="xstys" role="radiogroup" aria-label="Card style">${XSTYLES.map(([k,l])=>`<button type="button" role="radio" aria-checked="${d.sty===k}" class="xsty${d.sty===k?' on':''}" data-sty="${k}"><i data-sty="${k}"></i><span>${l}</span></button>`).join('')}</div>`}
  <div class="shlink"><span class="num">${esc(url.replace(/^https?:\/\//,''))}</span><button class="btn sm primary" data-act="copy" data-v="${esc(url)}" data-m="Link copied">${ic('copy',14)} Copy</button></div>
@@ -546,7 +569,7 @@ function shareModal(d,url,fname,text){url=refURL(url);if(!d.theme)d.sty=XSTY();m
    matchMedia('(prefers-reduced-motion:reduce)').matches?el.textContent=fmtPct(to):requestAnimationFrame(step)}
   const card=m.querySelector('.xcard');card.addEventListener('pointermove',e=>{const r=card.getBoundingClientRect(),x=(e.clientX-r.left)/r.width-.5,y=(e.clientY-r.top)/r.height-.5;card.style.setProperty('--rx',(-y*7)+'deg');card.style.setProperty('--ry',(x*9)+'deg');card.style.setProperty('--mx',(x*100+50)+'%')});
   card.addEventListener('pointerleave',()=>{card.style.setProperty('--rx','0deg');card.style.setProperty('--ry','0deg')});
-  m.querySelectorAll('.xsty').forEach(b=>b.onclick=()=>{d.sty=b.dataset.sty;card.dataset.sty=d.sty;try{localStorage.setItem('callit.xsty',d.sty)}catch(_){}m.querySelectorAll('.xsty').forEach(x=>{x.classList.toggle('on',x===b);x.setAttribute('aria-checked',x===b)})});
+  paintX(m,d);m.querySelectorAll('.xsty').forEach(b=>b.onclick=()=>{d.sty=b.dataset.sty;card.dataset.sty=d.sty;paintX(m,d);try{localStorage.setItem('callit.xsty',d.sty)}catch(_){}m.querySelectorAll('.xsty').forEach(x=>{x.classList.toggle('on',x===b);x.setAttribute('aria-checked',x===b)})});
   $('#xsave',m).onclick=()=>xcardImage(d,fname,'dl',url,text);const nv=$('#xnative',m);if(nv)nv.onclick=()=>xcardImage(d,fname,'native',url,text)})}
 function shareSheet(id){const k=postBy(id);if(!k)return;const d=cardOf(k),url=postURL(id);
  const text=k.perp?`${k.c} called ${k.perp.side} ${k.perp.m} ${+k.perp.lev}x. ${d.big} ROE so far. Tracked on Callit`:catOf(k)==='random'?`${k.c} on Callit`:d.n!=null?`${k.c} called $${symOf(k.t)} at ${fmtUsd(k.entry)} MC. It's ${fmtPct(d.n)} since. Tracked on Callit`:`${k.c} is calling $${symOf(k.t)} on Callit`;
@@ -584,12 +607,12 @@ function xcardImage(d,fname,mode,url,text){const W=1200,H=630,c=document.createE
    else if(TH.pat==='burst'){const bx=cx+cw*.8,by=cy+ch*1.1;g.globalAlpha=.06;for(let a=0;a<360;a+=12){const r1=a*Math.PI/180,r2=(a+4)*Math.PI/180;g.beginPath();g.moveTo(bx,by);g.lineTo(bx+Math.cos(r1)*1400,by+Math.sin(r1)*1400);g.lineTo(bx+Math.cos(r2)*1400,by+Math.sin(r2)*1400);g.closePath();g.fill()}}
    else for(let i=-ch;i<cw;i+=6){g.beginPath();g.moveTo(cx+i,cy);g.lineTo(cx+i+ch,cy+ch);g.stroke()}
    g.globalAlpha=1}
-  else{const st=d.sty||'mega',AR={aurora:[['#22D3EE',.0],['#8B5CF6',.55],['#22C55E',1]],sunset:[['#F97316',0],['#EC4899',.6],['#7C3AED',1]],ocean:[['#0EA5E9',0],['#1E3A8A',.7],['#0B1B27',1]],neon:[['#4DA8FF',0],['#0B1B27',.5],['#3DDC97',1]]}[st];
+  else{const st=d.sty||'mega';if(XBGS[st])xbgDraw(g,st,cx,cy,cw,ch,col);const AR={aurora:[['#22D3EE',.0],['#8B5CF6',.55],['#22C55E',1]],sunset:[['#F97316',0],['#EC4899',.6],['#7C3AED',1]],ocean:[['#0EA5E9',0],['#1E3A8A',.7],['#0B1B27',1]],neon:[['#4DA8FF',0],['#0B1B27',.5],['#3DDC97',1]]}[st];
    if(AR){g.globalAlpha=st==='neon'?.35:.5;const ag=g.createLinearGradient(cx,cy,cx+cw,cy+ch);AR.forEach(([c2,o])=>ag.addColorStop(o,c2));g.fillStyle=ag;g.fillRect(cx,cy,cw,ch);g.globalAlpha=1}
    if(st==='neon'){g.globalAlpha=.12;g.strokeStyle='#4DA8FF';for(let x=cx;x<cx+cw;x+=40){g.beginPath();g.moveTo(x,cy);g.lineTo(x,cy+ch);g.stroke()}for(let y=cy;y<cy+ch;y+=40){g.beginPath();g.moveTo(cx,y);g.lineTo(cx+cw,y);g.stroke()}g.globalAlpha=1}
    const og=g.createRadialGradient(cx+cw*.85,cy+ch*.9,10,cx+cw*.85,cy+ch*.9,520);og.addColorStop(0,col+'55');og.addColorStop(1,col+'00');g.fillStyle=og;g.fillRect(cx,cy,cw,ch)}
   const sh=g.createLinearGradient(cx,cy,cx+cw,cy+ch);sh.addColorStop(.25,'rgba(255,255,255,0)');sh.addColorStop(.42,'rgba(255,255,255,.09)');sh.addColorStop(.5,'rgba(255,255,255,0)');g.fillStyle=sh;g.fillRect(cx,cy,cw,ch);
-  if(mega&&!TH){const mh=st2=>st2==='mono'?.12:.24;g.globalAlpha=mh(d.sty);const mw=420,hh=mw*mega.height/mega.width;g.drawImage(mega,cx+cw-mw+40,cy+ch-hh+60,mw,hh);g.globalAlpha=1}
+  if(mega&&!TH){const mh=st2=>st2==='mono'||XBGS[st2]?.12:.24;g.globalAlpha=mh(d.sty);const mw=420,hh=mw*mega.height/mega.width;g.drawImage(mega,cx+cw-mw+40,cy+ch-hh+60,mw,hh);g.globalAlpha=1}
   else if(logo){g.globalAlpha=.07;g.drawImage(logo,cx+cw-330,cy+ch-330,380,380);g.globalAlpha=1}
   const ac=g.createLinearGradient(cx,0,cx+cw,0);ac.addColorStop(0,col+'00');ac.addColorStop(.5,col);ac.addColorStop(1,col+'00');g.fillStyle=ac;g.fillRect(cx,cy,cw,3);
   g.restore();g.strokeStyle='rgba(255,255,255,.14)';g.lineWidth=2;rr(cx+1,cy+1,cw-2,ch-2,35);g.stroke();
@@ -609,7 +632,7 @@ function xcardImage(d,fname,mode,url,text){const W=1200,H=630,c=document.createE
   g.restore();g.strokeStyle='rgba(255,255,255,.25)';g.lineWidth=2;g.beginPath();g.arc(cx+82,ay,35,0,7);g.stroke();
   g.textAlign='left';g.fillStyle='#fff';g.font=`800 30px ${F}`;g.fillText(d.name.slice(0,24),cx+132,ay-4);g.fillStyle='#8FA6BA';g.font=`500 22px ${F}`;g.fillText('@'+d.h,cx+132,ay+26);
   if(d.tokLab){g.font=`800 24px ${F}`;const tw=g.measureText(d.tokLab).width+40;rr(cx+cw-46-tw,ay-24,tw,48,24);g.fillStyle='rgba(255,255,255,.08)';g.fill();g.strokeStyle='rgba(255,255,255,.16)';g.stroke();g.fillStyle='#fff';g.textAlign='center';g.fillText(d.tokLab,cx+cw-46-tw/2,ay+9)}
-  g.textAlign='left';g.fillStyle='#8FA6BA';g.font=`600 22px ${F}`;g.fillText('Callit  ⇄  Call it. Get Paid.',44,H-34);g.textAlign='right';g.fillText(location.host,W-44,H-34);
+  g.textAlign='left';g.fillStyle='#8FA6BA';g.font=`600 22px ${F}`;g.fillText('Callit  ⇄  Call it. Get Paid.',44,H-34);g.textAlign='right';g.fillText(SITE_HOST,W-44,H-34);
   c.toBlob(bl=>{if(!bl)return toast('Couldn’t make the image');const f=new File([bl],fname+'.png',{type:'image/png'});
    if(mode==='native'&&navigator.canShare&&navigator.canShare({files:[f]}))navigator.share({files:[f],url,text}).catch(()=>{});
    else if(mode==='native'&&navigator.share)navigator.share({url,text,title:'Callit'}).catch(()=>{});
@@ -2489,7 +2512,7 @@ function nSummary(x){const pl=(NPLAT[x.platform]||NPLAT.news)[0],s=String(x.summ
 function nItem(x){const ext=!/^#\//.test(x.url),pl=(NPLAT[x.platform]||NPLAT.news)[0];
  return `<div class="nitem nx">${x.sym&&T[x.sym]?tokav(x.sym):pbadge(x.platform,x.url)}<span class="grow"><button class="nhead2" data-act="nexp" aria-expanded="false"><b>${esc(x.title)}</b><span class="hint">${esc(x.source)}${x.platform!=='news'&&x.source!==pl?` · ${esc(pl)}`:''} · ${agoMs(x.at)}${x.score?` · ${fmtK(x.score)} ${x.platform==='hackernews'?'pts':x.platform==='callit'?'heat':'likes'}`:''}${x.comments?` · ${fmtK(x.comments)} comments`:''}</span></button>
  <span class="nbody">${x.image&&/^https:/.test(x.image)?`<img class="nbimg" src="${esc(x.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:''}<span class="nsum">${nSummary(x)}</span>
- <span class="nacts"><a class="btn sm primary" href="${esc(x.url)}"${ext?' target="_blank" rel="noopener noreferrer nofollow"':''}>${ext?`Read on ${esc(x.platform==='news'?x.source:pl)} ↗`:'Open'}</a><button class="btn sm ghost" data-act="copy" data-v="${esc(ext?x.url:location.origin+'/'+x.url)}" data-m="Link copied">${ic('copy',14)} Copy link</button></span></span></span>
+ <span class="nacts"><a class="btn sm primary" href="${esc(x.url)}"${ext?' target="_blank" rel="noopener noreferrer nofollow"':''}>${ext?`Read on ${esc(x.platform==='news'?x.source:pl)} ↗`:'Open'}</a><button class="btn sm ghost" data-act="copy" data-v="${esc(ext?x.url:SITE+'/'+x.url)}" data-m="Link copied">${ic('copy',14)} Copy link</button></span></span></span>
  <button class="nchev" data-act="nexp" aria-label="Show summary">${ic('down',18)}</button></div>`}
 function nItemOld(x){const ext=!/^#\//.test(x.url),pl=(NPLAT[x.platform]||NPLAT.news)[0];
  return `<a class="nitem" href="${esc(x.url)}"${ext?' target="_blank" rel="noopener noreferrer nofollow"':''}>${x.sym&&T[x.sym]?tokav(x.sym):pbadge(x.platform,x.url)}
@@ -2614,7 +2637,7 @@ function vPost(id){const k=postBy(id);if(!k)return `<div class="empty"><b class=
   <button class="act${x.liked?' liked':''}" data-act="rlike" data-p="${k.id}" data-i="${ri}" aria-label="Like">${ic('heart',16,x.liked)}<span class="num">${x.likes||''}</span></button></div></div></div>`).join('')||`<div class="rempty"><span class="rempty-ic">${ic('reply',22)}</span><b>Quiet in here</b><p>Start the thread. First take gets seen.</p></div>`}</div>`}
 
 /* ---------- share ---------- */
-const postURL=id=>location.href.split('#')[0]+'#/post/'+id;
+const postURL=id=>SITE+'/#/post/'+id;
 /* ---------- onboarding ---------- */
 const INTERESTS=['Memecoins','AI agents','New launches','DeFi','Gaming','Blue chips','Low caps','Narratives'];
 function onboard(step=1){const st=S.ob||(S.ob={i:new Set()});
@@ -2931,7 +2954,7 @@ async function chVoice(id){closeModal();if(REC.r)return chVoiceStop(false);
 function chVoiceStop(cancel){if(!REC.r)return;REC.cancel=cancel;try{REC.r.stop()}catch(_){}}
 function chRecUI(id){const el=$('#chrec');if(!el)return;el.hidden=!id;document.querySelector('.chcomp')?.classList.toggle('rec',!!id);
  el.innerHTML=id?`<span class="chrdot"></span><b>Recording</b><span class="num" id="chrect">0:00</span><span class="grow"></span><button class="btn sm ghost" data-cx="voicex">Cancel</button><button class="btn sm primary" data-cx="voiceok">${ic('check',14)} Send</button>`:''}
-function chInfo(id){const t=CH.th[id];if(!t||!t.chat)return;const c=t.chat,boss=c.role==='owner'||c.role==='admin',owner=c.role==='owner',grp=c.kind!=='dm',url=c.invite?location.origin+'/#/messages/join-'+c.invite:'';
+function chInfo(id){const t=CH.th[id];if(!t||!t.chat)return;const c=t.chat,boss=c.role==='owner'||c.role==='admin',owner=c.role==='owner',grp=c.kind!=='dm',url=c.invite?SITE+'/#/messages/join-'+c.invite:'';
  const ppl=t.people||[],role={owner:'Owner',admin:'Admin'};
  const pics=[];(t.msgs||[]).forEach(m=>{for(const x of String(m.body||'').matchAll(CH_MK))if(x[1]==='img'||x[1]==='gif')pics.push(x[2])});
  const kindL=c.kind==='dm'?`${ic('lock',12)} Direct message · encrypted`:c.kind==='private'?`${ic('lock',12)} Private group · ${fmtK(c.members)} members`:`${ic('shield',12)} Public group · ${fmtK(c.members)} members`;
@@ -3220,7 +3243,7 @@ function vTransparency(){loadTrp();const d=TRP.d;
  if(!d.ready)return `<div class="docs">${head}<div class="empty"><b>Numbers are loading</b><p>Check back in a minute.</p></div></div>`;
  const u=v=>fmtUsd(v||0),tile=(l,v,s)=>`<div class="trt"><span>${l}</span><b class="num">${v}</b>${s?`<small>${s}</small>`:''}</div>`;
  const maxB=Math.max(...d.split.map(b=>b.usd),0.0001);
- const site=location.origin,num=v=>fmtUsd(v||0);
+ const site=SITE,num=v=>fmtUsd(v||0);
  const tweet=`Callit, last 24h 📣\n\n💸 Paid to callers: ${num(d.paid.callerPaid24)}\n🔁 Cashback to buyers: ${num(d.paid.cashbackPaid24)}\n📊 Volume: ${num(d.volume.d24)}\n\nVerified on-chain. Call it. Get Paid.`;
  return `<div class="docs">${head}
  <div class="trshare"><div class="grow"><b>Today’s numbers</b><span class="hint">${num(d.paid.callerPaid24)} to callers · ${num(d.paid.cashbackPaid24)} cashback · ${num(d.volume.d24)} volume</span></div>
@@ -3561,7 +3584,7 @@ document.addEventListener('click',e=>{
   xsearch:()=>xSearchSheet(b.dataset.k),
   xgo:()=>{window.open('https://x.com/search?q='+encodeURIComponent(b.dataset.v)+'&f=live','_blank','noopener');closeModal()},
   hmenu:()=>holdSheet(b.dataset.k),
-  hshare:()=>{const k=b.dataset.k;closeModal();shareModal(holdCard(k),location.href.split('#')[0]+'#/token/'+encodeURIComponent(k),'callit-pnl-'+symOf(k),`My $${symOf(k)} position on Callit`)},
+  hshare:()=>{const k=b.dataset.k;closeModal();shareModal(holdCard(k),SITE+'/#/token/'+encodeURIComponent(k),'callit-pnl-'+symOf(k),`My $${symOf(k)} position on Callit`)},
   hgo:()=>{const k=b.dataset.k,f=b.dataset.f;closeModal();if(f!=='view'){S.ltab='swap';const w=S.swap;if(f==='sell'){w.from=k;w.to='SOL'}else{w.from='SOL';w.to=k}w.amt=''}location.hash='#/token/'+tokPath(k)},
   shprof:()=>{closeModal();shareProfile(b.dataset.h)},
   cplink:()=>{closeModal();copy(postURL(b.dataset.id),'Link copied')},

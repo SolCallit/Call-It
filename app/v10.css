@@ -85,3 +85,8 @@
   .tc-scan { display: none; }
 }
 
+
+/* ---------- share card styles: tech backgrounds (drawn in lib/legacy/engine.ts xbgDraw) ---------- */
+.xcard[data-sty="terminal"] .xart, .xcard[data-sty="glitch"] .xart, .xcard[data-sty="grid"] .xart, .xcard[data-sty="dither"] .xart { background-size: cover; background-position: center; }
+.xcard[data-sty="terminal"] .xwm, .xcard[data-sty="glitch"] .xwm, .xcard[data-sty="grid"] .xwm, .xcard[data-sty="dither"] .xwm { opacity: 0.12 !important; mix-blend-mode: normal; }
+.xsty i[data-sty="terminal"], .xsty i[data-sty="glitch"], .xsty i[data-sty="grid"], .xsty i[data-sty="dither"] { background-color: #06101b; background-size: cover; background-position: center; }
