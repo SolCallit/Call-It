@@ -7,7 +7,8 @@
  * screen moves out of this file into typed React components under /components
  * and its data into /lib. This file shrinks until it's gone.
  */
-import { fetchFeed, fetchToken, fetchTokens, searchTokens, mountChart, fmtSmall } from '@/lib/market/client';
+import { fetchFeed, fetchToken, fetchTokens, searchTokens, fmtSmall } from '@/lib/market/client';
+let CHMOD=null;const chartMod=()=>CHMOD||(CHMOD=import('@/lib/market/chart'));
 import { openImageEditor } from '@/lib/media/imageEditor';
 import { walletBalances, swap as jupSwap, withdraw as doWithdraw, toBaseUnits, qrSvg, SOL_MINT, USDC_MINT, placeOrder, listOrders, cancelOrder, reportTxError } from '@/lib/wallet/client';
 import { friendlyError, isUserCancel } from '@/lib/errors';
@@ -1863,10 +1864,11 @@ function mountLiveChart(){const el=$('#lchart');if(!el)return;const t=T[el.datas
  if(S.lsrc!=='callit'&&isMintStr(t.key)){const src=dexChartUrl(t.key),f=el.querySelector('iframe.dsx');if(f&&f.dataset.src===src)return;LCHART=null;
   el.classList.add('dsx');el.innerHTML=`<iframe class="dsx" data-src="${esc(src)}" src="${esc(src)}" title="$${esc(t.sym)} chart by DexScreener" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allow="clipboard-write"></iframe>`;return}
  el.classList.remove('dsx');if(!t.pool)return;
- const msg=$('#lchartmsg');
+ const msg=$('#lchartmsg'),want=t.key+'|'+S.ltf+'|'+S.lmode;el.dataset.want=want;
+ chartMod().then(({mountChart})=>{if(!el.isConnected||el.dataset.want!==want||LCHART)return;
  LCHART=mountChart(el,{pool:t.pool,mint:t.key,tf:S.ltf,factor:S.lmode==='mc'&&t.supply?t.supply:1,
   onState:st=>{if(!msg)return;msg.hidden=st==='ok';msg.textContent=st==='loading'?'Loading chart…':st==='empty'?'No trades in this timeframe yet.':'Chart is unavailable right now.'}});
- LCHART.overlay(chartOverlay(t.key))}
+ LCHART.overlay(chartOverlay(t.key))}).catch(()=>{if(msg){msg.hidden=false;msg.textContent='Chart is unavailable right now.'}})}
 /* Your activity on the Callit chart: avg entry, open orders (limit / TP / SL / trailing), your buys and sells, and calls on this token. */
 const cssv=(v,f)=>getComputedStyle(document.documentElement).getPropertyValue(v).trim()||f;
 function hasActivity(key){const m=mintOf(key);return (S.bal[key]||0)>0||(ORD.list||[]).some(o=>o.inputMint===m||o.outputMint===m)||(S.ledger||[]).some(x=>x.in_mint===m||x.out_mint===m)}
@@ -1931,7 +1933,9 @@ const closeModal=()=>{const m=$('#modal');
 
 const realAuth=()=>!!window.__callitRealAuth;
 let pendingNext=null;
-function realLogin(via,opts,next){pendingNext=next||null;closeModal();if(window.CallitAuth&&window.CallitAuth.login)window.CallitAuth.login(via,opts);else toast('Sign-in is loading, try again in a second')}
+function realLogin(via,opts,next){pendingNext=next||null;closeModal();if(window.CallitAuth&&window.CallitAuth.login)return window.CallitAuth.login(via,opts);
+ /* Privy loads just after the app; wait for it instead of making people tap twice. */
+ toast('Opening sign-in…');let n=0;const t=setInterval(()=>{if(window.CallitAuth&&window.CallitAuth.login){clearInterval(t);window.CallitAuth.login(via,opts)}else if(++n>60){clearInterval(t);toast('Sign-in is slow to load. Check your connection and try again')}},150)}
 /* Sign-in: a floating card. Every button still goes through Privy (embedded wallets for email/Google/X,
    connect + a free signature for Phantom/Solflare/Backpack); this is only the look. */
 const AUTH_WAYS=[['Email','<span class="aic aic-mail"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7 8 6 8-6"/></svg></span>'],
@@ -3517,7 +3521,9 @@ function landingHTML(){const yr=new Date().getFullYear(),FX=lxFx();
 /* Boot splash: covers the page until we know whether to show the landing or the app,
    so a reload or a return from Google/X never flashes the wrong screen. */
 const BOOT_AT=Date.now(),BOOT_MAX=7000;
+const hadSession=(()=>{try{return Object.keys(localStorage).some(k=>/^privy:.*token/.test(k))}catch(_){return true}})();
 function authPending(){if(!realAuth())return false;if(S.connected&&window.__callitRestored)return false;if(Date.now()-BOOT_AT>BOOT_MAX)return false;
+ if(!hadSession&&!/[?&]privy_oauth_/.test(location.search)&&!(window.CallitAuth&&window.CallitAuth.authenticated))return false;
  const A=window.CallitAuth;if(!A||!A.ready)return true;
  if(A.authenticated&&!S.connected)return true;
  return /[?&]privy_oauth_/.test(location.search)&&!A.authenticated}
