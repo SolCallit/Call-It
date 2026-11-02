@@ -167,3 +167,59 @@
 .lbdots i.on{width:18px;background:var(--text)}
 @media (min-width:900px){.lbtrack{grid-auto-columns:280px}}
 @media (prefers-reduced-motion:reduce){.lbm.m1{animation:none}}
+
+/* Visually hidden label */
+.sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+/* Invite-only gate */
+body.gated{overflow:hidden}
+#gate{position:fixed;inset:0;z-index:80;display:grid;place-items:center;padding:16px;overflow:auto;
+ background:radial-gradient(80% 60% at 50% 0%,color-mix(in srgb,var(--hi) 22%,transparent),transparent 70%),color-mix(in srgb,var(--bg) 94%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.gatecard{width:min(420px,100%);text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px;padding:30px 22px 22px;border-radius:26px;border:1px solid var(--line);
+ background:linear-gradient(170deg,color-mix(in srgb,var(--hi) 10%,var(--bg2)),var(--bg2) 55%);box-shadow:0 30px 80px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.06)}
+.gatemark{width:64px;height:64px;border-radius:18px;box-shadow:0 12px 30px -8px color-mix(in srgb,var(--hi) 60%,transparent)}
+.gatek{font:700 11px/1 'JetBrains Mono',monospace;letter-spacing:.2em;color:var(--hi);padding:7px 11px;border-radius:999px;border:1px solid color-mix(in srgb,var(--hi) 40%,transparent)}
+.gatecard h1{margin:4px 0 0;font:800 30px/1.05 'Bricolage Grotesque',sans-serif;letter-spacing:-.02em}
+.gatecard p{margin:0;color:var(--muted)}
+.gatef{width:100%;display:flex;flex-direction:column;gap:10px;margin-top:6px}
+.gatef .input{text-align:center;font:700 18px/1 'JetBrains Mono',monospace;letter-spacing:.12em;text-transform:uppercase;height:52px}
+.gatecard .err:empty{display:none}
+
+/* Wallet password */
+.pwbox{position:relative}.pwbox .input{padding-right:46px}
+.pweye{position:absolute;right:6px;top:50%;translate:0 -50%;color:var(--muted)}
+.pwforgot{display:block;margin:12px auto 0}
+
+/* Admin: access codes */
+.acform{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:12px}
+.acform label{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)}
+.rdct{display:flex;justify-content:space-between;align-items:center;gap:8px}
+
+/* Meme market radar */
+.flwrap{display:flex;flex-direction:column;gap:14px}
+.flhero{position:relative;overflow:hidden;padding:18px;border-radius:22px;border:1px solid var(--line);--fc:var(--up);
+ background:radial-gradient(90% 120% at 100% 0%,color-mix(in srgb,var(--fc) 22%,transparent),transparent 60%),var(--bg2)}
+.flhero.fl-down{--fc:var(--down)}.flhero.fl-warn{--fc:#FFB547}.flhero.fl-turn{--fc:var(--hi)}
+.flhk{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.fllab{display:block;font:700 11px/1 'JetBrains Mono',monospace;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.flbig{display:block;font:800 44px/1.05 'Bricolage Grotesque',sans-serif;letter-spacing:-.03em;margin:8px 0 12px;color:var(--fc)}
+.flreg{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:14px;background:color-mix(in srgb,var(--fc) 12%,transparent);border:1px solid color-mix(in srgb,var(--fc) 35%,transparent)}
+.flreg b{color:var(--fc)}.flreg span{font-size:13.5px;color:var(--text);opacity:.85}
+.flgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media (min-width:900px){.flgrid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.fltile{padding:14px;border-radius:18px;border:1px solid var(--line);background:var(--bg2);display:flex;flex-direction:column;gap:8px;min-height:120px}
+.flth{display:flex;justify-content:space-between;align-items:baseline;gap:6px}.flth span{color:var(--muted);font-size:13px}.flth b{font-size:18px}
+.flbar{height:8px;border-radius:999px;background:color-mix(in srgb,var(--down) 70%,transparent);overflow:hidden}
+.flbar i{display:block;height:100%;background:var(--up);border-radius:inherit}
+.flts{display:flex;justify-content:space-between;font-size:12.5px;font-weight:600}
+.flsec{display:block;margin:6px 0 0}
+.flchart{margin:0;padding:12px;border-radius:18px;border:1px solid var(--line);background:var(--bg2)}
+.flchart svg{display:block;width:100%;height:140px}
+.flchart .fin{fill:var(--up)}.flchart .fout{fill:var(--down)}.flchart .fz{stroke:var(--line);stroke-width:1}
+.flchart figcaption{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-top:6px}
+.flchart.empty{padding:22px;text-align:center}
+.fllists{display:grid;gap:14px}@media (min-width:900px){.fllists{grid-template-columns:1fr 1fr}}
+.flrow{color:inherit;text-decoration:none}
+.flnote{margin:0}
+.flwrap.sk .flhero{height:190px}.flwrap.sk .fltile{background:linear-gradient(90deg,var(--bg2),var(--hover),var(--bg2));background-size:200% 100%;animation:skl 1.2s linear infinite}
+@keyframes skl{to{background-position:-200% 0}}

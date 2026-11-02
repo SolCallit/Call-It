@@ -369,3 +369,50 @@ export async function candles(pool: string, mint: string, tf: Tf): Promise<numbe
   if (!Array.isArray(list)) return null;
   return list.filter((c) => Array.isArray(c) && c.length >= 6).map((c) => c.slice(0, 6).map(Number)).reverse();
 }
+
+/* ---------- Meme market flow (radar) ---------- */
+export type FlowWin = 'm5' | 'h1' | 'h6' | 'h24';
+export type FlowTok = { mint: string; sym: string; icon: string | null; mc: number | null; net: number; buy: number; sell: number };
+export type MarketFlow = {
+  at: number; tokens: number;
+  win: Record<FlowWin, { buy: number; sell: number; net: number; buys: number; sells: number; traders: number }>;
+  topIn: FlowTok[]; topOut: FlowTok[];
+};
+const NOT_MEME = new Set(['SOL', 'WSOL', 'USDC', 'USDT', 'USDS', 'PYUSD', 'USD1', 'EURC', 'JUP', 'JTO', 'PYTH', 'RAY', 'ORCA', 'JLP', 'JITOSOL', 'MSOL', 'BSOL', 'INF', 'JUPSOL', 'BNSOL', 'WBTC', 'CBBTC', 'ZBTC', 'WETH', 'ETH', 'BTC', 'HNT', 'RENDER', 'RNDR', 'W', 'KMNO', 'DRIFT', 'XBTC', 'SSOL', 'HSOL', 'DSOL', 'VSOL', 'STSOL', 'LST']);
+
+/**
+ * Net buy volume (buys minus sells, in USD) across Solana meme tokens that are trading right now:
+ * Jupiter's most-traded and trending lists, minus stables, LSTs, majors and anything over $5B.
+ */
+export async function memeFlow(): Promise<MarketFlow | null> {
+  const lists = await Promise.all(
+    ['toptraded/24h', 'toptraded/1h', 'toptrending/1h', 'toptrending/6h'].map((p) => getJSON<JupToken[]>(`${JUP}/tokens/v2/${p}?limit=100`, 30, jupHeaders())),
+  );
+  const seen = new Map<string, JupToken>();
+  for (const l of lists) if (Array.isArray(l)) for (const j of l) if (j?.id && !seen.has(j.id)) seen.set(j.id, j);
+  const toks = [...seen.values()].filter((j) => {
+    const sym = String(j.symbol || '').toUpperCase();
+    const mc = num(j.mcap) ?? num(j.fdv) ?? 0;
+    return !NOT_MEME.has(sym) && !/USD|SOL$/.test(sym) && mc > 0 && mc < 5e9;
+  });
+  if (!toks.length) return null;
+  const W: [FlowWin, keyof JupToken][] = [['m5', 'stats5m'], ['h1', 'stats1h'], ['h6', 'stats6h'], ['h24', 'stats24h']];
+  const win = {} as MarketFlow['win'];
+  for (const [k, f] of W) {
+    let buy = 0, sell = 0, buys = 0, sells = 0, traders = 0;
+    for (const j of toks) {
+      const s = j[f] as JupStats | null | undefined;
+      if (!s) continue;
+      buy += Number(s.buyVolume) || 0; sell += Number(s.sellVolume) || 0;
+      buys += Number(s.numBuys) || 0; sells += Number(s.numSells) || 0; traders += Number(s.numTraders) || 0;
+    }
+    win[k] = { buy, sell, net: buy - sell, buys, sells, traders };
+  }
+  const per = toks.map((j) => {
+    const s = j.stats1h || {};
+    const buy = Number(s.buyVolume) || 0, sell = Number(s.sellVolume) || 0;
+    return { mint: j.id, sym: (j.symbol || '').slice(0, 16), icon: j.icon || null, mc: num(j.mcap) ?? num(j.fdv), net: buy - sell, buy, sell };
+  });
+  const by = [...per].sort((a, b) => b.net - a.net);
+  return { at: Date.now(), tokens: toks.length, win, topIn: by.filter((x) => x.net > 0).slice(0, 6), topOut: by.filter((x) => x.net < 0).reverse().slice(0, 6) };
+}

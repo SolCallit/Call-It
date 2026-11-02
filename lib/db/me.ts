@@ -1,4 +1,5 @@
 import 'server-only';
+import { gateOn, openPath } from '@/lib/access';
 import { NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { verifyPrivyToken } from '@/lib/auth/privy-server';
@@ -21,10 +22,23 @@ export async function requireMe(req: Request): Promise<Authed | NextResponse> {
   if (!privyId) return json({ error: 'unauthorized' }, 401);
   const db = supabaseAdmin();
   if (!db) return json({ error: 'database_not_configured' }, 503);
-  const { data, error } = await db.from('profiles').select('id, handle, wallet_address').eq('privy_id', privyId).maybeSingle();
+  const gate = gateOn();
+  const { data, error } = await db.from('profiles').select(gate ? 'id, handle, wallet_address, access_at' : 'id, handle, wallet_address').eq('privy_id', privyId).maybeSingle();
   if (error) return json({ error: 'db_read', detail: error.message }, 500);
   if (!data) return json({ error: 'no_profile' }, 404);
-  return { db, me: data as Me };
+  const row = data as unknown as Me & { access_at?: string | null };
+  // Invite-only: writes need an unlocked account (admins always pass).
+  if (gate && !row.access_at && req.method !== 'GET' && !openPath(req.url) && !isAdminRow(row)) {
+    return json({ error: 'access_required' }, 403);
+  }
+  return { db, me: { id: row.id, handle: row.handle, wallet_address: row.wallet_address } };
+}
+
+/** Same rule as requireAdmin: ADMIN_WALLETS when set, otherwise ADMIN_HANDLES. */
+function isAdminRow(r: { handle: string; wallet_address: string | null }) {
+  const handles = (process.env.ADMIN_HANDLES || '').toLowerCase().split(',').map((x) => x.trim().replace(/^@/, '')).filter(Boolean);
+  const wallets = (process.env.ADMIN_WALLETS || '').split(',').map((x) => x.trim()).filter(Boolean);
+  return wallets.length ? !!r.wallet_address && wallets.includes(r.wallet_address) : handles.includes(String(r.handle).toLowerCase());
 }
 
 /** Optional auth: returns the profile when a valid token is present, otherwise null. */

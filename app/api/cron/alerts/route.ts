@@ -1,7 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { json } from '@/lib/db/me';
 import { alertUsers, bellersOf, usd } from '@/lib/push/send';
-import { jupMany, type LiveToken } from '@/lib/market/sources';
+import { jupMany, memeFlow, type LiveToken } from '@/lib/market/sources';
 import { sampleCalls, settleEarnings, creditCashback, awardPoints } from '@/lib/earnings/settle';
 import { payReady } from '@/lib/payouts/payout';
 
@@ -78,5 +78,14 @@ export async function GET(req: Request) {
   const [cashback, points] = await Promise.all([creditCashback(db).catch(() => null), awardPoints(db).catch(() => 0)]);
   // Instant payouts: a call that hit its target this minute gets paid this minute.
   const paid = process.env.AUTO_PAYOUTS === '1' ? await payReady(db, 20_000).catch((e) => ({ error: String(e?.message || e) })) : { skipped: 'AUTO_PAYOUTS is not 1' };
+  // Meme market radar: keep a 5-minute history even when nobody has the radar open.
+  try {
+    const { data: lf } = await db.from('market_flow').select('at').order('at', { ascending: false }).limit(1);
+    if (!lf?.[0] || Date.now() - Date.parse(lf[0].at) > 5 * 60_000 - 20_000) {
+      const f = await memeFlow();
+      if (f) await db.from('market_flow').insert({ net_5m: f.win.m5.net, net_1h: f.win.h1.net, net_6h: f.win.h6.net, net_24h: f.win.h24.net,
+        buy_5m: f.win.m5.buy, sell_5m: f.win.m5.sell, buy_1h: f.win.h1.buy, sell_1h: f.win.h1.sell, tokens: f.tokens });
+    }
+  } catch { /* radar history is best-effort */ }
   return json({ ok: true, bells: bells?.length || 0, calls: calls?.length || 0, sent, earnings: earned, cashback, points, paid });
 }

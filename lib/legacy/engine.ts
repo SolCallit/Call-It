@@ -1180,6 +1180,16 @@ function vTgAdmin(){const d=TGA.d;if(TGA.err)return `<div class="empty"><b>Teleg
  <div class="rdgrid">${big2('Groups',String((d.groups||[]).filter(g=>g.enabled).length),'Using the bot')}${big2('Calls from Telegram',String(d.calls7d),'Last 7 days')}</div>
  <div class="rdcard"><div class="rdct"><b>How groups turn it on</b></div><p class="hint" style="margin:0">Add <b>@${esc(d.bot||'your bot')}</b> to the group and make it an <b>admin</b> (so it can read messages). Then a group admin sends <code>/callit</code>. Every contract address dropped after that becomes a call. <code>/callit off</code> stops it.</p></div>
  <div class="rdcard"><div class="rdct"><b>Groups</b></div><div class="tablewrap"><table><thead><tr><th>Group</th><th>Added</th><th></th></tr></thead><tbody>${groups||'<tr><td colspan="3" class="muted">No groups yet</td></tr>'}</tbody></table></div></div>`}
+/* Invite-only access: make codes, see who has unlocked. */
+const ACA={d:null,err:null,busy:0};
+function loadAca(force){if(ACA.busy||(!force&&ACA.d))return;ACA.busy=1;API('/api/admin/access').then(j=>{ACA.d=j;ACA.err=null}).catch(e=>{ACA.err=e.message}).finally(()=>{ACA.busy=0;if(currentRoute()==='admin'&&ADM.tab==='access')render()})}
+function vAccessAdmin(){const d=ACA.d;if(ACA.err)return `<div class="empty"><p>${esc(ACA.err)}</p></div>`;if(!d){loadAca();return `<div class="empty"><p>Loading…</p></div>`}
+ if(!d.migration)return `<div class="rdnote"><b>Run the access SQL</b> (migration 0021) in Supabase first.</div>`;
+ const rows=(d.codes||[]).map(c=>`<tr><td><button class="lnk num" data-act="copy" data-v="${esc(c.code)}">${esc(c.code)} ${ic('copy',12)}</button></td><td class="num">${c.uses} / ${c.max_uses}</td><td class="hint">${esc(c.note||'')}</td><td>${agoT(c.created_at)}</td></tr>`).join('');
+ return `<div class="rdhead">${d.gate?'<span class="rdpill on"><i></i>Invite-only is ON</span>':'<span class="rdpill off"><i></i>Invite-only is OFF</span>'}<span class="hint">${d.gate?'':'Set ACCESS_GATE = 1 in Vercel to turn it on.'}</span></div>
+ <div class="rdgrid">${big2('Unlocked',String(d.unlocked),'accounts with access')}${big2('Waiting',String(d.waiting),'signed up, no code yet')}</div>
+ <div class="rdcard"><div class="rdct"><b>Make codes</b></div><div class="acform"><label>How many<input id="acn" class="input num" inputmode="numeric" value="10"></label><label>Uses each<input id="acu" class="input num" inputmode="numeric" value="1"></label><label>Note<input id="acnote" class="input" placeholder="e.g. X giveaway"></label><label>Custom code <span class="hint">optional</span><input id="acc" class="input" placeholder="e.g. CALLITOG"></label></div><button class="btn primary" data-act="acgen">Make codes</button></div>
+ <div class="rdcard"><div class="rdct"><b>Codes</b><button class="btn sm ghost" data-act="accopy">Copy unused</button></div><div class="tablewrap"><table><thead><tr><th>Code</th><th>Used</th><th>Note</th><th>Made</th></tr></thead><tbody>${rows||'<tr><td colspan="4" class="muted">No codes yet</td></tr>'}</tbody></table></div></div>`}
 /* Bug reports, security reports and ideas from users. */
 const BUGS={d:null,err:null,busy:0};
 function loadBugs(force){if(BUGS.busy||(!force&&BUGS.d))return;BUGS.busy=1;API('/api/bugs').then(j=>{BUGS.d=j.reports||[];BUGS.err=j.migration===false?'migration':null}).catch(e=>{BUGS.err=e.message}).finally(()=>{BUGS.busy=0;if(currentRoute()==='admin'&&ADM.tab==='reports')render()})}
@@ -1203,8 +1213,8 @@ function vAdmin(){if(!ADM.data&&!ADM.err)loadAdmin();
  const errs=d.errors==null?`<div class="rdnote"><b>Run migration 0007</b> in Supabase to start logging failed withdrawals and swaps.</div>`:!d.errors.length?`<div class="empty"><p>No failed transactions logged. </p></div>`:`<div class="tablewrap"><table><thead><tr><th>When</th><th>User</th><th>Action</th><th>Step</th><th>Reason</th></tr></thead><tbody>${d.errors.map(x=>`<tr title="${esc(JSON.stringify(x.raw||{}).slice(0,1500))}\n\n${esc(x.user_agent||'')}"><td>${agoT(x.created_at)}</td><td>${who(x.handle)}${x.wallet?`<div class="hint">${esc(short(x.wallet))}</div>`:''}</td><td><span class="akind">${esc(x.action)}</span></td><td>${esc(x.stage||'')}</td><td style="max-width:420px;white-space:normal">${esc(x.message||'')}</td></tr>`).join('')}</tbody></table></div><p class="hint" style="margin-top:8px">Hover (or long-press) a row for the raw error and browser.</p>`;
  return `<div class="pad adm"><div class="ahead"><h1 class="h2">Admin</h1><span class="stlive"><i></i>Live · every 15s</span></div>
  <div class="agrid">${stat('Users',fmtK(s.users||0),`+${s.users24h||0} today · +${s.users7d||0} this week`)}${stat('Calls & posts',fmtK(s.posts||0),`+${s.posts24h||0} today`)}${stat('Trades today',fmtK(s.txs24h||0),'')}${stat('Volume today',fmtUsd(s.vol24h||0),'')}</div>
- <div class="seg wide" role="tablist" style="margin:14px 0">${tab('radar','Radar')}${tab('payouts','Payouts')}${tab('telegram','Telegram')}${tab('overview','New users')}${tab('trades','Trades')}${tab('calls','Calls & posts')}${tab('errors','Tx errors'+(d.errors&&d.errors.length?' '+d.errors.length:''))}${tab('reports','Reports')}</div>
- ${ADM.tab==='reports'?vReports():ADM.tab==='radar'?vRadar():ADM.tab==='payouts'?vPayouts():ADM.tab==='telegram'?vTgAdmin():ADM.tab==='errors'?errs:`<div class="tablewrap">${ADM.tab==='trades'?txs:ADM.tab==='calls'?posts:users}</div>`}</div>`}
+ <div class="seg wide" role="tablist" style="margin:14px 0">${tab('radar','Radar')}${tab('payouts','Payouts')}${tab('telegram','Telegram')}${tab('overview','New users')}${tab('trades','Trades')}${tab('calls','Calls & posts')}${tab('errors','Tx errors'+(d.errors&&d.errors.length?' '+d.errors.length:''))}${tab('reports','Reports')}${tab('access','Access codes')}</div>
+ ${ADM.tab==='access'?vAccessAdmin():ADM.tab==='reports'?vReports():ADM.tab==='radar'?vRadar():ADM.tab==='payouts'?vPayouts():ADM.tab==='telegram'?vTgAdmin():ADM.tab==='errors'?errs:`<div class="tablewrap">${ADM.tab==='trades'?txs:ADM.tab==='calls'?posts:users}</div>`}</div>`}
 /* ---------- bottom sheet ---------- */
 let SH=null;
 function openSheet(kind,tab){SH={kind,tab:tab||'auto',d:kind==='f'?JSON.parse(JSON.stringify(filOf(S.tt))):null};
@@ -1599,7 +1609,26 @@ function walletMenu(){if(!S.connected)return connectModal();const W=window.Calli
  aSheet('Wallet options',head,`<div class="asgroup">${arow(`data-act="copy" data-v="${esc(S.addr)}"`,'copy','Copy address','Receive SOL, USDC or any Solana token')}${arow(`data-act="wmgo" data-f="https://solscan.io/account/${esc(S.addr)}"`,'search','View on Solscan','Every transaction, on-chain')}</div>
   <div class="asgroup">${arow('data-act="swapset"','gear','Swap settings','Slippage, speed and front-running protection')}${arow('data-act="wmgo" data-f="#/alerts"','bell','Alerts','Price alerts and wallets you track')}${arow('data-act="wmgo" data-f="#/settings"','settings','Wallet & app settings','Default buy, hide balances, theme')}</div>
   <div class="asgroup">${mine?arow('data-act="exportkey"','lock','Export private key','Opens in a secure Privy window. Never share it',''):arow('data-act="close"','lock','Your keys stay in your wallet app','Callit can’t move anything without your approval')}</div>`)}
+/* A wallet password stands between the app and the private key export. */
 function exportKeyModal(){const W=window.CallitWallet;if(!W||!W.exportKey)return toast('Sign in again to export your wallet');
+ API('/api/wallet/pin').then(j=>{if(j.migration===false)return exportKeyGo();pinModal(j)}).catch(e=>toast(e.message||'Couldn’t check your wallet password'))}
+function pinModal(st){const set=st&&st.set,pend=st&&st.reset_at&&Date.parse(st.reset_at)>Date.now();
+ const pw=(id,lab,ac)=>`<div class="field"><label for="${id}">${lab}</label><div class="pwbox"><input id="${id}" class="input" type="password" autocomplete="${ac}" maxlength="64" minlength="6"><button type="button" class="ib sm pweye" data-pw="${id}" aria-label="Show password">${ic('eye',17)}</button></div></div>`;
+ modal(set?'Enter your wallet password':'Create a wallet password',set?'Needed before your private key is shown.':'You’ll enter it every time you export your private key. Use 6 or more characters you don’t use anywhere else.',
+  `${pend?`<div class="rdnote">A password reset is pending. It clears ${new Date(st.reset_at).toLocaleString()}. Entering your password now cancels it.</div>`:''}
+  ${set?pw('pw1','Password','current-password'):pw('pw1','New password','new-password')+pw('pw2','Type it again','new-password')}
+  <div class="err" id="pwerr"></div><button class="btn primary block" id="pwgo">${set?'Unlock export':'Save and continue'}</button>
+  ${set?`<button class="lnk pwforgot" id="pwfg">Forgot it?</button>`:''}`,
+ m=>{const er=$('#pwerr',m),go=$('#pwgo',m),i1=$('#pw1',m);i1.focus();
+  m.querySelectorAll('[data-pw]').forEach(b=>b.onclick=()=>{const i=$('#'+b.dataset.pw,m);i.type=i.type==='password'?'text':'password'});
+  m.querySelectorAll('input').forEach(i=>i.onkeydown=e=>{if(e.key==='Enter')go.click()});
+  go.onclick=()=>{er.textContent='';const v=i1.value;if(!set){if(v.length<6){er.textContent='Use at least 6 characters.';return}if(v!==$('#pw2',m).value){er.textContent='Those don’t match.';return}}
+   go.disabled=true;go.textContent=set?'Checking…':'Saving…';
+   API('/api/wallet/pin',{body:set?{action:'verify',password:v}:{action:'set',password:v}}).then(()=>{closeModal();exportKeyGo()})
+    .catch(e=>{go.disabled=false;go.textContent=set?'Unlock export':'Save and continue';er.textContent=e.message||'Try again.';i1.select()})};
+  const fg=$('#pwfg',m);if(fg)fg.onclick=()=>{if(!confirmReset())return;API('/api/wallet/pin',{body:{action:'reset'}}).then(j=>{closeModal();toast('Reset requested. Your password clears in 24 hours')}).catch(e=>{er.textContent=e.message})}})}
+function confirmReset(){return window.confirm('Forgot your wallet password?\n\nFor your safety it clears after 24 hours, then you can set a new one. You’ll get a notification now. If you didn’t ask for this, entering your password cancels it.')}
+function exportKeyGo(){const W=window.CallitWallet;if(!W||!W.exportKey)return toast('Sign in again to export your wallet');
  modal('Export your private key','Your key opens in a secure Privy window. Callit never sees it.',`<ul class="keyswarn"><li>Anyone with this key controls your funds. Never share it, screenshot it or paste it into a website.</li><li>Callit staff will <b>never</b> ask for your key or seed phrase.</li><li>Import it into Phantom, Solflare or Backpack to use the same wallet there. It keeps working in Callit too.</li></ul><button class="btn primary block" id="kgo">I understand, show my key</button>`,
   m=>{$('#kgo',m).onclick=async()=>{closeModal();try{await W.exportKey(S.addr)}catch(e){toast(e&&e.message||'Couldn’t open the export window')}}})}
 let MEAT=0;
@@ -2433,13 +2462,45 @@ function ptabBody(h,me){const tab=S.ptab||'calls';
  return null}
 
 /* ---------- market ---------- */
-function vMarket(){const t=S.mt||'trenches',M=[['trenches','Trenches','flame'],['perps','Perps'],['predict','Predictions']];
- const bar=`<div class="mtabs tgl${t==='perps'?' perps-on':''}" style="--i:${M.findIndex(x=>x[0]===t)};--n:${M.length}" role="tablist">${M.map(([k,l])=>`<button role="tab" aria-selected="${t===k}" class="${t===k?'on':''}" data-act="mt" data-f="${k}">${l}${k==='trenches'?'<span class="live"></span>':'<small>Soon</small>'}</button>`).join('')}</div>`;
+function vMarket(){const t=S.mt||'trenches',M=[['trenches','Trenches','flame'],['radar','Radar'],['perps','Perps'],['predict','Predictions']];
+ const bar=`<div class="mtabs tgl${t==='perps'?' perps-on':''}" style="--i:${M.findIndex(x=>x[0]===t)};--n:${M.length}" role="tablist">${M.map(([k,l])=>`<button role="tab" aria-selected="${t===k}" class="${t===k?'on':''}" data-act="mt" data-f="${k}">${l}${k==='trenches'||k==='radar'?'<span class="live"></span>':'<small>Soon</small>'}</button>`).join('')}</div>`;
  if(t==='perps')return bar+locked(mockPerps(),'perps','Perps are coming','Long or short the tokens you call, with leverage and your caller track record on the line.',['Long and short from any call','Position shows on your call card','Same fee share for bought-in callers']);
  if(0)return bar+soonCard('Perps are coming','Long or short the tokens you call, with leverage and your caller track record on the line. Built on Solana perp venues.',['Long and short from any call','Position shows on your call card','Same fee share for bought-in callers']);
  if(t==='predict')return bar+locked(mockPredict(),'predict','Predictions are coming','Back your read on outcomes: will it hit the target, will it graduate, who tops the Callerboard this week.',['Markets on live calls','Settle on-chain','Callers can seed their own markets']);
  if(0)return bar+soonCard('Predictions are coming','Back your read on outcomes: will it hit the target, will it graduate, who tops the Callerboard this week.',['Markets on live calls','Settle on-chain','Callers can seed their own markets']);
+ if(t==='radar')return bar+vRadarFlow();
  return bar+`<div class="inmkt">${vTrenches()}</div>`}
+/* ---------- Meme market radar: net inflow across Solana memes ---------- */
+const FLOW={d:null,err:0,busy:0,at:0};
+function loadFlow(force){if(FLOW.busy||(!force&&Date.now()-FLOW.at<25e3))return;FLOW.busy=1;
+ fetch('/api/market/flow').then(r=>r.json().then(j=>{if(!r.ok&&!j.win)throw Error('x');FLOW.d=j;FLOW.err=0})).catch(()=>{FLOW.err=1}).finally(()=>{FLOW.busy=0;FLOW.at=Date.now();if(currentRoute()==='market'&&S.mt==='radar'&&!document.querySelector('#modal .modal'))render()})}
+setInterval(()=>{if(!document.hidden&&currentRoute()==='market'&&S.mt==='radar')loadFlow()},30e3);
+function flowRegime(w){const h1=w.h1.net,p5=w.m5.net*12,big=Math.max(5e4,Math.abs(h1)*.15);
+ if(h1>=0&&p5>h1*1.3&&p5>big)return ['up','Inflow accelerating','Buyers are speeding up. The last 5 minutes are running hotter than the hour.'];
+ if(h1>0&&p5<-big)return ['warn','Momentum fading','The hour is green but sellers took the last 5 minutes. Watch for a turn.'];
+ if(h1<0&&p5>big)return ['turn','Buyers returning','The hour is red but the last 5 minutes flipped to net buying.'];
+ if(h1<0&&p5<h1*1.3&&p5<-big)return ['down','Outflow accelerating','Money is leaving memes faster than the hourly average.'];
+ return h1>=0?['up','Steady inflow','More buying than selling across memes this hour.']:['down','Steady outflow','More selling than buying across memes this hour.']}
+const flowUsd=v=>(v>=0?'+':'−')+fmtSmall(Math.abs(v));
+function flowChart(h){const pts=(h||[]).filter(x=>x.net_5m!=null);if(pts.length<3)return `<div class="flchart empty"><p class="hint">The 24h chart fills in as snapshots come in (every 5 minutes).</p></div>`;
+ const W=600,H=140,mx=Math.max(...pts.map(x=>Math.abs(+x.net_5m)))||1,bw=W/pts.length,mid=H/2;
+ const bars=pts.map((x,i)=>{const v=+x.net_5m,hh=Math.max(1,Math.abs(v)/mx*(mid-6));return `<rect x="${(i*bw+bw*.15).toFixed(1)}" y="${(v>=0?mid-hh:mid).toFixed(1)}" width="${Math.max(1,bw*.7).toFixed(1)}" height="${hh.toFixed(1)}" class="${v>=0?'fin':'fout'}"/>`}).join('');
+ const t0=new Date(pts[0].at),t1=new Date(pts[pts.length-1].at),tl=d=>d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+ return `<figure class="flchart"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Net meme inflow every 5 minutes, last 24 hours"><line x1="0" x2="${W}" y1="${mid}" y2="${mid}" class="fz"/>${bars}</svg><figcaption><span>${tl(t0)}</span><span>Net flow per 5 min · peak ${fmtSmall(mx)}</span><span>${tl(t1)}</span></figcaption></figure>`}
+function vRadarFlow(){const d=FLOW.d;loadFlow();
+ if(!d)return `<div class="pad">${FLOW.err?`<div class="empty"><b>Radar couldn’t load</b><p>Market data is busy. <button class="lnk" data-act="flowre">Try again</button></p></div>`:`<div class="flwrap sk"><div class="flhero"></div><div class="flgrid">${'<div class="fltile"></div>'.repeat(4)}</div></div>`}</div>`;
+ const w=d.win,[cls,title,sub]=flowRegime(w),L={m5:'5 min',h1:'1 hour',h6:'6 hours',h24:'24 hours'};
+ const tile=k=>{const x=w[k],tot=x.buy+x.sell,bs=tot?x.buy/tot*100:50;return `<div class="fltile"><div class="flth"><span>${L[k]}</span><b class="num ${x.net>=0?'up':'down'}">${flowUsd(x.net)}</b></div>
+  <div class="flbar" role="img" aria-label="${Math.round(bs)}% of volume was buying"><i style="width:${bs.toFixed(1)}%"></i></div>
+  <div class="flts num"><span class="up">${fmtSmall(x.buy)} buys</span><span class="down">${fmtSmall(x.sell)} sells</span></div><small class="hint num">${Math.round(bs)}% buy share · ${fmtK(x.buys+x.sells)} trades</small></div>`};
+ const row=x=>`<a class="li flrow" href="#/token/${esc(x.mint)}">${T[x.mint]?tokav(x.mint):`<span class="tokav img" style="background:hsl(${hue(x.sym)} 58% 45%)"><i>${esc(String(x.sym).slice(0,3))}</i>${x.icon?`<img src="${esc(cdnIcon(x.icon))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:''}</span>`}<div class="grow"><b>$${esc(x.sym)}</b><div class="hint num">${x.mc?fmtSmall(x.mc)+' MC':''}</div></div><b class="num ${x.net>=0?'up':'down'}">${flowUsd(x.net)}</b></a>`;
+ return `<div class="pad flwrap"><section class="flhero fl-${cls}"><div class="flhk"><span class="stlive"><i></i>Live</span><span class="hint num">${d.tokens} memes tracked</span></div>
+  <span class="fllab">Net meme inflow · 1h</span><b class="flbig num">${flowUsd(w.h1.net)}</b><div class="flreg"><b>${title}</b><span>${sub}</span></div></section>
+ <div class="flgrid">${['m5','h1','h6','h24'].map(tile).join('')}</div>
+ <b class="h3 flsec">Last 24 hours</b>${flowChart(d.history)}
+ <div class="fllists"><section><b class="h3 flsec up">Biggest inflows · 1h</b><div class="list">${(d.topIn||[]).map(row).join('')||'<p class="hint">None right now.</p>'}</div></section>
+ <section><b class="h3 flsec down">Biggest outflows · 1h</b><div class="list">${(d.topOut||[]).map(row).join('')||'<p class="hint">None right now.</p>'}</div></section></div>
+ <p class="hint flnote">Net inflow is buy volume minus sell volume, in USD, across the Solana meme tokens trading right now (stables, staked SOL and majors left out). Green and speeding up means fresh money is coming in. When the hour is green but the last 5 minutes turn red, momentum is often shifting.</p></div>`}
 /* Coming soon: a real preview of the feature fades out under a lock. Nothing in the preview is clickable. */
 const SOONF={perps:'Perps',predict:'Predictions',stake:'$CALLIT staking'};
 function notifyBtn(f){const on=S.notifyOn&&S.notifyOn[f];return `<button class="btn ${on?'ghost':'primary'}" data-act="notify" data-f="${f}">${ic(on?'check':'bell',16)} ${on?'You\'re on the list':'Notify me at launch'}</button>`}
@@ -3462,11 +3523,32 @@ function authPending(){if(!realAuth())return false;if(S.connected&&window.__call
  return /[?&]privy_oauth_/.test(location.search)&&!A.authenticated}
 function hideBoot(){const b=$('#boot');if(!b||b.classList.contains('out'))return;b.classList.add('out');setTimeout(()=>b.remove(),300)}
 setTimeout(()=>syncLanding(),BOOT_MAX+50);
+/* ---------- Invite-only gate ---------- */
+const GATE={gate:false,granted:true,for:null,busy:0};
+function accessCheck(){if(GATE.busy)return;GATE.busy=1;const who=S.connected?S.me:null;
+ API('/api/access').then(j=>{GATE.gate=!!j.gate;GATE.granted=!!j.granted;GATE.for=who;
+  let pend=null;try{pend=sessionStorage.getItem('callit.code')}catch(_){}
+  if(GATE.gate&&!GATE.granted&&j.signedIn&&pend)return redeemCode(pend);gateSync()}).catch(()=>{}).finally(()=>{GATE.busy=0})}
+function redeemCode(code){return API('/api/access',{body:{code}}).then(()=>{try{sessionStorage.removeItem('callit.code')}catch(_){}GATE.granted=true;gateSync();toast('You’re in. Welcome to Callit');render()})
+ .catch(e=>{try{sessionStorage.removeItem('callit.code')}catch(_){}gateSync(e.message)})}
+function gateSync(err){let el=$('#gate');const land=$('#landing'),show=GATE.gate&&!GATE.granted&&!(land&&!land.hidden);
+ if(!show){if(el)el.remove();document.body.classList.remove('gated');return}
+ if(!el){el=document.createElement('div');el.id='gate';el.setAttribute('role','dialog');el.setAttribute('aria-modal','true');el.setAttribute('aria-label','Callit is invite-only');document.body.appendChild(el)}
+ document.body.classList.add('gated');
+ el.innerHTML=`<div class="gatecard"><span class="mark gatemark" aria-hidden="true"></span><span class="gatek">INVITE ONLY</span><h1>Call it. Get paid.</h1><p>Callit is opening in waves. Enter your access code to get in.</p>
+  <form id="gatef" class="gatef"><label class="sr" for="gatein">Access code</label><input id="gatein" class="input num" placeholder="CALL-XXXX-XXXX" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" maxlength="40"><button class="btn primary block" type="submit">${S.connected?'Unlock Callit':'Sign in and unlock'}</button></form>
+  <div class="err" id="gateerr">${err?esc(err):''}</div>
+  <p class="hint">No code? Follow <a href="https://x.com/CallitApp_Sol" target="_blank" rel="noopener">Callit on X</a>. Codes drop there first.</p>
+  ${S.connected?`<button class="lnk" data-act="logout">Not @${esc(S.me)}? Log out</button>`:''}</div>`;
+ const f=$('#gatef',el),i=$('#gatein',el);f.onsubmit=e=>{e.preventDefault();const c=i.value.trim().toUpperCase().replace(/\s+/g,'');if(c.length<4){$('#gateerr',el).textContent='Enter your access code.';return}
+  if(!S.connected){try{sessionStorage.setItem('callit.code',c)}catch(_){}return connectModal()}
+  const b=f.querySelector('button');b.disabled=true;b.textContent='Checking…';redeemCode(c)}}
 function syncLanding(){const el=$('#landing');let exp=false;try{exp=sessionStorage.getItem('callit.explore')==='1'}catch(_){}
  if(authPending())return;
  const A=window.CallitAuth,restoring=realAuth()&&A&&A.ready&&A.authenticated&&!S.connected;
  const show=!S.connected&&!exp&&!restoring;if(show&&el.hidden){el.innerHTML=landingHTML();el.hidden=false}else if(!show&&!el.hidden){el.hidden=true;el.innerHTML=''}
- document.body.classList.toggle('lock',show);hideBoot()}
+ document.body.classList.toggle('lock',show);hideBoot();gateSync()}
+setTimeout(accessCheck,400);
 try{S.premium=JSON.parse(localStorage.getItem('callit.premium')||'null')}catch(_){}
 if(!realAuth())try{const v=JSON.parse(localStorage.getItem('callit.session')||'null');if(v&&v.me){S.connected=true;S.addr=v.addr;S.me=v.me;C[S.me]=C[S.me]||{h:S.me,win:0,avg:0,calls:0,best:0,followers:0}}}catch(_){}
 
@@ -3526,7 +3608,7 @@ window.callitApplySession=(p,o={})=>{
  // after load) used to close whatever was open, which is why the Buy sheet kept snapping shut.
  const om=document.querySelector('#modal .modal'),lab=om&&om.getAttribute('aria-label')||'';
  if(om&&/^(Sign in to Callit|Welcome back|Create your Callit account)$/.test(lab))closeModal();
- render();loadBalances();if(realAuth()){loadMe();loadPosts()}
+ render();loadBalances();if(realAuth()){loadMe();loadPosts()}if(GATE.for!==S.me)accessCheck();
  if(first&&!o.restore){toast(o.isNew?'Welcome to Callit. Your wallet is ready':'Signed in');const n=pendingNext;pendingNext=null;if(n)n();else if(o.isNew)maybeOnboard()}};
 window.callitAuthChanged=()=>syncLanding();
 window.callitWalletChanged=()=>{if(REALW())loadBalances()};
@@ -3563,7 +3645,9 @@ document.addEventListener('click',e=>{
    API('/api/alerts/wallets',{body:{address:v,label:l.value}}).then(j=>{toast(j.live?'Tracking. You’ll get a pop-up on every swap':'Saved. Live tracking starts once Helius is set up');if(pushState()==='off')setTimeout(()=>pushOn(),400);AL.d=null;alLoad(1)}).catch(e=>toast(e.message)).finally(()=>{b.disabled=false})},
   aldel:()=>(closeModal(),API('/api/alerts/wallets?address='+encodeURIComponent(b.dataset.f),{method:'DELETE'}).then(()=>{AL.d=null;alLoad(1)}).catch(e=>toast(e.message))),
   belldel:()=>API('/api/alerts/bell?mint='+encodeURIComponent(b.dataset.f),{method:'DELETE'}).then(()=>{BELLS.delete(b.dataset.f);AL.d=null;alLoad(1)}).catch(e=>toast(e.message)),
-  wtab:()=>{S.wtab=b.dataset.f;render()},wmenu:()=>walletMenu(),wmgo:()=>{const u=b.dataset.f;closeModal();if(u.startsWith('#'))location.hash=u.slice(1)?u:'#/home';else window.open(u,'_blank','noopener')},lbsw:()=>lbSwipe(+b.dataset.f),bugreport:()=>{closeModal();bugModal(b.dataset.f)},wbopen:()=>walletSheet(b.dataset.f),
+  wtab:()=>{S.wtab=b.dataset.f;render()},flowre:()=>loadFlow(1),
+  acgen:()=>{const n=+$('#acn').value||1,u=+$('#acu').value||1,note=$('#acnote').value.trim(),code=$('#acc').value.trim();b.disabled=true;API('/api/admin/access',{body:{count:n,uses:u,note,code}}).then(j=>{toast(`${(j.codes||[]).length} code${(j.codes||[]).length===1?'':'s'} made`);ACA.d=null;loadAca(1)}).catch(e=>toast(e.message)).finally(()=>{b.disabled=false})},
+  accopy:()=>{const l=((ACA.d&&ACA.d.codes)||[]).filter(c=>c.uses<c.max_uses).map(c=>c.code).join('\n');if(!l)return toast('No unused codes');navigator.clipboard.writeText(l).then(()=>toast('Unused codes copied')).catch(()=>toast('Couldn’t copy'))},wmenu:()=>walletMenu(),wmgo:()=>{const u=b.dataset.f;closeModal();if(u.startsWith('#'))location.hash=u.slice(1)?u:'#/home';else window.open(u,'_blank','noopener')},lbsw:()=>lbSwipe(+b.dataset.f),bugreport:()=>{closeModal();bugModal(b.dataset.f)},wbopen:()=>walletSheet(b.dataset.f),
   lbv:()=>{S.lbv=b.dataset.f;render();scrollTo({top:0})},
   ptp:()=>{S.ptp=b.dataset.f;render()},
   dgo:()=>{e.preventDefault();const el=document.getElementById(b.dataset.f);if(el)el.scrollIntoView({behavior:'smooth',block:'start'})},
