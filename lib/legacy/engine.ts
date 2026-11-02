@@ -1180,6 +1180,13 @@ function vTgAdmin(){const d=TGA.d;if(TGA.err)return `<div class="empty"><b>Teleg
  <div class="rdgrid">${big2('Groups',String((d.groups||[]).filter(g=>g.enabled).length),'Using the bot')}${big2('Calls from Telegram',String(d.calls7d),'Last 7 days')}</div>
  <div class="rdcard"><div class="rdct"><b>How groups turn it on</b></div><p class="hint" style="margin:0">Add <b>@${esc(d.bot||'your bot')}</b> to the group and make it an <b>admin</b> (so it can read messages). Then a group admin sends <code>/callit</code>. Every contract address dropped after that becomes a call. <code>/callit off</code> stops it.</p></div>
  <div class="rdcard"><div class="rdct"><b>Groups</b></div><div class="tablewrap"><table><thead><tr><th>Group</th><th>Added</th><th></th></tr></thead><tbody>${groups||'<tr><td colspan="3" class="muted">No groups yet</td></tr>'}</tbody></table></div></div>`}
+/* Bug reports, security reports and ideas from users. */
+const BUGS={d:null,err:null,busy:0};
+function loadBugs(force){if(BUGS.busy||(!force&&BUGS.d))return;BUGS.busy=1;API('/api/bugs').then(j=>{BUGS.d=j.reports||[];BUGS.err=j.migration===false?'migration':null}).catch(e=>{BUGS.err=e.message}).finally(()=>{BUGS.busy=0;if(currentRoute()==='admin'&&ADM.tab==='reports')render()})}
+function vReports(){if(BUGS.err==='migration')return `<div class="rdnote"><b>Run the bug reports SQL</b> in Supabase to start collecting reports.</div>`;if(BUGS.err)return `<div class="empty"><p>${esc(BUGS.err)}</p></div>`;if(!BUGS.d){loadBugs();return `<div class="empty"><p>Loading…</p></div>`}
+ if(!BUGS.d.length)return `<div class="empty"><p>No reports yet.</p></div>`;
+ const KL={bug:'Bug',security:'Security',idea:'Idea'};
+ return `<div class="tablewrap"><table><thead><tr><th>When</th><th>Type</th><th>From</th><th>Report</th><th>Screen</th></tr></thead><tbody>${BUGS.d.map(r=>`<tr title="${esc(r.user_agent||'')}"><td>${agoT(r.created_at)}</td><td><span class="akind ${r.kind==='security'?'sell':r.kind==='idea'?'buy':'swap'}">${KL[r.kind]||esc(r.kind)}</span></td><td>${r.handle?`<a href="#/profile/${esc(r.handle)}">@${esc(r.handle)}</a>`:'<span class="muted">guest</span>'}${r.contact?`<div class="hint">${esc(r.contact)}</div>`:''}</td><td style="white-space:pre-wrap;min-width:240px">${esc(r.body)}</td><td class="hint">${esc(r.page||'')}</td></tr>`).join('')}</tbody></table></div>`}
 const big2=(l,v,sub)=>`<div class="rdstat"><span>${l}</span><b class="num">${v}</b>${sub?`<small>${sub}</small>`:''}</div>`;
 function adminPing(){if(S.admin!=null||!realAuth()||!S.connected)return;S.admin=false;API('/api/admin/overview?ping=1').then(()=>{S.admin=true;if(currentRoute()==='you')render()}).catch(()=>{})}
 const agoT=iso=>{const m=(Date.now()-Date.parse(iso))/6e4;return m<1?'now':m<60?Math.round(m)+'m':m<1440?Math.round(m/60)+'h':Math.round(m/1440)+'d'};
@@ -1196,8 +1203,8 @@ function vAdmin(){if(!ADM.data&&!ADM.err)loadAdmin();
  const errs=d.errors==null?`<div class="rdnote"><b>Run migration 0007</b> in Supabase to start logging failed withdrawals and swaps.</div>`:!d.errors.length?`<div class="empty"><p>No failed transactions logged. </p></div>`:`<div class="tablewrap"><table><thead><tr><th>When</th><th>User</th><th>Action</th><th>Step</th><th>Reason</th></tr></thead><tbody>${d.errors.map(x=>`<tr title="${esc(JSON.stringify(x.raw||{}).slice(0,1500))}\n\n${esc(x.user_agent||'')}"><td>${agoT(x.created_at)}</td><td>${who(x.handle)}${x.wallet?`<div class="hint">${esc(short(x.wallet))}</div>`:''}</td><td><span class="akind">${esc(x.action)}</span></td><td>${esc(x.stage||'')}</td><td style="max-width:420px;white-space:normal">${esc(x.message||'')}</td></tr>`).join('')}</tbody></table></div><p class="hint" style="margin-top:8px">Hover (or long-press) a row for the raw error and browser.</p>`;
  return `<div class="pad adm"><div class="ahead"><h1 class="h2">Admin</h1><span class="stlive"><i></i>Live · every 15s</span></div>
  <div class="agrid">${stat('Users',fmtK(s.users||0),`+${s.users24h||0} today · +${s.users7d||0} this week`)}${stat('Calls & posts',fmtK(s.posts||0),`+${s.posts24h||0} today`)}${stat('Trades today',fmtK(s.txs24h||0),'')}${stat('Volume today',fmtUsd(s.vol24h||0),'')}</div>
- <div class="seg wide" role="tablist" style="margin:14px 0">${tab('radar','Radar')}${tab('payouts','Payouts')}${tab('telegram','Telegram')}${tab('overview','New users')}${tab('trades','Trades')}${tab('calls','Calls & posts')}${tab('errors','Tx errors'+(d.errors&&d.errors.length?' '+d.errors.length:''))}</div>
- ${ADM.tab==='radar'?vRadar():ADM.tab==='payouts'?vPayouts():ADM.tab==='telegram'?vTgAdmin():ADM.tab==='errors'?errs:`<div class="tablewrap">${ADM.tab==='trades'?txs:ADM.tab==='calls'?posts:users}</div>`}</div>`}
+ <div class="seg wide" role="tablist" style="margin:14px 0">${tab('radar','Radar')}${tab('payouts','Payouts')}${tab('telegram','Telegram')}${tab('overview','New users')}${tab('trades','Trades')}${tab('calls','Calls & posts')}${tab('errors','Tx errors'+(d.errors&&d.errors.length?' '+d.errors.length:''))}${tab('reports','Reports')}</div>
+ ${ADM.tab==='reports'?vReports():ADM.tab==='radar'?vRadar():ADM.tab==='payouts'?vPayouts():ADM.tab==='telegram'?vTgAdmin():ADM.tab==='errors'?errs:`<div class="tablewrap">${ADM.tab==='trades'?txs:ADM.tab==='calls'?posts:users}</div>`}</div>`}
 /* ---------- bottom sheet ---------- */
 let SH=null;
 function openSheet(kind,tab){SH={kind,tab:tab||'auto',d:kind==='f'?JSON.parse(JSON.stringify(filOf(S.tt))):null};
@@ -1464,8 +1471,24 @@ function lbBase(w,L){const k='callit.lbbase.'+w;let b=null;try{b=JSON.parse(loca
 function lbMove(base,h,i){const p=base&&base[h];if(p==null)return base&&Object.keys(base).length?'<span class="rmv nw" title="New on the board">NEW</span>':'';const d=p-i;if(!d)return '';
  return `<span class="rmv ${d>0?'up':'dn'}${Math.abs(d)>=3?' hot':''}" title="${d>0?'Up':'Down'} ${Math.abs(d)} since yesterday">${d>0?'▲':'▼'}${Math.abs(d)}</span>`}
 function lbPts(h){const t=tierOf(h);return `<button class="lbpts" data-act="ranks" data-h="${esc(h)}" aria-label="${t.xp} points, ${t.name}"><b class="num">${t.xp.toLocaleString()}</b><span class="lbpbar"><i style="width:${Math.max(4,t.pct)}%"></i></span><small>${t.name}${t.next?` · ${t.need.toLocaleString()} to ${t.next}`:''}</small></button>`}
-function vLeaders(){if(S.lbv==='latest')return vLatestCalls();if(S.lbv==='points')return vPoints();loadCallers();const w=S.lb||'30d',L=ranked(),st=CALLERS[w],podium=L.slice(0,3),me=L.findIndex(c=>c.h===S.me);
- const pod=podium.length?`<div class="podium">${[1,0,2].filter(i=>podium[i]).map(i=>{const c=podium[i];return `<a class="pod p${i+1}" href="#/profile/${esc(c.h)}"><span class="pcrown">${['👑','🥈','🥉'][i]}</span>${avatar(c.h)}<b>${esc(nameOf(c.h))}</b><span class="muted">@${esc(c.h)}</span><span class="pwin num">${c.win}%<small>win</small></span><span class="num ${c.avg>=0?'up':'down'}">${fmtPct(c.avg)} avg</span><span class="pstep">${i+1}</span></a>`}).join('')}</div>`:'';
+/* Top 10 callers as swipeable terminal cards. Gold / silver / bronze for 1-3, the caller's own hue after that. */
+function lbCards(top){if(!top.length)return '';const MED=['#FFD75A','#C9D3E3','#E39A62'];
+ const card=(c,i)=>{const t=tierOf(c.h),acc=i<3?MED[i]:`hsl(${hue(c.h)} 80% 66%)`,f=S.following.has(c.h),me=c.h===S.me;
+  return `<article class="lbc${i<3?' lbm m'+(i+1):''}" style="--acc:${acc}" aria-label="#${i+1} ${esc(nameOf(c.h))}">
+  <span class="lbcg" aria-hidden="true"></span><span class="lbcb tl"></span><span class="lbcb tr"></span><span class="lbcb bl"></span><span class="lbcb br"></span>
+  <div class="lbctop"><span class="lbcrk num">#${String(i+1).padStart(2,'0')}</span><span class="lbctag">${i===0?'TOP CALLER':i<3?'PODIUM':'TOP 10'}</span>${i<3?`<span class="lbcmed" aria-hidden="true">${['👑','🥈','🥉'][i]}</span>`:''}</div>
+  <a class="lbcwho" href="#/profile/${esc(c.h)}"><span class="lbcav">${avatar(c.h,'md')}</span><span class="grow"><b>${esc(nameOf(c.h))}</b><small>@${esc(c.h)}</small></span></a>
+  <div class="lbcstats num"><div><small>WIN RATE</small><b>${c.win}%</b></div><div><small>AVG RETURN</small><b class="${c.avg>=0?'up':'down'}">${fmtPct(c.avg)}</b></div><div><small>CALLS</small><b>${c.calls}</b></div><div><small>BEST CALL</small><b class="${c.best>=0?'up':'down'}">${fmtPct(c.best)}</b></div></div>
+  <div class="lbcxp"><div class="lbcxpt"><span>${esc(t.name)}</span><span class="num">${t.xp.toLocaleString()} pts</span></div><span class="lbcbar"><i style="width:${Math.max(4,t.pct)}%"></i></span></div>
+  ${me?`<a class="btn sm block lbcgo" href="#/you">That’s you</a>`:`<button class="btn sm block lbcgo ${f?'ghost':'primary'}" data-act="follow" data-h="${esc(c.h)}">${f?'Following':'Follow'}</button>`}</article>`};
+ return `<section class="lbcar" aria-label="Top ${top.length} callers"><div class="lbcnav"><b>Top ${top.length} callers</b><span class="grow"></span><button class="ib sm lbarr" data-act="lbsw" data-f="-1" aria-label="Previous caller">${ic('chev',18)}</button><button class="ib sm lbarr" data-act="lbsw" data-f="1" aria-label="Next caller">${ic('chev',18).replace('<svg','<svg style="transform:scaleX(-1)"')}</button></div>
+ <div class="lbtrack" id="lbtrack">${top.map(card).join('')}</div>
+ <div class="lbdots" aria-hidden="true">${top.map((_,i)=>`<i class="${i?'':'on'}"></i>`).join('')}</div></section>`}
+function lbSwipe(dir){const tr=$('#lbtrack');if(!tr)return;const c=tr.querySelector('.lbc');const w=c?c.getBoundingClientRect().width+12:tr.clientWidth*.8;tr.scrollBy({left:dir*w,behavior:'smooth'})}
+document.addEventListener('scroll',e=>{const tr=e.target;if(!(tr instanceof HTMLElement)||tr.id!=='lbtrack')return;const c=tr.querySelector('.lbc');if(!c)return;
+ const i=Math.round(tr.scrollLeft/(c.getBoundingClientRect().width+12)),d=tr.parentElement.querySelectorAll('.lbdots i');d.forEach((x,j)=>x.classList.toggle('on',j===i))},true);
+function vLeaders(){if(S.lbv==='latest')return vLatestCalls();if(S.lbv==='points')return vPoints();loadCallers();const w=S.lb||'30d',L=ranked(),st=CALLERS[w],me=L.findIndex(c=>c.h===S.me);
+ const pod=lbCards(L.slice(0,10));
  const head=`<div class="pad lbhead"><span class="muted">${st?'Ranked by win rate, then average return. Updates live.':'Loading callers…'}</span><div class="seg">${['7d','30d','All time'].map(x=>`<button class="${(S.lb||'30d')===x?'on':''}" data-act="lb" data-f="${x}">${x}</button>`).join('')}</div></div>`;
  if(st&&!L.length)return lbToggle()+head+`<div class="empty"><b class="h2">The board is wide open</b><p>No calls in this window yet. Make the first one and take #1.</p><button class="btn primary" data-act="newcall">Make a call</button></div>`;
  return lbToggle()+head+pod+`<div class="tablewrap" style="border-top:1px solid var(--line)"><table><thead><tr><th>Rank</th><th>Caller</th><th>Points</th><th>Win rate</th><th>Avg return</th><th>Calls</th><th>Best call</th><th></th></tr></thead><tbody>
@@ -1490,7 +1513,7 @@ function pboard(rows,tot){const d24=rows.reduce((a,[k,amt])=>{const t=T[k],v=usd
  const col=k=>k==='SOL'?'#9B7BFF':k==='USDC'?'#4DA8FF':`hsl(${hue(symOf(k))} 62% 52%)`;
  const st=statsOf(S.me);
  return `<div class="pboard ${up?'is-up':'is-down'}">${wfx('pf')}
- <div class="pbtop"><span class="pblab">Portfolio</span><span class="stlive"><i></i>Live</span></div>
+ <div class="pbtop"><span class="pblab">Portfolio</span><span class="pbtr"><span class="stlive"><i></i>Live</span><button class="ib sm pbmore" data-act="wmenu" aria-label="Wallet options" title="Wallet options">${ic('more',18)}</button></span></div>
  <div class="pbval num${fl}" aria-live="polite">${tot<1e6?'$'+tot.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):fmtUsd(tot)}</div>
  <div class="pbchg num"><span class="${up?'up':'down'}">${ic(up?'up':'down',13)} ${money(d24)} (${fmtPct(p24)})</span><span class="muted">today</span>${st.n?`<span class="pbdot"></span><span class="${st.pnl>=0?'up':'down'}">${money(st.pnl)}</span><span class="muted">all-time</span>`:''}</div>
  ${segs.length?`<div class="pbbar" role="img" aria-label="Allocation">${top.map(x=>`<i style="flex:${x.v};background:${col(x.k)}"></i>`).join('')}${rest?`<i style="flex:${rest};background:var(--muted)"></i>`:''}</div>
@@ -1500,10 +1523,10 @@ function pboard(rows,tot){const d24=rows.reduce((a,[k,amt])=>{const t=T[k],v=usd
  <button class="copyca pbaddr" data-act="copy" data-v="${S.addr}">${ic('wallet',13)} ${short(S.addr)} ${ic('copy',13)}</button></div>`}
 function vWallet(){if(!S.connected)return `<div class="empty"><b class="h2">No wallet connected</b><p>Sign in with email, Google or X and we create a wallet for you. Or connect Phantom, Solflare or Backpack. You always hold your own keys.</p><button class="btn primary" data-act="connect">Connect wallet</button></div>`;
  const rows=Object.entries(S.bal).filter(([k,a])=>a>0&&T[k]).sort((x,y)=>(usd(y[0],y[1])||0)-(usd(x[0],x[1])||0)),tot=rows.reduce((s,[k,a])=>s+(usd(k,a)||0),0);
- const wc=['earn','keys'].includes(S.wcard)?S.wcard:'pf';
- const card=wc==='earn'?(earnCard()||`<div class="earn"><div class="earnt"><span class="earnic">${ic('crown',18)}</span><b>Caller earnings</b></div><p class="hint earnempty">Earnings show here once you’re signed in.</p></div>`):wc==='keys'?(keysCard()+`<p class="hint wkeyx">Callit is non-custodial. Every trade, withdrawal and claim is signed by you.</p>`):pboard(rows,tot);
+ const wc=S.wcard==='earn'?'earn':'pf';
+ const card=wc==='earn'?(earnCard()||`<div class="earn"><div class="earnt"><span class="earnic">${ic('crown',18)}</span><b>Caller earnings</b></div><p class="hint earnempty">Earnings show here once you’re signed in.</p></div>`):pboard(rows,tot);
  const cardArt=wc==='pf'?card:card.replace(/^(\s*<(?:section|div) class="(?:earn|keyscard)[^"]*"[^>]*>)/,(m)=>m+wfx(wc));
- return `<div class="pad wpage"><div class="wbg" aria-hidden="true">${walletArt(artSeed(),4,'art wbgart')}</div><div class="wcsw">${vseg('wcard',[['pf','Portfolio','wallet'],['earn','Earnings','crown'],['keys','Keys','lock']],wc,'Wallet view')}</div><div class="wcbody">${cardArt}</div>
+ return `<div class="pad wpage"><div class="wbg" aria-hidden="true">${walletArt(artSeed(),4,'art wbgart')}</div><div class="wcsw">${vseg('wcard',[['pf','Portfolio','wallet'],['earn','Earnings','crown']],wc,'Wallet view')}</div><div class="wcbody">${cardArt}</div>
  <div class="acts2 acts3"><button class="btn primary" data-act="deposit">${ic('down',16)} Deposit</button><button class="btn" data-act="withdraw">${ic('up',16)} Withdraw</button><a class="btn" href="#/swap">${ic('swap',16)} Swap</a></div>
  <div class="list">${(()=>{const B=pnlBook();return rows.map(([k,a])=>{const x=posPnl(k,B);return holdRow(k,a,usd(k,a)||0,x?x.pnl:null,x?x.pct:null,1)}).join('')})()}</div>
  <div id="walords">${ordersList()}</div><b class="h2" style="display:block;margin:22px 0 4px">History</b><div class="list">${S.activity.map(a=>`<div class="li"><div class="grow"><b>${esc(a.k)}</b><div class="hint">${esc(a.t)}${a.sig?` · <a class="lnk" href="https://solscan.io/tx/${a.sig}" target="_blank" rel="noopener noreferrer">View</a>`:''}</div></div><div class="r num">${esc(a.d)}</div></div>`).join('')||'<div class="empty" style="padding:18px 8px"><b>No history yet</b><p>Deposits, trades and withdrawals show up here.</p></div>'}</div></div>`}
@@ -1554,6 +1577,28 @@ async function tgLink(){try{const r=await API('/api/telegram/link',{body:{}});co
 /* Self-custody: the wallet belongs to the user. Privy-made wallets (email / Google / X sign-ins) can be exported. */
 function keysCard(){if(!S.connected)return '';const W=window.CallitWallet,emb=(W&&W.embedded)||[],mine=S.addr&&emb.includes(S.addr);
  return `<div class="keyscard"><span class="keysic">${ic('lock',18)}</span><div class="grow"><b>Your wallet, your keys</b><span class="hint">${mine?'Callit never holds your funds. You can export this wallet’s private key and use it in Phantom, Solflare or Backpack any time.':'This is your own wallet. Callit can’t move anything without your approval in your wallet app.'}</span></div>${mine?`<button class="btn sm ghost" data-act="exportkey">Export key</button>`:''}</div>`}
+/* Report a bug / security issue / idea. Saved for the team; admins read them under Admin › Reports. */
+function bugModal(kind){kind=['bug','security','idea'].includes(kind)?kind:'bug';
+ const K={bug:['Report a bug','What happened, and what did you expect? Steps help us fix it fast.','e.g. I tapped Sell on $TOKEN, the button spun and nothing happened…'],
+  security:['Report a security issue','Thanks for looking out. Describe the issue and how to reproduce it. Don’t post it publicly until we’ve fixed it.','What can an attacker do, and how?'],
+  idea:['Suggest a feature','What should Callit do that it doesn’t yet?','e.g. Let me set a default TP on every buy…']}[kind];
+ modal(K[0],K[1],`<div class="field"><label for="bugtx">Details</label><textarea id="bugtx" class="input" rows="6" maxlength="2000" placeholder="${esc(K[2])}"></textarea><span class="hint" id="bugn">0 / 2000</span></div>
+  <div class="field"><label for="bugct">Contact <span class="hint">· optional, X handle or email so we can follow up</span></label><input id="bugct" class="input" maxlength="120" autocomplete="off" value="${S.connected?'@'+esc(S.me):''}"></div>
+  <p class="hint">We attach the screen you were on and your device type. Never include your private key or seed phrase.</p>
+  <div class="err" id="bugerr"></div><button class="btn primary block" id="bugsend">Send</button>`,
+ m=>{const tx=$('#bugtx',m),n=$('#bugn',m),er=$('#bugerr',m),bt=$('#bugsend',m);tx.focus();tx.oninput=()=>{n.textContent=tx.value.length+' / 2000'};
+  bt.onclick=()=>{const t=tx.value.trim();if(t.length<10){er.textContent='Tell us a little more (at least 10 characters).';return}
+   if(/\b([1-9A-HJ-NP-Za-km-z]{85,90})\b|\b(\w+\s){11,23}\w+\b/.test(t)&&/key|seed|phrase|secret/i.test(t)){er.textContent='That looks like a private key or seed phrase. Remove it, we never need it.';return}
+   bt.disabled=true;bt.textContent='Sending…';
+   API('/api/bugs',{body:{kind,text:t,contact:$('#bugct',m).value.trim(),page:(NAVH.stack[NAVH.stack.length-1]||location.hash).slice(0,200),ua:navigator.userAgent.slice(0,300),w:innerWidth}})
+    .then(()=>{closeModal();toast(kind==='idea'?'Thanks! Idea sent':'Thanks! Report sent to the team')})
+    .catch(e=>{bt.disabled=false;bt.textContent='Send';er.textContent=e.message||'Couldn’t send. Try again.'})}})}
+/* Wallet options sheet (the ⋮ beside LIVE): keys and wallet settings live here, not on the main card. */
+function walletMenu(){if(!S.connected)return connectModal();const W=window.CallitWallet,emb=(W&&W.embedded)||[],mine=S.addr&&emb.includes(S.addr);
+ const head=`<div class="ashead"><span class="asic">${ic('wallet',19)}</span><span class="grow"><b>Your wallet</b><small class="num">${short(S.addr)}</small></span></div>`;
+ aSheet('Wallet options',head,`<div class="asgroup">${arow(`data-act="copy" data-v="${esc(S.addr)}"`,'copy','Copy address','Receive SOL, USDC or any Solana token')}${arow(`data-act="wmgo" data-f="https://solscan.io/account/${esc(S.addr)}"`,'search','View on Solscan','Every transaction, on-chain')}</div>
+  <div class="asgroup">${arow('data-act="swapset"','gear','Swap settings','Slippage, speed and front-running protection')}${arow('data-act="wmgo" data-f="#/alerts"','bell','Alerts','Price alerts and wallets you track')}${arow('data-act="wmgo" data-f="#/settings"','settings','Wallet & app settings','Default buy, hide balances, theme')}</div>
+  <div class="asgroup">${mine?arow('data-act="exportkey"','lock','Export private key','Opens in a secure Privy window. Never share it',''):arow('data-act="close"','lock','Your keys stay in your wallet app','Callit can’t move anything without your approval')}</div>`)}
 function exportKeyModal(){const W=window.CallitWallet;if(!W||!W.exportKey)return toast('Sign in again to export your wallet');
  modal('Export your private key','Your key opens in a secure Privy window. Callit never sees it.',`<ul class="keyswarn"><li>Anyone with this key controls your funds. Never share it, screenshot it or paste it into a website.</li><li>Callit staff will <b>never</b> ask for your key or seed phrase.</li><li>Import it into Phantom, Solflare or Backpack to use the same wallet there. It keeps working in Callit too.</li></ul><button class="btn primary block" id="kgo">I understand, show my key</button>`,
   m=>{$('#kgo',m).onclick=async()=>{closeModal();try{await W.exportKey(S.addr)}catch(e){toast(e&&e.message||'Couldn’t open the export window')}}})}
@@ -2620,6 +2665,10 @@ function vSettings(){const th=document.documentElement.dataset.theme||'system',c
   <button class="setrow" data-act="install">${ic('down',18)}<span class="grow"><b>Install Callit</b><span class="hint">Opens full-screen from your home screen.</span></span>${go}</button>
   ${zoomOn()?`<button class="setrow" data-act="bpreset">${ic('rotate',18)}<span class="grow"><b>Reset home panels</b></span></button>`:''}
   ${row('about','Terms, privacy, risks & security','',go,'#/legal/terms')}${row('verified','Premium','',go,'#/premium')}</section>
+ <section class="setcard"><div class="seth">${ic('about',18)}<b>Help</b></div>
+  <button class="setrow" data-act="bugreport" data-f="bug">${ic('pen',18)}<span class="grow"><b>Report a bug</b><span class="hint">Something broken or confusing? Tell us. It goes straight to the team.</span></span>${go}</button>
+  <button class="setrow" data-act="bugreport" data-f="security">${ic('lock',18)}<span class="grow"><b>Report a security issue</b><span class="hint">Found a way to lose funds or see what you shouldn’t? Report it privately.</span></span>${go}</button>
+  <button class="setrow" data-act="bugreport" data-f="idea">${ic('sprout',18)}<span class="grow"><b>Suggest a feature</b></span>${go}</button></section>
  ${S.connected?`<button class="btn ghost block setout" data-act="logout">${ic('logout',16)} Log out</button>`:''}</div>`}
 /* ---------- premium ---------- */
 const PLANS={monthly:{usd:8,label:'Monthly',per:'/month',days:30},yearly:{usd:80,label:'Yearly',per:'/year',days:365,save:'2 months free'}};
@@ -3514,7 +3563,7 @@ document.addEventListener('click',e=>{
    API('/api/alerts/wallets',{body:{address:v,label:l.value}}).then(j=>{toast(j.live?'Tracking. You’ll get a pop-up on every swap':'Saved. Live tracking starts once Helius is set up');if(pushState()==='off')setTimeout(()=>pushOn(),400);AL.d=null;alLoad(1)}).catch(e=>toast(e.message)).finally(()=>{b.disabled=false})},
   aldel:()=>(closeModal(),API('/api/alerts/wallets?address='+encodeURIComponent(b.dataset.f),{method:'DELETE'}).then(()=>{AL.d=null;alLoad(1)}).catch(e=>toast(e.message))),
   belldel:()=>API('/api/alerts/bell?mint='+encodeURIComponent(b.dataset.f),{method:'DELETE'}).then(()=>{BELLS.delete(b.dataset.f);AL.d=null;alLoad(1)}).catch(e=>toast(e.message)),
-  wtab:()=>{S.wtab=b.dataset.f;render()},wbopen:()=>walletSheet(b.dataset.f),
+  wtab:()=>{S.wtab=b.dataset.f;render()},wmenu:()=>walletMenu(),wmgo:()=>{const u=b.dataset.f;closeModal();if(u.startsWith('#'))location.hash=u.slice(1)?u:'#/home';else window.open(u,'_blank','noopener')},lbsw:()=>lbSwipe(+b.dataset.f),bugreport:()=>{closeModal();bugModal(b.dataset.f)},wbopen:()=>walletSheet(b.dataset.f),
   lbv:()=>{S.lbv=b.dataset.f;render();scrollTo({top:0})},
   ptp:()=>{S.ptp=b.dataset.f;render()},
   dgo:()=>{e.preventDefault();const el=document.getElementById(b.dataset.f);if(el)el.scrollIntoView({behavior:'smooth',block:'start'})},
@@ -3705,7 +3754,12 @@ function queueDemoCalls(){/* demo calls retired: real calls only */if(true||QUEU
 /* static icons */
 $('#setIcon').innerHTML=ic('settings',20);$('#fab').innerHTML=ic('plus',28);$('#searchBtn').innerHTML=ic('search',18)+'<span class="lbl">Search</span>';
 if(innerWidth<1100)document.body.classList.add('collapsed');
-addEventListener('hashchange',()=>{if(NAVH.back)NAVH.back=false;else if(NAVH.cur!==location.hash)NAVH.stack.push(NAVH.cur);NAVH.stack=NAVH.stack.slice(-30);NAVH.cur=location.hash;closeModal();closeSheet();if(currentRoute()==='home')S.adRot++;render();scrollTo({top:0})});
+/* Each screen remembers where you were. Back (in-app, browser or swipe) lands you on the same post; new screens start at the top. */
+const SCRY={};addEventListener('scroll',()=>{if(!SCRY._lock)SCRY[NAVH.cur||location.hash]=scrollY},{passive:true});
+function restoreScroll(y){if(!(y>0)){scrollTo({top:0});return}SCRY._lock=1;let n=0,last=-1;
+ const go=()=>{if(last>=0&&Math.abs(scrollY-last)>4){SCRY._lock=0;return}const max=document.documentElement.scrollHeight-innerHeight;last=Math.min(y,Math.max(0,max));scrollTo({top:last});
+  if(max<y&&n++<12)setTimeout(go,120);else{SCRY._lock=0;SCRY[NAVH.cur]=scrollY}};requestAnimationFrame(go)}
+addEventListener('hashchange',()=>{let back=NAVH.back;if(NAVH.back)NAVH.back=false;else if(NAVH.stack.length&&NAVH.stack[NAVH.stack.length-1]===location.hash){NAVH.stack.pop();back=true}else if(NAVH.cur!==location.hash)NAVH.stack.push(NAVH.cur);NAVH.stack=NAVH.stack.slice(-30);NAVH.cur=location.hash;closeModal();closeSheet();if(currentRoute()==='home'&&!back)S.adRot++;render();restoreScroll(back?SCRY[location.hash]:0)});
 /* ad board rotates on its own */
 setInterval(()=>{const el=$('#adboard');if(!el||el.matches(':hover'))return;S.board++;el.outerHTML=adBoard()},6000);
 
