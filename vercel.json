@@ -1,5 +1,13 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
-  "crons": [{ "path": "/api/cron/payouts", "schedule": "0 18 * * *" }]
+  "crons": [
+    {
+      "path": "/api/cron/payouts",
+      "schedule": "0 18 * * *"
+    }
+  ],
+  "regions": [
+    "dub1"
+  ]
 }
