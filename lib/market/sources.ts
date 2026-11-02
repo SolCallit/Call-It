@@ -378,7 +378,8 @@ export type MarketFlow = {
   win: Record<FlowWin, { buy: number; sell: number; net: number; buys: number; sells: number; traders: number }>;
   topIn: FlowTok[]; topOut: FlowTok[];
 };
-const NOT_MEME = new Set(['SOL', 'WSOL', 'USDC', 'USDT', 'USDS', 'PYUSD', 'USD1', 'EURC', 'JUP', 'JTO', 'PYTH', 'RAY', 'ORCA', 'JLP', 'JITOSOL', 'MSOL', 'BSOL', 'INF', 'JUPSOL', 'BNSOL', 'WBTC', 'CBBTC', 'ZBTC', 'WETH', 'ETH', 'BTC', 'HNT', 'RENDER', 'RNDR', 'W', 'KMNO', 'DRIFT', 'XBTC', 'SSOL', 'HSOL', 'DSOL', 'VSOL', 'STSOL', 'LST']);
+const NOT_MEME = new Set(['SOL', 'WSOL', 'USDC', 'USDT', 'USDS', 'PYUSD', 'USD1', 'EURC', 'JUP', 'JTO', 'PYTH', 'RAY', 'ORCA', 'JLP', 'JITOSOL', 'MSOL', 'BSOL', 'INF', 'JUPSOL', 'BNSOL', 'WBTC', 'CBBTC', 'ZBTC', 'WETH', 'ETH', 'BTC', 'HNT', 'RENDER', 'RNDR', 'W', 'KMNO', 'DRIFT', 'XBTC', 'SSOL', 'HSOL', 'DSOL', 'VSOL', 'STSOL', 'LST', 'ZEC', 'HYPE', 'MPLX', 'CARDS', 'PUMP', 'ONDO', 'XRP', 'BNB', 'SUI', 'DOGE', 'LINK', 'AAVE']);
+const stockish = (j: JupToken) => /xstock|securities|proshares|tokenized/i.test(j.name || '') || /backed\.fi|stock-logo/i.test(j.icon || '');
 
 /**
  * Net buy volume (buys minus sells, in USD) across Solana meme tokens that are trading right now:
@@ -393,7 +394,7 @@ export async function memeFlow(): Promise<MarketFlow | null> {
   const toks = [...seen.values()].filter((j) => {
     const sym = String(j.symbol || '').toUpperCase();
     const mc = num(j.mcap) ?? num(j.fdv) ?? 0;
-    return !NOT_MEME.has(sym) && !/USD|SOL$/.test(sym) && mc > 0 && mc < 5e9;
+    return !NOT_MEME.has(sym) && !stockish(j) && !/USD|SOL$/.test(sym) && mc > 0 && mc < 5e9;
   });
   if (!toks.length) return null;
   const W: [FlowWin, keyof JupToken][] = [['m5', 'stats5m'], ['h1', 'stats1h'], ['h6', 'stats6h'], ['h24', 'stats24h']];
