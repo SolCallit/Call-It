@@ -55,7 +55,7 @@ async function grab(url: string): Promise<{ bytes: ArrayBuffer; type: string } |
  * for brand-new launches, across several IPFS gateways.
  * 404 when nothing works, so the UI keeps its initials badge.
  */
-export async function GET(_req: Request, ctx: { params: Promise<{ mint: string }> }) {
+export async function GET(req: Request, ctx: { params: Promise<{ mint: string }> }) {
   const { mint } = await ctx.params;
   if (!isMint(mint)) return new Response(null, { status: 400 });
 
@@ -74,6 +74,10 @@ export async function GET(_req: Request, ctx: { params: Promise<{ mint: string }
 
   const img = (await tryAll(first)) ?? (await tryAll(await dasImage(mint)));
   {
+    if (img && new URL(req.url).searchParams.get('b64') === '1') {
+      // Base64 for share-card and graphics tooling that can't take binary.
+      return Response.json({ type: img.type, data: Buffer.from(img.bytes as ArrayBuffer).toString('base64') }, { headers: { 'cache-control': 'public, s-maxage=86400' } });
+    }
     if (img) {
       return new Response(img.bytes, {
         headers: {
