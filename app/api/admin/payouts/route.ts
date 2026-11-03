@@ -34,7 +34,7 @@ export async function GET(req: Request) {
     ready: true, paused, issue: await payoutIssue(paused), switchOn: process.env.PAYOUTS_ON === '1',
     wallet: signer?.address ?? null, sol, solUsd: sol != null && price ? sol * price : null,
     owed, earned24h: (e24 || []).reduce((s: number, r: { usd: number }) => s + Number(r.usd), 0),
-    paid24h: await paidLast24h(db), dailyCap: Number.isFinite(PAYOUT.dailyCapUsd()) ? PAYOUT.dailyCapUsd() : null, minUsd: PAYOUT.minUsd(), maxClaim: Number.isFinite(PAYOUT.maxPerClaimUsd()) ? PAYOUT.maxPerClaimUsd() : null,
+    paid24h: await paidLast24h(db), dailyCap: Number.isFinite(PAYOUT.dailyCapUsd()) ? PAYOUT.dailyCapUsd() : null, minUsd: PAYOUT.minUsd(), maxClaim: Number.isFinite(PAYOUT.maxPerClaimUsd()) ? PAYOUT.maxPerClaimUsd() : null, userDailyCap: Number.isFinite(PAYOUT.userDailyCapUsd()) ? PAYOUT.userDailyCapUsd() : null,
     claims: (claims || []).map((c) => {
       const x = c as unknown as { profiles: { handle: string } | null; lamports: number | null } & Record<string, unknown>;
       return { ...x, handle: x.profiles?.handle ?? null, sol: x.lamports ? Number(x.lamports) / 1e9 : null, profiles: undefined };

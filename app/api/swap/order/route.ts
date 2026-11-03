@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyPrivyToken } from "@/lib/auth/privy-server";
 import { getOrder } from "@/lib/jupiter";
 import { errText } from "@/lib/errors";
+import { saveOrder } from "@/lib/fees/orders";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -61,6 +62,9 @@ export async function GET(req: NextRequest) {
         { status: 422 }
       );
     }
+
+    // Fee proof: remember orders that carry Callit's fee, so only real Callit trades earn shares and points.
+    await saveOrder({ requestId: order.requestId, taker, feeBps: order.callitFeeBps || 0, feeMint: order.feeMint });
 
     // Only send the client what it needs.
     return NextResponse.json({

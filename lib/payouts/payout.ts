@@ -69,10 +69,12 @@ export async function walletLamports(addr: string): Promise<bigint> {
   return BigInt(r.value || 0);
 }
 
-/** USD paid out (or in flight) in the last 24h, across everyone. */
-export async function paidLast24h(db: SupabaseClient): Promise<number> {
+/** USD paid out (or in flight) in the last 24h, across everyone or for one profile. */
+export async function paidLast24h(db: SupabaseClient, profileId?: string): Promise<number> {
   const since = new Date(Date.now() - 864e5).toISOString();
-  const { data } = await db.from('claims').select('usd').in('status', ['sent', 'pending']).gte('created_at', since);
+  let q = db.from('claims').select('usd').in('status', ['sent', 'pending']).gte('created_at', since);
+  if (profileId) q = q.eq('profile_id', profileId);
+  const { data } = await q;
   return (data || []).reduce((a: number, r: { usd: number }) => a + Number(r.usd), 0);
 }
 
@@ -115,14 +117,18 @@ export async function claim(db: SupabaseClient, me: { id: string; wallet_address
   if (issue) return { ok: false, error: 'Claims open soon. Your earnings are safe and keep adding up.', status: 503 };
   const signer = (await payoutSigner())!;
 
-  const cap = PAYOUT.dailyCapUsd();
-  const room = Number.isFinite(cap) ? cap - (await paidLast24h(db)) : Infinity;
-  if (room < PAYOUT.minUsd()) return { ok: false, error: 'Today’s payouts are used up. Try again tomorrow.', status: 429 };
+  const cap = PAYOUT.dailyCapUsd(), ucap = PAYOUT.userDailyCapUsd();
+  const allRoom = Number.isFinite(cap) ? cap - (await paidLast24h(db)) : Infinity;
+  if (allRoom < PAYOUT.minUsd()) return { ok: false, error: 'Today’s payouts are used up. Try again tomorrow.', status: 429 };
+  const userRoom = Number.isFinite(ucap) ? ucap - (await paidLast24h(db, me.id)) : Infinity;
+  if (userRoom < PAYOUT.minUsd()) return { ok: false, error: `You’ve hit today’s $${ucap} claim limit. The rest stays safe; claim again in 24h.`, status: 409 }; // 409: this user only, the daily run moves on to the next person
+  const room = Math.min(allRoom, userRoom);
   const price = await solPrice();
   if (!price) return { ok: false, error: 'Couldn’t get the SOL price. Try again in a minute.', status: 503 };
 
   const { data: r, error } = await db.rpc('claim_start', {
-    p_profile: me.id, p_wallet: me.wallet_address, p_min: PAYOUT.minUsd(), p_max: Math.min(PAYOUT.maxPerClaimUsd(), room, 1e9), // 1e9: SQL needs a number, Infinity means no cap p_cb_points: cashbackMinPoints(),
+    p_profile: me.id, p_wallet: me.wallet_address, p_min: PAYOUT.minUsd(), p_max: Math.min(PAYOUT.maxPerClaimUsd(), room, 1e9), // 1e9: SQL needs a number, Infinity means no cap
+    p_cb_points: cashbackMinPoints(),
   });
   if (error) return { ok: false, error: 'Claims aren’t set up on the server yet (migration 0015).', status: 503 };
   const row = (r as { claim_id: string; usd: number }[] | null)?.[0];
@@ -130,6 +136,8 @@ export async function claim(db: SupabaseClient, me: { id: string; wallet_address
   const usd = Number(row.usd);
   const release = async (why: string) => { await db.rpc('claim_release', { p_claim: row.claim_id, p_error: why }); };
 
+  // claim_start always takes the oldest earning even if it alone is over p_max: never let that break the daily limits.
+  if (usd > room + 0.01) { await release('daily_cap'); return { ok: false, error: 'This claim would pass today’s limit. Try again in 24h.', status: 409 }; }
   if (Number.isFinite(PAYOUT.maxPerClaimUsd()) && usd > PAYOUT.maxPerClaimUsd() * 1.5) { await release('over_cap'); return { ok: false, error: 'This claim is larger than usual and needs a manual check. Contact Callit support.' }; }
   const lamports = BigInt(Math.floor((usd / price) * 1e9));
   if (lamports < 5000n) { await release('too_small'); return { ok: false, error: 'That’s too small to send on-chain yet.' }; }

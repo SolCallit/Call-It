@@ -104,7 +104,7 @@ export async function awardPoints(db: SupabaseClient): Promise<number> {
   const since = new Date(Date.now() - 3 * 864e5).toISOString();
   const rows: { profile_id: string; kind: string; amount: number; ref: string; note: string }[] = [];
   const { data: tx } = await db.from('transactions').select('signature, profile_id, kind, usd_value')
-    .in('kind', ['buy', 'sell', 'swap']).eq('verified', true).gt('usd_value', 0).gte('created_at', since).limit(5000);
+    .in('kind', ['buy', 'sell', 'swap']).eq('verified', true).gt('usd_value', 0).gt('fee_usd', 0).gte('created_at', since).limit(5000); // fee_usd > 0: went through Callit
   for (const t of (tx || []) as { signature: string; profile_id: string; kind: string; usd_value: number }[]) {
     const amt = Math.min(POINTS.perTradeCap, +(Number(t.usd_value) * POINTS.perUsd).toFixed(2));
     if (amt > 0) rows.push({ profile_id: t.profile_id, kind: 'trade', amount: amt, ref: 't:' + t.signature, note: t.kind });

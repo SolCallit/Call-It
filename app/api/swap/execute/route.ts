@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyPrivyToken } from "@/lib/auth/privy-server";
 import { executeOrder } from "@/lib/jupiter";
 import { errText } from "@/lib/errors";
+import { markFilled } from "@/lib/fees/orders";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,7 +48,7 @@ export async function POST(req: NextRequest) {
     const result = await executeOrder(signedTransaction, requestId);
 
     // "Failed" comes back as a normal response — always check status.
-    // TODO (Phase 4): log { requestId, signature, status, wallet, mints, amounts } to Supabase here.
+    if (result.status === "Success" && result.signature) await markFilled(requestId, result.signature);
 
     if (result.status !== "Success") console.warn("[swap/execute] failed", result.code, result.error);
     return NextResponse.json({
