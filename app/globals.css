@@ -157,6 +157,8 @@ textarea.input{resize:vertical;min-height:96px}
 .mc:hover{text-decoration:underline}
 .bk{display:inline-flex;align-items:center;gap:4px;font-weight:700;color:var(--up)}
 .bk.no{color:var(--muted);font-weight:600}
+.bk.ver{color:var(--hi);text-decoration:none}
+.bk.ver:hover{text-decoration:underline}
 .buybox{border:1.5px solid var(--line);border-radius:16px;padding:12px 14px;margin-bottom:14px;background:var(--bg2)}
 .buybox .top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
 .buybox .presets{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px}

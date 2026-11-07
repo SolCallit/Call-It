@@ -5,6 +5,8 @@ import { PERP_MARKETS, isPerpMarket } from '@/lib/perps/markets';
 import { notifyMentions, notifySocial, postOwner } from '@/lib/notify/social';
 import { onNewCall } from '@/lib/alerts/triggers';
 
+import { attestCall } from '@/lib/calls/attest';
+
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
@@ -170,6 +172,12 @@ export async function POST(req: Request) {
     return json({ error: 'db_write', detail: error.message }, 500);
   }
   const { profile_id: _p, ...post } = data as Record<string, unknown>;
+  // On-chain receipt: stamp the call's entry to Solana so nobody has to take Callit's word for it.
+  // Fire and forget — a receipt that fails to land never stops a call being posted.
+  if (kind === 'meme') {
+    const c = data as unknown as { id: string; mint: string; token_sym: string | null; entry_mc: number; created_at: string };
+    after(() => attestCall(db, { id: c.id, mint: c.mint, token_sym: c.token_sym, entry_mc: c.entry_mc, created_at: c.created_at, handle: me.handle }).catch(() => {}));
+  }
   if (body) await notifyMentions(db, me, body, `#/post/${(post as { id: string }).id}`);
   // Tell the quoted post's author.
   if (quoteSaved && typeof b.quote_ref === 'string') {
