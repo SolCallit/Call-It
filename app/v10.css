@@ -223,3 +223,6 @@ body.gated{overflow:hidden}
 .flnote{margin:0}
 .flwrap.sk .flhero{height:190px}.flwrap.sk .fltile{background:linear-gradient(90deg,var(--bg2),var(--hover),var(--bg2));background-size:200% 100%;animation:skl 1.2s linear infinite}
 @keyframes skl{to{background-position:-200% 0}}
+
+/* Market rows on phones: the token name gets its own line so the Heat chip and buttons don't squeeze it to one letter */
+@media (max-width:480px){.trow .tname{flex-wrap:wrap;row-gap:3px}.trow .tname b{flex:1 1 100%;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}

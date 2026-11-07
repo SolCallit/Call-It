@@ -249,6 +249,8 @@ const AD_EVERY=3;
 const S={connected:false,addr:'',me:'',tab:'foryou',tf:'1D',lb:'30d',following:new Set(),watch:new Set(['GLORP','ORBIT']),
  bal:{SOL:4.2,USDC:310,GLORP:120000},activity:[{k:'Received',d:'2 SOL',t:'Yesterday'}],
  swap:{from:'SOL',to:'GLORP',amt:''},pkg:'boost',queued:[],unread:true,adRot:0,board:0,tt:'new',dtab:'swap',ytab:(()=>{try{return localStorage.getItem('callit.ytab')==='profile'?'profile':'wallet'}catch(_){return 'wallet'}})()};
+/* Live site: visitors who aren't signed in see an empty wallet, never the prototype's demo balance. */
+if(typeof window!=='undefined'&&window.__callitRealAuth){S.bal={SOL:0};S.activity=[]}
 try{S.notifyOn=JSON.parse(localStorage.getItem('callit.notify')||'{}')||{}}catch(_){S.notifyOn={}}
 
 /* ---------- persistence (Supabase via /api) ----------
@@ -819,7 +821,7 @@ function swapHTML(tok){const w=S.swap,side=tok?(w.from===tok?'sell':'buy'):null,
   <button class="flip" data-act="flip" aria-label="Flip tokens">${ic('swap',16)}</button>
   <div class="box"><div class="row"><span class="hint">You get</span><span class="hint num">Balance ${fmtAmt(S.bal[w.to]||0)}</span></div>
   <div class="row"><div class="amt num">${out?fmtAmt(out):'0'}</div>${tbtn('to',w.to)}</div></div>
-  <div class="lines num"><div><span>Rate</span><span>1 ${f.sym} = ${fmtAmt(f.price/t.price)} ${t.sym}</span></div>${REALW()?'':'<div><span>Callit fee</span><span>0.5% (placeholder)</span></div>'}<div><span>Max slippage</span><span class="slips">${[0,.5,1,3].map(v=>`<button class="${sl===v?'on':''}" data-act="slip" data-f="${v}">${v?v+'%':'Auto'}</button>`).join('')}</span></div>
+  <div class="lines num"><div><span>Rate</span><span>1 ${f.sym} = ${fmtAmt(f.price/t.price)} ${t.sym}</span></div>${REALW()?'':'<div><span>Callit fee</span><span>1%</span></div>'}<div><span>Max slippage</span><span class="slips">${[0,.5,1,3].map(v=>`<button class="${sl===v?'on':''}" data-act="slip" data-f="${v}">${v?v+'%':'Auto'}</button>`).join('')}</span></div>
   ${a?`<div><span>Price impact</span><span class="${imp>15?'down':imp>5?'warn':'up'}">${imp<.01?'<0.01':imp.toFixed(2)}%</span></div>${sl?`<div><span>Minimum received</span><span>${fmtAmt(out*(1-sl/100))} ${t.sym}</span></div>`:''}`:''}<div><span>Route</span><span>Jupiter</span></div></div>
   ${warn}<button class="btn primary block${side==='sell'&&S.connected?' sellb':''}" data-act="${S.connected?'doswap':'connect'}" ${dis?'disabled':''}>${label}</button></div>`}
 const tbtn=(k,sym)=>`<button class="tpick" data-act="tpick" data-f="${k}" aria-label="${k==='from'?'Pay':'Receive'} token, ${esc(symOf(sym))}">${tokav(sym)}<b>${esc(symOf(sym))}</b>${ic('down',16)}</button>`;
