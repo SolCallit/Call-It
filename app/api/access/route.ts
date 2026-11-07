@@ -33,6 +33,7 @@ export async function GET(req: Request) {
 const MSG: Record<string, string> = {
   invalid: 'That code isn’t valid. Check it and try again.',
   used_up: 'That code has already been used.',
+  taken: 'That code belongs to another account. Ask for your own.',
   expired: 'That code has expired.',
 };
 const tries = new Map<string, number[]>();
@@ -43,7 +44,9 @@ export async function POST(req: Request) {
   const { db, p } = await load(req);
   if (!db) return json({ error: 'Unavailable right now. Try again.' }, 503);
   if (!p) return json({ error: 'Sign in first, then enter your code.' }, 401);
-  if (p.access_at || isAdmin(p)) return json({ ok: true });
+  // Already in (redeemed before, or an admin): let them through, but say plainly that no code was
+  // spent — testing a code on an account that already has access is what makes codes look reusable.
+  if (p.access_at || isAdmin(p)) return json({ ok: true, already: true, note: 'You already have access, so that code wasn’t used.' });
   const now = Date.now(), t = (tries.get(p.id) || []).filter((x) => now - x < 600_000);
   if (t.length >= 8) return json({ error: 'Too many tries. Wait 10 minutes.' }, 429);
   tries.set(p.id, [...t, now]);
@@ -52,6 +55,7 @@ export async function POST(req: Request) {
   if (code.length < 4) return json({ error: MSG.invalid }, 400);
   const { data, error } = await db.rpc('redeem_access_code', { p_profile: p.id, p_code: code });
   if (error) return json({ error: 'Couldn’t check the code. Try again.' }, 500);
-  if (data === 'ok' || data === 'already') return json({ ok: true });
+  if (data === 'ok') return json({ ok: true });
+  if (data === 'already') return json({ ok: true, already: true, note: 'You already have access, so that code wasn’t used.' });
   return json({ error: MSG[String(data)] || MSG.invalid }, 400);
 }

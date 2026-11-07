@@ -3530,14 +3530,25 @@ function authPending(){if(!realAuth())return false;if(S.connected&&window.__call
 function hideBoot(){const b=$('#boot');if(!b||b.classList.contains('out'))return;b.classList.add('out');setTimeout(()=>b.remove(),300)}
 setTimeout(()=>syncLanding(),BOOT_MAX+50);
 /* ---------- Invite-only gate ---------- */
-const GATE={gate:false,granted:true,for:null,busy:0};
-function accessCheck(){if(GATE.busy)return;GATE.busy=1;const who=S.connected?S.me:null;
- API('/api/access').then(j=>{GATE.gate=!!j.gate;GATE.granted=!!j.granted;GATE.for=who;
+const GATE={gate:false,granted:true,for:null,busy:0,tries:0};
+/* Checks whether this account is through the invite gate. It must never run while Privy is still
+   restoring a session: an unauthenticated /api/access answers "not signed in", which would throw a
+   signed-in user back to the invite screen on every reload. */
+function accessCheck(){if(GATE.busy)return;
+ if(authPending()&&GATE.tries++<40)return void setTimeout(accessCheck,200);
+ GATE.busy=1;const who=S.connected?S.me:null;
+ API('/api/access').then(j=>{
+  // "Not signed in" while we still hold a session is a stale answer from mid-restore: keep the
+  // current state and look again shortly instead of locking the user out.
+  if(j.gate&&!j.signedIn&&(S.connected||authPending())&&GATE.tries++<40){setTimeout(accessCheck,400);return}
+  GATE.gate=!!j.gate;GATE.granted=!!j.granted;GATE.for=who;
   let pend=null;try{pend=sessionStorage.getItem('callit.code')}catch(_){}
   if(GATE.gate&&!GATE.granted&&j.signedIn&&pend)return redeemCode(pend);gateSync()}).catch(()=>{}).finally(()=>{GATE.busy=0})}
-function redeemCode(code){return API('/api/access',{body:{code}}).then(()=>{try{sessionStorage.removeItem('callit.code')}catch(_){}GATE.granted=true;gateSync();toast('You’re in. Welcome to Callit');render()})
+function redeemCode(code){return API('/api/access',{body:{code}}).then(j=>{try{sessionStorage.removeItem('callit.code')}catch(_){}GATE.granted=true;gateSync();toast((j&&j.note)||'You’re in. Welcome to Callit');render()})
  .catch(e=>{try{sessionStorage.removeItem('callit.code')}catch(_){}gateSync(e.message)})}
-function gateSync(err){let el=$('#gate');const land=$('#landing'),show=GATE.gate&&!GATE.granted&&!(land&&!land.hidden);
+function gateSync(err){let el=$('#gate');const land=$('#landing');
+ // Never show the invite screen over a session that is still coming back.
+ const show=GATE.gate&&!GATE.granted&&!authPending()&&!(land&&!land.hidden);
  if(!show){if(el)el.remove();document.body.classList.remove('gated');return}
  if(!el){el=document.createElement('div');el.id='gate';el.setAttribute('role','dialog');el.setAttribute('aria-modal','true');el.setAttribute('aria-label','Callit is invite-only');document.body.appendChild(el)}
  document.body.classList.add('gated');
@@ -3614,7 +3625,7 @@ window.callitApplySession=(p,o={})=>{
  // after load) used to close whatever was open, which is why the Buy sheet kept snapping shut.
  const om=document.querySelector('#modal .modal'),lab=om&&om.getAttribute('aria-label')||'';
  if(om&&/^(Sign in to Callit|Welcome back|Create your Callit account)$/.test(lab))closeModal();
- render();loadBalances();if(realAuth()){loadMe();loadPosts()}if(GATE.for!==S.me)accessCheck();
+ render();loadBalances();if(realAuth()){loadMe();loadPosts()}if(GATE.for!==S.me){GATE.tries=0;accessCheck()}
  if(first&&!o.restore){toast(o.isNew?'Welcome to Callit. Your wallet is ready':'Signed in');const n=pendingNext;pendingNext=null;if(n)n();else if(o.isNew)maybeOnboard()}};
 window.callitAuthChanged=()=>syncLanding();
 window.callitWalletChanged=()=>{if(REALW())loadBalances()};
