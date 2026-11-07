@@ -1,0 +1,7 @@
+{
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "files.exclude": { "**/.next": true },
+  "search.exclude": { "**/.next": true, "**/node_modules": true, "package-lock.json": true },
+  "editor.wordWrap": "on",
+  "[typescript]": { "editor.formatOnSave": false }
+}
