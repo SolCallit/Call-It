@@ -296,3 +296,18 @@ body:has(.chdock) .fab{right:420px}
  .chb .chtx{font-size:15.5px}
  .seg button,.tgl>button{font-size:14.5px!important}
 }
+
+/* ---------- Assets: one spot list, grouped by what the asset actually is ---------- */
+.ahead{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:22px 0 10px}
+.ahead .h2{margin:0;flex:none}
+.ahead .tgl.vseg{flex:1;min-width:190px;max-width:290px;margin-left:auto!important}
+.asec{margin-bottom:18px}
+.asech{display:flex;align-items:baseline;gap:12px;padding:0 4px 8px}
+.asech>div{display:flex;flex-direction:column;gap:1px;min-width:0}
+.asech b{font:800 14px/1.2 var(--body)}
+.asech .hint{font-size:12px}
+.asect{margin-left:auto;font-weight:800;color:var(--muted);white-space:nowrap}
+.aempty{padding:26px 16px}
+.apsoon .soonx{padding:22px 16px}
+.apsoon .soonx .btn{display:none}
+@media (max-width:520px){.ahead{gap:8px}.ahead .tgl.vseg{min-width:0;max-width:none;flex-basis:100%;margin-left:0!important}}

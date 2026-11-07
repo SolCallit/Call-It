@@ -248,7 +248,7 @@ const ADS=[
 const AD_EVERY=3;
 const S={connected:false,addr:'',me:'',tab:'foryou',tf:'1D',lb:'30d',following:new Set(),watch:new Set(['GLORP','ORBIT']),
  bal:{SOL:4.2,USDC:310,GLORP:120000},activity:[{k:'Received',d:'2 SOL',t:'Yesterday'}],
- swap:{from:'SOL',to:'GLORP',amt:''},pkg:'boost',queued:[],unread:true,adRot:0,board:0,tt:'new',dtab:'swap',ytab:(()=>{try{return localStorage.getItem('callit.ytab')==='profile'?'profile':'wallet'}catch(_){return 'wallet'}})()};
+ swap:{from:'SOL',to:'GLORP',amt:''},pkg:'boost',queued:[],unread:true,adRot:0,board:0,tt:'new',dtab:'swap',atab:'spot',ytab:(()=>{try{return localStorage.getItem('callit.ytab')==='profile'?'profile':'wallet'}catch(_){return 'wallet'}})()};
 /* Live site: visitors who aren't signed in see an empty wallet, never the prototype's demo balance. */
 if(typeof window!=='undefined'&&window.__callitRealAuth){S.bal={SOL:0};S.activity=[]}
 try{S.notifyOn=JSON.parse(localStorage.getItem('callit.notify')||'{}')||{}}catch(_){S.notifyOn={}}
@@ -1541,7 +1541,7 @@ function vWallet(){if(!S.connected)return `<div class="empty"><b class="h2">No w
  const cardArt=wc==='pf'?card:card.replace(/^(\s*<(?:section|div) class="(?:earn|keyscard)[^"]*"[^>]*>)/,(m)=>m+wfx(wc));
  return `<div class="pad wpage"><div class="wbg" aria-hidden="true">${walletArt(artSeed(),4,'art wbgart')}</div><div class="wcsw">${vseg('wcard',[['pf','Portfolio','wallet'],['earn','Earnings','crown']],wc,'Wallet view')}</div><div class="wcbody">${cardArt}</div>
  <div class="acts2 acts3"><button class="btn primary" data-act="deposit">${ic('down',16)} Deposit</button><button class="btn" data-act="withdraw">${ic('up',16)} Withdraw</button><a class="btn" href="#/swap">${ic('swap',16)} Swap</a></div>
- <div class="list">${(()=>{const B=pnlBook();return rows.map(([k,a])=>{const x=posPnl(k,B);return holdRow(k,a,usd(k,a)||0,x?x.pnl:null,x?x.pct:null,1)}).join('')})()}</div>
+ ${vAssets(rows)}
  <div id="walords">${ordersList()}</div><b class="h2" style="display:block;margin:22px 0 4px">History</b><div class="list">${S.activity.map(a=>`<div class="li"><div class="grow"><b>${esc(a.k)}</b><div class="hint">${esc(a.t)}${a.sig?` · <a class="lnk" href="https://solscan.io/tx/${a.sig}" target="_blank" rel="noopener noreferrer">View</a>`:''}</div></div><div class="r num">${esc(a.d)}</div></div>`).join('')||'<div class="empty" style="padding:18px 8px"><b>No history yet</b><p>Deposits, trades and withdrawals show up here.</p></div>'}</div></div>`}
 
 /* ---------- caller earnings + Claim ----------
@@ -2436,6 +2436,28 @@ function vRoom(id){const c=COMMS.find(x=>x.id===id);if(!c)return vHome();const h
   :`<div class="grow"><b>Holders only</b><div class="hint">Hold any amount of $${c.sym} to chat here.</div></div>${S.connected?`<button class="btn primary" data-act="qbuy" data-t="${c.sym}">Buy $${c.sym}</button>`:`<button class="btn primary" data-act="connect">Connect</button>`}`}</div>`}
 
 /* ---------- profile tabs ---------- */
+/* ---------- what kind of asset is this ----------
+ * Everything you hold on Solana is spot: a meme and a tokenized stock are both SPL tokens.
+ * So Assets doesn't split them into tabs, it labels them inside one list. Perps are the real
+ * second class, because those are positions rather than things you hold. */
+const CASHSET=new Set(['SOL','WSOL','USDC','USDT','USDS','PYUSD','USD1','EURC','JLP','JITOSOL','MSOL','BSOL','INF','JUPSOL','BNSOL','SSOL','HSOL','DSOL','VSOL','STSOL','LST']);
+const stockish=t=>/xstock|securities|proshares|tokenized|\bstock\b/i.test(t&&t.name||'')||/backed\.fi|stock-logo/i.test(t&&t.icon||'')||/x$/.test(String(t&&t.sym||''))&&/[A-Z]{2,5}x$/.test(String(t&&t.sym||''));
+function assetClass(key){const t=T[key];if(!t)return 'meme';const sym=String(t.sym||'').toUpperCase();
+ if(CASHSET.has(sym))return 'cash';
+ if(stockish(t))return 'stock';
+ if(NOT_MEME.has(sym))return 'major';
+ return 'meme'}
+const ACLASS=[['meme','Memes','Community tokens and new launches'],['stock','Stocks','Tokenized equities, traded on-chain'],['major','Majors','Blue chips and ecosystem tokens'],['cash','Cash & staked SOL','SOL, stablecoins and liquid staking']];
+/* Assets: one spot list grouped by what the thing actually is, plus Perps when positions land. */
+function vAssets(rows){const tab=S.atab==='perps'?'perps':'spot';
+ const head=`<div class="ahead"><b class="h2">Assets</b>${vseg('atab',[['spot','Spot','wallet'],['perps','Perps','trenches']],tab,'Assets')}</div>`;
+ if(tab==='perps')return head+`<div class="apsoon">${soonCard('Perps positions','Long and short, settled on-chain. For now Callit is spot: you hold the asset itself, and every buy still counts toward your calls.',['Open longs and shorts','Position size, entry and liquidation','Perps calls on the Callerboard'])}</div>`;
+ if(!rows.length)return head+`<div class="empty aempty"><b>Nothing here yet</b><p>Deposit SOL or USDC, then buy a token. Memes, tokenized stocks and majors all show up here.</p><button class="btn primary" data-act="deposit">${ic('down',16)} Deposit</button></div>`;
+ const B=pnlBook(),by={};rows.forEach(([k,a])=>{(by[assetClass(k)]=by[assetClass(k)]||[]).push([k,a])});
+ const secs=ACLASS.filter(([k])=>by[k]&&by[k].length).map(([k,label,blurb])=>{const l=by[k],tot=l.reduce((s2,[key,a])=>s2+(usd(key,a)||0),0);
+  return `<section class="asec"><div class="asech"><div><b>${label}</b><span class="hint">${esc(blurb)}</span></div><span class="num asect">${fmtUsd(tot)}</span></div>
+  <div class="list">${l.map(([key,a])=>{const x=posPnl(key,B);return holdRow(key,a,usd(key,a)||0,x?x.pnl:null,x?x.pct:null,1)}).join('')}</div></section>`}).join('');
+ return head+`<div class="assets">${secs}</div>`}
 function holdingsOf(h){if(h===S.me){const B=pnlBook();return Object.entries(S.bal).filter(([k,v])=>v>0&&T[k]).map(([k,v])=>{const x=posPnl(k,B);return {t:T[k],val:v*T[k].price,amt:v,pnl:x?x.pnl:null,pct:x?x.pct:null,mine:1}})}
  return calls.filter(k=>k.c===h&&k.buy).map(k=>{const n=nums(k);return {t:T[k.t],val:n.pos,pnl:n.pnl}})}
 function holdRow(key,amt,val,pnl,pct,mine){const t=T[key];
@@ -3743,6 +3765,7 @@ document.addEventListener('click',e=>{
    if(j>=0){v[j]=from}v[i]=to;const w=bpW[from];if(w!=null){bpW[to]=w;delete bpW[from];bpWSave()}bpSet(v);BPMENU=null;drawRail()},
   bpreset:()=>{bpSet(BP_DEF.slice());Object.keys(bpW).forEach(k=>delete bpW[k]);bpWSave();bpApplyFeed();closeModal();drawRail();toast('Panels reset')},
   pushtest:()=>pushTest(b),
+  atab:()=>{if(S.atab===b.dataset.f)return;if(slideTo(b)&&!b.dataset.slid){b.dataset.slid=1;return setTimeout(()=>b.isConnected?b.click():null,170)}S.atab=b.dataset.f;render()},
   wcard:()=>{if(S.wcard===b.dataset.f)return;if(slideTo(b)&&!b.dataset.slid){b.dataset.slid=1;return setTimeout(()=>b.isConnected?b.click():null,170)}S.wcard=b.dataset.f;render()},
   buycustom:()=>{const cur=PREF.buy&&!BUY_STD.includes(PREF.buy)?PREF.buy:'';
    modal('Custom buy amount','Your one-tap buy on calls. Any amount from 0.01 to 100 SOL.',`<label class="solin ssin"><input id="cbamt" class="num" inputmode="decimal" placeholder="e.g. 0.3" value="${esc(cur)}" aria-label="Buy amount in SOL"><span class="muted">SOL</span></label><div class="err" id="cberr"></div><button class="btn primary block" id="cbgo">Save amount</button>`,
