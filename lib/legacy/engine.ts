@@ -133,7 +133,7 @@ assistant:'<path d="M11 3.5l1.8 4.7 4.7 1.8-4.7 1.8L11 16.5l-1.8-4.7L4.5 10l4.7-
  rotate:'<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>',
  zoom:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M11 8v6M8 11h6"/>'
 };
-Object.assign(P,{bot:'<rect x="4" y="8" width="16" height="12" rx="4"/><path d="M12 8V5"/><circle cx="12" cy="4" r="1.2"/><path d="M9 13.5h.01M15 13.5h.01M9.5 17h5"/>',
+Object.assign(P,{expand:'<path d="M14 4h6v6M20 4l-7.5 7.5M10 20H4v-6M4 20l7.5-7.5"/>',bot:'<rect x="4" y="8" width="16" height="12" rx="4"/><path d="M12 8V5"/><circle cx="12" cy="4" r="1.2"/><path d="M9 13.5h.01M15 13.5h.01M9.5 17h5"/>',
  mic:'<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',clip:'<path d="M21 11.5l-8.6 8.6a5 5 0 0 1-7.1-7.1l8.6-8.6a3.4 3.4 0 0 1 4.8 4.8L10 17.9a1.7 1.7 0 0 1-2.4-2.4l7.9-7.9"/>',
  stop:'<rect x="6" y="6" width="12" height="12" rx="2"/>',palette:'<path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.9-.6-1.3-.6-2.1 0-.9.7-1.5 1.6-1.5H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7" r="1"/>'});
 /* Device preferences (Settings page). */
@@ -1748,8 +1748,9 @@ function bpApplyFeed(){document.body.style.setProperty('--feedw',(bpW[feedKey()]
 const bpStyle=k=>bpW[k]?` style="flex:0 0 ${bpW[k]}px;max-width:none"`:'';
 const bpRz=(k,l)=>`<div class="bprz" data-rz="${k}" role="separator" aria-orientation="vertical" aria-label="Resize ${l}" title="Drag to resize · double-click to reset" tabindex="0"></div>`;
 /* Display size: 90% by default on computers (phones stay at 100%). */
-const ZOOMS=[80,85,90,93,95,100,110];
-const zoomGet=()=>{let z=null;try{z=+localStorage.getItem('callit.zoom')}catch(_){}return ZOOMS.includes(z)?z:90};
+/* Desktop display size. Default is 100%: the old 90% default made everything hard to read on a laptop. */
+const ZOOMS=[85,90,95,100,110,120,130];
+const zoomGet=()=>{let z=null;try{z=+localStorage.getItem('callit.zoom')}catch(_){}return ZOOMS.includes(z)?z:100};
 const zoomOn=()=>matchMedia('(min-width:900px) and (pointer:fine)').matches;
 function zoomApply(){const z=zoomOn()?zoomGet()/100:1;document.body.style.zoom=z===1?'':String(z);document.documentElement.style.setProperty('--z',String(z))}
 zoomApply();addEventListener('resize',zoomApply);
@@ -1850,7 +1851,7 @@ function chrome(route){const link=([k,l])=>`<a href="#/${k}" class="${route===k?
  {let bt=$('#btabs');if(!bt){bt=document.createElement('nav');bt.id='btabs';bt.className='btabs';bt.setAttribute('aria-label','Main');document.body.appendChild(bt)}
   bt.innerHTML=[['home','Home','home'],['market','Market','market'],['defi','DeFi','defi'],['callerboard','Callerboard','leaderboard'],['you','You','profile']].map(([h,l,i])=>{const on=route===h;
    return `<a href="#/${h}" class="${on?'on':''}" aria-label="${l}">${h==='you'&&S.connected?avatar(S.me,'btav'):ic(i,23)}<span>${l}</span></a>`}).join('')}
- mfabSync(route);
+ mfabSync(route);drawDock();
  $('#title').textContent=TITLES[route]||'Home';{const u=$('#upg'),on=isPrem(S.me);u.hidden=true;u.classList.toggle('on',!!on);u.innerHTML=`${ic('verified',18)}<span>Premium</span>`}const bk=$('#back');bk.hidden=route==='home';bk.innerHTML=ic('back',20);
  // phones: the side tray is hidden, so the logo in the header opens it (like X's avatar menu)
  if(!$('#mmenu')){const mm=document.createElement('button');mm.id='mmenu';mm.className='mmenu';mm.dataset.act='collapse';mm.setAttribute('aria-label','Open menu');mm.innerHTML='<span class="mark" aria-hidden="true"></span>';$('.hdr').prepend(mm)}}
@@ -2824,10 +2825,17 @@ P.tick1='<path d="M4.5 12.5l4.5 4.5L19.5 6.5"/>';P.tick2='<path d="M1.5 12.5l4.5
 P.gifb='<rect x="2.5" y="5" width="19" height="14" rx="3.5"/><path d="M9.5 10.2a2.2 2.2 0 10.1 3.6v-1.5H8.6M12.5 9.8v4.4M15.5 14.2V9.8h2.6M15.5 12h2"/>';
 P.crown='<path d="M3.5 8l4.2 3.6L12 5l4.3 6.6L20.5 8l-1.7 10.5H5.2z"/>';
 const CH={tab:(()=>{try{return localStorage.getItem('callit.ctab')==='public'?'public':'private'}catch(_){return 'private'}})(),
- inbox:null,ibusy:0,ierr:'',enc:true,disc:null,dbusy:0,dq:'',th:{},draft:{},reply:{},open:null,unread:0,dmid:{},inv:{},showInfo:null,need:new Set(),tmp:0};
+ inbox:null,ibusy:0,ierr:'',enc:true,disc:null,dbusy:0,dq:'',th:{},draft:{},reply:{},open:null,unread:0,dmid:{},inv:{},showInfo:null,need:new Set(),tmp:0,
+ /* Desktop chat dock: chat sits in a corner window so you can keep trading on the page behind it. */
+ dock:(()=>{try{return JSON.parse(localStorage.getItem('callit.dock')||'null')||{on:false,id:null,min:false}}catch(_){return {on:false,id:null,min:false}}})()};
+const dockSave=()=>{try{localStorage.setItem('callit.dock',JSON.stringify(CH.dock))}catch(_){}};
+/* Wide screens only: below this the phone layout owns the whole screen, so chat opens as a page. */
+const canDock=()=>matchMedia('(min-width:1001px)').matches;
+const dockUp=()=>CH.dock.on&&canDock()&&currentRoute()!=='messages';
+const dockLive=()=>dockUp()&&!CH.dock.min;
 const CH_KEYISH=/\b[1-9A-HJ-NP-Za-km-z]{80,90}\b/,CH_MINT=/\b[1-9A-HJ-NP-Za-km-z]{32,44}\b/g;
 const chOn=()=>SYNC();
-const chRoute=()=>currentRoute()==='messages'?(location.hash.split('/')[2]||''):null;
+const chRoute=()=>currentRoute()==='messages'?(location.hash.split('/')[2]||''):(dockLive()?(CH.dock.id?'c-'+CH.dock.id:''):null);
 const chName=c=>c.kind==='dm'?(c.peer?(c.peer.name||c.peer.handle):'Chat'):(c.title||'Group');
 function chSeen(p){if(p&&p.handle){if(p.avatar)AVURL[p.handle]=p.avatar;if(p.name)DN[p.handle]=p.name}}
 function chErr(e){const m=String(e&&e.message||e||'');return ({
@@ -2850,8 +2858,9 @@ function chSig(c,cls=''){if(c.kind==='dm'&&c.peer){chSeen(c.peer);return avatar(
 
 /* ---------- data ---------- */
 function chPaint(id){const r=chRoute();if(r===null||document.querySelector('#modal .modal'))return;
- if(id&&r==='c-'+id){if(!$('#chmsgs'))return render();chMsgs(id);return}
- if(!id&&r==='')render()}
+ const redraw=dockLive()?drawDock:render;
+ if(id&&r==='c-'+id){if(!$('#chmsgs'))return redraw();chMsgs(id);return}
+ if(!id&&r==='')redraw()}
 function loadInbox(){if(!chOn()||CH.ibusy)return Promise.resolve();CH.ibusy=1;
  return API('/api/chat').then(j=>{listenForCalls(j.ring);CH.inbox=j.chats||[];CH.enc=j.encrypted!==false;CH.ierr='';CH.inbox.forEach(c=>chSeen(c.peer));chScanMints(CH.inbox.map(c=>c.last||{}));
   CH.unread=CH.inbox.filter(c=>!c.muted).reduce((a,c)=>a+(c.unread||0),0);chBadge();
@@ -2881,11 +2890,49 @@ function olderThread(id){const t=CH.th[id];if(!t||t.busy||!t.more)return;const f
 function chScanMints(ms){const miss=[];ms.forEach(m=>{for(const x of String(m.body||'').matchAll(CH_MINT))if(!T[x[0]])miss.push(x[0])});if(miss.length)chNeed(miss)}
 function chNeed(list){const n=list.filter(k=>!CH.need.has(k));if(!n.length)return;n.forEach(k=>CH.need.add(k));
  fetchTokens([...new Set(n)].slice(0,30)).then(l=>{l.forEach(regLive);const r=chRoute();if(r&&r.startsWith('c-'))chMsgs(r.slice(2));else if(r==='')chPaint()}).catch(()=>{})}
-const chNear=()=>innerHeight+scrollY>=document.documentElement.scrollHeight-160;
-function chBottom(instant){requestAnimationFrame(()=>scrollTo({top:document.documentElement.scrollHeight,behavior:instant?'auto':'smooth'}))}
+const dockMsgs=()=>dockLive()?document.querySelector('#chdock .chmsgs'):null;
+const chNear=()=>{const d=dockMsgs();return d?d.scrollTop+d.clientHeight>=d.scrollHeight-160:innerHeight+scrollY>=document.documentElement.scrollHeight-160};
+function chBottom(instant){requestAnimationFrame(()=>{const d=dockMsgs();
+ if(d)d.scrollTo({top:d.scrollHeight,behavior:instant?'auto':'smooth'});else scrollTo({top:document.documentElement.scrollHeight,behavior:instant?'auto':'smooth'})})}
+/* ---------- desktop chat dock ----------
+ * Messages in a corner window: open a DM while a token page, the feed or a chart stays put behind it.
+ * It reuses the same inbox and thread views as the full page, so everything works the same in both. */
+function drawDock(){let d=$('#chdock');
+ if(!dockUp()){if(d)d.remove();return}
+ if(!d){d=document.createElement('section');d.id='chdock';d.className='chdock';d.setAttribute('aria-label','Messages');document.body.appendChild(d);wireDock(d)}
+ d.classList.toggle('min',!!CH.dock.min);
+ const id=CH.dock.id,t=id&&CH.th[id],c=t&&t.chat,u=window.__chU||0;
+ const title=c?chName(c):'Messages';
+ const head=`<header class="chdh">
+  ${id?`<button class="chdb" data-dk="inbox" aria-label="Back to all messages">${ic('back',18)}</button>`:`<span class="chdmark mark" aria-hidden="true"></span>`}
+  <button class="chdt" data-dk="min" aria-expanded="${!CH.dock.min}"><b>${esc(title)}</b>${!id&&u?`<i class="chdu">${u>99?'99+':u}</i>`:''}</button>
+  <button class="chdb" data-dk="full" aria-label="Open the full Messages page" title="Open full page">${ic('expand',17)}</button>
+  <button class="chdb" data-dk="min" aria-label="${CH.dock.min?'Open chat':'Minimise chat'}" title="${CH.dock.min?'Open':'Minimise'}">${ic(CH.dock.min?'up':'down',18)}</button>
+  <button class="chdb" data-dk="close" aria-label="Close chat">${ic('x',18)}</button></header>`;
+ d.innerHTML=head+(CH.dock.min?'':`<div class="chdbody">${id?vThread(id):vInbox()}</div>`);
+ skin(d);
+ if(id&&!CH.dock.min)chBottom(1)}
+function dockOpen(id){CH.dock.on=true;CH.dock.min=false;if(id!==undefined)CH.dock.id=id;CH.open=null;dockSave();drawDock();mfabSync()}
+function wireDock(d){
+ d.addEventListener('click',e=>{
+  const b=e.target.closest('[data-dk]');
+  if(b){e.preventDefault();e.stopPropagation();const k=b.dataset.dk;
+   if(k==='inbox'){CH.dock.id=null;CH.open=null;dockSave();drawDock()}
+   else if(k==='min'){CH.dock.min=!CH.dock.min;dockSave();drawDock()}
+   else if(k==='close'){CH.dock.on=false;dockSave();drawDock();mfabSync()}
+   else if(k==='full'){const g=CH.dock.id;CH.dock.on=false;dockSave();drawDock();mfabSync();location.hash='#/messages'+(g?'/c-'+g:'')}
+   return}
+  // Chat links stay inside the dock; everything else (profiles, tokens) opens the page behind it.
+  const a=e.target.closest('a[href^="#/messages"]');if(!a)return;
+  const m=/^#\/messages\/c-(.+)$/.exec(a.getAttribute('href')||'');
+  e.preventDefault();CH.dock.id=m?m[1]:null;CH.open=null;dockSave();drawDock();if(m)chBottom(1)},true);
+ // A chat opened from elsewhere in the page shouldn't yank the dock around.
+ d.addEventListener('keydown',e=>{if(e.key==='Escape'&&!CH.dock.min){CH.dock.min=true;dockSave();drawDock()}})}
+addEventListener('resize',()=>{const d=$('#chdock');if((!!d)!==dockUp())drawDock()});
 function mfabSync(route){let mf=$('#mfab');if(!mf){mf=document.createElement('a');mf.id='mfab';mf.className='mfab';mf.href='#/messages';document.body.appendChild(mf)}
  const u=window.__chU||0;mf.setAttribute('aria-label',u?`Messages, ${u} unread`:'Messages');mf.innerHTML=`${ic('messages',23)}${u?`<i>${u>99?'99+':u}</i>`:''}`;
- mf.hidden=!S.connected||(route||currentRoute())==='messages'}
+ mf.hidden=!S.connected||(route||currentRoute())==='messages'||dockUp();
+ if(!mf.dataset.dk){mf.dataset.dk='1';mf.addEventListener('click',e=>{if(!canDock())return;e.preventDefault();dockOpen()})}}
 function chBadge(){window.__chU=CH.unread;mfabSync();const a=document.querySelector('.nav a[href="#/messages"]');if(!a)return;const n=CH.unread;
  a.innerHTML=(n?`<span class="nbadge">${ic('messages')}<i>${n>99?'99+':n}</i></span>`:ic('messages'))+'<span class="lbl">Messages</span>'}
 
@@ -3004,9 +3051,11 @@ function vMessages(p){p=p||'';if(p.startsWith('c-'))return vThread(p.slice(2));i
 
 /* ---------- actions ---------- */
 function chOpenDM(h){h=String(h).toLowerCase();if(!chOn())return connectModal(()=>chOpenDM(h));
- if(CH.dmid[h]){location.replace('#/messages/c-'+CH.dmid[h]);return}
+ // On a wide screen the DM opens in the corner dock, so whatever page you're on stays put.
+ const land=id=>{if(canDock()&&currentRoute()!=='messages'){dockOpen(id);if(currentRoute()==='messages')location.replace('#/home')}else location.replace('#/messages/c-'+id)};
+ if(CH.dmid[h]){land(CH.dmid[h]);return}
  if(CH.dmBusy===h)return;CH.dmBusy=h;
- API('/api/chat',{body:{action:'dm',handle:h}}).then(j=>{CH.dmid[h]=j.id;location.replace('#/messages/c-'+j.id);CH.inbox=null})
+ API('/api/chat',{body:{action:'dm',handle:h}}).then(j=>{CH.dmid[h]=j.id;land(j.id);CH.inbox=null})
  .catch(e=>{toast(chErr(e));if(chRoute()===h)location.replace('#/messages')}).finally(()=>{CH.dmBusy=null})}
 function chSend(id,retry,raw){const t=CH.th[id];if(!t)return;let body,rep;
  if(retry){const m=t.msgs.find(x=>x.id===retry);if(!m)return;body=m.body;rep=m.replyId;t.msgs=t.msgs.filter(x=>x!==m)}
