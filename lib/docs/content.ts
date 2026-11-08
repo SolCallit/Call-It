@@ -101,7 +101,7 @@ Whatever a caller doesn't take (for example a 5% caller) stays in Treasury & gro
 | | Callit fee | Other fees |
 |---|---|---|
 | Standard withdraw | **Free** | Solana network fee (~0.00001 SOL) |
-| Private withdraw | **$0.40** in SOL when you add funds, to the Callit treasury | Privacy Cash: 0.35% + a small flat fee (0.006 SOL, or ~$0.62 for USDC/USDT) when you send |
+| Private withdraw | **Free.** Callit takes nothing | Privacy Cash: 0.35% + a small flat fee (0.006 SOL, or ~$0.62 for USDC/USDT) when you send |
 
 Every fee is shown before you approve.
 

@@ -74,7 +74,8 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ svc: string; pa
   if (svc === 'fee') {
     // Callit's privacy fee, charged in SOL to the treasury when a user adds funds. Off if no treasury is set.
     const t = (process.env.TREASURY_WALLET || '').trim();
-    const usd = Number(process.env.PRIVATE_FEE_USD ?? 0.4);
+    // No Callit fee on Private Withdraw. Set PRIVATE_FEE_USD in Vercel to charge one.
+    const usd = Number(process.env.PRIVATE_FEE_USD ?? 0);
     return NextResponse.json(
       { treasury: /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(t) ? t : null, usd: Number.isFinite(usd) && usd > 0 ? usd : 0 },
       { headers: { 'cache-control': 'no-store' } },
