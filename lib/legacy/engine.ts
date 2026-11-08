@@ -183,7 +183,7 @@ function regLive(x){if(!x||!x.mint)return null;const o=T[x.mint]||{},price=x.pri
  Object.assign(o,{key:x.mint,sym:x.sym,name:x.name,chain:'Solana',price,supply:price&&x.mc?x.mc/price:(o.supply||0),liq:x.liq||0,vol:x.vol24||0,holders:x.holders||0,
   ageH:ageH==null?9999:ageH,age:ageH==null?'—':ageLong(ageH),chg:x.chg.h24!=null?x.chg.h24:(x.chg.h1||0),ca:x.mint,seed:o.seed||hashStr(x.mint),live:1,icon:x.icon||o.icon,
   pool:x.pool||o.pool||null,lp:LPNAME(x.launchpad)||(/pump$/.test(x.mint)?'Pump':/bonk$/.test(x.mint)?'Bonk':null),
-  soc:(x.socials.x?'x':'')+(x.socials.web?'w':'')+(x.socials.tg?'c':''),L:{...(o.L||{}),...x,pool:x.pool||(o.L&&o.L.pool)||null}});
+  soc:(x.socials.x?'x':'')+(x.socials.web?'w':'')+(x.socials.tg?'c':''),tags:x.tags||o.tags||[],organic:x.organic!=null?x.organic:o.organic,verified:x.verified!=null?x.verified:o.verified,L:{...(o.L||{}),...x,pool:x.pool||(o.L&&o.L.pool)||null}});
  if(x.holders){const n=Date.now(),hh=(o._hh||[]).filter(p=>n-p[0]<3e5);if(!hh.length||n-hh[hh.length-1][0]>5e3)hh.push([n,x.holders]);o._hh=hh}
  if(price){const n=Date.now(),h=(o._ph||[]).filter(p=>n-p[0]<3.7e5);if(!h.length||n-h[h.length-1][0]>1500)h.push([n,price]);o._ph=h}
  if(o.icon&&!o._pre){o._pre=1;try{const im=new Image();im.decoding='async';im.src=cdnIcon(o.icon)}catch(_){}}
@@ -197,8 +197,8 @@ const chg1m=t=>{const h=t&&t._ph;if(!h||h.length<2)return null;const z=h[h.lengt
 const chgOf=(t,tf)=>{if(!t)return null;if(tf==='1m')return chg1m(t);const c=t.L&&t.L.chg,v=c?c[TFK[tf]||'h24']:null;return v!=null?v:(!t.live||tf==='24h'?t.chg:null)};
 const byChg=tf=>(a,b)=>{const x=chgOf(a,tf),y=chgOf(b,tf);return (y==null?-1e9:y)-(x==null?-1e9:x)};
 const lfIds=(k,f)=>{const tf0=TF_OK.includes(f&&f.tf)?f.tf:'1h',tf=tf0==='1m'?'5m':tf0;
- return ({movers:['movers:'+tf],new:['new'],crowded:['traded:24h'],almost:['new','movers:5m'],grad:['movers:'+tf,'new'],og:['ogset']})[k]||null};
-const LF={movers:['movers:1h'],new:['new'],crowded:['traded:24h'],almost:['new','movers:5m'],grad:['movers:1h','new'],og:['ogset']};
+ return ({trending:['movers:'+tf,'traded:24h'],movers:['movers:'+tf],new:['new'],crowded:['traded:24h'],almost:['new','movers:5m'],grad:['movers:'+tf,'new'],og:['ogset']})[k]||null};
+const LF={trending:['movers:1h','traded:24h'],movers:['movers:1h'],new:['new'],crowded:['traded:24h'],almost:['new','movers:5m'],grad:['movers:1h','new'],og:['ogset']};
 /* OG memes: the established Solana memecoins, by mint. Anything that isn't a meme stays out. */
 const OG_MEMES=['DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263','EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm','7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr',
  '9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump','2qEHjDLDLbuBgRYvsxhc5D6uDWAivNFZGan56P1tpump','ukHH6c7mMyiWCf1b9pnWe25TSpkDDt3H5pQZgZ74J82',
@@ -1039,7 +1039,7 @@ const LPDOM={Pump:'pump.fun',Bonk:'bonk.fun',Believe:'believe.app',Moonshot:'moo
 const lpBadge=t=>{const L=lpOf(t),d=L&&LPDOM[L];return d?`<i class="chainb lpb" title="Launched on ${esc(L)}"><b>${esc(L[0])}</b><img src="https://www.google.com/s2/favicons?domain=${d}&sz=64" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()"></i>`:`<i class="chainb">${ic('solglyph',11)}</i>`};
 const LPS=[['Pump','#4ADE80'],['Bonk','#F59E0B'],['Meteora','#F472B6'],['Bags','#10B981'],['Believe','#22C55E'],['Launchlab','#38BDF8'],['Jup Studio','#FB923C'],['Moonshot','#C084FC'],['Boop','#60A5FA']];
 const CHAINS=[['Solana','#9d7bff',1],['Base','#3B82F6',0],['BSC','#F0B90B',0],['Ethereum','#8EA2FF',0],['Arbitrum','#60A5FA',0]];
-const FEEDS={movers:['Movers','Biggest price momentum right now'],new:['New','Fresh launches, newest first'],called:['Called','Tokens our callers are on, most calls first','Only on Callit'],
+const FEEDS={trending:['Trending','What everyone is trading right now'],movers:['Movers','Biggest price momentum right now'],new:['New','Fresh launches, newest first'],called:['Called','Tokens our callers are on, most calls first','Only on Callit'],
  crowded:['Crowded','Most holders first'],almost:['Almost bonded','60 to 99% through the bonding curve'],grad:['Migrated','Bonded and migrated to a DEX, newest first'],og:['OG','The established Solana memecoins, biggest first']};
 const RISK={degen:['Degen','Show me everything',{top:100,dev:100,snip:100,ins:100}],balanced:['Balanced','Filter the obvious traps',{top:30,dev:15,snip:10,ins:30}],careful:['Careful','Only clean holder books',{top:15,dev:5,snip:3,ins:15}]};
 const isLaunch=t=>!t.live||!!t.lp;
@@ -1049,7 +1049,7 @@ const lpOf=t=>t.live?t.lp:(t.lp||(t.lp=LPS[t.seed%LPS.length][0]));
 const callsOn=t=>calls.filter(k=>k.t===t.key&&!k.sponsored);
 const defFil=()=>({chains:['Solana'],lps:LPS.map(l=>l[0]),inc:'',exc:'',bmin:'',bmax:'',mcMin:'',mcMax:'',volMin:'',hMin:'',ageMax:0,top:100,dev:100,snip:100,ins:100,x:0,web:0,comm:0,called:0,topc:0,bought:0,tf:'1h',chgMin:'',ai:''});
 const defDisp=()=>({pro:1,spark:0,heat:1,compact:0});
-const defFeeds=()=>[['new',1],['almost',1],['grad',1],['movers',1],['called',1],['og',1],['crowded',0]];
+const defFeeds=()=>[['trending',1],['new',1],['almost',1],['grad',1],['movers',1],['called',1],['og',1],['crowded',0]];
 const TS=(()=>{let v={};try{v=JSON.parse(localStorage.getItem('callit.trenches')||'{}')}catch(_){}
  let feeds=Array.isArray(v.feeds)&&v.fv===2?v.feeds.filter(f=>FEEDS[f[0]]):defFeeds();defFeeds().forEach(d=>{if(!feeds.some(f=>f[0]===d[0]))feeds.push(d)});
  return {fv:2,disp:{...defDisp(),...(v.disp||{})},feeds,fil:v.fil||{},aiLast:AIM[v.aiLast]?v.aiLast:''}})();
@@ -1075,6 +1075,7 @@ function feedRows(k,f){
  const ids0=lfIds(k,f);if(ids0){const ids=ids0;ids.forEach(id=>{if(!LIVE.feeds[id]&&!LIVE.err[id])loadFeed(id)});
   if(ids.every(id=>!LIVE.feeds[id]))return null;
   const r=[...new Set(ids.flatMap(id=>LIVE.feeds[id]||[]))].map(x=>T[x]).filter(t=>t&&match(t,f));
+  if(k==='trending')return r.sort((a,b)=>((b.vol||0)*(.5+(b.organic||0)/100))-((a.vol||0)*(.5+(a.organic||0)/100)));
   if(k==='new')return r.sort((a,b)=>a.ageH-b.ageH);
   if(k==='crowded')return r.sort((a,b)=>b.holders-a.holders);
   if(k==='almost')return r.filter(t=>isLaunch(t)&&bond(t)>=60&&bond(t)<100).sort((a,b)=>bond(b)-bond(a));
@@ -1083,6 +1084,7 @@ function feedRows(k,f){
   return r.sort(byChg(f.tf||'1h'))}
  let r=Object.values(T).filter(t=>t.chain&&!t.base&&!t.prelaunch&&(t.holders||t.live)&&match(t,f));
  if(k==='watch')return r.filter(t=>S.watch.has(t.key)).sort((a,b)=>b.vol-a.vol);
+ if(k==='trending')return r.sort((a,b)=>((b.vol||0)*(.5+(b.organic||0)/100))-((a.vol||0)*(.5+(a.organic||0)/100)));
  if(k==='new')return r.sort((a,b)=>a.ageH-b.ageH);
  if(k==='called')return r.filter(t=>callsOn(t).length).sort((a,b)=>callsOn(b).length-callsOn(a).length||b.vol-a.vol);
  if(k==='crowded')return r.sort((a,b)=>b.holders-a.holders);
@@ -1116,7 +1118,7 @@ function vTrenches(){const on=TS.feeds.filter(f=>f[1]).map(f=>f[0]);if(S.tt!=='w
  const tab=(k,l)=>`<button role="tab" aria-selected="${S.tt===k}" class="${S.tt===k?'on':''}" data-act="tt" data-f="${k}">${l}</button>`;
  return `<div class="ttabs"><div class="tscroll" role="tablist">${tab('watch',ic('star',18,S.tt==='watch'))}${on.map(k=>tab(k,FEEDS[k][0])).join('')}</div>
  <span class="ttools"><button class="ib" data-act="fsopen" aria-label="Filters${n?`, ${n} active`:''}">${ic('filter',20)}${n?`<span class="fbadge">${n}</span>`:''}</button><button class="ib" data-act="dsopen" aria-label="Display settings">${ic('gear',20)}</button></span></div>
- <div class="tfbar"><span class="tflive"><i></i>Live</span><span class="muted tflbl">${S.tt==='movers'?'Top gainers':'% change'}</span>${aiChipBar(f)}<div class="seg tfseg" role="tablist" aria-label="Timeframe">${TF_OK.map(x=>`<button role="tab" aria-selected="${S.rowTf===x}" class="${S.rowTf===x?'on':''}" data-act="ttf" data-f="${x}">${x}</button>`).join('')}</div></div>
+ <div class="tfbar"><span class="tflive"><i></i>Live</span><span class="muted tflbl">${S.tt==='movers'?'Top gainers':S.tt==='trending'?'Most traded':'% change'}</span>${aiChipBar(f)}<div class="seg tfseg" role="tablist" aria-label="Timeframe">${TF_OK.map(x=>`<button role="tab" aria-selected="${S.rowTf===x}" class="${S.rowTf===x?'on':''}" data-act="ttf" data-f="${x}">${x}</button>`).join('')}</div></div>
  ${raw&&raw.length?heatBar(raw):''}
  ${n-(f.ai?1:0)>0?`<div class="fline"><span>${n} filter${n>1?'s':''} on ${S.tt==='watch'?'Watchlist':FEEDS[S.tt][0]}</span><button data-act="fsclear1">Clear</button></div>`:''}
  <div class="tgridw">${rows===null?((lfIds(S.tt,f)||[]).some(id=>LIVE.err[id])?`<div class="empty"><b class="h2">Live data is taking a break</b><p>We couldn't reach the market feed. It usually comes back in a few seconds.</p><button class="btn primary" data-act="lretry">Try again</button></div>`:skelRows()):rows.map(trow).join('')||`<div class="empty"><b class="h2">${S.tt==='watch'?'No watchlist tokens yet':HEATF.k?'No '+(HEATF.k==='called'?'caller-backed':HEAT[HEATF.k][1].toLowerCase())+' tokens right now':'Nothing matches'}</b><p>${S.tt==='watch'?'Open any token and tap Watchlist to pin it here.':'Loosen the filters or try another feed.'}</p>${n?'<button class="btn primary" data-act="fsclear1">Clear filters</button>':''}</div>`}</div>
@@ -2442,8 +2444,9 @@ function vRoom(id){const c=COMMS.find(x=>x.id===id);if(!c)return vHome();const h
  * second class, because those are positions rather than things you hold. */
 const CASHSET=new Set(['SOL','WSOL','USDC','USDT','USDS','PYUSD','USD1','EURC','JLP','JITOSOL','MSOL','BSOL','INF','JUPSOL','BNSOL','SSOL','HSOL','DSOL','VSOL','STSOL','LST']);
 const stockish=t=>/xstock|securities|proshares|tokenized|\bstock\b/i.test(t&&t.name||'')||/backed\.fi|stock-logo/i.test(t&&t.icon||'')||/x$/.test(String(t&&t.sym||''))&&/[A-Z]{2,5}x$/.test(String(t&&t.sym||''));
-function assetClass(key){const t=T[key];if(!t)return 'meme';const sym=String(t.sym||'').toUpperCase();
- if(CASHSET.has(sym))return 'cash';
+function assetClass(key){const t=T[key];if(!t)return 'meme';const sym=String(t.sym||'').toUpperCase(),tg=t.tags||[];
+ if(tg.includes('xstocks')||tg.includes('stocks')||tg.includes('equities'))return 'stock';
+ if(tg.includes('lst')||CASHSET.has(sym))return 'cash';
  if(stockish(t))return 'stock';
  if(NOT_MEME.has(sym))return 'major';
  return 'meme'}
@@ -2495,17 +2498,24 @@ function ptabBody(h,me){const tab=S.ptab||'calls';
  * Jupiter's verified list: majors, stablecoins, liquid staking and ~1.5k tokenized stocks.
  * Same row, same chart, same Call it button as a meme, because they're all SPL tokens. */
 const SPOTF=[['all','All'],['stock','Stocks'],['major','Majors'],['cash','Cash & LSTs']];
+/* One spot row, kept deliberately plain: who it is, what it costs, which way it's going. */
+function spotRow(t){const c=chgOf(t,'24h'),cl=c==null?'muted':c>=0?'up':'down';
+ return `<a class="srow" href="#/token/${esc(tokPath(t.key))}">${tokav(t.key)}
+  <span class="sinfo"><span class="sname"><b>${esc(t.sym)}</b>${t.verified?`<i class="sver" title="Verified on Jupiter">${ic('verified',13,true)}</i>`:''}</span><span class="hint">${esc(t.name||'')}</span></span>
+  <span class="sright num"><b>${fmtPrice(t.price)}</b><span class="${cl}">${c==null?'—':(c>=0?'↑':'↓')+' '+Math.abs(c).toFixed(1)+'%'}</span></span></a>`}
 function vSpot(){if(!LIVE.feeds.verified&&!LIVE.err.verified)loadFeed('verified');
- const f=SPOTF.some(x=>x[0]===S.sf)?S.sf:'all';
- const chips=`<div class="nchips spotchips">${SPOTF.map(([k,l])=>`<button class="nchip${f===k?' on':''}" data-act="spotf" data-f="${k}">${l}</button>`).join('')}</div>`;
- if(LIVE.err.verified)return chips+`<div class="empty"><b class="h2">Spot list is taking a break</b><p>Couldn't reach the token list. It usually comes back in a few seconds.</p><button class="btn primary" data-act="spotretry">Try again</button></div>`;
+ const f=SPOTF.some(x=>x[0]===S.sf)?S.sf:'all',q=(S.sq||'').trim().toLowerCase();
+ const head=`<div class="spothead"><div class="tsearch spotsearch">${ic('search',16)}<input id="sq" value="${esc(S.sq||'')}" placeholder="Search coins and stocks…" autocomplete="off" enterkeyhint="search" aria-label="Search spot tokens">${q?`<button class="ib sqx" data-act="spotclear" aria-label="Clear search">${ic('x',15)}</button>`:''}</div>
+  <div class="nchips spotchips">${SPOTF.map(([k,l])=>`<button class="nchip${f===k?' on':''}" data-act="spotf" data-f="${k}">${l}</button>`).join('')}</div></div>`;
+ if(LIVE.err.verified)return head+`<div class="empty"><b class="h2">Spot list is taking a break</b><p>Couldn't reach the token list. It usually comes back in a few seconds.</p><button class="btn primary" data-act="spotretry">Try again</button></div>`;
  const keys=LIVE.feeds.verified;
- if(!keys)return chips+skelRows(8);
- const list=keys.map(k=>T[k]).filter(t=>t&&t.price&&(f==='all'||assetClass(t.key)===f));
- if(!list.length)return chips+`<div class="empty"><b>Nothing in this group yet</b><p>Try another filter.</p></div>`;
- const lab={stock:'Tokenized equities. Backed 1:1 and traded on Solana, 24/7.',major:'Blue chips and ecosystem tokens.',cash:'Stablecoins, SOL and liquid staking.',all:'Every verified Solana token you can buy, hold and call.'}[f];
- return chips+`<p class="hint pad spothint">${esc(lab)}</p><div class="list spotlist">${list.map(t=>trow(t)).join('')}</div>
- <p class="hint pad">Verified on Jupiter and sorted by market cap. Tap any of them to chart it, buy it or call it.</p>`}
+ if(!keys)return head+skelRows();
+ let list=keys.map(k=>T[k]).filter(t=>t&&t.price&&(f==='all'||assetClass(t.key)===f));
+ if(q)list=list.filter(t=>String(t.sym||'').toLowerCase().includes(q)||String(t.name||'').toLowerCase().includes(q));
+ if(!list.length)return head+`<div class="empty"><b>${q?`Nothing matches “${esc(S.sq)}”`:'Nothing in this group yet'}</b><p>${q?'Try a ticker like NVDA, or a name.':'Try another filter.'}</p></div>`;
+ const lab={stock:'Tokenized equities, traded on Solana 24/7.',major:'Blue chips and ecosystem tokens.',cash:'Stablecoins, SOL and liquid staking.',all:'Every verified Solana token you can buy, hold and call.'}[f];
+ return head+`<p class="hint pad spothint">${esc(lab)} Most traded first.</p><div class="list spotlist">${list.slice(0,200).map(spotRow).join('')}</div>
+ <p class="hint pad">Verified on Jupiter, ordered by how much they're being traded right now. Tap any of them to chart it, buy it or call it.</p>`}
 function vMarket(){const t=S.mt||'trenches',M=[['trenches','Trenches','flame'],['spot','Spot'],['radar','Radar'],['perps','Perps'],['predict','Predictions']];
  const bar=`<div class="mtabs tgl${t==='perps'?' perps-on':''}" style="--i:${M.findIndex(x=>x[0]===t)};--n:${M.length}" role="tablist">${M.map(([k,l])=>`<button role="tab" aria-selected="${t===k}" class="${t===k?'on':''}" data-act="mt" data-f="${k}">${l}${k==='trenches'||k==='radar'||k==='spot'?'<span class="live"></span>':'<small>Soon</small>'}</button>`).join('')}</div>`;
  if(t==='perps')return bar+locked(mockPerps(),'perps','Perps are coming','Long or short the tokens you call, with leverage and your caller track record on the line.',['Long and short from any call','Position shows on your call card','Same fee share for bought-in callers']);
@@ -2730,6 +2740,8 @@ function vNews(){const tab=NTAB(),N=NEWS[tab],q=S.nq||'';
  <div class="nlist">${!N.d?rskel(6):L.length?L.slice(0,80).map(nItem).join(''):`<div class="empty"><b>${q?`Nothing matches “${esc(q)}”`:'Nothing here right now'}</b><p>${q?'Try another word.':'Check back in a few minutes.'}</p></div>`}</div>
  <p class="hint pad">${tab==='trending'?'What people are talking about across social platforms, plus what’s hot on Callit. Tap a headline for the summary, then decide if you want the full story.':'Latest headlines across crypto, the economy, world news, tech, sports and entertainment. Pick one or more categories above. Tap a headline for the summary, then read the full story at the source.'}${N.d&&N.d.at?` Updated ${agoMs(N.d.at)==='now'?'just now':agoMs(N.d.at)+' ago'}.`:''}</p>`}
 setInterval(()=>{if(document.hidden||currentRoute()!=='news')return;const t=NTAB();if(t==='calendar'){if(!document.querySelector('#modal .modal')&&document.activeElement?.id!=='nq')render();loadNews('calendar')}else loadNews(t)},6e4);
+document.addEventListener('input',e=>{if(e.target.id!=='sq')return;S.sq=e.target.value;clearTimeout(e.target._t);
+ e.target._t=setTimeout(()=>{const pos=e.target.selectionStart;render();const n=$('#sq');if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(_){}}},200)});
 document.addEventListener('input',e=>{if(e.target.id!=='nq')return;S.nq=e.target.value;clearTimeout(e.target._t);e.target._t=setTimeout(()=>{const el=$('.nlist');if(el){const tab=NTAB();if(tab==='calendar'){const L=calList(S.nq),cl=document.querySelector('.cnext');cl&&cl.remove();el.innerHTML=L.length?L.slice(0,80).map(e=>calRow(e)).join(''):`<div class="empty"><b>Nothing matches “${esc(S.nq)}”</b><p>Try another word.</p></div>`;return}const L=newsList(tab,S.nq);el.innerHTML=L.length?L.slice(0,80).map(nItem).join(''):`<div class="empty"><b>Nothing matches “${esc(S.nq)}”</b><p>Try another word.</p></div>`}},150)});
 
 /* ---------- Bot: the Callit Telegram bot + automations ---------- */
@@ -3806,6 +3818,7 @@ document.addEventListener('click',e=>{
   pushtest:()=>pushTest(b),
   atab:()=>{if(S.atab===b.dataset.f)return;if(slideTo(b)&&!b.dataset.slid){b.dataset.slid=1;return setTimeout(()=>b.isConnected?b.click():null,170)}S.atab=b.dataset.f;render()},
   spotf:()=>{S.sf=b.dataset.f;render()},
+  spotclear:()=>{S.sq='';render();setTimeout(()=>{const i=$('#sq');i&&i.focus()},30)},
   spotretry:()=>{LIVE.err.verified=0;delete LIVE.feeds.verified;loadFeed('verified');render()},
   wcard:()=>{if(S.wcard===b.dataset.f)return;if(slideTo(b)&&!b.dataset.slid){b.dataset.slid=1;return setTimeout(()=>b.isConnected?b.click():null,170)}S.wcard=b.dataset.f;render()},
   buycustom:()=>{const cur=PREF.buy&&!BUY_STD.includes(PREF.buy)?PREF.buy:'';

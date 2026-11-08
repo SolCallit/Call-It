@@ -339,10 +339,31 @@ body:has(.chdock) .fab{right:420px}
 .rcomp.toreply{border-top-left-radius:0;border-top-right-radius:0}
 @media (max-width:520px){.rkids{margin-left:46px}.rkids.open::before{left:-22px}.rmore{margin-left:-22px}.rep.rkid{padding-right:12px}}
 
-/* ---------- Spot list: tokenized stocks and majors aren't memes, so no Heat badge ---------- */
-.spotlist .heat,.spotlist .tst{display:none}
-.spothint{margin:4px 0 2px}
-.spotchips{padding:10px 14px 4px}
+/* ---------- Spot: plain rows, its own search, most-traded first ---------- */
+.spothead{position:sticky;top:var(--hdr);z-index:11;padding:10px 14px 6px;
+ background:color-mix(in srgb,var(--bg) 94%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.spotsearch{display:flex;align-items:center;gap:8px;padding:0 12px;height:42px;border-radius:999px;
+ background:var(--bg2);border:1px solid var(--line);box-shadow:var(--raise-sm)}
+.spotsearch svg{flex:none;color:var(--muted)}
+.spotsearch input{flex:1;min-width:0;border:0;background:none;color:var(--text);font:600 14.5px var(--body);outline:none}
+.spotsearch input::placeholder{color:var(--muted);font-weight:500}
+.spotsearch .sqx{flex:none;width:24px;height:24px}
+.spotchips{display:flex;gap:6px;overflow-x:auto;padding:8px 0 2px;scrollbar-width:none}
+.spotchips::-webkit-scrollbar{display:none}
+.spothint{margin:8px 14px 2px}
+.srow{display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid var(--line);
+ text-decoration:none;color:inherit}
+.srow:hover{background:var(--hover)}
+.srow .tokav{width:38px;height:38px;border-radius:50%;flex:none}
+.sinfo{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.sname{display:flex;align-items:center;gap:5px;min-width:0}
+.sname b{font:800 15px/1.2 var(--body);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sver{flex:none;color:var(--up);display:inline-flex}
+.sinfo .hint{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sright{display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex:none;text-align:right}
+.sright b{font:800 15px/1.2 var(--body)}
+.sright span{font-size:12.5px;font-weight:700}
+@media (max-width:520px){.srow{padding:10px 12px;gap:10px}.srow .tokav{width:34px;height:34px}.sname b{font-size:14.5px}}
 /* Stocks and majors trade on price, not market cap, so the price leads their row. */
 .tpx b{font-size:15px}
 .spotlist .tpx b{color:var(--text)}

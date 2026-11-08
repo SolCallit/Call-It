@@ -28,6 +28,7 @@ export type LiveToken = {
   dex: string | null;
   verified: boolean;
   organic: number | null;
+  tags: string[];
   audit: { mintOff: boolean | null; freezeOff: boolean | null; top10: number | null; dev: number | null; sus: boolean };
   socials: { x: string | null; web: string | null; tg: string | null };
   launchpad: string | null;
@@ -71,7 +72,7 @@ type JupToken = {
   id: string; name: string; symbol: string; icon: string | null; createdAt?: string; decimals?: number;
   twitter?: string; website?: string; telegram?: string; launchpad?: string;
   fdv: number | null; mcap: number | null; usdPrice: number | null; liquidity: number | null; holderCount: number | null;
-  organicScore?: number; isVerified: boolean | null;
+  organicScore?: number; isVerified: boolean | null; tags?: string[];
   audit?: { isSus?: boolean; mintAuthorityDisabled?: boolean; freezeAuthorityDisabled?: boolean; topHoldersPercentage?: number; devBalancePercentage?: number } | null;
   firstPool?: { id: string; createdAt: string } | null;
   stats5m?: JupStats | null; stats1h?: JupStats | null; stats6h?: JupStats | null; stats24h?: JupStats | null;
@@ -100,6 +101,7 @@ function fromJup(j: JupToken): LiveToken {
     dex: null,
     verified: !!j.isVerified,
     organic: num(j.organicScore),
+    tags: Array.isArray(j.tags) ? j.tags.slice(0, 12) : [],
     flow: { m5: flowOf(j.stats5m), h1: flowOf(j.stats1h) },
     audit: {
       mintOff: j.audit?.mintAuthorityDisabled ?? null,
@@ -124,9 +126,13 @@ export type Feed = 'movers' | 'new' | 'traded' | 'organic' | 'verified';
 export async function jupVerified(limit = 300): Promise<LiveToken[] | null> {
   const data = await getJSON<JupToken[]>(`${JUP}/tokens/v2/tag?query=verified`, 600, jupHeaders());
   if (!Array.isArray(data) || !data.length) return null;
+  // Rank by what people are actually trading, so the list reads like a popular-right-now
+  // board rather than a rich list. Organic score breaks ties and pushes wash volume down.
+  const vol = (j: JupToken) => (j.stats24h?.buyVolume || 0) + (j.stats24h?.sellVolume || 0);
+  const pop = (j: JupToken) => vol(j) * (0.5 + (num(j.organicScore) ?? 0) / 100);
   return data
     .filter((j) => j?.id && (num(j.usdPrice) ?? 0) > 0)
-    .sort((a, b) => (num(b.mcap) ?? num(b.fdv) ?? 0) - (num(a.mcap) ?? num(a.fdv) ?? 0))
+    .sort((a, b) => pop(b) - pop(a))
     .slice(0, Math.min(limit, 500))
     .map(fromJup);
 }
@@ -274,7 +280,7 @@ async function pumpSearch(q: string): Promise<LiveToken[]> {
     price: null, mc: num(c.usd_market_cap), fdv: null, liq: null, holders: null, vol24: null,
     chg: { m5: null, h1: null, h6: null, h24: null }, buys24: null, sells24: null, traders24: null,
     createdAt: c.created_timestamp ? new Date(c.created_timestamp).toISOString() : null,
-    pool: null, dex: 'pumpfun', verified: false, organic: null,
+    pool: null, dex: 'pumpfun', verified: false, organic: null, tags: [],
     audit: { mintOff: null, freezeOff: null, top10: null, dev: null, sus: false },
     socials: { x: c.twitter || null, web: c.website || null, tg: c.telegram || null }, launchpad: 'pump.fun', decimals: 6,
   }));
@@ -308,7 +314,7 @@ export function withPair(t: LiveToken | null, pairs: DsPair[]): LiveToken | null
     chg: { m5: num(best.priceChange?.m5), h1: num(best.priceChange?.h1), h6: num(best.priceChange?.h6), h24: num(best.priceChange?.h24) },
     buys24: num(best.txns?.h24?.buys), sells24: num(best.txns?.h24?.sells), traders24: null,
     createdAt: best.pairCreatedAt ? new Date(best.pairCreatedAt).toISOString() : null,
-    pool: null, dex: null, verified: false, organic: null,
+    pool: null, dex: null, verified: false, organic: null, tags: [],
     audit: { mintOff: null, freezeOff: null, top10: null, dev: null, sus: false },
     socials: { x: null, web: null, tg: null }, launchpad: null, decimals: null,
   };
