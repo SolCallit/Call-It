@@ -59,7 +59,10 @@ const cdnIcon=(u,w=64)=>{u=ipfsU(u);return /^https:\/\//.test(u)&&!/wsrv\.nl/.te
 window.__cimg=el=>{const a=(el.dataset.alt||'').split('|').filter(Boolean);if(a.length){el.dataset.alt=a.slice(1).join('|');el.src=a[0]}else el.remove()};
 const tokav=s=>{const t=T[s],lab=t&&t.sym?t.sym:String(s),ca=t&&(t.ca||t.key),mint=isMintStr(ca)?ca:(isMintStr(s)?s:''),icon=t&&t.icon;
  // Pass the icon we already have, so the proxy doesn't spend a Jupiter lookup rediscovering it.
- const prox=mint?'/api/market/icon/'+mint+(icon&&/^(https|ipfs):\/\//.test(icon)?'?src='+encodeURIComponent(icon):''):'',srcs=(icon?[cdnIcon(icon),ipfsU(icon),prox]:prox?[cdnIcon(location.origin+prox),prox]:[]).filter((x,i,a)=>x&&a.indexOf(x)===i);
+ const prox=mint?'/api/market/icon/'+mint+(icon&&/^(https|ipfs):\/\//.test(icon)?'?src='+encodeURIComponent(icon):''):'',ipfsy=/ipfs/i.test(String(icon||'')),
+ // ipfs.io sends Cross-Origin-Resource-Policy: same-origin, so loading it straight from the
+ // browser is always a 403. Skip it and let our proxy fetch it server-side instead.
+ srcs=(icon?[cdnIcon(icon),...(ipfsy?[]:[ipfsU(icon)]),prox]:prox?[cdnIcon(location.origin+prox),prox]:[]).filter((x,i,a)=>x&&a.indexOf(x)===i);
  return srcs.length?`<span class="tokav img" style="background:hsl(${hue(lab)} 58% 45%)"><i>${esc(lab.slice(0,3))}</i><img src="${esc(srcs[0])}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-alt="${esc(srcs.slice(1).join('|'))}" onerror="__cimg(this)"></span>`
   :`<span class="tokav" style="background:hsl(${hue(lab)} 58% 45%)">${esc(lab.slice(0,3))}</span>`};
 const symOf=k=>T[k]&&T[k].sym||k;
@@ -1713,7 +1716,7 @@ function callerCard(){const top=ranked().slice(0,5);
   :`<p class="hint" style="margin:10px 0">No ranked callers yet. Make a call and take #1.</p><button class="btn primary block" data-act="newcall">Make a call</button>`}</div></div>`}
 /* ---------- Desktop Home board (pump.fun-style): the feed plus side-by-side panels.
    Each panel scrolls on its own and can be removed; removed panels come back from “Add panel”. ---------- */
-const BP={market:['Market','market','#/market'],calls:['Hot calls','promote','#/callerboard'],callers:['Callerboard','callerboard','#/callerboard'],news:['Latest news','news','#/news'],trending:['Trending','up','#/market'],watch:['Watchlist','star','#/home']};
+const BP={market:['Market','market','#/market'],calls:['Hot calls','promote','#/callerboard'],callers:['Callerboard','callerboard','#/callerboard'],news:['Latest news','news','#/news'],trending:['Trending','up','#/market'],spot:['Spot','wallet','#/market'],watch:['Watchlist','star','#/home']};
 const BP_DEF=['market','calls','callers'];
 const bpGet=()=>{try{const v=JSON.parse(localStorage.getItem('callit.board')||'null');return Array.isArray(v)?v.filter(k=>BP[k]):BP_DEF.slice()}catch(_){return BP_DEF.slice()}};
 const bpSet=v=>{try{localStorage.setItem('callit.board',JSON.stringify(v))}catch(_){}};
@@ -1735,6 +1738,10 @@ function bpBody(k){
   return L.length?`<div class="list">${L.map(x=>{const ext=!/^#\//.test(x.url);return `<a class="li rnews" href="${esc(x.url)}"${ext?' target="_blank" rel="noopener noreferrer nofollow"':''}>${pbadge(x.platform,x.url)}<div class="grow"><b>${esc(x.title)}</b><div class="hint">${esc(x.source)} · ${agoMs(x.at)}</div></div></a>`}).join('')}</div>`:N.err?bpEmpty('News is unavailable right now.'):rskel(6)}
  if(k==='watch'){watchFill();const L=[...S.watch].map(x=>T[x]).filter(t=>t&&!t.base&&t.sym);
   return L.length?`<div class="list">${L.map(t=>{const c=chgOf(t,'1h');return `<a class="li" href="#/token/${t.key}">${tokav(t.key)}<div class="grow"><b>$${esc(t.sym)}</b><div class="hint">${esc(t.name||'')}</div></div><div class="r num"><b>${fmtUsd(mcap(t))}</b>${c!=null?`<div class="hint ${c>=0?'up':'down'}">${fmtPct(c)}</div>`:''}</div></a>`}).join('')}</div>`:bpEmpty('Star a token to keep an eye on it here.')}
+ if(k==='spot'){if(!LIVE.feeds.verified&&!LIVE.err.verified)loadFeed('verified');
+  const l=(LIVE.feeds.verified||[]).map(x=>T[x]).filter(t=>t&&t.price).slice(0,30);
+  return l.length?`<div class="list">${l.map(t=>{const c=chgOf(t,'24h');
+   return `<a class="li" href="#/token/${esc(tokPath(t.key))}">${tokav(t.key)}<div class="grow"><b>${esc(t.sym)}</b><div class="hint">${esc((t.name||'').slice(0,22))}</div></div><div class="r num"><b>${fmtPrice(t.price)}</b><div class="hint ${c==null?'muted':c>=0?'up':'down'}">${c==null?'—':fmtPct(c)}</div></div></a>`}).join('')}</div>`:rskel(8)}
  if(k==='trending'){const lv=(LIVE.feeds['movers:1h']||[]).map(x=>T[x]).filter(t=>t&&t.price&&!NOT_MEME.has(String(t.sym).toUpperCase()));if(!lv.length&&!LIVE.err['movers:1h'])loadFeed('movers:1h');
   const tr=lv.filter(t=>t.live).sort((a,b)=>b.chg-a.chg).slice(0,30);
   return tr.length?`<div class="list">${tr.map(t=>`<a class="li" href="#/token/${t.key}">${tokav(t.key)}<div class="grow"><b>$${esc(t.sym)}</b><div class="hint">${(n=>n+(n===1?' call':' calls'))(calls.filter(c=>c.t===t.key).length)}</div></div><div class="r num"><b>${fmtUsd(mcap(t))}</b><div class="hint ${t.chg>=0?'up':'down'}">${fmtPct(t.chg)}</div></div></a>`).join('')}</div>`:rskel(8)}
