@@ -26,8 +26,16 @@ export function errText(e: unknown, depth = 0): string {
   }
 }
 
+const CANCEL = /user (rejected|denied|cancel)|rejected the request|declin|closed|cancel/i;
+// Privy reports "the user closed our window" as "Failed to connect to wallet" with this as the
+// cause. Kept narrow on purpose: a cause like "connection closed" is a real failure, not a cancel.
+const CANCEL_CAUSE = /user (rejected|denied|cancel)|rejected the request|exited the modal/i;
+const causeText = (e: unknown) => (e && typeof e === 'object' ? errText((e as { cause?: unknown }).cause) : '');
+
+export const isUserCancel = (e: unknown) => CANCEL.test(errText(e)) || CANCEL_CAUSE.test(causeText(e));
+
 const RULES: [RegExp, string][] = [
-  [/user (rejected|denied|cancel)|rejected the request|declin|closed|cancel/i, 'You cancelled it. Nothing was sent.'],
+  [CANCEL, 'You cancelled it. Nothing was sent.'],
   [/insufficient (funds|lamports|sol)|attempt to debit|custom program error: 0x1\b|not enough balance/i, 'Not enough SOL to cover this and the network fee.'],
   [/blockhash not found|block height exceeded|expired/i, 'The network took too long and it expired. Nothing was sent. Try again.'],
   [/429|too many requests|rate.?limit/i, 'Solana is busy right now. Try again in a few seconds.'],
@@ -41,9 +49,8 @@ const RULES: [RegExp, string][] = [
 
 /** Readable message for a toast. Raw details stay in `errText` for logs. */
 export function friendlyError(e: unknown): string {
+  if (isUserCancel(e)) return 'You cancelled it. Nothing was sent.';
   const t = errText(e) || 'Something went wrong. Nothing was sent.';
   for (const [re, msg] of RULES) if (re.test(t)) return msg;
   return t.length > 160 ? t.slice(0, 157) + '…' : t;
 }
-
-export const isUserCancel = (e: unknown) => /user (rejected|denied|cancel)|rejected the request|declin|closed|cancel/i.test(errText(e));

@@ -8,6 +8,7 @@ import type { CallitProfile, CallitNotification } from '@/lib/auth/types';
 import { toHandle } from '@/lib/auth/handle';
 import WalletSignIn, { type WalletSignInHandle } from '@/components/WalletSignIn';
 import { WALLET_CRASH } from '@/components/WalletGuard';
+import { forgetSigner, pickWallet } from '@/lib/wallet/pick';
 
 /**
  * Runs a UI-engine hook from inside a React effect. A throw in the engine must not travel up
@@ -94,7 +95,7 @@ export default function AuthBridge() {
         if (!authenticated || !wallets.length) throw new Error('No wallet connected. Sign in again.');
         // Sign with the exact wallet the transaction was built for. Falling back to another
         // wallet produces a signature the network rejects, so say what's wrong instead.
-        const w = owner ? wallets.find((x) => x.address === owner) : wallets[0];
+        const w = pickWallet(wallets, owner);
         if (!w) throw new Error(`Wallet ${owner!.slice(0, 4)}…${owner!.slice(-4)} isn't connected in this browser. Reconnect it, or sign in again.`);
         try {
           const { signedTransaction } = await guarded(signTransaction({
@@ -110,14 +111,14 @@ export default function AuthBridge() {
       },
       // Signs a plain-text message (Jupiter order login). Returns the signature as base64.
       signMsg: async (text, owner) => {
-        const w = (owner && wallets.find((x) => x.address === owner)) || wallets[0];
+        const w = pickWallet(wallets, owner) || wallets[0];
         if (!authenticated || !w) throw new Error('No wallet connected. Sign in again.');
         const { signature } = await guarded(signMessage({ message: new TextEncoder().encode(text), wallet: w }));
         return bytesToB64(signature);
       },
       // Raw-bytes signature, for Private Withdraw's key derivation. Same wallet rules as signMsg.
       signBytes: async (b64, owner) => {
-        const w = (owner && wallets.find((x) => x.address === owner)) || wallets[0];
+        const w = pickWallet(wallets, owner) || wallets[0];
         if (!authenticated || !w) throw new Error('No wallet connected. Sign in again.');
         const { signature } = await guarded(signMessage({ message: b64ToBytes(b64), wallet: w }));
         return bytesToB64(signature);
@@ -149,15 +150,17 @@ export default function AuthBridge() {
         // Already signed in with Privy but the app lost the session: re-sync instead of
         // calling login(), which Privy ignores for an authenticated user.
         if (authenticated) { synced.current = ''; setResync((n) => n + 1); return; }
+        if (via && ['Phantom', 'Solflare', 'Backpack', 'wallet'].includes(via)) return walletFlow.current?.start();
+        forgetSigner(); // email / Google / X: their Privy wallet signs from here on
         if (via === 'Google') return void initOAuth({ provider: 'google' }).catch(() => login());
         if (via === 'X') return void initOAuth({ provider: 'twitter' }).catch(() => login());
         if (via === 'Email' && opts?.email) return login({ loginMethods: ['email'], prefill: { type: 'email', value: opts.email } });
         if (via === 'Email') return login({ loginMethods: ['email'] });
-        if (via && ['Phantom', 'Solflare', 'Backpack', 'wallet'].includes(via)) return walletFlow.current?.start();
         login({ loginMethods: ['email', 'google', 'twitter'] });
       },
       logout: async () => {
         synced.current = '';
+        forgetSigner();
         await logout();
         apply(null);
         window.callitSetNotifs?.(null);

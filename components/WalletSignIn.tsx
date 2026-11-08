@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useImperativeHandle, useRef, useState, forwardRef } from 'react';
 import { useConnectWallet, useLoginWithSiws, usePrivy } from '@privy-io/react-auth';
 import { useWallets } from '@privy-io/react-auth/solana';
+import { rememberSigner } from '@/lib/wallet/pick';
 
 export type WalletSignInHandle = { start: () => void };
 
@@ -76,6 +77,8 @@ const WalletSignIn = forwardRef<WalletSignInHandle>(function WalletSignIn(_, ref
         walletClientType: w.standardWallet.name.toLowerCase(),
         connectorType: 'injected',
       });
+      // Trades get signed in this wallet too, even if the same address is also their Privy wallet.
+      rememberSigner(address, w.standardWallet.name);
     } catch (e) {
       console.error(`[callit] wallet sign-in failed at ${stage}:`, e);
       const detail = String((e as Error)?.message ?? e).slice(0, 160);
