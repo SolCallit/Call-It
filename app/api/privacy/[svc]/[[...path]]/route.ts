@@ -2,6 +2,25 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PRIVATE_BETA, PRIVATE_ON, PC_RELAYER } from '@/lib/privacy/config';
 import { burst, clientIp } from '@/lib/ratelimit';
 import { rpcUrl } from '@/lib/solana/rpc';
+import { verifyPrivyToken } from '@/lib/auth/privy-server';
+import { supabaseAdmin } from '@/lib/supabase/admin';
+
+/** Admins always get Private Withdraw in beta, so the people running Callit can test it. */
+async function isAdmin(req: NextRequest): Promise<boolean> {
+  const handles = (process.env.ADMIN_HANDLES || '').toLowerCase().split(',').map((x) => x.trim().replace(/^@/, '')).filter(Boolean);
+  const wallets = (process.env.ADMIN_WALLETS || '').split(',').map((x) => x.trim()).filter(Boolean);
+  if (!handles.length && !wallets.length) return false;
+  try {
+    const pid = await verifyPrivyToken(req);
+    const db = supabaseAdmin();
+    if (!pid || !db) return false;
+    const { data } = await db.from('profiles').select('handle, wallet_address').eq('privy_id', pid).maybeSingle();
+    if (!data) return false;
+    return wallets.length
+      ? !!data.wallet_address && wallets.includes(data.wallet_address as string)
+      : handles.includes(String(data.handle || '').toLowerCase());
+  } catch { return false; }
+}
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -47,7 +66,8 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ svc: string; pa
     // Beta: is this wallet on the tester list? Only decides whether the tab shows; every action is still signed by the user.
     const w = (req.nextUrl.searchParams.get('wallet') || '').trim();
     const list = (process.env.PRIVATE_BETA_WALLETS || '').split(',').map((x) => x.trim()).filter(Boolean);
-    return NextResponse.json({ allowed: PRIVATE_ON || (!!w && list.includes(w)) }, { headers: { 'cache-control': 'no-store' } });
+    const allowed = PRIVATE_ON || (!!w && list.includes(w)) || (await isAdmin(req));
+    return NextResponse.json({ allowed }, { headers: { 'cache-control': 'no-store' } });
   }
   if (!burst(`privacy:${svc}:${clientIp(req)}`, 300, 60_000)) return NextResponse.json({ error: 'Too many requests. Slow down a little.' }, { status: 429 });
   if (svc === 'rpc') return rpc(req);
