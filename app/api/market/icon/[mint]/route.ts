@@ -59,8 +59,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ mint: string }>
   const { mint } = await ctx.params;
   if (!isMint(mint)) return new Response(null, { status: 400 });
 
-  const t = await liveToken(mint).catch(() => null);
-  const first = [t?.icon, `https://dd.dexscreener.com/ds-data/tokens/solana/${mint}.png`].filter(Boolean) as string[];
+  // The caller usually already knows the icon URL from the feed, and DexScreener's is a fixed
+  // address needing no lookup. Try both before asking Jupiter: one upstream call per icon was
+  // rate-limiting the whole app (429s on tokens/v2/search) whenever a list rendered.
+  const hint = (new URL(req.url).searchParams.get('src') || '').trim();
+  const safeHint = /^(https:\/\/|ipfs:\/\/)/.test(hint) ? [hint] : [];
   const tried = new Set<string>();
   const tryAll = async (list: string[]) => {
     for (const u of list.flatMap((x) => [x, ...gateways(x)])) {
@@ -72,7 +75,12 @@ export async function GET(req: Request, ctx: { params: Promise<{ mint: string }>
     return null;
   };
 
-  const img = (await tryAll(first)) ?? (await tryAll(await dasImage(mint)));
+  let img = await tryAll([...safeHint, `https://dd.dexscreener.com/ds-data/tokens/solana/${mint}.png`]);
+  if (!img) {
+    const t = await liveToken(mint).catch(() => null); // only now is a Jupiter lookup worth a request
+    if (t?.icon) img = await tryAll([t.icon]);
+  }
+  if (!img) img = await tryAll(await dasImage(mint));
   {
     if (img && new URL(req.url).searchParams.get('b64') === '1') {
       // Base64 for share-card and graphics tooling that can't take binary.

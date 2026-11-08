@@ -58,7 +58,8 @@ const ipfsU=u=>String(u||'').replace(/^ipfs:\/\/(ipfs\/)?/,'https://ipfs.io/ipfs
 const cdnIcon=(u,w=64)=>{u=ipfsU(u);return /^https:\/\//.test(u)&&!/wsrv\.nl/.test(u)?`https://wsrv.nl/?url=${encodeURIComponent(u)}&w=${w}&h=${w}&fit=cover&output=webp&n=-1&maxage=7d`:u};
 window.__cimg=el=>{const a=(el.dataset.alt||'').split('|').filter(Boolean);if(a.length){el.dataset.alt=a.slice(1).join('|');el.src=a[0]}else el.remove()};
 const tokav=s=>{const t=T[s],lab=t&&t.sym?t.sym:String(s),ca=t&&(t.ca||t.key),mint=isMintStr(ca)?ca:(isMintStr(s)?s:''),icon=t&&t.icon;
- const prox=mint?'/api/market/icon/'+mint:'',srcs=(icon?[cdnIcon(icon),ipfsU(icon),prox]:prox?[cdnIcon(location.origin+prox),prox]:[]).filter((x,i,a)=>x&&a.indexOf(x)===i);
+ // Pass the icon we already have, so the proxy doesn't spend a Jupiter lookup rediscovering it.
+ const prox=mint?'/api/market/icon/'+mint+(icon&&/^(https|ipfs):\/\//.test(icon)?'?src='+encodeURIComponent(icon):''):'',srcs=(icon?[cdnIcon(icon),ipfsU(icon),prox]:prox?[cdnIcon(location.origin+prox),prox]:[]).filter((x,i,a)=>x&&a.indexOf(x)===i);
  return srcs.length?`<span class="tokav img" style="background:hsl(${hue(lab)} 58% 45%)"><i>${esc(lab.slice(0,3))}</i><img src="${esc(srcs[0])}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-alt="${esc(srcs.slice(1).join('|'))}" onerror="__cimg(this)"></span>`
   :`<span class="tokav" style="background:hsl(${hue(lab)} 58% 45%)">${esc(lab.slice(0,3))}</span>`};
 const symOf=k=>T[k]&&T[k].sym||k;
