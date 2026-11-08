@@ -2444,13 +2444,16 @@ function vRoom(id){const c=COMMS.find(x=>x.id===id);if(!c)return vHome();const h
  * second class, because those are positions rather than things you hold. */
 const CASHSET=new Set(['SOL','WSOL','USDC','USDT','USDS','PYUSD','USD1','EURC','JLP','JITOSOL','MSOL','BSOL','INF','JUPSOL','BNSOL','SSOL','HSOL','DSOL','VSOL','STSOL','LST']);
 const stockish=t=>/xstock|securities|proshares|tokenized|\bstock\b/i.test(t&&t.name||'')||/backed\.fi|stock-logo/i.test(t&&t.icon||'')||/x$/.test(String(t&&t.sym||''))&&/[A-Z]{2,5}x$/.test(String(t&&t.sym||''));
+/* Jupiter tags the tokens it verifies, so trust those before any guesswork.
+   Anything verified that isn't an equity or a stablecoin counts as established —
+   that includes the big memes (STONK, ZCAT, USELESS), which is where people expect them. */
+const STOCKT=['xstocks','stocks','equities','prestocks','pre-ipo'],CASHT=['lst','original-lst','stable'];
 function assetClass(key){const t=T[key];if(!t)return 'meme';const sym=String(t.sym||'').toUpperCase(),tg=t.tags||[];
- if(tg.includes('xstocks')||tg.includes('stocks')||tg.includes('equities'))return 'stock';
- if(tg.includes('lst')||CASHSET.has(sym))return 'cash';
- if(stockish(t))return 'stock';
- if(NOT_MEME.has(sym))return 'major';
+ if(STOCKT.some(x=>tg.includes(x))||stockish(t))return 'stock';
+ if(CASHT.some(x=>tg.includes(x))||CASHSET.has(sym))return 'cash';
+ if(t.verified||tg.includes('major')||NOT_MEME.has(sym))return 'major';
  return 'meme'}
-const ACLASS=[['meme','Memes','Community tokens and new launches'],['stock','Stocks','Tokenized equities, traded on-chain'],['major','Majors','Blue chips and ecosystem tokens'],['cash','Cash & staked SOL','SOL, stablecoins and liquid staking']];
+const ACLASS=[['meme','Memes','Community tokens and new launches'],['stock','Stocks','Tokenized equities, traded on-chain'],['major','Majors','Blue chips, ecosystem tokens and the big memes'],['cash','Cash & staked SOL','SOL, stablecoins and liquid staking']];
 /* Assets: one spot list grouped by what the thing actually is, plus Perps when positions land. */
 function vAssets(rows){const tab=S.atab==='perps'?'perps':'spot';
  const head=`<div class="ahead"><b class="h2">Assets</b>${vseg('atab',[['spot','Spot','wallet'],['perps','Perps','trenches']],tab,'Assets')}</div>`;
@@ -2497,7 +2500,7 @@ function ptabBody(h,me){const tab=S.ptab||'calls';
 /* ---------- Spot: everything you can hold, not just memes ----------
  * Jupiter's verified list: majors, stablecoins, liquid staking and ~1.5k tokenized stocks.
  * Same row, same chart, same Call it button as a meme, because they're all SPL tokens. */
-const SPOTF=[['all','All'],['stock','Stocks'],['major','Majors'],['cash','Cash & LSTs']];
+const SPOTF=[['all','All'],['major','Coins'],['stock','Stocks'],['cash','Cash & LSTs']];
 /* One spot row, kept deliberately plain: who it is, what it costs, which way it's going. */
 function spotRow(t){const c=chgOf(t,'24h'),cl=c==null?'muted':c>=0?'up':'down';
  return `<a class="srow" href="#/token/${esc(tokPath(t.key))}">${tokav(t.key)}
@@ -2513,7 +2516,7 @@ function vSpot(){if(!LIVE.feeds.verified&&!LIVE.err.verified)loadFeed('verified'
  let list=keys.map(k=>T[k]).filter(t=>t&&t.price&&(f==='all'||assetClass(t.key)===f));
  if(q)list=list.filter(t=>String(t.sym||'').toLowerCase().includes(q)||String(t.name||'').toLowerCase().includes(q));
  if(!list.length)return head+`<div class="empty"><b>${q?`Nothing matches “${esc(S.sq)}”`:'Nothing in this group yet'}</b><p>${q?'Try a ticker like NVDA, or a name.':'Try another filter.'}</p></div>`;
- const lab={stock:'Tokenized equities, traded on Solana 24/7.',major:'Blue chips and ecosystem tokens.',cash:'Stablecoins, SOL and liquid staking.',all:'Every verified Solana token you can buy, hold and call.'}[f];
+ const lab={stock:'Tokenized equities, traded on Solana 24/7.',major:'Every established coin that isn\u2019t a stock. Blue chips, ecosystem tokens and the big memes.',cash:'Stablecoins, SOL and liquid staking.',all:'Every verified Solana token you can buy, hold and call.'}[f];
  return head+`<p class="hint pad spothint">${esc(lab)} Most traded first.</p><div class="list spotlist">${list.slice(0,200).map(spotRow).join('')}</div>
  <p class="hint pad">Verified on Jupiter, ordered by how much they're being traded right now. Tap any of them to chart it, buy it or call it.</p>`}
 function vMarket(){const t=S.mt||'trenches',M=[['trenches','Trenches','flame'],['spot','Spot'],['radar','Radar'],['perps','Perps'],['predict','Predictions']];
