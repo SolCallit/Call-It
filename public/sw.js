@@ -1,7 +1,7 @@
 // Callit service worker.
-// Pages: network first, but fall back to the cached shell after 2.5s so a cold start on a slow
-// connection opens instantly. Build files (/_next/static, hashed) and icons: cache first.
-const CACHE = 'callit-v5';
+// Pages: always the network, with the cache as the offline fallback only. Build files
+// (/_next/static, hashed) and icons: cache first, since their URL changes when they change.
+const CACHE = 'callit-v6';
 const SHELL = ['/', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png', '/badge-96.png'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener('activate', (e) => {
@@ -19,10 +19,14 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(caches.match(req).then((hit) => hit || fetch(req).then(save)));
     return;
   }
-  const net = fetch(req).then(save);
-  const cached = caches.match(req).then((r) => r || (req.mode === 'navigate' ? caches.match('/') : undefined));
-  const slow = new Promise((res) => setTimeout(() => cached.then((r) => r && res(r)), req.mode === 'navigate' ? 2500 : 4000));
-  e.respondWith(Promise.race([net.catch(() => cached), slow]).then((r) => r || net));
+  // Never serve a cached page just because the network is slow. A page from an earlier deploy
+  // asks for build files that no longer exist, and the app dies with "This page couldn't load".
+  // Only fall back to the cache when the network genuinely fails.
+  e.respondWith(
+    fetch(req).then(save).catch(() =>
+      caches.match(req).then((r) => r || (req.mode === 'navigate' ? caches.match('/') : undefined)),
+    ),
+  );
 });
 
 // Push alerts: show even when Callit is closed; tapping opens (or focuses) Callit on the right page.
