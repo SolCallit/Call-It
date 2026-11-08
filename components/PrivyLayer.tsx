@@ -1,11 +1,15 @@
 'use client';
 
 import { PrivyProvider } from '@privy-io/react-auth';
-import { toSolanaWalletConnectors } from '@privy-io/react-auth/solana';
+import { defaultSolanaRpcsPlugin, toSolanaWalletConnectors } from '@privy-io/react-auth/solana';
 import { PRIVY_APP_ID } from '@/lib/config';
 import AuthBridge from '@/components/AuthBridge';
 
 const solanaConnectors = toSolanaWalletConnectors({ shouldAutoConnect: true });
+// Privy's "Confirm transaction" window reads the chain (fee, balance, lookup tables) through an
+// RPC. With none configured it throws while drawing, which took the whole page down on every
+// embedded-wallet buy ("This page couldn't load"). Privy hosts one for exactly this window.
+const plugins = [defaultSolanaRpcsPlugin()];
 
 /** Privy auth + embedded Solana wallets. Loaded after the app shell so it never blocks first paint. */
 export default function PrivyLayer() {
@@ -25,6 +29,7 @@ export default function PrivyLayer() {
         },
         embeddedWallets: { solana: { createOnLogin: 'users-without-wallets' }, ethereum: { createOnLogin: 'off' } },
         externalWallets: { solana: { connectors: solanaConnectors } },
+        plugins,
       }}
     >
       <AuthBridge />

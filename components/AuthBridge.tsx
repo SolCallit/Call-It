@@ -7,11 +7,36 @@ import type { User } from '@privy-io/react-auth';
 import type { CallitProfile, CallitNotification } from '@/lib/auth/types';
 import { toHandle } from '@/lib/auth/handle';
 import WalletSignIn, { type WalletSignInHandle } from '@/components/WalletSignIn';
+import { WALLET_CRASH } from '@/components/WalletGuard';
+
+/**
+ * Runs a UI-engine hook from inside a React effect. A throw in the engine must not travel up
+ * into React: that unmounts the whole app ("This page couldn't load").
+ */
+function engine(f: () => void) {
+  try { f(); } catch (e) { console.error('[callit] engine hook failed:', e); }
+}
 
 /** Hands a session (or sign-out) to the UI engine, queueing it if the engine hasn't booted yet. */
 function apply(p: CallitProfile | null, opts?: { isNew?: boolean }) {
-  if (window.callitApplySession) window.callitApplySession(p, opts);
+  const run = window.callitApplySession;
+  if (run) engine(() => run(p, opts));
   else window.__callitPendingSession = { p, opts };
+}
+
+/**
+ * Waits for a wallet prompt, but gives up the moment the wallet layer crashes (WalletGuard),
+ * so a buy fails with a clear message instead of sitting on "Waiting…" forever.
+ * (No "closed"/"cancel" in the text: those read as the user backing out.)
+ */
+function guarded<T>(p: Promise<T>): Promise<T> {
+  let off = () => {};
+  const crash = new Promise<never>((_, reject) => {
+    const on = () => reject(new Error('Your wallet window crashed before signing. Nothing was sent. Try again.'));
+    window.addEventListener(WALLET_CRASH, on, { once: true });
+    off = () => window.removeEventListener(WALLET_CRASH, on);
+  });
+  return Promise.race([p, crash]).finally(off);
 }
 
 /** Pulls the user's real notifications into the UI. */
@@ -72,7 +97,11 @@ export default function AuthBridge() {
         const w = owner ? wallets.find((x) => x.address === owner) : wallets[0];
         if (!w) throw new Error(`Wallet ${owner!.slice(0, 4)}…${owner!.slice(-4)} isn't connected in this browser. Reconnect it, or sign in again.`);
         try {
-          const { signedTransaction } = await signTransaction({ transaction: b64ToBytes(tx), wallet: w, chain });
+          const { signedTransaction } = await guarded(signTransaction({
+            transaction: b64ToBytes(tx), wallet: w, chain,
+            // Privy's window ends on a receipt; the trade only goes out once it's closed, so say so.
+            options: { uiOptions: { successHeader: 'Signed', successDescription: 'Close this and Callit sends it.' } },
+          }));
           return bytesToB64(signedTransaction);
         } catch (e) {
           console.error('[callit] sign failed', w.address, e);
@@ -83,14 +112,14 @@ export default function AuthBridge() {
       signMsg: async (text, owner) => {
         const w = (owner && wallets.find((x) => x.address === owner)) || wallets[0];
         if (!authenticated || !w) throw new Error('No wallet connected. Sign in again.');
-        const { signature } = await signMessage({ message: new TextEncoder().encode(text), wallet: w });
+        const { signature } = await guarded(signMessage({ message: new TextEncoder().encode(text), wallet: w }));
         return bytesToB64(signature);
       },
       // Raw-bytes signature, for Private Withdraw's key derivation. Same wallet rules as signMsg.
       signBytes: async (b64, owner) => {
         const w = (owner && wallets.find((x) => x.address === owner)) || wallets[0];
         if (!authenticated || !w) throw new Error('No wallet connected. Sign in again.');
-        const { signature } = await signMessage({ message: b64ToBytes(b64), wallet: w });
+        const { signature } = await guarded(signMessage({ message: b64ToBytes(b64), wallet: w }));
         return bytesToB64(signature);
       },
       // Wallets Privy made for this user (email / Google / X sign-ins). Privy v3 flags them on
@@ -107,7 +136,7 @@ export default function AuthBridge() {
         await exportWallet(address ? { address } : undefined);
       },
     };
-    window.callitWalletChanged?.();
+    engine(() => window.callitWalletChanged?.());
   }, [authenticated, user, wallets, signTransaction, signMessage, getAccessToken, exportWallet]);
 
   // Expose controls to the legacy engine.
@@ -154,7 +183,7 @@ export default function AuthBridge() {
         getAccessToken().then((t) => { if (t) loadNotifs(t); }).catch(() => {});
       },
     };
-    window.callitAuthChanged?.();
+    engine(() => window.callitAuthChanged?.());
   }, [ready, authenticated, login, initOAuth, logout, getAccessToken]);
 
   // Privy's OAuth redirect leaves ?privy_oauth_* params in the URL; tidy them once signed in.
@@ -189,7 +218,7 @@ export default function AuthBridge() {
     if (!ready) return;
     if (!authenticated || !user) {
       // Also clears a session the engine reopened from cache if Privy says it has expired.
-      if (synced.current || window.__callitRestored) { synced.current = ''; apply(null); window.callitSetNotifs?.(null); }
+      if (synced.current || window.__callitRestored) { synced.current = ''; apply(null); engine(() => window.callitSetNotifs?.(null)); }
       return;
     }
     const key = `${user.id}|${walletKey}`;
