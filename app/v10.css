@@ -343,3 +343,6 @@ body:has(.chdock) .fab{right:420px}
 .spotlist .heat,.spotlist .tst{display:none}
 .spothint{margin:4px 0 2px}
 .spotchips{padding:10px 14px 4px}
+/* Stocks and majors trade on price, not market cap, so the price leads their row. */
+.tpx b{font-size:15px}
+.spotlist .tpx b{color:var(--text)}
