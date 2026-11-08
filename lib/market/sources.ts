@@ -114,8 +114,24 @@ function fromJup(j: JupToken): LiveToken {
   };
 }
 
-export type Feed = 'movers' | 'new' | 'traded' | 'organic';
+export type Feed = 'movers' | 'new' | 'traded' | 'organic' | 'verified';
+
+/**
+ * Jupiter's verified list: ~4k tokens that are spot-tradeable right now, including
+ * ~1.5k tokenized stocks (NVDAx, TSLAx, SPYx...), majors, stablecoins and LSTs.
+ * Cached hard because the set barely moves; the biggest by market cap come first.
+ */
+export async function jupVerified(limit = 300): Promise<LiveToken[] | null> {
+  const data = await getJSON<JupToken[]>(`${JUP}/tokens/v2/tag?query=verified`, 600, jupHeaders());
+  if (!Array.isArray(data) || !data.length) return null;
+  return data
+    .filter((j) => j?.id && (num(j.usdPrice) ?? 0) > 0)
+    .sort((a, b) => (num(b.mcap) ?? num(b.fdv) ?? 0) - (num(a.mcap) ?? num(a.fdv) ?? 0))
+    .slice(0, Math.min(limit, 500))
+    .map(fromJup);
+}
 export async function jupList(feed: Feed, interval: '5m' | '1h' | '6h' | '24h' = '1h', limit = 50): Promise<LiveToken[] | null> {
+  if (feed === 'verified') return jupVerified(limit);
   const path =
     feed === 'new' ? '/tokens/v2/recent'
     : `/tokens/v2/${feed === 'movers' ? 'toptrending' : feed === 'traded' ? 'toptraded' : 'toporganicscore'}/${interval}?limit=${limit}`;

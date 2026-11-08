@@ -248,7 +248,7 @@ const ADS=[
 const AD_EVERY=3;
 const S={connected:false,addr:'',me:'',tab:'foryou',tf:'1D',lb:'30d',following:new Set(),watch:new Set(['GLORP','ORBIT']),
  bal:{SOL:4.2,USDC:310,GLORP:120000},activity:[{k:'Received',d:'2 SOL',t:'Yesterday'}],
- swap:{from:'SOL',to:'GLORP',amt:''},pkg:'boost',queued:[],unread:true,adRot:0,board:0,tt:'new',dtab:'swap',atab:'spot',ytab:(()=>{try{return localStorage.getItem('callit.ytab')==='profile'?'profile':'wallet'}catch(_){return 'wallet'}})()};
+ swap:{from:'SOL',to:'GLORP',amt:''},pkg:'boost',queued:[],unread:true,adRot:0,board:0,tt:'new',dtab:'swap',atab:'spot',sf:'all',ytab:(()=>{try{return localStorage.getItem('callit.ytab')==='profile'?'profile':'wallet'}catch(_){return 'wallet'}})()};
 /* Live site: visitors who aren't signed in see an empty wallet, never the prototype's demo balance. */
 if(typeof window!=='undefined'&&window.__callitRealAuth){S.bal={SOL:0};S.activity=[]}
 try{S.notifyOn=JSON.parse(localStorage.getItem('callit.notify')||'{}')||{}}catch(_){S.notifyOn={}}
@@ -2491,12 +2491,28 @@ function ptabBody(h,me){const tab=S.ptab||'calls';
  return null}
 
 /* ---------- market ---------- */
-function vMarket(){const t=S.mt||'trenches',M=[['trenches','Trenches','flame'],['radar','Radar'],['perps','Perps'],['predict','Predictions']];
- const bar=`<div class="mtabs tgl${t==='perps'?' perps-on':''}" style="--i:${M.findIndex(x=>x[0]===t)};--n:${M.length}" role="tablist">${M.map(([k,l])=>`<button role="tab" aria-selected="${t===k}" class="${t===k?'on':''}" data-act="mt" data-f="${k}">${l}${k==='trenches'||k==='radar'?'<span class="live"></span>':'<small>Soon</small>'}</button>`).join('')}</div>`;
+/* ---------- Spot: everything you can hold, not just memes ----------
+ * Jupiter's verified list: majors, stablecoins, liquid staking and ~1.5k tokenized stocks.
+ * Same row, same chart, same Call it button as a meme, because they're all SPL tokens. */
+const SPOTF=[['all','All'],['stock','Stocks'],['major','Majors'],['cash','Cash & LSTs']];
+function vSpot(){if(!LIVE.feeds.verified&&!LIVE.err.verified)loadFeed('verified');
+ const f=SPOTF.some(x=>x[0]===S.sf)?S.sf:'all';
+ const chips=`<div class="nchips spotchips">${SPOTF.map(([k,l])=>`<button class="nchip${f===k?' on':''}" data-act="spotf" data-f="${k}">${l}</button>`).join('')}</div>`;
+ if(LIVE.err.verified)return chips+`<div class="empty"><b class="h2">Spot list is taking a break</b><p>Couldn't reach the token list. It usually comes back in a few seconds.</p><button class="btn primary" data-act="spotretry">Try again</button></div>`;
+ const keys=LIVE.feeds.verified;
+ if(!keys)return chips+skelRows(8);
+ const list=keys.map(k=>T[k]).filter(t=>t&&t.price&&(f==='all'||assetClass(t.key)===f));
+ if(!list.length)return chips+`<div class="empty"><b>Nothing in this group yet</b><p>Try another filter.</p></div>`;
+ const lab={stock:'Tokenized equities. Backed 1:1 and traded on Solana, 24/7.',major:'Blue chips and ecosystem tokens.',cash:'Stablecoins, SOL and liquid staking.',all:'Every verified Solana token you can buy, hold and call.'}[f];
+ return chips+`<p class="hint pad spothint">${esc(lab)}</p><div class="list spotlist">${list.map(t=>trow(t)).join('')}</div>
+ <p class="hint pad">Verified on Jupiter and sorted by market cap. Tap any of them to chart it, buy it or call it.</p>`}
+function vMarket(){const t=S.mt||'trenches',M=[['trenches','Trenches','flame'],['spot','Spot'],['radar','Radar'],['perps','Perps'],['predict','Predictions']];
+ const bar=`<div class="mtabs tgl${t==='perps'?' perps-on':''}" style="--i:${M.findIndex(x=>x[0]===t)};--n:${M.length}" role="tablist">${M.map(([k,l])=>`<button role="tab" aria-selected="${t===k}" class="${t===k?'on':''}" data-act="mt" data-f="${k}">${l}${k==='trenches'||k==='radar'||k==='spot'?'<span class="live"></span>':'<small>Soon</small>'}</button>`).join('')}</div>`;
  if(t==='perps')return bar+locked(mockPerps(),'perps','Perps are coming','Long or short the tokens you call, with leverage and your caller track record on the line.',['Long and short from any call','Position shows on your call card','Same fee share for bought-in callers']);
  if(0)return bar+soonCard('Perps are coming','Long or short the tokens you call, with leverage and your caller track record on the line. Built on Solana perp venues.',['Long and short from any call','Position shows on your call card','Same fee share for bought-in callers']);
  if(t==='predict')return bar+locked(mockPredict(),'predict','Predictions are coming','Back your read on outcomes: will it hit the target, will it graduate, who tops the Callerboard this week.',['Markets on live calls','Settle on-chain','Callers can seed their own markets']);
  if(0)return bar+soonCard('Predictions are coming','Back your read on outcomes: will it hit the target, will it graduate, who tops the Callerboard this week.',['Markets on live calls','Settle on-chain','Callers can seed their own markets']);
+ if(t==='spot')return bar+vSpot();
  if(t==='radar')return bar+vRadarFlow();
  return bar+`<div class="inmkt">${vTrenches()}</div>`}
 /* ---------- Meme market radar: net inflow across Solana memes ---------- */
@@ -2782,14 +2798,40 @@ function vPremium(){const pl=S.plan||'yearly',P=PLANS[pl],via=S.payvia||'SOL',on
 
 /* ---------- full post ---------- */
 const REPLIES={};const RDRAFT={media:[]};
+/* Threads run one level deep, like Instagram: top-level replies, each with its responses
+   folded behind "View N replies". Answering anyone inside a thread stays in that thread. */
+const RTO={pid:null,h:''},ROPEN=new Set();
+function rtree(reps){const byId={},roots=[],kids={};
+ reps.forEach(x=>{if(x.id!=null)byId[String(x.id)]=x});
+ reps.forEach(x=>{const pid=x.pid!=null?String(x.pid):null;
+  if(pid&&byId[pid]){(kids[pid]=kids[pid]||[]).push(x)}else roots.push(x)});
+ Object.values(kids).forEach(l=>l.sort((a,b)=>(a.at||0)-(b.at||0)));
+ return {roots,kids}}
+/* One comment. `child` ones sit indented under their parent with a smaller avatar. */
+function rbub(x,k,ri,child){const rid=x.id!=null?String(x.id):'';
+ return `<div class="rep rbub${child?' rkid':''}"><a href="#/profile/${x.h}" aria-label="Open @${esc(x.h)}'s profile">${avatar(x.h,child?'sm':'')}</a><div class="grow rbody">
+  <div class="phead" style="margin:0"><span class="pname">${esc(nameOf(x.h))}</span><span class="hint">@${esc(x.h)}</span><time>${x.ago==='now'?'now':x.ago}</time></div>
+  ${x.t?`<p class="ptext" style="margin:4px 0 0">${rich(x.t)}</p>`:''}${mediaGrid(x.media)}
+  <div class="rbar"><button class="act" data-act="rrep" data-h="${esc(x.h)}" data-pid="${esc(rid)}" aria-label="Reply to @${esc(x.h)}">${ic('reply',16)}<span class="num">${x.reps||''}</span></button>
+  <button class="act${x.rted?' reposted':''}" data-act="rrt" data-p="${k.id}" data-i="${ri}" aria-label="Repost">${ic('repost',16)}<span class="num">${x.rts||''}</span></button>
+  <button class="act${x.liked?' liked':''}" data-act="rlike" data-p="${k.id}" data-i="${ri}" aria-label="Like">${ic('heart',16,x.liked)}<span class="num">${x.likes||''}</span></button></div></div></div>`}
+function rthread(reps,k){if(!reps.length)return `<div class="rempty"><span class="rempty-ic">${ic('reply',22)}</span><b>Quiet in here</b><p>Start the thread. First take gets seen.</p></div>`;
+ const {roots,kids}=rtree(reps),idx=x=>reps.indexOf(x);
+ return roots.map(r=>{const rid=r.id!=null?String(r.id):'',ch=kids[rid]||[],open=ROPEN.has(rid);
+  return `<div class="rgrp">${rbub(r,k,idx(r),0)}
+  ${ch.length?`<div class="rkids${open?' open':''}">${open?ch.map(c=>rbub(c,k,idx(c),1)).join(''):''}
+   <button class="rmore" data-act="rtog" data-pid="${esc(rid)}" aria-expanded="${open}"><i></i>${open?'Hide replies':`View ${ch.length} ${ch.length===1?'reply':'replies'}`}</button></div>`:''}</div>`}).join('')}
 const RLINES=['Aped a small bag. Chart looks clean.','What is the dev wallet holding right now?','Target feels conservative ngl','In since 1M, not selling here','Liquidity is thin, careful with size','Good call. Following for the next one','Bundled supply worries me a bit','This is the one 🚀'];
-function repliesOf(k){if(!RLOADED[k.id]&&realAuth()){RLOADED[k.id]=1;fetch('/api/posts/replies?ref='+encodeURIComponent(k.id)).then(r=>r.ok?r.json():null).then(j=>{if(!j||!j.replies.length)return;j.replies.forEach(x=>{if(x.avatar_url)AVURL[x.handle]=x.avatar_url;if(x.display_name)DN[x.handle]=x.display_name});const real=j.replies.map(x=>liveAgo({h:x.handle,t:x.body,likes:0,rts:0,reps:0,media:x.media,id:x.id},Date.parse(x.created_at)));REPLIES[k.id]=[...real,...(REPLIES[k.id]||[]).filter(x=>!x.mine)];k.replies=Math.max(k.replies||0,REPLIES[k.id].length);if(currentRoute()==='post')render()}).catch(()=>{})}
+function repliesOf(k){if(!RLOADED[k.id]&&realAuth()){RLOADED[k.id]=1;fetch('/api/posts/replies?ref='+encodeURIComponent(k.id)).then(r=>r.ok?r.json():null).then(j=>{if(!j||!j.replies.length)return;j.replies.forEach(x=>{if(x.avatar_url)AVURL[x.handle]=x.avatar_url;if(x.display_name)DN[x.handle]=x.display_name});const real=j.replies.map(x=>liveAgo({h:x.handle,t:x.body,likes:0,rts:0,reps:0,media:x.media,id:x.id,pid:x.parent_id||null},Date.parse(x.created_at)));REPLIES[k.id]=[...real,...(REPLIES[k.id]||[]).filter(x=>!x.mine)];k.replies=Math.max(k.replies||0,REPLIES[k.id].length);if(currentRoute()==='post')render()}).catch(()=>{})}
  if(k.srv&&!REPLIES[k.id])REPLIES[k.id]=[];
  if(!REPLIES[k.id]){const r=rng(k.id*7+3),who=ranked().map(c=>c.h).filter(h=>h!==k.c),n=Math.min(k.replies||0,3+Math.floor(r()*3));
  const lines=[...RLINES].sort(()=>r()-.5);REPLIES[k.id]=Array.from({length:Math.min(n,lines.length)},(_,i)=>({h:who[Math.floor(r()*who.length)],t:lines[i],ago:(i+1)*(7+Math.floor(r()*20))+'m',likes:Math.floor(r()*40),rts:Math.floor(r()*9),reps:Math.floor(r()*5)})).sort((a,b)=>parseInt(b.ago)-parseInt(a.ago))}return REPLIES[k.id]}
 function drawRMedia(){const el=$('#rmedia');if(el)el.innerHTML=mediaGrid(RDRAFT.media,1);const n=$('#rbox [data-attn]');if(n)n.textContent=RDRAFT.media.length?RDRAFT.media.length+'/4':'';const g=$('#rgo'),i=$('#rin');if(g&&i)g.disabled=!(i.value.trim()||RDRAFT.media.length)}
 function sendReply(id){if(!S.connected)return connectModal();const k=postBy(id),i=$('#rin'),v=i.value.trim();if(!v&&!RDRAFT.media.length)return;
- const md=RDRAFT.media.slice();repliesOf(k).unshift({h:S.me,t:v,ago:'now',likes:0,rts:0,reps:0,media:md,mine:1});if(SYNC())upMedia(md).then(media=>bg('/api/posts/replies',{ref:String(k.id),body:v,media})).catch(()=>toast('Your reply couldn’t be saved'));k.replies=(k.replies||0)+1;RDRAFT.media=[];render();toast('Reply posted')}
+ const md=RDRAFT.media.slice(),parent=RTO.pid||null;
+ repliesOf(k).unshift({h:S.me,t:v,ago:'now',likes:0,rts:0,reps:0,media:md,mine:1,pid:parent});
+ if(SYNC())upMedia(md).then(media=>bg('/api/posts/replies',{ref:String(k.id),body:v,media,parent:parent||undefined})).catch(()=>toast('Your reply couldn’t be saved'));
+ k.replies=(k.replies||0)+1;RDRAFT.media=[];RTO.pid=null;RTO.h='';if(parent)ROPEN.add(parent);render();toast('Reply posted')}
 function vPost(id){const k=postBy(id);if(!k)return `<div class="empty"><b class="h2">This post is gone</b><p>It may have been removed.</p><a class="btn primary" href="#/home">Back to Home</a></div>`;
  if(k.t&&!T[k.t]){loadLiveToken(k.t,1);return `<div class="empty"><b>Loading this call…</b></div>`}
  const t=T[k.t],n=nums(k),r=rankOf(k.c),reps=repliesOf(k);if(k.kind==='meme'&&k.srv)setTimeout(peakSync,300);
@@ -2810,15 +2852,12 @@ function vPost(id){const k=postBy(id);if(!k)return `<div class="empty"><b class=
    <button class="act${k.liked?' liked':''}" data-lbl="Like" data-act="like" data-id="${k.id}" aria-label="Like">${ic('heart',18,k.liked)}<span class="num">${k.likes||''}</span></button>
    ${xacts(k,19).replace('data-act="track"','data-lbl="Watch" data-act="track"').replace('data-act="bmark"','data-lbl="Save" data-act="bmark"')}
    <button class="act" data-lbl="Share" data-act="share" data-id="${k.id}" aria-label="Share">${ic('share',19)}</button></div>
-  <div class="rcomp" id="rbox">${S.connected?avatar(S.me):`<span class="av rcav">${ic('pen',16)}</span>`}<div class="grow">
+  ${RTO.pid?`<div class="rreplying">${ic('reply',14)}<span>Replying to <b>@${esc(RTO.h)}</b></span><button class="ib" data-act="rcancel" aria-label="Cancel reply">${ic('x',15)}</button></div>`:''}
+  <div class="rcomp${RTO.pid?' toreply':''}" id="rbox">${S.connected?avatar(S.me):`<span class="av rcav">${ic('pen',16)}</span>`}<div class="grow">
    <textarea id="rin" class="rin" maxlength="280" rows="1" placeholder="${S.connected?(k.kind==='meme'?'Your take on this call…':'Add your take…'):'Sign in to join the thread'}" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px';window.drawRMedia&&window.drawRMedia()" ${S.connected?'':'disabled'}></textarea><div id="rmedia"></div>
    <div class="rfoot">${S.connected?attachBar():'<span class="grow"></span>'}<button class="btn primary rsendb" id="rgo" data-act="${S.connected?'rsend':'connect'}" data-id="${k.id}" ${S.connected?'disabled':''} aria-label="${S.connected?'Send reply':'Sign in'}">${S.connected?ic('send',17)+'<span>Send</span>':'Sign in'}</button></div></div></div></article>
  <div class="rhd"><b>Thread</b><span class="num">${reps.length}</span></div>
- <div class="replies rthread">${reps.map((x,ri)=>`<div class="rep rbub"><a href="#/profile/${x.h}" aria-label="Open @${esc(x.h)}'s profile">${avatar(x.h)}</a><div class="grow rbody"><div class="phead" style="margin:0"><span class="pname">${esc(nameOf(x.h))}</span><span class="hint">@${esc(x.h)}</span><time>${x.ago==='now'?'now':x.ago}</time></div>
-  ${x.t?`<p class="ptext" style="margin:4px 0 0">${rich(x.t)}</p>`:''}${mediaGrid(x.media)}
-  <div class="rbar"><button class="act" data-act="rrep" data-h="${esc(x.h)}" aria-label="Reply to @${esc(x.h)}">${ic('reply',16)}<span class="num">${x.reps||''}</span></button>
-  <button class="act${x.rted?' reposted':''}" data-act="rrt" data-p="${k.id}" data-i="${ri}" aria-label="Repost">${ic('repost',16)}<span class="num">${x.rts||''}</span></button>
-  <button class="act${x.liked?' liked':''}" data-act="rlike" data-p="${k.id}" data-i="${ri}" aria-label="Like">${ic('heart',16,x.liked)}<span class="num">${x.likes||''}</span></button></div></div></div>`).join('')||`<div class="rempty"><span class="rempty-ic">${ic('reply',22)}</span><b>Quiet in here</b><p>Start the thread. First take gets seen.</p></div>`}</div>`}
+ <div class="replies rthread">${rthread(reps,k)}</div>`}
 
 /* ---------- share ---------- */
 const postURL=id=>SITE+'/#/post/'+id;
@@ -3766,6 +3805,8 @@ document.addEventListener('click',e=>{
   bpreset:()=>{bpSet(BP_DEF.slice());Object.keys(bpW).forEach(k=>delete bpW[k]);bpWSave();bpApplyFeed();closeModal();drawRail();toast('Panels reset')},
   pushtest:()=>pushTest(b),
   atab:()=>{if(S.atab===b.dataset.f)return;if(slideTo(b)&&!b.dataset.slid){b.dataset.slid=1;return setTimeout(()=>b.isConnected?b.click():null,170)}S.atab=b.dataset.f;render()},
+  spotf:()=>{S.sf=b.dataset.f;render()},
+  spotretry:()=>{LIVE.err.verified=0;delete LIVE.feeds.verified;loadFeed('verified');render()},
   wcard:()=>{if(S.wcard===b.dataset.f)return;if(slideTo(b)&&!b.dataset.slid){b.dataset.slid=1;return setTimeout(()=>b.isConnected?b.click():null,170)}S.wcard=b.dataset.f;render()},
   buycustom:()=>{const cur=PREF.buy&&!BUY_STD.includes(PREF.buy)?PREF.buy:'';
    modal('Custom buy amount','Your one-tap buy on calls. Any amount from 0.01 to 100 SOL.',`<label class="solin ssin"><input id="cbamt" class="num" inputmode="decimal" placeholder="e.g. 0.3" value="${esc(cur)}" aria-label="Buy amount in SOL"><span class="muted">SOL</span></label><div class="err" id="cberr"></div><button class="btn primary block" id="cbgo">Save amount</button>`,
@@ -3834,7 +3875,10 @@ document.addEventListener('click',e=>{
   rsend:()=>sendReply(b.dataset.id),
   rlike:()=>{if(!S.connected)return connectModal();const x=REPLIES[b.dataset.p][+b.dataset.i];x.liked=!x.liked;x.likes+=x.liked?1:-1;b.classList.toggle('liked',x.liked);b.innerHTML=`${ic('heart',17,x.liked)}<span class="num">${x.likes||''}</span>`},
   rrt:()=>{if(!S.connected)return connectModal();const x=REPLIES[b.dataset.p][+b.dataset.i];x.rted=!x.rted;x.rts+=x.rted?1:-1;b.classList.toggle('reposted',x.rted);b.querySelector('.num').textContent=x.rts||'';toast(x.rted?'Reposted':'Repost removed')},
-  rrep:()=>{if(!S.connected)return connectModal();const i=$('#rin');if(!i)return;const tag='@'+b.dataset.h+' ';if(!i.value.startsWith(tag))i.value=tag+i.value;i.focus();i.setSelectionRange(i.value.length,i.value.length);i.dispatchEvent(new Event('input'));$('#rbox').scrollIntoView({block:'center',behavior:'smooth'})},
+  rtog:()=>{const id=b.dataset.pid;ROPEN.has(id)?ROPEN.delete(id):ROPEN.add(id);render()},
+  rcancel:()=>{RTO.pid=null;RTO.h='';render()},
+  rrep:()=>{if(!S.connected)return connectModal();RTO.pid=b.dataset.pid||null;RTO.h=b.dataset.h||'';if(RTO.pid)ROPEN.add(RTO.pid);render();
+   setTimeout(()=>{const i=$('#rin');if(!i)return;i.focus();$('#rbox').scrollIntoView({block:'center',behavior:'smooth'})},40)},
   share:()=>shareSheet(b.dataset.id),
   cat:()=>{if(S.cat===b.dataset.f)return scrollTo({top:0,behavior:'smooth'});if(slideTo(b)&&!b.dataset.slid){b.dataset.slid=1;return setTimeout(()=>b.isConnected?b.click():null,170)}S.cat=b.dataset.f;try{localStorage.setItem('callit.cat',S.cat)}catch(_){}if(S.cat==='perps')loadPerps();render();scrollTo({top:0})},
   pmenu:()=>{const k=postBy(b.dataset.id);if(k)moreSheet(k.c,k)},

@@ -311,3 +311,35 @@ body:has(.chdock) .fab{right:420px}
 .apsoon .soonx{padding:22px 16px}
 .apsoon .soonx .btn{display:none}
 @media (max-width:520px){.ahead{gap:8px}.ahead .tgl.vseg{min-width:0;max-width:none;flex-basis:100%;margin-left:0!important}}
+
+/* ---------- Threaded replies: Instagram shape, Twitter actions ---------- */
+.rgrp{border-bottom:1px solid var(--line)}
+.rgrp:last-child{border-bottom:0}
+.rgrp .rep.rbub{border-bottom:0}
+.av.sm{width:28px;height:28px;font-size:11px}
+/* Children sit in an indented well with a thread line, so a side conversation reads as one. */
+.rkids{position:relative;margin:0 0 2px 60px;padding:0}
+.rkids.open{padding:2px 0 4px}
+.rkids.open::before{content:'';position:absolute;left:-26px;top:0;bottom:30px;width:2px;border-radius:2px;
+ background:linear-gradient(var(--line),color-mix(in srgb,var(--line) 20%,transparent))}
+.rep.rkid{gap:10px;padding:6px 16px 6px 0}
+.rep.rkid .ptext{font-size:14.5px}
+.rep.rkid .phead .pname{font-size:14px}
+.rep.rkid .rbar{margin-top:2px}
+.rmore{display:inline-flex!important;align-items:center;gap:10px;border:0!important;background:none!important;
+ box-shadow:none!important;padding:4px 0 8px!important;margin-left:-26px;color:var(--muted);
+ font:700 13px/1 var(--body);cursor:pointer;border-radius:0!important}
+.rmore i{display:block;width:26px;height:2px;border-radius:2px;background:var(--line);flex:none}
+.rmore:hover{color:var(--text);background:none!important;transform:none!important}
+.rmore:hover i{background:var(--muted)}
+.rreplying{display:flex;align-items:center;gap:8px;padding:8px 12px;margin:0 0 -6px;border-radius:14px 14px 0 0;
+ background:color-mix(in srgb,var(--hi) 12%,transparent);color:var(--muted);font-size:13px}
+.rreplying b{color:var(--text)}
+.rreplying .ib{margin-left:auto;width:26px;height:26px}
+.rcomp.toreply{border-top-left-radius:0;border-top-right-radius:0}
+@media (max-width:520px){.rkids{margin-left:46px}.rkids.open::before{left:-22px}.rmore{margin-left:-22px}.rep.rkid{padding-right:12px}}
+
+/* ---------- Spot list: tokenized stocks and majors aren't memes, so no Heat badge ---------- */
+.spotlist .heat,.spotlist .tst{display:none}
+.spothint{margin:4px 0 2px}
+.spotchips{padding:10px 14px 4px}
