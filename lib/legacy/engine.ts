@@ -2564,9 +2564,11 @@ function vRadarFlow(){const d=FLOW.d;loadFlow();
   <span class="fllab">Net meme inflow · 1h</span><b class="flbig num">${flowUsd(w.h1.net)}</b><div class="flreg"><b>${title}</b><span>${sub}</span></div></section>
  <div class="flgrid">${['m5','h1','h6','h24'].map(tile).join('')}</div>
  <b class="h3 flsec">Last 24 hours</b>${flowChart(d.history)}
+ ${d.buckets&&d.buckets.length?`<b class="h3 flsec">Flow by market cap · 1h</b><div class="flbkt">${d.buckets.map(b=>{const x=b.w.h1,net=x.b-x.s,tot=x.b+x.s,bs=tot?x.b/tot*100:50;return `<div class="fbrow"><span class="fbl hint">${b.label}</span><div class="flbar" role="img" aria-label="${Math.round(bs)}% of volume was buying"><i style="width:${bs.toFixed(1)}%"></i></div><b class="num ${net>=0?'up':'down'}">${flowUsd(net)}</b><small class="hint num">${b.n} tok</small></div>`}).join('')}</div>`:''}
+ ${d.majors&&d.majors.toks&&d.majors.toks.length?`<b class="h3 flsec">Majors on Solana · 1h</b><div class="list">${d.majors.toks.map(row).join('')}</div>`:''}
  <div class="fllists"><section><b class="h3 flsec up">Biggest inflows · 1h</b><div class="list">${(d.topIn||[]).map(row).join('')||'<p class="hint">None right now.</p>'}</div></section>
  <section><b class="h3 flsec down">Biggest outflows · 1h</b><div class="list">${(d.topOut||[]).map(row).join('')||'<p class="hint">None right now.</p>'}</div></section></div>
- <p class="hint flnote">Net inflow is buy volume minus sell volume, in USD, across the Solana meme tokens trading right now (stables, staked SOL and majors left out). Green and speeding up means fresh money is coming in. When the hour is green but the last 5 minutes turn red, momentum is often shifting.</p></div>`}
+ <p class="hint flnote">Net inflow is buy volume minus sell volume, in USD, across the Solana meme tokens trading right now (stables, staked SOL and majors left out). Green and speeding up means fresh money is coming in. Market-cap bands and Majors are sampled from the most-traded and newest tokens. When the hour is green but the last 5 minutes turn red, momentum is often shifting.</p></div>`}
 /* Coming soon: a real preview of the feature fades out under a lock. Nothing in the preview is clickable. */
 const SOONF={perps:'Perps',predict:'Predictions',stake:'$CALLIT staking'};
 function notifyBtn(f){const on=S.notifyOn&&S.notifyOn[f];return `<button class="btn ${on?'ghost':'primary'}" data-act="notify" data-f="${f}">${ic(on?'check':'bell',16)} ${on?'You\'re on the list':'Notify me at launch'}</button>`}

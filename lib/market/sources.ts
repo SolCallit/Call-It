@@ -395,22 +395,59 @@ export async function candles(pool: string, mint: string, tf: Tf): Promise<numbe
 /* ---------- Meme market flow (radar) ---------- */
 export type FlowWin = 'm5' | 'h1' | 'h6' | 'h24';
 export type FlowTok = { mint: string; sym: string; icon: string | null; mc: number | null; net: number; buy: number; sell: number };
+export type BWin = { b: number; s: number };
+export type FlowBucket = { key: string; label: string; n: number; w: { m5: BWin; h1: BWin; h24: BWin } };
+export type MajorsFlow = { n: number; w: { m5: BWin; h1: BWin; h24: BWin }; toks: FlowTok[] };
+/** One row of tuning data for Heat/AI-filter accuracy. Saved server-side, never sent to clients. */
+export type TokenSnap = {
+  mint: string; sym: string; mc: number | null; price: number | null; liq: number | null; holders: number | null;
+  organic: number | null; launchpad: string | null;
+  buy5: number; sell5: number; buy1: number; sell1: number;
+  chg5: number | null; chg1: number | null; chg24: number | null;
+};
 export type MarketFlow = {
   at: number; tokens: number;
   win: Record<FlowWin, { buy: number; sell: number; net: number; buys: number; sells: number; traders: number }>;
   topIn: FlowTok[]; topOut: FlowTok[];
+  buckets: FlowBucket[]; majors: MajorsFlow;
+  /** Stripped off by the API route before responding. */
+  snap?: TokenSnap[];
 };
 const NOT_MEME = new Set(['SOL', 'WSOL', 'USDC', 'USDT', 'USDS', 'PYUSD', 'USD1', 'EURC', 'JUP', 'JTO', 'PYTH', 'RAY', 'ORCA', 'JLP', 'JITOSOL', 'MSOL', 'BSOL', 'INF', 'JUPSOL', 'BNSOL', 'WBTC', 'CBBTC', 'ZBTC', 'WETH', 'ETH', 'BTC', 'HNT', 'RENDER', 'RNDR', 'W', 'KMNO', 'DRIFT', 'XBTC', 'SSOL', 'HSOL', 'DSOL', 'VSOL', 'STSOL', 'LST', 'ZEC', 'HYPE', 'MPLX', 'CARDS', 'PUMP', 'ONDO', 'XRP', 'BNB', 'SUI', 'DOGE', 'LINK', 'AAVE']);
 const stockish = (j: JupToken) => /xstock|securities|proshares|tokenized/i.test(j.name || '') || /backed\.fi|stock-logo/i.test(j.icon || '');
 
+/** Stables stay out of the Majors strip: their "flow" is mostly the other side of every trade. */
+const STABLE = new Set(['USDC', 'USDT', 'USDS', 'PYUSD', 'USD1', 'EURC']);
+/** Market-cap bands for the radar ladder. */
+const BANDS: [string, string, number, number][] = [
+  ['u10k', 'Under 10K', 0, 1e4], ['10k', '10K–100K', 1e4, 1e5], ['100k', '100K–1M', 1e5, 1e6],
+  ['1m', '1M–10M', 1e6, 1e7], ['10m', '10M–100M', 1e7, 1e8], ['100m', '100M+', 1e8, Infinity],
+];
+const sumWin = (toks: JupToken[]): { m5: BWin; h1: BWin; h24: BWin } => {
+  const out = { m5: { b: 0, s: 0 }, h1: { b: 0, s: 0 }, h24: { b: 0, s: 0 } };
+  for (const j of toks) {
+    for (const [k, f] of [['m5', 'stats5m'], ['h1', 'stats1h'], ['h24', 'stats24h']] as const) {
+      const s = j[f] as JupStats | null | undefined;
+      if (!s) continue;
+      out[k].b += Number(s.buyVolume) || 0;
+      out[k].s += Number(s.sellVolume) || 0;
+    }
+  }
+  return out;
+};
+
 /**
  * Net buy volume (buys minus sells, in USD) across Solana meme tokens that are trading right now:
- * Jupiter's most-traded and trending lists, minus stables, LSTs, majors and anything over $5B.
+ * Jupiter's most-traded, trending and newest lists, minus stables, LSTs, majors and anything over $5B.
+ * Also returns the same flow split into market-cap bands, a Majors strip (SOL, wBTC, wETH... as they
+ * trade on Solana), and a snapshot of per-token stats for tuning Heat/AI filters server-side.
+ * Sampled from the lists above (~400 tokens), so tiny caps are a sample, not a census.
  */
 export async function memeFlow(): Promise<MarketFlow | null> {
-  const lists = await Promise.all(
-    ['toptraded/24h', 'toptraded/1h', 'toptrending/1h', 'toptrending/6h'].map((p) => getJSON<JupToken[]>(`${JUP}/tokens/v2/${p}?limit=100`, 30, jupHeaders())),
-  );
+  const lists = await Promise.all([
+    ...['toptraded/24h', 'toptraded/1h', 'toptrending/1h', 'toptrending/6h'].map((p) => getJSON<JupToken[]>(`${JUP}/tokens/v2/${p}?limit=100`, 30, jupHeaders())),
+    getJSON<JupToken[]>(`${JUP}/tokens/v2/recent`, 30, jupHeaders()), // fills the under-10K / 10K–100K bands
+  ]);
   const seen = new Map<string, JupToken>();
   for (const l of lists) if (Array.isArray(l)) for (const j of l) if (j?.id && !seen.has(j.id)) seen.set(j.id, j);
   const toks = [...seen.values()].filter((j) => {
@@ -437,5 +474,41 @@ export async function memeFlow(): Promise<MarketFlow | null> {
     return { mint: j.id, sym: (j.symbol || '').slice(0, 16), icon: j.icon || null, mc: num(j.mcap) ?? num(j.fdv), net: buy - sell, buy, sell };
   });
   const by = [...per].sort((a, b) => b.net - a.net);
-  return { at: Date.now(), tokens: toks.length, win, topIn: by.filter((x) => x.net > 0).slice(0, 6), topOut: by.filter((x) => x.net < 0).reverse().slice(0, 6) };
+
+  // Market-cap bands over the same meme set.
+  const mcOf = (j: JupToken) => num(j.mcap) ?? num(j.fdv) ?? 0;
+  const buckets: FlowBucket[] = BANDS.map(([key, label, lo, hi]) => {
+    const inBand = toks.filter((j) => { const m = mcOf(j); return m >= lo && m < hi; });
+    return { key, label, n: inBand.length, w: sumWin(inBand) };
+  });
+
+  // Majors as they trade on Solana (SOL, wBTC, wETH, JUP...). Real buy/sell flow, not exchange netflow.
+  const majToks = [...seen.values()].filter((j) => {
+    const sym = String(j.symbol || '').toUpperCase();
+    return NOT_MEME.has(sym) && !STABLE.has(sym) && !stockish(j) && mcOf(j) > 0;
+  });
+  const majPer = majToks.map((j) => {
+    const s = j.stats1h || {};
+    const buy = Number(s.buyVolume) || 0, sell = Number(s.sellVolume) || 0;
+    return { mint: j.id, sym: (j.symbol || '').slice(0, 16), icon: j.icon || null, mc: num(j.mcap) ?? num(j.fdv), net: buy - sell, buy, sell };
+  }).sort((a, b) => Math.abs(b.net) - Math.abs(a.net));
+  const majors: MajorsFlow = { n: majToks.length, w: sumWin(majToks), toks: majPer.slice(0, 8) };
+
+  // Tuning data: the most-traded tokens this hour, with the features Heat decides on.
+  const snap: TokenSnap[] = [...toks]
+    .sort((a, b) => ((b.stats1h?.buyVolume || 0) + (b.stats1h?.sellVolume || 0)) - ((a.stats1h?.buyVolume || 0) + (a.stats1h?.sellVolume || 0)))
+    .slice(0, 150)
+    .map((j) => ({
+      mint: j.id, sym: (j.symbol || '').slice(0, 16), mc: num(j.mcap) ?? num(j.fdv), price: num(j.usdPrice),
+      liq: num(j.liquidity), holders: num(j.holderCount), organic: num(j.organicScore), launchpad: j.launchpad || null,
+      buy5: Number(j.stats5m?.buyVolume) || 0, sell5: Number(j.stats5m?.sellVolume) || 0,
+      buy1: Number(j.stats1h?.buyVolume) || 0, sell1: Number(j.stats1h?.sellVolume) || 0,
+      chg5: num(j.stats5m?.priceChange), chg1: num(j.stats1h?.priceChange), chg24: num(j.stats24h?.priceChange),
+    }));
+
+  return {
+    at: Date.now(), tokens: toks.length, win,
+    topIn: by.filter((x) => x.net > 0).slice(0, 6), topOut: by.filter((x) => x.net < 0).reverse().slice(0, 6),
+    buckets, majors, snap,
+  };
 }

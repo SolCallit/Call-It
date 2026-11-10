@@ -367,3 +367,10 @@ body:has(.chdock) .fab{right:420px}
 /* Stocks and majors trade on price, not market cap, so the price leads their row. */
 .tpx b{font-size:15px}
 .spotlist .tpx b{color:var(--text)}
+
+/* Radar: flow by market-cap band */
+.flbkt{display:flex;flex-direction:column;gap:9px;padding:14px;border-radius:18px;border:1px solid var(--line);background:var(--bg2)}
+.fbrow{display:grid;grid-template-columns:84px minmax(0,1fr) auto auto;gap:10px;align-items:center}
+.fbrow .fbl{font-size:12px;white-space:nowrap}
+.fbrow>b{white-space:nowrap}
+.fbrow>small{min-width:5ch;text-align:right;white-space:nowrap}
