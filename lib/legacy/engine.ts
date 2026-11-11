@@ -773,9 +773,6 @@ function peakSync(){if(PKBUSY)return;const now=Date.now();
   Object.entries((j&&j.peaks)||{}).forEach(([id,v])=>{const k=postBy(id);if(!k)return;if(v.hi_x>(k.hi||0)+.01){k.hi=v.hi_x;ch=1}if(v.hit_at&&!k.hit){k.hit=v.hit_at;ch=1}});
   if(ch&&['home','post','profile','callerboard'].includes(currentRoute()))render()}).catch(()=>{}).finally(()=>{PKBUSY=0})}
 function mkt(k){const n=nums(k);
- /* Fully sold: the exit is history, so it's frozen (Sold at). "If held" keeps running live: what the same buy would be making or losing had they never sold. */
- if(k.buy&&k.sold&&k.sold.pct>=100){const sx=k.sold.x>0?k.sold.x:0;
-  return `<div class="cr2 cr3 num issoldrow"><div><span>Entry</span><b>${fmtUsd(k.entry)}</b></div>${sx?`<div><span>Sold at</span><b class="${sx>=1?'up':'down'}">${fmtUsd(k.entry*sx)}</b></div>`:''}<div><span title="What this buy would be up or down today if the caller had never sold">If held</span><b class="${n.pnl>=0?'up':'down'}" data-pnl="${k.id}">${money(n.pnl)}</b></div></div>`}
  return k.buy?`<div class="cr2 cr3 num"><div><span>Entry</span><b>${fmtUsd(k.entry)}</b></div><div><span>Position</span><b data-pos="${k.id}">${fmtUsd(n.pos)}</b></div><div><span>Profit</span><b class="${n.pnl>=0?'up':'down'}" data-pnl="${k.id}">${money(n.pnl)}</b></div></div>`
   :`<div class="cr2 num"><div><span>Called at</span><b>${fmtUsd(k.entry)}</b></div><div><span>Since call</span><b class="${n.up?'up':'down'}" data-perf="${k.id}">${fmtPct(n.p)}</b></div></div>`}
 function post(k){if(k.kind==='random')return postRandom(k);if(k.kind==='perps')return postPerp(k);const t=T[k.t];if(!t)return '';const p=perf(k),r=rankOf(k.c);

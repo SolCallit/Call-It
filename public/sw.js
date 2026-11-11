@@ -1,8 +1,8 @@
 // Callit service worker.
 // Pages: always the network, with the cache as the offline fallback only. Build files
 // (/_next/static, hashed) and icons: cache first, since their URL changes when they change.
-const CACHE = 'callit-v6';
-const SHELL = ['/', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png', '/badge-96.png'];
+const CACHE = 'callit-v7';
+const SHELL = ['/', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png', '/badge-96.png', '/boot.webp'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))));

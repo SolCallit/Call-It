@@ -418,3 +418,8 @@ body:has(.chdock) .fab{right:420px}
 @media (min-width:521px) and (max-width:700px){.ccard .cr3{gap:12px}.ccard .cr2 b{font-size:15px}}
 @media (min-width:1100px){.ccard .cr3{gap:22px}}
 .pnote .sold b{font-weight:700}
+
+/* ---------- Boot: the megaphone shouts while the app loads ----------
+ * public/boot.webp is a 1.25s loop. The static mark underneath shows until it has loaded. */
+.bootmark{animation:none!important;overflow:hidden}
+.bootmark::after{inset:0!important;border-radius:inherit!important;box-shadow:none!important;animation:none!important;background:#0c1a26 url(/boot.webp) center/cover no-repeat}
