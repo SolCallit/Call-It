@@ -297,7 +297,7 @@ function who(h){const n=nameOf(h);return `<a class="pwho" href="#/profile/${esc(
 function fromRow(r){if(!r||!r.handle)return null;if(r.avatar_url)AVURL[r.handle]=r.avatar_url;if(r.display_name)DN[r.handle]=r.display_name;
  if(!C[r.handle])C[r.handle]={h:r.handle,win:0,avg:0,calls:0,best:0,followers:0,real:1};
  const k={id:r.id,srv:1,c:r.handle,kind:r.kind,src:r.source||'app',srcLabel:r.source_label||'',peak:+r.peak_x||0,thesis:r.body||'',media:r.media||[],likes:r.likes||0,reposts:r.reposts||0,replies:r.replies||0,views:Math.max(1,(r.likes||0)*9+(r.replies||0)*14),liked:!!r.liked,reposted:!!r.reposted,horizon:r.horizon||null,quote:r.quote_ref||null,quotes:+r.quotes||0};
- if(r.kind==='meme'){Object.assign(k,{t:r.mint,entry:+r.entry_mc,target:r.target_mc?+r.target_mc:null,buy:+r.buy_usd||0,snap:{sym:r.token_sym,name:r.token_name},hi:Math.max(+r.hi_x||0,+r.peak_x||0),hit:r.hit_at||r.target_at||null,born:Date.parse(r.created_at)||0});if(r.sold_pct)k.sold={pct:+r.sold_pct,at:Date.parse(r.sold_at)||0}}
+ if(r.kind==='meme'){Object.assign(k,{t:r.mint,entry:+r.entry_mc,target:r.target_mc?+r.target_mc:null,buy:+r.buy_usd||0,snap:{sym:r.token_sym,name:r.token_name},hi:Math.max(+r.hi_x||0,+r.peak_x||0),hit:r.hit_at||r.target_at||null,born:Date.parse(r.created_at)||0,att:r.attest_sig||null});if(r.sold_pct)k.sold={pct:+r.sold_pct,at:Date.parse(r.sold_at)||0}}
  if(r.kind==='perps')k.perp={m:r.perp_market,side:r.perp_side,lev:+r.perp_leverage,entry:+r.perp_entry,target:r.perp_target?+r.perp_target:null,stop:r.perp_stop?+r.perp_stop:null};
  return liveAgo(k,Date.parse(r.created_at))}
 function mergePosts(rows){const ids=new Set(calls.map(k=>String(k.id))),add=[],miss=new Set();
@@ -772,6 +772,9 @@ function peakSync(){if(PKBUSY)return;const now=Date.now();
 function mkt(k){const n=nums(k);
  return k.buy?`<div class="cr2 cr3 num"><div><span>Entry</span><b>${fmtUsd(k.entry)}</b></div><div><span>Position</span><b data-pos="${k.id}">${fmtUsd(n.pos)}</b></div><div><span>Profit</span><b class="${n.pnl>=0?'up':'down'}" data-pnl="${k.id}">${money(n.pnl)}</b></div></div>`
   :`<div class="cr2 num"><div><span>Called at</span><b>${fmtUsd(k.entry)}</b></div><div><span>Since call</span><b class="${n.up?'up':'down'}" data-perf="${k.id}">${fmtPct(n.p)}</b></div></div>`}
+/* On-chain receipt: the call's entry was written to Solana when it was made, so anyone can check
+   it was never edited. Opens the memo on Solscan; the full proof is at /api/calls/verify?id=. */
+function receipt(k){return k.att?` · <a class="bk ver" href="https://solscan.io/tx/${k.att}" target="_blank" rel="noopener" title="Entry stamped on Solana when this call was made">${ic('check',13)} On-chain receipt</a>`:''}
 function post(k){if(k.kind==='random')return postRandom(k);if(k.kind==='perps')return postPerp(k);const t=T[k.t];if(!t)return '';const p=perf(k),r=rankOf(k.c);
  const right=p===null?`<div class="cr"><b>Soon</b><span>Launches ${esc(t.prelaunch)}</span></div>`:mkt(k);
  return `<article class="post${k.fresh?' fresh':''}" data-go="#/post/${k.id}" tabindex="0" aria-label="Call by ${esc(k.c)} on $${t.sym}">
@@ -780,7 +783,7 @@ function post(k){if(k.kind==='random')return postRandom(k);if(k.kind==='perps')r
   <div class="phead">${who(k.c)}${r&&!k.sponsored?`<span class="rk">#${r}</span>`:''}${k.sponsored?'<span class="tag">Sponsored</span>':''}${k.src==='telegram'?tgChip(k):''}${k.c!==S.me?`<button class="fchip${S.following.has(k.c)?' on':''}" data-act="follow" data-h="${k.c}" aria-label="${S.following.has(k.c)?'Following':'Follow'} ${esc(k.c)}">${S.following.has(k.c)?ic('check',12)+'<span>Following</span>':'+<span>Follow</span>'}</button>`:''}<time>${k.ago==='now'?'now':k.ago+' ago'}</time>${k.sponsored?'':moreBtn(k)}</div>
   <p class="ptext">${rich(k.thesis)}</p>${mediaGrid(k.media)}${quoteCard(k.quote)}
   <a class="ccard${hitOf(k)?' ishit':''}${k.sold?' issold':''}" href="#/token/${t.key}">${tokav(t.key)}<div class="cn"><b>${esc(t.name)}</b><span>$${t.sym} <span class="chain">${t.chain}</span></span></div>${right}${stamps(k)}</a>
-  ${k.sponsored?`<div class="pnote">Paid promotion by ${esc(k.sponsor)}. Not counted in rankings.</div>`:`<div class="pnote">${k.target?(hitOf(k)?`<span class="tgt hit">${ic('target',13)} ${fmtUsd(k.target)} hit</span> · `:`Target ${fmtUsd(k.target)} within ${esc(k.horizon)} · `):''}${k.hi>=2&&!hitOf(k)?`<span class="tgt pk">Peaked ${k.hi.toFixed(1)}X</span> · `:''}${k.buy?`<span class="bk">${ic('check',13)} Bought in</span>`:`<span class="bk no">No buy · earns ${EARN_RULE.noBuy}% after ${EARN_RULE.minX}X</span>`}${k.sold?` · <span class="sold">Caller sold ${k.sold.pct}%${soldAgo(k)?' · '+soldAgo(k)+' ago':''}</span>`:''}</div>`}
+  ${k.sponsored?`<div class="pnote">Paid promotion by ${esc(k.sponsor)}. Not counted in rankings.</div>`:`<div class="pnote">${k.target?(hitOf(k)?`<span class="tgt hit">${ic('target',13)} ${fmtUsd(k.target)} hit</span> · `:`Target ${fmtUsd(k.target)} within ${esc(k.horizon)} · `):''}${k.hi>=2&&!hitOf(k)?`<span class="tgt pk">Peaked ${k.hi.toFixed(1)}X</span> · `:''}${k.buy?`<span class="bk">${ic('check',13)} Bought in</span>`:`<span class="bk no">No buy · earns ${EARN_RULE.noBuy}% after ${EARN_RULE.minX}X</span>`}${k.sold?` · <span class="sold">Caller sold ${k.sold.pct}%${soldAgo(k)?' · '+soldAgo(k)+' ago':''}</span>`:''}${receipt(k)}</div>`}
   <div class="pbar"><div class="icons">
    <button class="act" data-act="reply" aria-label="Reply">${ic('reply',18)}<span class="num">${k.replies||''}</span></button>
    <button class="act${k.reposted?' reposted':''}" data-act="repost" data-id="${k.id}" aria-label="Repost">${ic('repost',18)}<span class="num">${(k.reposts||0)+quotesOf(k.id)||''}</span></button>
@@ -3719,14 +3722,25 @@ function authPending(){if(!realAuth())return false;if(S.connected&&window.__call
 function hideBoot(){const b=$('#boot');if(!b||b.classList.contains('out'))return;b.classList.add('out');setTimeout(()=>b.remove(),300)}
 setTimeout(()=>syncLanding(),BOOT_MAX+50);
 /* ---------- Invite-only gate ---------- */
-const GATE={gate:false,granted:true,for:null,busy:0};
-function accessCheck(){if(GATE.busy)return;GATE.busy=1;const who=S.connected?S.me:null;
- API('/api/access').then(j=>{GATE.gate=!!j.gate;GATE.granted=!!j.granted;GATE.for=who;
+const GATE={gate:false,granted:true,for:null,busy:0,tries:0};
+/* Checks whether this account is through the invite gate. It must never run while Privy is still
+   restoring a session: an unauthenticated /api/access answers "not signed in", which would throw a
+   signed-in user back to the invite screen on every reload. */
+function accessCheck(){if(GATE.busy)return;
+ if(authPending()&&GATE.tries++<40)return void setTimeout(accessCheck,200);
+ GATE.busy=1;const who=S.connected?S.me:null;
+ API('/api/access').then(j=>{
+  // "Not signed in" while we still hold a session is a stale answer from mid-restore: keep the
+  // current state and look again shortly instead of locking the user out.
+  if(j.gate&&!j.signedIn&&(S.connected||authPending())&&GATE.tries++<40){setTimeout(accessCheck,400);return}
+  GATE.gate=!!j.gate;GATE.granted=!!j.granted;GATE.for=who;
   let pend=null;try{pend=sessionStorage.getItem('callit.code')}catch(_){}
   if(GATE.gate&&!GATE.granted&&j.signedIn&&pend)return redeemCode(pend);gateSync()}).catch(()=>{}).finally(()=>{GATE.busy=0})}
-function redeemCode(code){return API('/api/access',{body:{code}}).then(()=>{try{sessionStorage.removeItem('callit.code')}catch(_){}GATE.granted=true;gateSync();toast('You’re in. Welcome to Callit');render()})
+function redeemCode(code){return API('/api/access',{body:{code}}).then(j=>{try{sessionStorage.removeItem('callit.code')}catch(_){}GATE.granted=true;gateSync();toast((j&&j.note)||'You’re in. Welcome to Callit');render()})
  .catch(e=>{try{sessionStorage.removeItem('callit.code')}catch(_){}gateSync(e.message)})}
-function gateSync(err){let el=$('#gate');const land=$('#landing'),show=GATE.gate&&!GATE.granted&&!(land&&!land.hidden);
+function gateSync(err){let el=$('#gate');const land=$('#landing');
+ // Never show the invite screen over a session that is still coming back.
+ const show=GATE.gate&&!GATE.granted&&!authPending()&&!(land&&!land.hidden);
  if(!show){if(el)el.remove();document.body.classList.remove('gated');return}
  if(!el){el=document.createElement('div');el.id='gate';el.setAttribute('role','dialog');el.setAttribute('aria-modal','true');el.setAttribute('aria-label','Callit is invite-only');document.body.appendChild(el)}
  document.body.classList.add('gated');
@@ -3803,7 +3817,7 @@ window.callitApplySession=(p,o={})=>{
  // after load) used to close whatever was open, which is why the Buy sheet kept snapping shut.
  const om=document.querySelector('#modal .modal'),lab=om&&om.getAttribute('aria-label')||'';
  if(om&&/^(Sign in to Callit|Welcome back|Create your Callit account)$/.test(lab))closeModal();
- render();loadBalances();if(realAuth()){loadMe();loadPosts()}if(GATE.for!==S.me)accessCheck();
+ render();loadBalances();if(realAuth()){loadMe();loadPosts()}if(GATE.for!==S.me){GATE.tries=0;accessCheck()}
  if(first&&!o.restore){toast(o.isNew?'Welcome to Callit. Your wallet is ready':'Signed in');const n=pendingNext;pendingNext=null;if(n)n();else if(o.isNew)maybeOnboard()}};
 window.callitAuthChanged=()=>syncLanding();
 window.callitWalletChanged=()=>{if(REALW())loadBalances()};

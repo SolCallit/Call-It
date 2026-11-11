@@ -66,8 +66,10 @@ body.collapsed .acct{justify-content:center;padding:4px}
 .cols{display:grid;grid-template-columns:minmax(0,640px) 330px;gap:28px;padding:0 20px 0 0}
 .center{border-right:1px solid var(--line);min-height:calc(100vh / var(--z,1) - var(--hdr));padding-bottom:120px}
 .rail{position:sticky;top:var(--hdr);align-self:start;padding:18px 0;display:flex;flex-direction:column;gap:16px}
-@media (max-width:1279px){.cols{grid-template-columns:minmax(0,640px) 300px;gap:20px;padding:0 16px 0 0}.rail>*:not(.newscard):not(.railfoot){display:none}}
-@media (max-width:899px){.cols{grid-template-columns:minmax(0,680px);padding:0}.rail{display:none}}
+/* The feed + rail need ~1000px beside the sidebar. Below 1280 they didn't fit, so the grid
+   squeezed the feed instead of the rail: at 900px the feed dropped from 659px to 382px and left
+   ~300px of dead space. One centred column until there is real room for two. */
+@media (max-width:1279px){.cols{grid-template-columns:minmax(0,760px);justify-content:center;gap:0;padding:0}.rail{display:none}}
 @media (min-width:900px) and (max-width:1279px){.pbar .views{display:none}}
 .rail{max-height:calc(100vh / var(--z,1) - var(--hdr));overflow-y:auto;scrollbar-width:none}.rail::-webkit-scrollbar{display:none}
 .fab{position:fixed;right:28px;bottom:calc(28px + env(safe-area-inset-bottom,0px));z-index:25;width:62px;height:62px;border-radius:50%;border:0;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;box-shadow:0 10px 30px rgba(11,27,39,.35)}
@@ -155,6 +157,8 @@ textarea.input{resize:vertical;min-height:96px}
 .mc:hover{text-decoration:underline}
 .bk{display:inline-flex;align-items:center;gap:4px;font-weight:700;color:var(--up)}
 .bk.no{color:var(--muted);font-weight:600}
+.bk.ver{color:var(--hi);text-decoration:none}
+.bk.ver:hover{text-decoration:underline}
 .buybox{border:1.5px solid var(--line);border-radius:16px;padding:12px 14px;margin-bottom:14px;background:var(--bg2)}
 .buybox .top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
 .buybox .presets{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px}
