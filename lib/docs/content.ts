@@ -73,6 +73,8 @@ Send money out of Callit without the receiver seeing your Callit wallet. Built o
 
 Your private balance is encrypted notes only your wallet can read. Unlocking it is one free signature, and the same balance shows on privacycash.org with the same wallet, so your funds never depend on Callit staying up. For the most privacy, wait a while between adding and sending, and send a different amount.
 
+Callit also runs a second privacy rail on **Helius Privacy Rings**, Solana's native privacy layer (SOL only for now). Same two steps, with one difference: on a private send your wallet signs nothing on-chain — it authorizes inside the zero-knowledge proof, and Callit covers the network fee. Proofs run on Helius' attested secure enclave, and your private balance is recoverable with the same wallet in any Privacy Rings app.
+
 ### You
 Profile and wallet in one: balances, deposit, withdraw (standard or private), send, history, **Caller earnings** (with Claim), cashback progress, export your private key, link Telegram.
 
@@ -101,7 +103,8 @@ Whatever a caller doesn't take (for example a 5% caller) stays in Treasury & gro
 | | Callit fee | Other fees |
 |---|---|---|
 | Standard withdraw | **Free** | Solana network fee (~0.00001 SOL) |
-| Private withdraw | **Free.** Callit takes nothing | Privacy Cash: 0.35% + a small flat fee (0.006 SOL, or ~$0.62 for USDC/USDT) when you send |
+| Private withdraw (Privacy Cash) | **Free.** Callit takes nothing | Privacy Cash: 0.35% + a small flat fee (0.006 SOL, or ~$0.62 for USDC/USDT) when you send |
+| Private withdraw (Helius Rings) | **Free.** Callit even pays the network fee on sends | None |
 
 Every fee is shown before you approve.
 

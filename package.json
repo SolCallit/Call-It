@@ -12,6 +12,7 @@
     "postinstall": "node scripts/privacy-assets.mjs"
   },
   "dependencies": {
+    "@heliuslabs/spr": "^0.9.0-alpha",
     "@privy-io/react-auth": "3.46.0",
     "@solana-program/memo": "0.15.0",
     "@solana-program/system": "0.15.0",

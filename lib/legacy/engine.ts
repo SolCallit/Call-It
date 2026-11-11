@@ -12,7 +12,7 @@ let CHMOD=null;const chartMod=()=>CHMOD||(CHMOD=import('@/lib/market/chart'));
 import { openImageEditor } from '@/lib/media/imageEditor';
 import { walletBalances, swap as jupSwap, withdraw as doWithdraw, toBaseUnits, qrSvg, SOL_MINT, USDC_MINT, placeOrder, listOrders, cancelOrder, reportTxError } from '@/lib/wallet/client';
 import { friendlyError, isUserCancel } from '@/lib/errors';
-import { PRIVATE_ON, PRIVATE_BETA, PRIVATE_TOKENS } from '@/lib/privacy/config';
+import { PRIVATE_ON, PRIVATE_BETA, PRIVATE_TOKENS, HELIUS_PRIVATE_ON, HELIUS_PRIVATE_BETA, PRIVATE_SWAP_SOON } from '@/lib/privacy/config';
 import { DOCS_MD } from '@/lib/docs/content';
 import { walletArt, artSeed, nextArtOnLogin } from '@/lib/legacy/art';
 import { initCalls, listenForCalls, startCall, joinCall, activeCallId, CALL_ICONS } from '@/lib/chat/callClient';
@@ -702,6 +702,7 @@ function swapSettings(){const P0=[0,.5,1,3],st={slip:S.slip||0,speed:SWS.speed,m
  <div class="ssec"><b>Speed</b>${seg('speed',[['auto','Auto'],['fast','Fast'],['turbo','Turbo'],['ultra','Ultra']],st.speed)}<p class="hint">Faster adds a priority fee (up to 0.0001, 0.001 or 0.005 SOL) so swaps land when Solana is busy.</p></div>
  <div class="ssec"><b>Front-running protection</b>${seg('mev',[['1','On'],['0','Off']],st.mev?'1':'0')}<p class="hint">Sends your swap through Jito with a tip so bots can't jump ahead of your buy.</p>
   <label class="solin ssin"><span class="hint">Tip</span><input id="stip" class="num" inputmode="decimal" value="${esc(SWS.tip)}" ${st.mev?'':'disabled'} aria-label="Tip amount in SOL"><span class="muted">SOL</span></label></div>
+ ${PRIVATE_SWAP_SOON?`<div class="ssec"><b>${ic('lock',14)} Private swap <span class="pvsoonb">Coming soon</span></b><p class="hint">Swap without your buys and sells being tied to your wallet, through Helius Privacy Rings. Costs a small extra fee when it goes live.</p></div>`:''}
  <div class="err" id="sserr"></div><button class="btn primary block" id="ssave">Save settings</button>`,
  m=>{m.querySelectorAll('.sset').forEach(g=>g.onclick=e=>{const b=e.target.closest('[data-v]');if(!b)return;g.querySelectorAll('button').forEach(x=>{x.classList.toggle('on',x===b);x.setAttribute('aria-checked',x===b)});const k=g.dataset.k,v=b.dataset.v;
    if(k==='slip'){st.slip=+v;$('#sslip',m).value=''}else if(k==='speed')st.speed=v;else{st.mev=v==='1';$('#stip',m).disabled=!st.mev}});
@@ -2310,15 +2311,22 @@ function withdrawModal(){if(!S.connected)return connectModal(()=>withdrawModal()
 const PVACC={};/* beta access per wallet: true/false, undefined = unknown */
 const pvOn=()=>PRIVATE_ON||(PRIVATE_BETA&&PVACC[S.addr]===true);
 /* Beta: ask once per wallet, then reopen the withdraw sheet if it's still showing. */
-function pvCheck(){if(!PRIVATE_BETA||!S.addr||PVACC[S.addr]!==undefined)return;const a=S.addr;PVACC[a]=null;
- fetch(`/api/privacy/access?wallet=${encodeURIComponent(a)}`,{cache:'no-store'}).then(r=>r.json()).then(j=>{PVACC[a]=!!(j&&j.allowed);if(PVACC[a]&&$('#modal .pvseg.soon'))withdrawModal()}).catch(()=>{PVACC[a]=false})}
+function pvCheck(){if((!PRIVATE_BETA&&!HELIUS_PRIVATE_BETA)||!S.addr||PVACC[S.addr]!==undefined)return;const a=S.addr;PVACC[a]=null;
+ fetch(`/api/privacy/access?wallet=${encodeURIComponent(a)}`,{cache:'no-store'}).then(r=>r.json()).then(j=>{PVACC[a]=!!(j&&j.allowed);HXACC[a]=!!(j&&j.helius);if((PVACC[a]||HXACC[a])&&$('#modal .pvseg.soon'))withdrawModal()}).catch(()=>{PVACC[a]=false;HXACC[a]=false})}
 const pvMod=()=>import('@/lib/privacy/privacycash');
-const pvSeg=on=>{pvCheck();if(!pvOn())return `<div class="seg pvseg soon"><button class="on">Standard</button><button data-act="pvsoon" aria-disabled="true">${ic('lock',14)} Private <span class="pvsoonb">Coming soon</span></button></div>`;return `<div class="seg pvseg" role="tablist"><button class="${on?'':'on'}" role="tab" aria-selected="${!on}" data-act="withdraw">Standard</button><button class="${on?'on':''}" role="tab" aria-selected="${!!on}" data-act="pwithdraw">${ic('lock',14)} Private</button></div>`};
-const PV={mode:null,then:'keep',priv:null};
-function pwithdrawModal(){if(!S.connected)return connectModal(()=>pwithdrawModal());if(!pvOn())return withdrawModal();
+/* Rail #2: Helius Privacy Rings (lib/privacy/helius.ts). SOL only; gas on sends is sponsored. */
+const HXACC={};
+const hxOn=()=>HELIUS_PRIVATE_ON||(HELIUS_PRIVATE_BETA&&HXACC[S.addr]===true);
+const hxMod=()=>import('@/lib/privacy/helius');
+const pvRail=()=>pvOn()&&hxOn()?`<div class="seg pvrail" role="tablist" style="margin:0 0 12px"><button role="tab" aria-selected="${PV.rail!=='hx'}" class="${PV.rail==='hx'?'':'on'}" data-r="pc">Privacy Cash</button><button role="tab" aria-selected="${PV.rail==='hx'}" class="${PV.rail==='hx'?'on':''}" data-r="hx">Helius Rings</button></div>`:'';
+const pvRailWire=m=>m.querySelectorAll('.pvrail button').forEach(b=>b.onclick=()=>{if(b.dataset.r!==PV.rail){PV.rail=b.dataset.r;pvAny(m)}});
+function pvAny(m){if(!PV.rail)PV.rail=pvOn()?'pc':'hx';if(PV.rail==='hx'&&!hxOn())PV.rail='pc';if(PV.rail==='pc'&&!pvOn()&&hxOn())PV.rail='hx';return PV.rail==='hx'?pvLoadH(m):pvLoad(m)}
+const pvSeg=on=>{pvCheck();if(!pvOn()&&!hxOn())return `<div class="seg pvseg soon"><button class="on">Standard</button><button data-act="pvsoon" aria-disabled="true">${ic('lock',14)} Private <span class="pvsoonb">Coming soon</span></button></div>`;return `<div class="seg pvseg" role="tablist"><button class="${on?'':'on'}" role="tab" aria-selected="${!on}" data-act="withdraw">Standard</button><button class="${on?'on':''}" role="tab" aria-selected="${!!on}" data-act="pwithdraw">${ic('lock',14)} Private</button></div>`};
+const PV={mode:null,then:'keep',priv:null,rail:null};
+function pwithdrawModal(){if(!S.connected)return connectModal(()=>pwithdrawModal());if(!pvOn()&&!hxOn())return withdrawModal();
  if(!REALW())return toast('Sign in with your wallet to withdraw privately.');
  modal('Withdraw privately','Step 1: add funds to your private balance. Step 2: send from it to any address. The receiver never sees your Callit wallet.',
- `${pvSeg(1)}<div id="pvbody"><div class="empty" style="padding:22px 8px"><i class="spin"></i><p>Loading…</p></div></div>`,m=>pvLoad(m))}
+ `${pvSeg(1)}<div id="pvbody"><div class="empty" style="padding:22px 8px"><i class="spin"></i><p>Loading…</p></div></div>`,m=>pvAny(m))}
 function pvLoad(m){pvMod().then(mod=>Promise.all([mod.walletBalances(S.addr),mod.feeInfo(),mod.isUnlocked(S.addr)?mod.privateBalances(S.addr).catch(()=>null):Promise.resolve(PV.priv),mod.callitFee()]).then(([wb,fee,priv,cf])=>{if(!m.isConnected)return;
  PV.priv=priv;const toks=PRIVATE_TOKENS;const pb=sym=>priv&&priv[sym]?priv[sym].ui:0;const anyPriv=toks.some(t=>pb(t.sym)>0);
  if(!PV.mode)PV.mode=anyPriv?'send':'shield';
@@ -2340,10 +2348,10 @@ function pvLoad(m){pvMod().then(mod=>Promise.all([mod.walletBalances(S.addr),mod
  <div class="field"><label for="pvv">Amount</label><div style="display:flex;gap:8px"><input id="pvv" class="input num" inputmode="decimal" placeholder="0"><button class="mx lg" id="pvmax">Max</button></div></div>
  <p class="hint" id="pvfee" style="margin:-4px 0 10px"></p>
  <div class="err" id="pverr"></div><button class="btn primary block" id="pvgo">${ic('send',16)} Send privately</button>`;
- $('#pvbody',m).innerHTML=`${balCard}<div class="seg pvmode"><button data-m="shield" class="${PV.mode==='shield'?'on':''}">1. Add funds</button><button data-m="send" class="${PV.mode==='send'?'on':''}">2. Send privately</button></div>
+ $('#pvbody',m).innerHTML=`${pvRail()}${balCard}<div class="seg pvmode"><button data-m="shield" class="${PV.mode==='shield'?'on':''}">1. Add funds</button><button data-m="send" class="${PV.mode==='send'?'on':''}">2. Send privately</button></div>
   <div id="pvform">${PV.mode==='shield'?shieldForm:sendForm}</div>
   <p class="hint pvfoot">Powered by Privacy Cash. Your private balance also shows on privacycash.org with this same wallet.</p>`;
- skin(m);
+ skin(m);pvRailWire(m);
  const scan=(btn,label,full)=>{btn.disabled=true;mod.privateBalances(S.addr,msg=>{if(btn.isConnected)btn.textContent=msg},full).then(p=>{PV.priv=p;if(m.isConnected)pvLoad(m)}).catch(e=>{if(btn.isConnected){btn.disabled=false;btn.textContent=label}toast(isUserCancel(e)?'You cancelled the signature.':e&&e.name==='TxError'?e.message:friendlyError(e))})};
  const un=$('#pvunlock',m);if(un)un.onclick=()=>{un.textContent='Approve in your wallet…';scan(un,'Show private balance',false)};
  const fu=$('#pvfull',m);if(fu)fu.onclick=()=>{fu.textContent='Scanning… keep this open';scan(fu,'Find older funds',true)};
@@ -2378,6 +2386,50 @@ function pvLoad(m){pvMod().then(mod=>Promise.all([mod.walletBalances(S.addr),mod
    // Never store the destination: linking sender and receiver is exactly what this hides.
    realTx(`Send ${fmtAmt(a)} ${t.sym} privately`,step=>mod.sendPrivately({owner:S.addr,sym:t.sym,amount:a,to},step).then(r=>{S.activity.unshift({k:'Sent privately',d:`${fmtAmt(a)} ${t.sym}`,t:'Just now'});PV.priv=null;if(r.partial)toast('Sent part of it. Your private balance didn’t cover the full amount plus fees.');return r.tx}))};
  }})).catch(err=>{if(!m.isConnected)return;$('#pvbody',m).innerHTML=`<div class="empty" style="padding:18px 8px"><b>Private withdraw is unavailable right now</b><p>${esc(isUserCancel(err)?'You cancelled the signature.':friendlyError(err))}</p><button class="btn block" data-act="pwithdraw">Try again</button></div>`})}
+/* Helius Rings rail: same two steps, SOL only, send fees sponsored by Callit's gas wallet. */
+const HX={mode:null,priv:null};
+function pvLoadH(m){hxMod().then(mod=>Promise.all([mod.walletSol(S.addr),mod.isUnlocked(S.addr)?mod.privateBalance(S.addr).catch(()=>null):Promise.resolve(HX.priv),mod.gasInfo()]).then(([sol,priv,gas])=>{if(!m.isConnected)return;
+ HX.priv=priv;const pb=priv?priv.ui:0;
+ if(!HX.mode)HX.mode=pb>0?'send':'shield';
+ const wMax=Math.max(0,Math.floor((sol-mod.SOL_FEE_RESERVE)*1e6)/1e6),pMax=Math.floor(pb*1e6)/1e6;
+ const balCard=priv?`<div class="pvbal"><span class="pvbalh">${ic('lock',14)} Private balance</span><div class="pvbalrow"><div><b class="num">${fmtAmt(pb)}</b><small>SOL</small></div></div>${priv.registered?'':'<p class="hint" style="margin:8px 0 0">New here — your private wallet registers with your first deposit (one extra approval, one time).</p>'}</div>`
+  :`<div class="pvbal"><span class="pvbalh">${ic('lock',14)} Private balance</span><p class="hint" style="margin:6px 0 10px">Hidden until you unlock it. Unlocking is one free signature, not a transaction.</p><button class="btn block" id="hxunlock">Show private balance</button></div>`;
+ const shieldForm=`<div class="field"><label for="hxv">Amount of SOL to add to your private balance</label><div style="display:flex;gap:8px"><input id="hxv" class="input num" inputmode="decimal" placeholder="0"><button class="mx lg" id="hxmax">Max</button></div></div>
+ <p class="hint pvcfee">No Callit fee on this.${gas?' Network fees on private sends are covered by Callit.':''}</p>
+ <div class="err" id="hxerr"></div><button class="btn primary block" id="hxgo">${ic('lock',16)} Add to private balance</button>`;
+ const sendForm=`<div class="field"><label for="hxa">To address</label><input id="hxa" class="input" placeholder="Solana address" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+ <div class="field"><label for="hxv">Amount (SOL)</label><div style="display:flex;gap:8px"><input id="hxv" class="input num" inputmode="decimal" placeholder="0"><button class="mx lg" id="hxmax">Max</button></div></div>
+ <p class="hint" style="margin:-4px 0 10px">${gas?`Free — Callit covers the network fee, and your wallet signs nothing on-chain. Minimum ${mod.MIN_SOL} SOL.`:'Private sending is paused right now. Your funds stay safe in your private balance.'}</p>
+ <div class="err" id="hxerr"></div><button class="btn primary block" id="hxgo" ${gas?'':'disabled'}>${ic('send',16)} Send privately</button>`;
+ $('#pvbody',m).innerHTML=`${pvRail()}${balCard}<div class="seg pvmode"><button data-m="shield" class="${HX.mode==='shield'?'on':''}">1. Add funds</button><button data-m="send" class="${HX.mode==='send'?'on':''}">2. Send privately</button></div>
+  <div id="pvform">${HX.mode==='shield'?shieldForm:sendForm}</div>
+  <p class="hint pvfoot">Powered by Helius Privacy Rings (beta). SOL only for now. Your private balance is recoverable with this same wallet in any Privacy Rings app.</p>`;
+ skin(m);pvRailWire(m);
+ const un=$('#hxunlock',m);if(un)un.onclick=()=>{un.disabled=true;mod.privateBalance(S.addr,msg=>{if(un.isConnected)un.textContent=msg}).then(p=>{HX.priv=p;if(m.isConnected)pvLoadH(m)}).catch(e2=>{if(un.isConnected){un.disabled=false;un.textContent='Show private balance'}toast(isUserCancel(e2)?'You cancelled the signature.':e2&&e2.name==='TxError'?e2.message:friendlyError(e2))})};
+ m.querySelectorAll('.pvmode button').forEach(b=>b.onclick=()=>{HX.mode=b.dataset.m;pvLoadH(m)});
+ const e=$('#hxerr',m);
+ if(HX.mode==='shield'){
+  $('#hxmax',m).onclick=()=>{$('#hxv',m).value=wMax};
+  $('#hxgo',m).onclick=()=>{const a=parseFloat($('#hxv',m).value);
+   if(!(a>0))return e.textContent='Enter an amount above zero.';
+   if(a>wMax+1e-12)return e.textContent=`Keep ${mod.SOL_FEE_RESERVE} SOL for fees. You can add up to ${fmtAmt(wMax)} SOL.`;
+   closeModal();
+   realTx(`Add ${fmtAmt(a)} SOL to private balance`,step=>mod.shield({owner:S.addr,amount:a},step).then(sig=>{logTx({k:'Added to private balance',kind:'withdraw',label:`${fmtAmt(a)} SOL`,signature:sig,in_mint:'So11111111111111111111111111111111111111112',in_amount:a,to_address:null,usd_value:null});HX.mode='send';HX.priv=null;return sig}))};
+ }else{
+  $('#hxmax',m).onclick=()=>{$('#hxv',m).value=pMax};
+  $('#hxgo',m).onclick=()=>{const to=$('#hxa',m).value.trim(),a=parseFloat($('#hxv',m).value);
+   if(!priv)return e.textContent='Unlock your private balance first.';
+   if(!gas)return e.textContent='Private sending is paused right now.';
+   if(!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(to))return e.textContent='That isn’t a valid Solana address. Check it and try again.';
+   if(to===S.addr)return e.textContent='That’s your own Callit wallet. Use Standard withdraw, or paste a different address.';
+   if(!(a>0))return e.textContent='Enter an amount above zero.';
+   if(a<mod.MIN_SOL)return e.textContent=`Private sends start at ${mod.MIN_SOL} SOL.`;
+   if(a>pMax+1e-12)return e.textContent=`Your private balance is ${fmtAmt(pb)} SOL.`;
+   closeModal();
+   // Never store the destination: linking sender and receiver is exactly what this hides.
+   realTx(`Send ${fmtAmt(a)} SOL privately`,step=>mod.sendPrivately({owner:S.addr,amount:a,to},step).then(r=>{S.activity.unshift({k:'Sent privately',d:`${fmtAmt(a)} SOL`,t:'Just now'});HX.priv=null;return r.tx}))};
+ }})).catch(err=>{if(!m.isConnected)return;$('#pvbody',m).innerHTML=`${pvRail()}<div class="empty" style="padding:18px 8px"><b>Private withdraw is unavailable right now</b><p>${esc(isUserCancel(err)?'You cancelled the signature.':friendlyError(err))}</p><button class="btn block" data-act="pwithdraw">Try again</button></div>`;pvRailWire(m)})}
+
 function depositModal(){if(!S.connected)return connectModal(()=>depositModal());const ok=isMintStr(S.addr);
  modal('Deposit','Send SOL, USDC or any Solana token to your Callit wallet. Only use the Solana network.',ok?`<div style="text-align:center">${qrSvg(S.addr)}<p class="num" style="overflow-wrap:anywhere;font-size:13px;margin:12px 0">${esc(S.addr)}</p><button class="btn primary block" data-act="copy" data-v="${esc(S.addr)}">Copy address</button><p class="hint" style="margin:12px 0 0">Funds show up here automatically within a few seconds of landing.</p></div>`
   :`<div class="empty" style="padding:18px 8px"><b>Your wallet is still being set up</b><p>Give it a few seconds, then try again.</p></div>`)}

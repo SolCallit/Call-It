@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PRIVATE_BETA, PRIVATE_ON, PC_RELAYER } from '@/lib/privacy/config';
+import { HELIUS_PRIVATE_BETA, HELIUS_PRIVATE_ON, PRIVATE_BETA, PRIVATE_ON, PC_RELAYER } from '@/lib/privacy/config';
+import { gasAddress, relayWithdrawal } from '@/lib/privacy/gas-server';
 import { burst, clientIp } from '@/lib/ratelimit';
 import { rpcUrl } from '@/lib/solana/rpc';
 import { verifyPrivyToken } from '@/lib/auth/privy-server';
@@ -39,6 +40,7 @@ const RPC_METHODS = new Set([
   'getLatestBlockhash', 'getSignatureStatuses', 'getMinimumBalanceForRentExemption', 'getEpochInfo', 'getSlot',
   'getBlockHeight', 'isBlockhashValid', 'getFeeForMessage', 'getRecentPrioritizationFees', 'simulateTransaction',
   'sendTransaction', 'getVersion', 'getGenesisHash',
+  'getProgramAccounts', // Helius Privacy Rings SDK reads registry records with it
 ]);
 
 async function rpc(req: NextRequest) {
@@ -60,17 +62,39 @@ async function rpc(req: NextRequest) {
 }
 
 async function handle(req: NextRequest, ctx: { params: Promise<{ svc: string; path?: string[] }> }) {
-  if (!PRIVATE_ON && !PRIVATE_BETA) return NextResponse.json({ error: 'Private withdraw is off' }, { status: 404 });
+  if (!PRIVATE_ON && !PRIVATE_BETA && !HELIUS_PRIVATE_ON && !HELIUS_PRIVATE_BETA) {
+    return NextResponse.json({ error: 'Private withdraw is off' }, { status: 404 });
+  }
   const { svc, path: parts = [] } = await ctx.params;
   if (svc === 'access') {
     // Beta: is this wallet on the tester list? Only decides whether the tab shows; every action is still signed by the user.
+    // `allowed` is the Privacy Cash rail, `helius` the Helius Rings rail; both betas share PRIVATE_BETA_WALLETS.
     const w = (req.nextUrl.searchParams.get('wallet') || '').trim();
     const list = (process.env.PRIVATE_BETA_WALLETS || '').split(',').map((x) => x.trim()).filter(Boolean);
-    const allowed = PRIVATE_ON || (!!w && list.includes(w)) || (await isAdmin(req));
-    return NextResponse.json({ allowed }, { headers: { 'cache-control': 'no-store' } });
+    const betaOk = (!!w && list.includes(w)) || (await isAdmin(req));
+    const allowed = PRIVATE_ON || (PRIVATE_BETA && betaOk);
+    const helius = HELIUS_PRIVATE_ON || (HELIUS_PRIVATE_BETA && betaOk);
+    return NextResponse.json({ allowed, helius }, { headers: { 'cache-control': 'no-store' } });
   }
   if (!burst(`privacy:${svc}:${clientIp(req)}`, 300, 60_000)) return NextResponse.json({ error: 'Too many requests. Slow down a little.' }, { status: 429 });
   if (svc === 'rpc') return rpc(req);
+  if (svc === 'hgas') {
+    // Helius rail: the gas wallet that pays withdrawal fees so the user's wallet appears nowhere.
+    if (!HELIUS_PRIVATE_ON && !HELIUS_PRIVATE_BETA) return NextResponse.json({ error: 'not_allowed' }, { status: 404 });
+    if (req.method === 'GET') {
+      const address = await gasAddress();
+      return NextResponse.json({ address }, { headers: { 'cache-control': 'no-store' } });
+    }
+    // Signed-in users only, and at a slower pace: each relay costs the gas wallet a network fee.
+    if (!burst(`privacy:hgas-post:${clientIp(req)}`, 10, 60_000)) return NextResponse.json({ error: 'Too many requests. Slow down a little.' }, { status: 429 });
+    if (!(await verifyPrivyToken(req))) return NextResponse.json({ error: 'Sign in again, then retry.' }, { status: 401 });
+    const body = (await req.json().catch(() => null)) as { tx?: string } | null;
+    if (!body?.tx || typeof body.tx !== 'string' || body.tx.length > 400_000) {
+      return NextResponse.json({ error: 'invalid_tx' }, { status: 400 });
+    }
+    // Verified and forgotten: who withdraws where is exactly what this feature hides, so nothing is logged.
+    return relayWithdrawal(body.tx);
+  }
   if (svc === 'fee') {
     // Callit's privacy fee, charged in SOL to the treasury when a user adds funds. Off if no treasury is set.
     const t = (process.env.TREASURY_WALLET || '').trim();

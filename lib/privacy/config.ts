@@ -27,3 +27,25 @@ export const PC_RELAYER = 'https://api3.privacycash.org';
 
 /** Public WebSocket for confirmations (WebSockets can't go through Vercel functions). */
 export const PRIVATE_WS = 'wss://api.mainnet-beta.solana.com';
+
+/*
+ * Rail #2: Helius Privacy Rings (Solana Privacy Rings, mainnet). SOL only for now.
+ *
+ * NEXT_PUBLIC_HELIUS_PRIVACY   off (default) | beta (same allowlist as Privacy Cash beta) | on
+ *
+ * The SDK is 0.9.0-alpha: names and endpoints can change, so keep this off in
+ * Production until a real withdrawal has been tested end to end.
+ */
+const HRAW = (process.env.NEXT_PUBLIC_HELIUS_PRIVACY || '').trim().toLowerCase();
+export const HELIUS_PRIVATE_ON = HRAW === 'on' || HRAW === 'mainnet' || HRAW === '1' || HRAW === 'true';
+export const HELIUS_PRIVATE_BETA = HRAW === 'beta';
+
+/** Solana Privacy Rings mainnet deployment: Photon indexer + attested TEE prover (CORS-open, no key). */
+export const HELIUS_INDEXER = 'https://dgcj4pjarvo65.cloudfront.net';
+export const HELIUS_TEE_PROVER = 'https://d3ky2kt0ntqxt1.cloudfront.net';
+
+/** Smallest private send on the Helius rail, in SOL. */
+export const HELIUS_MIN_SOL = 0.001;
+
+/** Show the Private toggle on Swap as "Coming soon" (NEXT_PUBLIC_PRIVATE_SWAP=soon). */
+export const PRIVATE_SWAP_SOON = (process.env.NEXT_PUBLIC_PRIVATE_SWAP || '').trim().toLowerCase() === 'soon';
