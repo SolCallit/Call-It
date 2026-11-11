@@ -863,7 +863,7 @@ function vHome(){let list=calls.filter(k=>visible(k)&&(S.cat==='all'||catOf(k)==
  return `${homeTabs()}
  <div class="newpill" id="newpill">${S.queued.length&&S.tab==='foryou'?newPill():''}</div>
  ${S.tab==='foryou'&&(S.cat==='meme'||S.cat==='all')?topTrades():''}
- ${S.tab==='foryou'?pinnedPost():''}
+ ${S.tab==='foryou'?fbStrip()+pinnedPost():''}
  <div id="feed">${(S.tab==='foryou'?withAds(list):list.map(post).join(''))||empty}</div>`}
 /* Watchlist: just the token, price, volume and market cap, with Buy / Sell that open the real trade sheet. */
 let WLOAD=0;
@@ -1209,7 +1209,7 @@ function loadBugs(force){if(BUGS.busy||(!force&&BUGS.d))return;BUGS.busy=1;API('
 function vReports(){if(BUGS.err==='migration')return `<div class="rdnote"><b>Run the bug reports SQL</b> in Supabase to start collecting reports.</div>`;if(BUGS.err)return `<div class="empty"><p>${esc(BUGS.err)}</p></div>`;if(!BUGS.d){loadBugs();return `<div class="empty"><p>Loading…</p></div>`}
  if(!BUGS.d.length)return `<div class="empty"><p>No reports yet.</p></div>`;
  const KL={bug:'Bug',security:'Security',idea:'Idea'};
- return `<div class="tablewrap"><table><thead><tr><th>When</th><th>Type</th><th>From</th><th>Report</th><th>Screen</th></tr></thead><tbody>${BUGS.d.map(r=>`<tr title="${esc(r.user_agent||'')}"><td>${agoT(r.created_at)}</td><td><span class="akind ${r.kind==='security'?'sell':r.kind==='idea'?'buy':'swap'}">${KL[r.kind]||esc(r.kind)}</span></td><td>${r.handle?`<a href="#/profile/${esc(r.handle)}">@${esc(r.handle)}</a>`:'<span class="muted">guest</span>'}${r.contact?`<div class="hint">${esc(r.contact)}</div>`:''}</td><td style="white-space:pre-wrap;min-width:240px">${esc(r.body)}</td><td class="hint">${esc(r.page||'')}</td></tr>`).join('')}</tbody></table></div>`}
+ return `<div class="tablewrap"><table><thead><tr><th>When</th><th>Type</th><th>From</th><th>Report</th><th>Screen</th></tr></thead><tbody>${BUGS.d.map(r=>`<tr title="${esc(r.user_agent||'')}"><td>${agoT(r.created_at)}</td><td><span class="akind ${r.kind==='security'?'sell':r.kind==='idea'?'buy':'swap'}">${/^Tester feedback/.test(r.body||'')?'Feedback':KL[r.kind]||esc(r.kind)}</span></td><td>${r.handle?`<a href="#/profile/${esc(r.handle)}">@${esc(r.handle)}</a>`:'<span class="muted">guest</span>'}${r.contact?`<div class="hint">${esc(r.contact)}</div>`:''}</td><td style="white-space:pre-wrap;min-width:240px">${esc(r.body)}</td><td class="hint">${esc(r.page||'')}</td></tr>`).join('')}</tbody></table></div>`}
 const big2=(l,v,sub)=>`<div class="rdstat"><span>${l}</span><b class="num">${v}</b>${sub?`<small>${sub}</small>`:''}</div>`;
 function adminPing(){if(S.admin!=null||!realAuth()||!S.connected)return;S.admin=false;API('/api/admin/overview?ping=1').then(()=>{S.admin=true;if(currentRoute()==='you')render()}).catch(()=>{})}
 const agoT=iso=>{const m=(Date.now()-Date.parse(iso))/6e4;return m<1?'now':m<60?Math.round(m)+'m':m<1440?Math.round(m/60)+'h':Math.round(m/1440)+'d'};
@@ -1600,6 +1600,29 @@ async function tgLink(){try{const r=await API('/api/telegram/link',{body:{}});co
 /* Self-custody: the wallet belongs to the user. Privy-made wallets (email / Google / X sign-ins) can be exported. */
 function keysCard(){if(!S.connected)return '';const W=window.CallitWallet,emb=(W&&W.embedded)||[],mine=S.addr&&emb.includes(S.addr);
  return `<div class="keyscard"><span class="keysic">${ic('lock',18)}</span><div class="grow"><b>Your wallet, your keys</b><span class="hint">${mine?'Callit never holds your funds. You can export this wallet’s private key and use it in Phantom, Solflare or Backpack any time.':'This is your own wallet. Callit can’t move anything without your approval in your wallet app.'}</span></div>${mine?`<button class="btn sm ghost" data-act="exportkey">Export key</button>`:''}</div>`}
+/* Tester feedback: a short form anyone can fill in (also opens from callit.buzz/#/feedback). Saved with the
+ * reports, so it shows under Admin › Reports marked "Tester feedback". Only the first box is required. */
+const FBK='callit.fbstrip';
+const fbStrip=()=>{try{if(localStorage.getItem(FBK))return ''}catch(_){}return `<div class="fbstrip"><span class="grow"><b>Testing Callit?</b> Tell us what to fix. Takes a minute.</span><button class="btn sm primary" data-act="feedback">Give feedback</button><button class="ib" data-act="fbhide" aria-label="Hide">${ic('x',16)}</button></div>`};
+function feedbackModal(){let rate=0;
+ modal('Give feedback','You’re testing Callit early. Be blunt: what worked, what broke, what’s missing. It goes straight to the team.',
+ `<div class="field"><label>How was it overall?</label><div class="seg wide fbrate" role="radiogroup">${[1,2,3,4,5].map(v=>`<button type="button" role="radio" aria-checked="false" data-v="${v}">${v}</button>`).join('')}</div><span class="hint">1 = rough · 5 = I’d use this daily</span></div>
+ <div class="field"><label for="fbbad">What broke or confused you?</label><textarea id="fbbad" class="input" rows="3" maxlength="700" placeholder="e.g. Sell button spun and nothing happened. I couldn’t find where my earnings show…"></textarea></div>
+ <div class="field"><label for="fbgood">What did you like? <span class="hint">· optional</span></label><textarea id="fbgood" class="input" rows="2" maxlength="500"></textarea></div>
+ <div class="field"><label for="fbwant">What should we add or change? <span class="hint">· optional</span></label><textarea id="fbwant" class="input" rows="2" maxlength="500"></textarea></div>
+ <div class="field"><label for="fbct">Contact <span class="hint">· optional, X handle or email so we can follow up</span></label><input id="fbct" class="input" maxlength="120" autocomplete="off" value="${S.connected?'@'+esc(S.me):''}"></div>
+ <p class="hint">Never include your private key or seed phrase. We never need it.</p>
+ <div class="err" id="fberr"></div><button class="btn primary block" id="fbsend">Send feedback</button>`,
+ m=>{const er=$('#fberr',m),bt=$('#fbsend',m);
+  m.querySelectorAll('.fbrate button').forEach(b=>b.onclick=()=>{rate=+b.dataset.v;m.querySelectorAll('.fbrate button').forEach(x=>{x.classList.toggle('on',x===b);x.setAttribute('aria-checked',x===b)})});
+  bt.onclick=()=>{const bad=$('#fbbad',m).value.trim(),good=$('#fbgood',m).value.trim(),want=$('#fbwant',m).value.trim();
+   if(!rate&&!bad&&!good&&!want){er.textContent='Pick a rating or write a line. Anything helps.';return}
+   const t=['Tester feedback'+(rate?' · '+rate+'/5':''),bad&&'Broke or confusing: '+bad,good&&'Liked: '+good,want&&'Add or change: '+want].filter(Boolean).join('\n');
+   if(/\b([1-9A-HJ-NP-Za-km-z]{85,90})\b|\b(\w+\s){11,23}\w+\b/.test(t)&&/key|seed|phrase|secret/i.test(t)){er.textContent='That looks like a private key or seed phrase. Remove it, we never need it.';return}
+   bt.disabled=true;bt.textContent='Sending…';
+   API('/api/bugs',{body:{kind:'idea',text:t.length<10?t+' (no details)':t,contact:$('#fbct',m).value.trim(),page:(NAVH.stack[NAVH.stack.length-1]||location.hash).slice(0,200),ua:navigator.userAgent.slice(0,300),w:innerWidth}})
+    .then(()=>{try{localStorage.setItem(FBK,'1')}catch(_){}closeModal();toast('Thanks! Your feedback is with the team');if(currentRoute()==='home')render()})
+    .catch(e=>{bt.disabled=false;bt.textContent='Send feedback';er.textContent=e.message||'Couldn’t send. Try again.'})}})}
 /* Report a bug / security issue / idea. Saved for the team; admins read them under Admin › Reports. */
 function bugModal(kind){kind=['bug','security','idea'].includes(kind)?kind:'bug';
  const K={bug:['Report a bug','What happened, and what did you expect? Steps help us fix it fast.','e.g. I tapped Sell on $TOKEN, the button spun and nothing happened…'],
@@ -1913,7 +1936,9 @@ setInterval(()=>{if(document.hidden)return;const [,r,p]=location.hash.split('/')
 setInterval(()=>{if(document.hidden||S.tab!=='watchlist'||currentRoute()!=='home')return;const ks=[...S.watch].filter(isMintStr);if(!ks.length)return;
  fetchTokens(ks.slice(0,50)).then(l=>l.forEach(x=>{const t=regLive(x);if(!t)return;const a=document.querySelector(`[data-wpx="${t.key}"]`),b=document.querySelector(`[data-wmc="${t.key}"]`);
   const dir=t._wp?Math.sign(t.price-t._wp):0;t._wp=t.price;if(a)flashSet(a,fmtSmall(t.price),dir);if(b)flashSet(b,fmtSmall(mcap(t)),dir)})).catch(()=>{})},6000);
-function render(){if(isPhone())document.body.classList.add('collapsed');const [,r0='home',p]=location.hash.split('/');routeTabs(r0||'home',p);const r=canonRoute(r0||'home',p);let html;
+function render(){if(isPhone())document.body.classList.add('collapsed');const [,r0='home',p]=location.hash.split('/');
+ if(r0==='feedback'){location.replace('#/home');setTimeout(feedbackModal,450);return}
+ routeTabs(r0||'home',p);const r=canonRoute(r0||'home',p);let html;
  if(r==='token'&&p&&!T[p]&&LIVEMAP[p]){location.replace('#/token/'+LIVEMAP[p]);return}
  if(r==='community')html=vRoom(p);
  else if(r==='post')html=vPost(p);
@@ -2852,6 +2877,7 @@ function vSettings(){const th=document.documentElement.dataset.theme||'system',c
   ${zoomOn()?`<button class="setrow" data-act="bpreset">${ic('rotate',18)}<span class="grow"><b>Reset home panels</b></span></button>`:''}
   ${row('about','Terms, privacy, risks & security','',go,'#/legal/terms')}${row('verified','Premium','',go,'#/premium')}</section>
  <section class="setcard"><div class="seth">${ic('about',18)}<b>Help</b></div>
+  <button class="setrow" data-act="feedback">${ic('sprout',18)}<span class="grow"><b>Give feedback</b><span class="hint">Testing Callit? Tell us what worked, what broke and what’s missing.</span></span>${go}</button>
   <button class="setrow" data-act="bugreport" data-f="bug">${ic('pen',18)}<span class="grow"><b>Report a bug</b><span class="hint">Something broken or confusing? Tell us. It goes straight to the team.</span></span>${go}</button>
   <button class="setrow" data-act="bugreport" data-f="security">${ic('lock',18)}<span class="grow"><b>Report a security issue</b><span class="hint">Found a way to lose funds or see what you shouldn’t? Report it privately.</span></span>${go}</button>
   <button class="setrow" data-act="bugreport" data-f="idea">${ic('sprout',18)}<span class="grow"><b>Suggest a feature</b></span>${go}</button></section>
@@ -3845,7 +3871,7 @@ document.addEventListener('click',e=>{
   belldel:()=>API('/api/alerts/bell?mint='+encodeURIComponent(b.dataset.f),{method:'DELETE'}).then(()=>{BELLS.delete(b.dataset.f);AL.d=null;alLoad(1)}).catch(e=>toast(e.message)),
   wtab:()=>{S.wtab=b.dataset.f;render()},flowre:()=>loadFlow(1),
   acgen:()=>{const n=+$('#acn').value||1,u=+$('#acu').value||1,note=$('#acnote').value.trim(),code=$('#acc').value.trim();b.disabled=true;API('/api/admin/access',{body:{count:n,uses:u,note,code}}).then(j=>{toast(`${(j.codes||[]).length} code${(j.codes||[]).length===1?'':'s'} made`);ACA.d=null;loadAca(1)}).catch(e=>toast(e.message)).finally(()=>{b.disabled=false})},
-  accopy:()=>{const l=((ACA.d&&ACA.d.codes)||[]).filter(c=>c.uses<c.max_uses).map(c=>c.code).join('\n');if(!l)return toast('No unused codes');navigator.clipboard.writeText(l).then(()=>toast('Unused codes copied')).catch(()=>toast('Couldn’t copy'))},wmenu:()=>walletMenu(),wmgo:()=>{const u=b.dataset.f;closeModal();if(u.startsWith('#'))location.hash=u.slice(1)?u:'#/home';else window.open(u,'_blank','noopener')},lbsw:()=>lbSwipe(+b.dataset.f),bugreport:()=>{closeModal();bugModal(b.dataset.f)},wbopen:()=>walletSheet(b.dataset.f),
+  accopy:()=>{const l=((ACA.d&&ACA.d.codes)||[]).filter(c=>c.uses<c.max_uses).map(c=>c.code).join('\n');if(!l)return toast('No unused codes');navigator.clipboard.writeText(l).then(()=>toast('Unused codes copied')).catch(()=>toast('Couldn’t copy'))},wmenu:()=>walletMenu(),wmgo:()=>{const u=b.dataset.f;closeModal();if(u.startsWith('#'))location.hash=u.slice(1)?u:'#/home';else window.open(u,'_blank','noopener')},lbsw:()=>lbSwipe(+b.dataset.f),bugreport:()=>{closeModal();bugModal(b.dataset.f)},feedback:()=>{closeModal();feedbackModal()},fbhide:()=>{try{localStorage.setItem(FBK,'1')}catch(_){}const x=b.closest('.fbstrip');x&&x.remove()},wbopen:()=>walletSheet(b.dataset.f),
   lbv:()=>{S.lbv=b.dataset.f;render();scrollTo({top:0})},
   ptp:()=>{S.ptp=b.dataset.f;render()},
   dgo:()=>{e.preventDefault();const el=document.getElementById(b.dataset.f);if(el)el.scrollIntoView({behavior:'smooth',block:'start'})},

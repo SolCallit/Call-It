@@ -423,3 +423,10 @@ body:has(.chdock) .fab{right:420px}
  * public/boot.webp is a 1.25s loop. The static mark underneath shows until it has loaded. */
 .bootmark{animation:none!important;overflow:hidden}
 .bootmark::after{inset:0!important;border-radius:inherit!important;box-shadow:none!important;animation:none!important;background:#0c1a26 url(/boot.webp) center/cover no-repeat}
+
+/* ---------- Tester feedback ---------- */
+.fbstrip{display:flex;align-items:center;gap:10px;margin:10px 12px 4px;padding:10px 10px 10px 14px;border:1px solid var(--line);border-radius:16px;background:color-mix(in srgb,var(--accent) 9%,var(--bg));font-size:14px;line-height:1.35}
+.fbstrip .grow{flex:1;min-width:0}
+.fbstrip .btn{flex:none;white-space:nowrap}
+.fbstrip .ib{flex:none}
+.fbrate button{font-weight:800}
