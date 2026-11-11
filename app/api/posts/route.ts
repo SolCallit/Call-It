@@ -81,25 +81,36 @@ export async function GET(req: Request) {
   }
 
   // Did the caller sell after calling? Sum their Callit sells of the token since the call vs what they bought.
-  const sold: Record<string, { pct: number; at: string }> = {};
+  // sold_x is the exit price as a multiple of the caller's own entry price, fixed at the moment they sold;
+  // sold_usd is what the sells brought in. Both stay put while the token keeps moving.
+  const sold: Record<string, { pct: number; at: string; x: number | null; usd: number | null }> = {};
   const memes = rows.filter((r) => r.kind === 'meme' && r.mint && Number(r.buy_usd) > 0);
   if (memes.length) {
     const owners = [...new Set(memes.map((r) => r.profile_id as string))];
     const mints = [...new Set(memes.map((r) => r.mint as string))];
     const { data: tx } = await db.from('transactions')
-      .select('profile_id, kind, in_mint, in_amount, out_mint, out_amount, created_at')
+      .select('profile_id, kind, in_mint, in_amount, out_mint, out_amount, usd_value, created_at')
       .in('profile_id', owners).in('kind', ['buy', 'sell'])
       .or(`in_mint.in.(${mints.join(',')}),out_mint.in.(${mints.join(',')})`)
       .order('created_at', { ascending: true }).limit(2000);
     for (const r of memes) {
       const since = Date.parse(r.created_at as string) - 10 * 60e3; // buy-in can land just before the post
-      let bought = 0, sell = 0, at = '';
-      for (const t of (tx || []) as { profile_id: string; kind: string; in_mint: string; in_amount: number; out_mint: string; out_amount: number; created_at: string }[]) {
+      let bought = 0, sell = 0, at = '', buyUsd = 0, sellUsd = 0, priced = true;
+      for (const t of (tx || []) as { profile_id: string; kind: string; in_mint: string; in_amount: number; out_mint: string; out_amount: number; usd_value: number | null; created_at: string }[]) {
         if (t.profile_id !== r.profile_id || Date.parse(t.created_at) < since) continue;
-        if (t.kind === 'buy' && t.out_mint === r.mint) bought += Number(t.out_amount) || 0;
-        if (t.kind === 'sell' && t.in_mint === r.mint) { sell += Number(t.in_amount) || 0; at = t.created_at; }
+        const usd = Number(t.usd_value) || 0;
+        if (t.kind === 'buy' && t.out_mint === r.mint) { bought += Number(t.out_amount) || 0; buyUsd += usd; if (!usd) priced = false; }
+        if (t.kind === 'sell' && t.in_mint === r.mint) { sell += Number(t.in_amount) || 0; sellUsd += usd; at = t.created_at; if (!usd) priced = false; }
       }
-      if (sell > 0) sold[r.id] = { pct: bought > 0 ? Math.min(100, Math.round((sell / bought) * 100)) : 100, at };
+      if (sell > 0) {
+        const ok = priced && bought > 0 && buyUsd > 0 && sellUsd > 0;
+        const x = ok ? (sellUsd / sell) / (buyUsd / bought) : null;
+        sold[r.id] = {
+          pct: bought > 0 ? Math.min(100, Math.round((sell / bought) * 100)) : 100, at,
+          x: x && Number.isFinite(x) && x > 0 && x < 1e6 ? Math.round(x * 1e4) / 1e4 : null,
+          usd: sellUsd > 0 && priced ? Math.round(sellUsd * 100) / 100 : null,
+        };
+      }
     }
   }
 
@@ -107,6 +118,8 @@ export async function GET(req: Request) {
     ...r,
     sold_pct: sold[r.id]?.pct ?? null,
     sold_at: sold[r.id]?.at ?? null,
+    sold_x: sold[r.id]?.x ?? null,
+    sold_usd: sold[r.id]?.usd ?? null,
     handle: profiles?.handle,
     display_name: profiles?.display_name ?? null,
     avatar_url: profiles?.avatar_url ?? null,

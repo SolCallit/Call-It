@@ -374,3 +374,47 @@ body:has(.chdock) .fab{right:420px}
 .fbrow .fbl{font-size:12px;white-space:nowrap}
 .fbrow>b{white-space:nowrap}
 .fbrow>small{min-width:5ch;text-align:right;white-space:nowrap}
+
+/* ---------- Video call: one-to-one is upright and full screen ----------
+ * The other person fills the screen, you sit in a small tile. Tap the small tile to swap who's big.
+ * The header button switches picture depth: fill (crops edges) or fit (whole picture). Group calls keep the grid. */
+.callui.vid.solo:not(.mini) .cutiles{position:absolute;inset:0;display:block;padding:0;z-index:0}
+.callui.vid.solo:not(.mini) .cutile,.callui.vid.solo:not(.mini) .cuwait{position:absolute;inset:0;min-height:0;border-radius:0;border:0}
+.callui.vid.solo:not(.mini) .cuhead{position:relative;z-index:3;background:linear-gradient(rgba(3,10,16,.72),rgba(3,10,16,0));padding-bottom:26px}
+.callui.vid.solo:not(.mini) .cuctl{position:relative;z-index:3;margin-top:auto;background:linear-gradient(rgba(3,10,16,0),rgba(3,10,16,.8));padding-top:34px}
+.callui.vid.solo:not(.mini) .cuname{bottom:calc(132px + env(safe-area-inset-bottom,0px))}
+.callui.vid.solo:not(.mini) .cuself{z-index:4;cursor:pointer;transition:transform .15s ease}
+.callui.vid.solo:not(.mini) .cuself:active{transform:scale(.97)}
+.callui.vid.solo:not(.mini) .cuself.mirror:active{transform:scaleX(-1) scale(.97)}
+.callui.vid.fit:not(.mini) .cutile video{object-fit:contain;background:#000}
+.cufit svg{display:block}
+/* Swapped: you are full screen, they are the small tile. */
+.callui.vid.solo.swap:not(.mini) .cuself{inset:0;top:0;right:0;width:100%;height:100%;aspect-ratio:auto;border-radius:0;border:0;box-shadow:none;z-index:0;cursor:default}
+.callui.vid.solo.swap.fit:not(.mini) .cuself{object-fit:contain;background:#000}
+.callui.vid.solo.swap:not(.mini) .cutiles{inset:auto;right:24px;top:calc(82px + env(safe-area-inset-top,0px));width:min(26vw,140px);aspect-ratio:3/4;z-index:4;border-radius:18px;overflow:hidden;border:2px solid rgba(255,255,255,.18);box-shadow:0 12px 30px -10px rgba(0,0,0,.8);cursor:pointer;background:#081521}
+.callui.vid.solo.swap:not(.mini) .cutile video{object-fit:cover}
+.callui.vid.solo.swap:not(.mini) .cuname{display:none}
+.callui.vid.solo.swap:not(.mini) .cuav .av.xl{width:56px;height:56px;font-size:20px}
+/* Tablets and desktop: keep the small tile a sensible size instead of a quarter of the screen. */
+@media (min-width:761px){.callui.vid.solo:not(.mini) .cuself,.callui.vid.solo.swap:not(.mini) .cutiles{width:clamp(140px,16vw,220px)}
+ .callui.vid.solo.swap:not(.mini) .cuself{width:100%}}
+
+/* ---------- Sticky bars under the top board (phones) ----------
+ * When the top board slides away on scroll, bars pinned under it used to stay where they were,
+ * floating mid-screen with rows showing through the gap above. They now ride up with it. */
+@media (max-width:760px){
+ .ttabs,.chtop,.rhead,.spothead,.dtoc{transition:transform .28s cubic-bezier(.2,.8,.2,1)}
+ body.bars-off .ttabs,body.bars-off .chtop,body.bars-off .rhead,body.bars-off .spothead,body.bars-off .dtoc{transform:translateY(calc(-1 * var(--hdr)))}
+ body.bars-off .inmkt .ttabs{transform:translateY(calc(-1 * var(--hdr) - 62px))}
+ body.bars-off .ttabs,body.bars-off .chtop,body.bars-off .rhead,body.bars-off .spothead{background:var(--bg)}
+}
+
+/* ---------- Call card: room for the stamps, on every screen ----------
+ * Target hit / Sold stamps sit on the card's top edge. On tablets and desktop the stats share that row,
+ * so the labels were hidden under the stamps. Wider cards now leave headroom; phones stack as before. */
+@media (min-width:521px){.ccard:has(.stamps){padding-top:26px}.ccard:has(.stamps) .stamps{top:-13px}}
+.ccard .cn{min-width:0}
+.ccard .cn b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+@media (min-width:521px) and (max-width:700px){.ccard .cr3{gap:12px}.ccard .cr2 b{font-size:15px}}
+@media (min-width:1100px){.ccard .cr3{gap:22px}}
+.pnote .sold b{font-weight:700}

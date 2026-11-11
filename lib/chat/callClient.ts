@@ -38,6 +38,8 @@ export const CALL_ICONS = {
   camOff: '<path d="M15.5 10.5l6-3.5v10l-3-1.7M3 3l18 18M8 6h4.5a3 3 0 013 3v4.5M15.5 16a3 3 0 01-3 2H5.5a3 3 0 01-3-3V9a3 3 0 012.1-2.9"/>',
   flip: '<path d="M4 8.5A8.5 8.5 0 0119 6.4M20 15.5A8.5 8.5 0 015 17.6"/><path d="M19.5 3v3.6H16M4.5 21v-3.6H8"/>',
   min: '<path d="M8 3v5H3M16 3v5h5M8 21v-5H3M16 21v-5h5"/>',
+  fill: '<path d="M3 8V3h5M21 8V3h-5M3 16v5h5M21 16v5h-5"/>',
+  fit: '<rect x="3" y="6" width="18" height="12" rx="2"/>',
 };
 
 let D: CallDeps | null = null;
@@ -48,6 +50,10 @@ const S = {
   id: '', chat: '', kind: 'audio' as Kind, pid: '', ch: null as RealtimeChannel | null, ice: [] as RTCIceServer[],
   local: null as MediaStream | null, peers: new Map<string, Peer>(), mic: true, cam: true, facing: 'user' as 'user' | 'environment',
   t0: 0, tick: 0, ping: 0, noAnswer: 0, ending: false, caller: false, mini: false, title: '', group: false,
+  // One-to-one video: the other person fills the screen and you sit in a small tile. Tap the small tile to swap.
+  swap: false,
+  // Picture depth: false = fill the screen (crops the edges), true = fit the whole picture (may show bars).
+  fit: (() => { try { return localStorage.getItem('callit.callfit') === '1'; } catch { return false; } })(),
 };
 export const activeCallId = () => S.id;
 
@@ -325,16 +331,25 @@ function showUI() {
   el.setAttribute('role', 'dialog');
   el.setAttribute('aria-label', 'Call');
   el.innerHTML = `<div class="cuhead"><button class="cuib" data-cu="min" aria-label="Minimize call">${SVG(CALL_ICONS.min, 18)}</button>
-   <div class="cutitle"><b>${D!.esc(S.title)}</b><span id="custat">${S.caller ? 'Ringing…' : 'Connecting…'}</span></div><span class="cuenc" title="Encrypted device to device">${SVG('<rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V8a4 4 0 018 0v3"/>', 12)} E2E</span></div>
+   <div class="cutitle"><b>${D!.esc(S.title)}</b><span id="custat">${S.caller ? 'Ringing…' : 'Connecting…'}</span></div>${S.kind === 'video' ? '<button class="cuib cufit" id="cufit" data-cu="fit"></button>' : ''}<span class="cuenc" title="Encrypted device to device">${SVG('<rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V8a4 4 0 018 0v3"/>', 12)} E2E</span></div>
    <div class="cutiles" id="cutiles"></div>
-   <video class="cuself" id="cuself" autoplay playsinline muted></video>
+   <video class="cuself" id="cuself" data-cu="swap" autoplay playsinline muted></video>
    <div class="cuctl" id="cuctl"></div>`;
   document.body.appendChild(el);
   el.onclick = (e) => {
     const b = (e.target as HTMLElement).closest('[data-cu]') as HTMLElement | null;
-    if (!b) { if (S.mini) showUI(); return; }
+    if (!b) {
+      if (S.mini) { showUI(); return; }
+      // Swapped view: the other person is the small tile now, so tapping them puts them back full screen.
+      if (S.swap && (e.target as HTMLElement).closest('.cutile')) { S.swap = false; paintTiles(); }
+      return;
+    }
     e.stopPropagation();
-    ({ min: () => { S.mini = true; el!.classList.add('mini'); }, mic: toggleMic, cam: toggleCam, flip: flipCam, end: hangUp } as Record<string, () => void>)[b.dataset.cu!]?.();
+    ({
+      min: () => { S.mini = true; el!.classList.add('mini'); }, mic: toggleMic, cam: toggleCam, flip: flipCam, end: hangUp,
+      swap: () => { if (el!.classList.contains('solo')) { S.swap = !S.swap; paintTiles(); } },
+      fit: () => { S.fit = !S.fit; try { localStorage.setItem('callit.callfit', S.fit ? '1' : '0'); } catch { /* storage blocked */ } paintTiles(); },
+    } as Record<string, () => void>)[b.dataset.cu!]?.();
   };
   if (S.caller) ringTone = tone('out');
   paintControls(); paintTiles(); paintStatus();
@@ -366,6 +381,21 @@ function paintTiles() {
   }
   const peers = [...S.peers.entries()];
   box.dataset.n = String(Math.max(1, peers.length));
+  // Layout: a one-to-one video call is full screen and upright; group calls keep the grid.
+  const ui = document.getElementById('callui');
+  if (ui) {
+    const solo = S.kind === 'video' && peers.length <= 1;
+    if (!solo || !S.cam || !peers.length) S.swap = false;
+    ui.classList.toggle('solo', solo);
+    ui.classList.toggle('swap', solo && S.swap);
+    ui.classList.toggle('fit', S.fit);
+    const fb = document.getElementById('cufit');
+    if (fb) {
+      fb.innerHTML = SVG(S.fit ? CALL_ICONS.fill : CALL_ICONS.fit, 18);
+      fb.setAttribute('aria-label', S.fit ? 'Fill the screen' : 'Fit the whole picture');
+      fb.title = S.fit ? 'Fill the screen' : 'Fit the whole picture';
+    }
+  }
   // Keep live <video> elements (re-creating them makes the picture flicker): add/remove tiles by peer id.
   const seen = new Set<string>();
   for (const [pid, p] of peers) {

@@ -43,11 +43,23 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        {/* Fonts must never hold up first paint: on a slow connection a blocking stylesheet from another
+            host kept the launch screen up for seconds. It loads as print (non-blocking), then switches on. */}
         {/* eslint-disable-next-line @next/next/no-page-custom-font */}
         <link
+          id="gfonts"
           href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Schibsted+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap"
           rel="stylesheet"
+          media="print"
         />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: "(function(){var l=document.getElementById('gfonts');if(!l)return;var on=function(){l.media='all'};l.addEventListener('load',on);if(l.sheet)on()})()",
+          }}
+        />
+        <noscript>
+          <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+        </noscript>
       </head>
       <body>{children}<SpeedInsights /><Analytics /></body>
     </html>

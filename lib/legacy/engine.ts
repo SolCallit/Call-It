@@ -297,7 +297,7 @@ function who(h){const n=nameOf(h);return `<a class="pwho" href="#/profile/${esc(
 function fromRow(r){if(!r||!r.handle)return null;if(r.avatar_url)AVURL[r.handle]=r.avatar_url;if(r.display_name)DN[r.handle]=r.display_name;
  if(!C[r.handle])C[r.handle]={h:r.handle,win:0,avg:0,calls:0,best:0,followers:0,real:1};
  const k={id:r.id,srv:1,c:r.handle,kind:r.kind,src:r.source||'app',srcLabel:r.source_label||'',peak:+r.peak_x||0,thesis:r.body||'',media:r.media||[],likes:r.likes||0,reposts:r.reposts||0,replies:r.replies||0,views:Math.max(1,(r.likes||0)*9+(r.replies||0)*14),liked:!!r.liked,reposted:!!r.reposted,horizon:r.horizon||null,quote:r.quote_ref||null,quotes:+r.quotes||0};
- if(r.kind==='meme'){Object.assign(k,{t:r.mint,entry:+r.entry_mc,target:r.target_mc?+r.target_mc:null,buy:+r.buy_usd||0,snap:{sym:r.token_sym,name:r.token_name},hi:Math.max(+r.hi_x||0,+r.peak_x||0),hit:r.hit_at||r.target_at||null,born:Date.parse(r.created_at)||0});if(r.sold_pct)k.sold={pct:+r.sold_pct,at:Date.parse(r.sold_at)||0}}
+ if(r.kind==='meme'){Object.assign(k,{t:r.mint,entry:+r.entry_mc,target:r.target_mc?+r.target_mc:null,buy:+r.buy_usd||0,snap:{sym:r.token_sym,name:r.token_name},hi:Math.max(+r.hi_x||0,+r.peak_x||0),hit:r.hit_at||r.target_at||null,born:Date.parse(r.created_at)||0});if(r.sold_pct)k.sold={pct:+r.sold_pct,at:Date.parse(r.sold_at)||0,x:+r.sold_x||0,usd:+r.sold_usd||0}}
  if(r.kind==='perps')k.perp={m:r.perp_market,side:r.perp_side,lev:+r.perp_leverage,entry:+r.perp_entry,target:r.perp_target?+r.perp_target:null,stop:r.perp_stop?+r.perp_stop:null};
  return liveAgo(k,Date.parse(r.created_at))}
 function mergePosts(rows){const ids=new Set(calls.map(k=>String(k.id))),add=[],miss=new Set();
@@ -746,7 +746,8 @@ function chart(seed,up,w=600,h=190){const r=rng(seed);let y=up?.25:.75,p=[];for(
 function qr(seed){const r=rng(seed),n=21,c=9;let o='';const f=(x,y)=>(x<7&&y<7)||(x>13&&y<7)||(x<7&&y>13);
  for(let y=0;y<n;y++)for(let x=0;x<n;x++){const on=f(x,y)?((x%14===0||x%14===6||y%14===0||y%14===6)||(x%14>1&&x%14<5&&y%14>1&&y%14<5)):r()>.5;if(on)o+=`<rect x="${x*c}" y="${y*c}" width="${c}" height="${c}"/>`}
  return `<svg viewBox="0 0 ${n*c} ${n*c}" width="180" height="180" style="background:#fff;padding:10px;border-radius:14px" fill="#0B1B27">${o}</svg>`}
-const ranked=()=>Object.values(C).filter(c=>c.real&&c.calls>=1).sort((a,b)=>b.win-a.win||b.avg-a.avg||b.calls-a.calls);
+/* The server decides the order (confidence-adjusted win rate, then points). Rank only this window's list, in that order: mixing windows in C and re-sorting on live average return is what made the leader flip between visits. */
+const ranked=()=>{const st=CALLERS[S.lb||'30d'];if(st&&st.list&&!st.err)return st.list.filter(c=>c.calls>=1).map(c=>({h:c.handle,win:c.win,avg:c.avg,calls:c.calls,best:c.best,followers:c.followers||0,pnl:c.pnl||0,real:1}));return Object.values(C).filter(c=>c.real&&c.calls>=1).sort((a,b)=>b.win-a.win||(SPTS[b.h]||0)-(SPTS[a.h]||0)||b.calls-a.calls||String(a.h).localeCompare(String(b.h)))};
 const rankOf=h=>{const i=ranked().findIndex(c=>c.h===h);return i<0?null:i+1};
 const usd=(s,a)=>T[s].price*a;
 /* Real wallets can only trade real tokens (demo tokens have made-up mints). */
@@ -758,6 +759,8 @@ function nums(k){const t=T[k.t];if(!t||t.prelaunch||!k.entry)return null;const m
 /* Call outcome stamps, like a desk stamp on the call card: Target hit (green) and Sold (red). */
 const hitOf=k=>!!(k.target&&k.entry&&(k.hit||(k.hi&&k.hi*k.entry>=k.target)||(T[k.t]&&!T[k.t].prelaunch&&mcap(T[k.t])>=k.target)));
 const soldAgo=k=>k.sold?(k.sold.ago||(k.sold.at?agoMin(k.sold.at):'')):'';
+/* The exit, frozen: market cap they sold at and what that locked in versus the part of the buy they sold. */
+const soldNote=k=>{const s=k.sold;if(!s||!(s.x>0)||!k.entry)return '';const cost=(k.buy||0)*Math.min(100,s.pct)/100,real=s.usd>0&&cost>0?s.usd-cost:null;return ` at ${fmtUsd(k.entry*s.x)}${real==null?'':` <b class="${real>=0?'up':'down'}">${money(real)}</b>`}`};
 const agoMin=at=>{const m=(Date.now()-at)/6e4;return m<1?'now':m<60?Math.round(m)+'m':m<1440?Math.round(m/60)+'h':Math.round(m/1440)+'d'};
 function stamps(k){if(k.kind!=='meme'||k.sponsored)return '';const hit=hitOf(k),sold=k.sold;if(!hit&&!sold)return '';
  return `<span class="stamps" aria-hidden="true">${hit?`<span class="stamp hit"><b>Target hit</b><small>${k.hi>=1.05?k.hi.toFixed(k.hi<10?1:0)+'X peak':'✓'}</small></span>`:''}${sold?`<span class="stamp sold"><b>Sold</b>${sold.pct&&sold.pct<100?`<small>${sold.pct}%</small>`:''}</span>`:''}</span>`}
@@ -770,6 +773,9 @@ function peakSync(){if(PKBUSY)return;const now=Date.now();
   Object.entries((j&&j.peaks)||{}).forEach(([id,v])=>{const k=postBy(id);if(!k)return;if(v.hi_x>(k.hi||0)+.01){k.hi=v.hi_x;ch=1}if(v.hit_at&&!k.hit){k.hit=v.hit_at;ch=1}});
   if(ch&&['home','post','profile','callerboard'].includes(currentRoute()))render()}).catch(()=>{}).finally(()=>{PKBUSY=0})}
 function mkt(k){const n=nums(k);
+ /* Fully sold: the exit is history, so it's frozen (Sold at). "If held" keeps running live: what the same buy would be making or losing had they never sold. */
+ if(k.buy&&k.sold&&k.sold.pct>=100){const sx=k.sold.x>0?k.sold.x:0;
+  return `<div class="cr2 cr3 num issoldrow"><div><span>Entry</span><b>${fmtUsd(k.entry)}</b></div>${sx?`<div><span>Sold at</span><b class="${sx>=1?'up':'down'}">${fmtUsd(k.entry*sx)}</b></div>`:''}<div><span title="What this buy would be up or down today if the caller had never sold">If held</span><b class="${n.pnl>=0?'up':'down'}" data-pnl="${k.id}">${money(n.pnl)}</b></div></div>`}
  return k.buy?`<div class="cr2 cr3 num"><div><span>Entry</span><b>${fmtUsd(k.entry)}</b></div><div><span>Position</span><b data-pos="${k.id}">${fmtUsd(n.pos)}</b></div><div><span>Profit</span><b class="${n.pnl>=0?'up':'down'}" data-pnl="${k.id}">${money(n.pnl)}</b></div></div>`
   :`<div class="cr2 num"><div><span>Called at</span><b>${fmtUsd(k.entry)}</b></div><div><span>Since call</span><b class="${n.up?'up':'down'}" data-perf="${k.id}">${fmtPct(n.p)}</b></div></div>`}
 function post(k){if(k.kind==='random')return postRandom(k);if(k.kind==='perps')return postPerp(k);const t=T[k.t];if(!t)return '';const p=perf(k),r=rankOf(k.c);
@@ -780,7 +786,7 @@ function post(k){if(k.kind==='random')return postRandom(k);if(k.kind==='perps')r
   <div class="phead">${who(k.c)}${r&&!k.sponsored?`<span class="rk">#${r}</span>`:''}${k.sponsored?'<span class="tag">Sponsored</span>':''}${k.src==='telegram'?tgChip(k):''}${k.c!==S.me?`<button class="fchip${S.following.has(k.c)?' on':''}" data-act="follow" data-h="${k.c}" aria-label="${S.following.has(k.c)?'Following':'Follow'} ${esc(k.c)}">${S.following.has(k.c)?ic('check',12)+'<span>Following</span>':'+<span>Follow</span>'}</button>`:''}<time>${k.ago==='now'?'now':k.ago+' ago'}</time>${k.sponsored?'':moreBtn(k)}</div>
   <p class="ptext">${rich(k.thesis)}</p>${mediaGrid(k.media)}${quoteCard(k.quote)}
   <a class="ccard${hitOf(k)?' ishit':''}${k.sold?' issold':''}" href="#/token/${t.key}">${tokav(t.key)}<div class="cn"><b>${esc(t.name)}</b><span>$${t.sym} <span class="chain">${t.chain}</span></span></div>${right}${stamps(k)}</a>
-  ${k.sponsored?`<div class="pnote">Paid promotion by ${esc(k.sponsor)}. Not counted in rankings.</div>`:`<div class="pnote">${k.target?(hitOf(k)?`<span class="tgt hit">${ic('target',13)} ${fmtUsd(k.target)} hit</span> · `:`Target ${fmtUsd(k.target)} within ${esc(k.horizon)} · `):''}${k.hi>=2&&!hitOf(k)?`<span class="tgt pk">Peaked ${k.hi.toFixed(1)}X</span> · `:''}${k.buy?`<span class="bk">${ic('check',13)} Bought in</span>`:`<span class="bk no">No buy · earns ${EARN_RULE.noBuy}% after ${EARN_RULE.minX}X</span>`}${k.sold?` · <span class="sold">Caller sold ${k.sold.pct}%${soldAgo(k)?' · '+soldAgo(k)+' ago':''}</span>`:''}</div>`}
+  ${k.sponsored?`<div class="pnote">Paid promotion by ${esc(k.sponsor)}. Not counted in rankings.</div>`:`<div class="pnote">${k.target?(hitOf(k)?`<span class="tgt hit">${ic('target',13)} ${fmtUsd(k.target)} hit</span> · `:`Target ${fmtUsd(k.target)} within ${esc(k.horizon)} · `):''}${k.hi>=2&&!hitOf(k)?`<span class="tgt pk">Peaked ${k.hi.toFixed(1)}X</span> · `:''}${k.buy?`<span class="bk">${ic('check',13)} Bought in</span>`:`<span class="bk no">No buy · earns ${EARN_RULE.noBuy}% after ${EARN_RULE.minX}X</span>`}${k.sold?` · <span class="sold">Caller sold ${k.sold.pct}%${soldNote(k)}${soldAgo(k)?' · '+soldAgo(k)+' ago':''}</span>`:''}</div>`}
   <div class="pbar"><div class="icons">
    <button class="act" data-act="reply" aria-label="Reply">${ic('reply',18)}<span class="num">${k.replies||''}</span></button>
    <button class="act${k.reposted?' reposted':''}" data-act="repost" data-id="${k.id}" aria-label="Repost">${ic('repost',18)}<span class="num">${(k.reposts||0)+quotesOf(k.id)||''}</span></button>
@@ -1509,13 +1515,13 @@ document.addEventListener('scroll',e=>{const tr=e.target;if(!(tr instanceof HTML
  const i=Math.round(tr.scrollLeft/(c.getBoundingClientRect().width+12)),d=tr.parentElement.querySelectorAll('.lbdots i');d.forEach((x,j)=>x.classList.toggle('on',j===i))},true);
 function vLeaders(){if(S.lbv==='latest')return vLatestCalls();if(S.lbv==='points')return vPoints();loadCallers();const w=S.lb||'30d',L=ranked(),st=CALLERS[w],me=L.findIndex(c=>c.h===S.me);
  const pod=lbCards(L.slice(0,10));
- const head=`<div class="pad lbhead"><span class="muted">${st?'Ranked by win rate, then average return. Updates live.':'Loading callers…'}</span><div class="seg">${['7d','30d','All time'].map(x=>`<button class="${(S.lb||'30d')===x?'on':''}" data-act="lb" data-f="${x}">${x}</button>`).join('')}</div></div>`;
+ const head=`<div class="pad lbhead"><span class="muted">${st?'Ranked by win rate, weighted by how many calls back it up, then points.':'Loading callers…'}</span><div class="seg">${['7d','30d','All time'].map(x=>`<button class="${(S.lb||'30d')===x?'on':''}" data-act="lb" data-f="${x}">${x}</button>`).join('')}</div></div>`;
  if(st&&!L.length)return lbToggle()+head+`<div class="empty"><b class="h2">The board is wide open</b><p>No calls in this window yet. Make the first one and take #1.</p><button class="btn primary" data-act="newcall">Make a call</button></div>`;
  return lbToggle()+head+pod+`<div class="tablewrap" style="border-top:1px solid var(--line)"><table><thead><tr><th>Rank</th><th>Caller</th><th>Points</th><th>Win rate</th><th>Avg return</th><th>Calls</th><th>Best call</th><th></th></tr></thead><tbody>
  ${(()=>{S._lbb=lbBase(w,L);return ''})()}${L.map((c,i)=>`<tr class="${c.h===S.me?'mine':''}${i<5?' top'+(i+1):''}" data-go="#/profile/${c.h}"><td class="rkc"><span class="rkn">${i+1}</span>${lbMove(S._lbb,c.h,i)}</td><td><div class="person">${i<5?`<span class="lbemo" aria-hidden="true">${LBEMO[i]}</span>`:''}${avatar(c.h)}${esc(c.h)}</div></td><td>${lbPts(c.h)}</td><td class="num">${c.win}%</td><td class="num ${c.avg>=0?'up':'down'}">${fmtPct(c.avg)}</td><td class="num">${c.calls}</td><td class="num ${c.best>=0?'up':'down'}">${fmtPct(c.best)}</td>
  <td>${c.h===S.me?'<span class="muted">You</span>':`<button class="btn sm ${S.following.has(c.h)?'ghost':'primary'}" data-act="follow" data-h="${c.h}">${S.following.has(c.h)?'Following':'Follow'}</button>`}</td></tr>`).join('')}</tbody></table></div>${(()=>{RANKS.lbt={};L.forEach((c,i)=>RANKS.lbt[c.h]=i);return ''})()}
  ${me>=0?(()=>{const t=tierOf(S.me);return `<div class="myrank"><span>Your rank</span><b class="num">#${me+1}</b>${lbMove(S._lbb,S.me,me)}<span class="muted">${L[me].win}% win · ${L[me].calls} calls</span><span class="mypts"><b class="num">${t.xp.toLocaleString()} pts</b><span class="lbpbar"><i style="width:${Math.max(4,t.pct)}%"></i></span><small>${t.name}${t.next?` · ${t.need.toLocaleString()} to ${t.next}`:''}</small></span></div>`})():S.connected?(()=>{const t=tierOf(S.me);return `<div class="myrank"><span>Your points</span><b class="num">${t.xp.toLocaleString()}</b><span class="mypts"><span class="lbpbar"><i style="width:${Math.max(4,t.pct)}%"></i></span><small>${t.name}${t.next?` · ${t.need.toLocaleString()} to ${t.next}`:''} · 10 calls to get ranked</small></span></div>`})():''}
- <p class="hint pad">A call wins if it hits its target, or is up at least 50% since the call. Calls pay out the minute they hit target. Bought-in calls earn the most. ▲▼ show moves since yesterday. Points count toward $CALLIT rewards.</p>`}
+ <p class="hint pad">A call wins once it hits its target or reaches +50%, and a win stays a win. Calls pay out the minute they hit target. Bought-in calls earn the most. ▲▼ show moves since yesterday. Points count toward $CALLIT rewards.</p>`}
 function vLeadersOld(){return topCalls()+`<div class="pad" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><span class="muted">Ranked by win rate. Minimum 10 calls. Sponsored calls don't count.</span>
  <div class="seg">${['7d','30d','All time'].map(x=>`<button class="${S.lb===x?'on':''}" data-act="lb" data-f="${x}">${x}</button>`).join('')}</div></div>
  <div class="tablewrap" style="border-top:1px solid var(--line)"><table><thead><tr><th>Rank</th><th>Caller</th><th>Win rate</th><th>Avg return</th><th>Calls</th><th>Best call</th><th></th></tr></thead><tbody>
@@ -4114,6 +4120,26 @@ document.addEventListener('keydown',e=>{if(!MAC.el||!MAC.list.length||e.target!=
  else if(e.key==='Enter'||e.key==='Tab'){e.preventDefault();e.stopPropagation();macPick(MAC.i)}else if(e.key==='Escape'){e.stopPropagation();macClose()}},true);
 document.addEventListener('mousedown',e=>{const o=e.target.closest&&e.target.closest('#mbox [data-mi]');if(o){e.preventDefault();macPick(+o.dataset.mi)}else if(!e.target.closest||!e.target.closest('#mbox'))macClose()});
 addEventListener('hashchange',()=>{macClose();S.pidx=0});
+/* ---------- Timed resume ----------
+ * Step out for a moment (copy a wallet address, check another app) and you come back exactly where you were.
+ * Stay away longer than RESUME_MS and Callit opens fresh on Home, so nobody returns hours later to a stale page.
+ * Never moves you mid-task: an open sheet, a live call, a transaction in flight or a half-typed message all hold the page. */
+const RESUME_MS=20*60e3,RESUME_KEY='callit.left';
+const leftSave=()=>{try{localStorage.setItem(RESUME_KEY,JSON.stringify({at:Date.now(),h:location.hash}))}catch(_){}};
+const leftRead=()=>{try{const v=JSON.parse(localStorage.getItem(RESUME_KEY)||'null');return v&&v.at?v:null}catch(_){return null}};
+const resumeBusy=()=>{if(activeCallId())return true;if(document.querySelector('#modal .modal,.sheet.open,#txt:not([hidden]) .spin'))return true;
+ const f=document.activeElement;if(f&&/^(INPUT|TEXTAREA)$/.test(f.tagName)&&f.value)return true;
+ return [...document.querySelectorAll('.composer textarea,.composer input,#chin')].some(x=>x.value&&x.value.trim())};
+function resumeCheck(){const v=leftRead();if(!v||Date.now()-v.at<RESUME_MS||resumeBusy())return;
+ try{localStorage.removeItem(RESUME_KEY)}catch(_){}
+ if(currentRoute()!=='home'){NAVH.stack=[];location.hash='#/home'}else{scrollTo(0,0);if(SYNC())loadPosts()}}
+document.addEventListener('visibilitychange',()=>{if(document.hidden)leftSave();else resumeCheck()});
+addEventListener('pagehide',leftSave);
+/* Cold start (the app was closed, not just backgrounded): it opens on Home. If that was only a moment ago, go back to the page you left. */
+(()=>{const v=leftRead(),h=location.hash,home=h===''||h==='#'||h==='#/'||h==='#/home',go=x=>{try{location.replace(location.pathname+location.search+x)}catch(_){location.hash=x}};if(!v||!v.h)return;
+ if(Date.now()-v.at>=RESUME_MS){/* Android can bring a closed app back on the page it died on. After a long break that page is stale: open on Home. A different address (a notification, a shared link) is left alone. */
+  try{localStorage.removeItem(RESUME_KEY)}catch(_){}if(!home&&h===v.h)go('#/home');return}
+ if(home&&v.h!==h&&/^#\/[a-z]/.test(v.h)&&!/^#\/(home|landing)\b/.test(v.h))go(v.h)})();
 S.live='wait';
 setTimeout(()=>{if(S.live==='wait'){S.live='demo';queueDemoCalls();render()}},6000);
 liveBoot();
