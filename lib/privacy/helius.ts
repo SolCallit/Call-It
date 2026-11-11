@@ -182,6 +182,15 @@ export async function gasInfo(): Promise<{ address: string } | null> {
   return j?.address ? { address: j.address } : null;
 }
 
+/** Callit's protocol fee on the Helius rail (USD, taken in SOL with the deposit). Null when it's switched off. */
+export type HeliusFee = { usd: number; sol: number; lamports: number; treasury: string } | null;
+export async function protocolFee(): Promise<HeliusFee> {
+  const r = await fetch('/api/privacy/hfee', { cache: 'no-store' }).catch(() => null);
+  const j = r && r.ok ? ((await r.json().catch(() => null)) as { treasury?: string | null; usd?: number; lamports?: number } | null) : null;
+  if (!j?.treasury || !(Number(j.lamports) > 0)) return null;
+  return { usd: Number(j.usd) || 0, sol: Number(j.lamports) / 1e9, lamports: Number(j.lamports), treasury: j.treasury };
+}
+
 /** Moves `amount` SOL from the Callit wallet into the private balance. Registers first-time wallets. */
 export async function shield(p: { owner: string; amount: number }, step: (m: string) => void): Promise<string> {
   const { l, s } = await unlock(p.owner, step);
@@ -193,11 +202,20 @@ export async function shield(p: { owner: string; amount: number }, step: (m: str
     if (reg) await signAndSend(l, s.client, p.owner, reg, step, 'One-time registration');
   }
   step('Preparing your private deposit…');
+  // The protocol fee (when on) rides in the same transaction as the deposit: one approval, and if the
+  // deposit fails the fee isn't taken either.
+  const fee = await protocolFee();
+  let setupInstructions: unknown[] | undefined;
+  if (fee) {
+    const { getTransferSolInstruction } = await import('@solana-program/system');
+    setupInstructions = [getTransferSolInstruction({ source: l.kit.createNoopSigner(owner), destination: l.kit.address(fee.treasury), amount: BigInt(fee.lamports) })];
+  }
   const tx = await l.spr.buildDepositTransaction({
     client: s.client,
     feePayer: owner,
     recipient: s.keys.address(),
     amount: BigInt(Math.floor(p.amount * 1e9)),
+    ...(setupInstructions ? { setupInstructions: setupInstructions as never } : {}),
   });
   return signAndSend(l, s.client, p.owner, tx, step, 'Adding to your private balance');
 }

@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { requireMe, maybeMe, dbOrNull, json } from '@/lib/db/me';
 import { chatKeyReady, seal } from '@/lib/chat/crypto';
-import { cleanBody, guardPublic, hostOf } from '@/lib/chat/guard';
-import { addMember, getChat, isUuid, liveCall, memberOf, MSG_COLS, receiptsFor, shapeMessages } from '@/lib/chat/store';
+import { cleanBody, guardPublic, hasLink, hostOf } from '@/lib/chat/guard';
+import { addMember, dmFriends, getChat, isUuid, liveCall, memberOf, MSG_COLS, receiptsFor, shapeMessages } from '@/lib/chat/store';
 import { pushTo } from '@/lib/push/send';
 import { SUPABASE_URL } from '@/lib/config';
 
@@ -106,6 +106,8 @@ export async function POST(req: Request) {
     const g = guardPublic(body, ownHosts());
     if (!g.ok) return json({ error: 'blocked_' + g.reason, detail: g.detail }, 422);
   } else if (!chatKeyReady()) return json({ error: 'chat_key_missing' }, 503);
+  // DMs: links are for friends only (you follow each other), so strangers can't drop scam links on people.
+  if (c.kind === 'dm' && hasLink(body) && !(await dmFriends(db, c.id, me))) return json({ error: 'friends_links' }, 403);
 
   // Slow mode: public groups 5 messages / 15s, private chats 15. Same text twice in a minute is dropped in public.
   const since = new Date(Date.now() - 15e3).toISOString();

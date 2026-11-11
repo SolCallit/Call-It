@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { dbOrNull, maybeMe, json } from '@/lib/db/me';
-import { POINTS, cashbackMinPoints } from '@/lib/fees/model';
+import { POINTS, cashbackMinPoints, feedbackPoints } from '@/lib/fees/model';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -38,7 +38,7 @@ export async function GET(req: Request) {
   const end = new Date(Date.UTC(monthStart().getUTCFullYear(), monthStart().getUTCMonth() + 1, 1));
   return NextResponse.json({
     ready: true, period, board, me: mine,
-    rules: { ...POINTS, cashbackPoints: cashbackMinPoints() },
+    rules: { ...POINTS, cashbackPoints: cashbackMinPoints(), feedback: feedbackPoints() },
     monthly: { on: process.env.MONTHLY_REWARDS_ON === '1', top: Number(process.env.MONTHLY_REWARDS_TOP) || 50, endsAt: end.toISOString() },
   }, { headers: { 'cache-control': me ? 'no-store' : 'public, s-maxage=30, stale-while-revalidate=120' } });
 }

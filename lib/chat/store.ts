@@ -135,3 +135,23 @@ export async function liveCall(db: SupabaseClient, chatId: string) {
 export async function markDelivered(db: SupabaseClient, profileId: string) {
   try { await db.rpc('chat_mark_delivered', { p: profileId }); } catch { /* migration 0014 not run yet */ }
 }
+
+/**
+ * Friends = you follow each other. In a DM, calls and links are for friends only, so a stranger can
+ * message you but can't ring your phone or drop a link on you. Returns true for anything that isn't a
+ * two-person DM, and true if the lookup fails (never lock people out of chat on a database hiccup).
+ */
+export async function dmFriends(db: SupabaseClient, chatId: string, me: { id: string; handle: string }): Promise<boolean> {
+  try {
+    const { data: ms } = await db.from('chat_members').select('profile_id, profiles(handle)').eq('chat_id', chatId).neq('profile_id', me.id).limit(2);
+    const peer = (ms || [])[0] as unknown as { profile_id: string; profiles: { handle: string } | { handle: string }[] | null } | undefined;
+    const ph = peer ? (Array.isArray(peer.profiles) ? peer.profiles[0]?.handle : peer.profiles?.handle) : null;
+    if (!peer || !ph) return true;
+    const [a, b] = await Promise.all([
+      db.from('follows').select('profile_id', { count: 'exact', head: true }).eq('profile_id', me.id).eq('target_handle', ph),
+      db.from('follows').select('profile_id', { count: 'exact', head: true }).eq('profile_id', peer.profile_id).eq('target_handle', me.handle),
+    ]);
+    if (a.error || b.error) return true;
+    return (a.count || 0) > 0 && (b.count || 0) > 0;
+  } catch { return true; }
+}

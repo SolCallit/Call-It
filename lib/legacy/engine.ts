@@ -12,6 +12,7 @@ let CHMOD=null;const chartMod=()=>CHMOD||(CHMOD=import('@/lib/market/chart'));
 import { openImageEditor } from '@/lib/media/imageEditor';
 import { walletBalances, swap as jupSwap, withdraw as doWithdraw, toBaseUnits, qrSvg, SOL_MINT, USDC_MINT, placeOrder, listOrders, cancelOrder, reportTxError } from '@/lib/wallet/client';
 import { friendlyError, isUserCancel } from '@/lib/errors';
+import { guardPublic } from '@/lib/chat/guard';
 import { PRIVATE_ON, PRIVATE_BETA, PRIVATE_TOKENS, HELIUS_PRIVATE_ON, HELIUS_PRIVATE_BETA, PRIVATE_SWAP_SOON } from '@/lib/privacy/config';
 import { DOCS_MD } from '@/lib/docs/content';
 import { walletArt, artSeed, nextArtOnLogin } from '@/lib/legacy/art';
@@ -760,7 +761,7 @@ function nums(k){const t=T[k.t];if(!t||t.prelaunch||!k.entry)return null;const m
 const hitOf=k=>!!(k.target&&k.entry&&(k.hit||(k.hi&&k.hi*k.entry>=k.target)||(T[k.t]&&!T[k.t].prelaunch&&mcap(T[k.t])>=k.target)));
 const soldAgo=k=>k.sold?(k.sold.ago||(k.sold.at?agoMin(k.sold.at):'')):'';
 /* The exit, frozen: market cap they sold at and what that locked in versus the part of the buy they sold. */
-const soldNote=k=>{const s=k.sold;if(!s||!(s.x>0)||!k.entry)return '';const cost=(k.buy||0)*Math.min(100,s.pct)/100,real=s.usd>0&&cost>0?s.usd-cost:null;return ` at ${fmtUsd(k.entry*s.x)}${real==null?'':` <b class="${real>=0?'up':'down'}">${money(real)}</b>`}`};
+const soldNote=k=>{const s=k.sold;if(!s||!(s.x>0)||!k.entry)return '';const cost=(k.buy||0)*Math.min(100,s.pct)/100,real=s.usd>0&&cost>0?s.usd-cost:null;return ` · Sold at <b>${fmtUsd(k.entry*s.x)}</b>${real==null?'':` · <b class="${real>=0?'up':'down'}">${money(real)}</b> realized`}`};
 const agoMin=at=>{const m=(Date.now()-at)/6e4;return m<1?'now':m<60?Math.round(m)+'m':m<1440?Math.round(m/60)+'h':Math.round(m/1440)+'d'};
 function stamps(k){if(k.kind!=='meme'||k.sponsored)return '';const hit=hitOf(k),sold=k.sold;if(!hit&&!sold)return '';
  return `<span class="stamps" aria-hidden="true">${hit?`<span class="stamp hit"><b>Target hit</b><small>${k.hi>=1.05?k.hi.toFixed(k.hi<10?1:0)+'X peak':'✓'}</small></span>`:''}${sold?`<span class="stamp sold"><b>Sold</b>${sold.pct&&sold.pct<100?`<small>${sold.pct}%</small>`:''}</span>`:''}</span>`}
@@ -772,6 +773,16 @@ function peakSync(){if(PKBUSY)return;const now=Date.now();
  fetch('/api/calls/peak?ids='+due.map(k=>k.id).join(',')).then(r=>r.ok?r.json():null).then(j=>{let ch=0;
   Object.entries((j&&j.peaks)||{}).forEach(([id,v])=>{const k=postBy(id);if(!k)return;if(v.hi_x>(k.hi||0)+.01){k.hi=v.hi_x;ch=1}if(v.hit_at&&!k.hit){k.hit=v.hit_at;ch=1}});
   if(ch&&['home','post','profile','callerboard'].includes(currentRoute()))render()}).catch(()=>{}).finally(()=>{PKBUSY=0})}
+/* Mini price line on call cards. Real hourly closes from /api/market/chart (about the last two days), cached for
+ * 10 minutes per token. Nothing is drawn until real data arrives, and a token with no pool simply shows no line. */
+const SPK={};let SPKBUSY=0;
+const spkSvg=key=>{const d=SPK[key];if(!d||!d.p||d.p.length<4)return '';const lo=Math.min(...d.p),hi=Math.max(...d.p),sp=hi-lo||1,n=d.p.length-1,up=d.p[n]>=d.p[0];
+ return `<svg class="${up?'up':'down'}" viewBox="0 0 100 32" preserveAspectRatio="none" aria-hidden="true"><path d="${d.p.map((v,i)=>(i?'L':'M')+(i/n*100).toFixed(1)+','+(29-(v-lo)/sp*26).toFixed(1)).join('')}"/></svg>`};
+function spkSync(){if(SPKBUSY)return;const now=Date.now(),want=[...new Set([...document.querySelectorAll('[data-spk]')].map(e=>e.dataset.spk))].filter(k=>{const t=T[k];return t&&t.pool&&isMintStr(t.mint||k)&&(!SPK[k]||now-SPK[k].at>6e5)}).slice(0,6);
+ if(!want.length)return;SPKBUSY=1;
+ Promise.all(want.map(k=>{const t=T[k];SPK[k]={at:now,p:SPK[k]?SPK[k].p:null};
+  return fetch(`/api/market/chart?pool=${t.pool}&mint=${t.mint||k}&tf=1h`).then(r=>r.ok?r.json():null).then(j=>{const c=((j&&j.candles)||[]).slice(-48).map(x=>+x[4]).filter(v=>v>0);if(c.length>=4)SPK[k].p=c}).catch(()=>{})}))
+ .finally(()=>{SPKBUSY=0;want.forEach(k=>{const h=spkSvg(k);if(h)document.querySelectorAll('[data-spk]').forEach(e=>{if(e.dataset.spk===k)e.innerHTML=h})})})}
 function mkt(k){const n=nums(k);
  return k.buy?`<div class="cr2 cr3 num"><div><span>Entry</span><b>${fmtUsd(k.entry)}</b></div><div><span>Position</span><b data-pos="${k.id}">${fmtUsd(n.pos)}</b></div><div><span>Profit</span><b class="${n.pnl>=0?'up':'down'}" data-pnl="${k.id}">${money(n.pnl)}</b></div></div>`
   :`<div class="cr2 num"><div><span>Called at</span><b>${fmtUsd(k.entry)}</b></div><div><span>Since call</span><b class="${n.up?'up':'down'}" data-perf="${k.id}">${fmtPct(n.p)}</b></div></div>`}
@@ -782,7 +793,7 @@ function post(k){if(k.kind==='random')return postRandom(k);if(k.kind==='perps')r
  <div style="min-width:0">
   <div class="phead">${who(k.c)}${r&&!k.sponsored?`<span class="rk">#${r}</span>`:''}${k.sponsored?'<span class="tag">Sponsored</span>':''}${k.src==='telegram'?tgChip(k):''}${k.c!==S.me?`<button class="fchip${S.following.has(k.c)?' on':''}" data-act="follow" data-h="${k.c}" aria-label="${S.following.has(k.c)?'Following':'Follow'} ${esc(k.c)}">${S.following.has(k.c)?ic('check',12)+'<span>Following</span>':'+<span>Follow</span>'}</button>`:''}<time>${k.ago==='now'?'now':k.ago+' ago'}</time>${k.sponsored?'':moreBtn(k)}</div>
   <p class="ptext">${rich(k.thesis)}</p>${mediaGrid(k.media)}${quoteCard(k.quote)}
-  <a class="ccard${hitOf(k)?' ishit':''}${k.sold?' issold':''}" href="#/token/${t.key}">${tokav(t.key)}<div class="cn"><b>${esc(t.name)}</b><span>$${t.sym} <span class="chain">${t.chain}</span></span></div>${right}${stamps(k)}</a>
+  <a class="ccard${hitOf(k)?' ishit':''}${k.sold?' issold':''}" href="#/token/${t.key}">${tokav(t.key)}<div class="cn"><b>${esc(t.name)}</b><span>$${t.sym} <span class="chain">${t.chain}</span></span></div><span class="cspk" data-spk="${t.key}">${spkSvg(t.key)}</span>${right}${stamps(k)}</a>
   ${k.sponsored?`<div class="pnote">Paid promotion by ${esc(k.sponsor)}. Not counted in rankings.</div>`:`<div class="pnote">${k.target?(hitOf(k)?`<span class="tgt hit">${ic('target',13)} ${fmtUsd(k.target)} hit</span> · `:`Target ${fmtUsd(k.target)} within ${esc(k.horizon)} · `):''}${k.hi>=2&&!hitOf(k)?`<span class="tgt pk">Peaked ${k.hi.toFixed(1)}X</span> · `:''}${k.buy?`<span class="bk">${ic('check',13)} Bought in</span>`:`<span class="bk no">No buy · earns ${EARN_RULE.noBuy}% after ${EARN_RULE.minX}X</span>`}${k.sold?` · <span class="sold">Caller sold ${k.sold.pct}%${soldNote(k)}${soldAgo(k)?' · '+soldAgo(k)+' ago':''}</span>`:''}</div>`}
   <div class="pbar"><div class="icons">
    <button class="act" data-act="reply" aria-label="Reply">${ic('reply',18)}<span class="num">${k.replies||''}</span></button>
@@ -1205,11 +1216,12 @@ function vAccessAdmin(){const d=ACA.d;if(ACA.err)return `<div class="empty"><p>$
  <div class="rdcard"><div class="rdct"><b>Codes</b><button class="btn sm ghost" data-act="accopy">Copy unused</button></div><div class="tablewrap"><table><thead><tr><th>Code</th><th>Used</th><th>Note</th><th>Made</th></tr></thead><tbody>${rows||'<tr><td colspan="4" class="muted">No codes yet</td></tr>'}</tbody></table></div></div>`}
 /* Bug reports, security reports and ideas from users. */
 const BUGS={d:null,err:null,busy:0};
-function loadBugs(force){if(BUGS.busy||(!force&&BUGS.d))return;BUGS.busy=1;API('/api/bugs').then(j=>{BUGS.d=j.reports||[];BUGS.err=j.migration===false?'migration':null}).catch(e=>{BUGS.err=e.message}).finally(()=>{BUGS.busy=0;if(currentRoute()==='admin'&&ADM.tab==='reports')render()})}
+function loadBugs(force){if(BUGS.busy||(!force&&BUGS.d))return;BUGS.busy=1;API('/api/bugs').then(j=>{BUGS.d=j.reports||[];BUGS.pts=j.points||25;BUGS.err=j.migration===false?'migration':null}).catch(e=>{BUGS.err=e.message}).finally(()=>{BUGS.busy=0;if(currentRoute()==='admin'&&ADM.tab==='reports')render()})}
 function vReports(){if(BUGS.err==='migration')return `<div class="rdnote"><b>Run the bug reports SQL</b> in Supabase to start collecting reports.</div>`;if(BUGS.err)return `<div class="empty"><p>${esc(BUGS.err)}</p></div>`;if(!BUGS.d){loadBugs();return `<div class="empty"><p>Loading…</p></div>`}
  if(!BUGS.d.length)return `<div class="empty"><p>No reports yet.</p></div>`;
  const KL={bug:'Bug',security:'Security',idea:'Idea'};
- return `<div class="tablewrap"><table><thead><tr><th>When</th><th>Type</th><th>From</th><th>Report</th><th>Screen</th></tr></thead><tbody>${BUGS.d.map(r=>`<tr title="${esc(r.user_agent||'')}"><td>${agoT(r.created_at)}</td><td><span class="akind ${r.kind==='security'?'sell':r.kind==='idea'?'buy':'swap'}">${/^Tester feedback/.test(r.body||'')?'Feedback':KL[r.kind]||esc(r.kind)}</span></td><td>${r.handle?`<a href="#/profile/${esc(r.handle)}">@${esc(r.handle)}</a>`:'<span class="muted">guest</span>'}${r.contact?`<div class="hint">${esc(r.contact)}</div>`:''}</td><td style="white-space:pre-wrap;min-width:240px">${esc(r.body)}</td><td class="hint">${esc(r.page||'')}</td></tr>`).join('')}</tbody></table></div>`}
+ return `<div class="tablewrap"><table><thead><tr><th>When</th><th>Type</th><th>From</th><th>Report</th><th>Screen</th><th>Points</th></tr></thead><tbody>${BUGS.d.map(r=>`<tr title="${esc(r.user_agent||'')}"><td>${agoT(r.created_at)}</td><td><span class="akind ${r.kind==='security'?'sell':r.kind==='idea'?'buy':'swap'}">${/^Tester feedback/.test(r.body||'')?'Feedback':KL[r.kind]||esc(r.kind)}</span></td><td>${r.handle?`<a href="#/profile/${esc(r.handle)}">@${esc(r.handle)}</a>`:'<span class="muted">guest</span>'}${r.contact?`<div class="hint">${esc(r.contact)}</div>`:''}</td><td style="white-space:pre-wrap;min-width:240px">${esc(r.body)}</td><td class="hint">${esc(r.page||'')}</td><td>${r.awarded!=null?`<span class="akind buy">+${r.awarded} pts</span>`:r.handle?`<button class="btn sm primary" data-act="fbvalid" data-f="${r.id}">Valid +${BUGS.pts||25}</button>`:'<span class="muted">guest</span>'}</td></tr>`).join('')}</tbody></table></div>
+ <p class="hint pad">“Valid” credits the sender’s account with points, once per report. Guests can’t be credited.</p>`}
 const big2=(l,v,sub)=>`<div class="rdstat"><span>${l}</span><b class="num">${v}</b>${sub?`<small>${sub}</small>`:''}</div>`;
 function adminPing(){if(S.admin!=null||!realAuth()||!S.connected)return;S.admin=false;API('/api/admin/overview?ping=1').then(()=>{S.admin=true;if(currentRoute()==='you')render()}).catch(()=>{})}
 const agoT=iso=>{const m=(Date.now()-Date.parse(iso))/6e4;return m<1?'now':m<60?Math.round(m)+'m':m<1440?Math.round(m/60)+'h':Math.round(m/1440)+'d'};
@@ -1603,9 +1615,9 @@ function keysCard(){if(!S.connected)return '';const W=window.CallitWallet,emb=(W
 /* Tester feedback: a short form anyone can fill in (also opens from callit.buzz/#/feedback). Saved with the
  * reports, so it shows under Admin › Reports marked "Tester feedback". Only the first box is required. */
 const FBK='callit.fbstrip';
-const fbStrip=()=>{try{if(localStorage.getItem(FBK))return ''}catch(_){}return `<div class="fbstrip"><span class="grow"><b>Testing Callit?</b> Tell us what to fix. Takes a minute.</span><button class="btn sm primary" data-act="feedback">Give feedback</button><button class="ib" data-act="fbhide" aria-label="Hide">${ic('x',16)}</button></div>`};
+const fbStrip=()=>{try{if(localStorage.getItem(FBK))return ''}catch(_){}return `<div class="fbstrip"><span class="grow"><b>Feedback earns points.</b> Tell us what to fix.</span><button class="btn sm primary" data-act="feedback">Give feedback</button><button class="ib" data-act="fbhide" aria-label="Hide">${ic('x',16)}</button></div>`};
 function feedbackModal(){let rate=0;
- modal('Give feedback','You’re testing Callit early. Be blunt: what worked, what broke, what’s missing. It goes straight to the team.',
+ modal('Give feedback',`Be blunt: what worked, what broke, what’s missing. Valid feedback earns points${S.connected?'':' (sign in so they land on your account)'}.`,
  `<div class="field"><label>How was it overall?</label><div class="seg wide fbrate" role="radiogroup">${[1,2,3,4,5].map(v=>`<button type="button" role="radio" aria-checked="false" data-v="${v}">${v}</button>`).join('')}</div><span class="hint">1 = rough · 5 = I’d use this daily</span></div>
  <div class="field"><label for="fbbad">What broke or confused you?</label><textarea id="fbbad" class="input" rows="3" maxlength="700" placeholder="e.g. Sell button spun and nothing happened. I couldn’t find where my earnings show…"></textarea></div>
  <div class="field"><label for="fbgood">What did you like? <span class="hint">· optional</span></label><textarea id="fbgood" class="input" rows="2" maxlength="500"></textarea></div>
@@ -1621,8 +1633,17 @@ function feedbackModal(){let rate=0;
    if(/\b([1-9A-HJ-NP-Za-km-z]{85,90})\b|\b(\w+\s){11,23}\w+\b/.test(t)&&/key|seed|phrase|secret/i.test(t)){er.textContent='That looks like a private key or seed phrase. Remove it, we never need it.';return}
    bt.disabled=true;bt.textContent='Sending…';
    API('/api/bugs',{body:{kind:'idea',text:t.length<10?t+' (no details)':t,contact:$('#fbct',m).value.trim(),page:(NAVH.stack[NAVH.stack.length-1]||location.hash).slice(0,200),ua:navigator.userAgent.slice(0,300),w:innerWidth}})
-    .then(()=>{try{localStorage.setItem(FBK,'1')}catch(_){}closeModal();toast('Thanks! Your feedback is with the team');if(currentRoute()==='home')render()})
+    .then(()=>{try{localStorage.setItem(FBK,'1')}catch(_){}closeModal();toast('Thanks! If it’s valid you’ll get points');if(currentRoute()==='home')render()})
     .catch(e=>{bt.disabled=false;bt.textContent='Send feedback';er.textContent=e.message||'Couldn’t send. Try again.'})}})}
+/* Feedback page (in the tray, and the link testers get). Says what feedback is worth and how points work in general. */
+function vFeedback(){const fp=(PTB.month&&PTB.month.rules&&PTB.month.rules.feedback)||25;loadPts();
+ return `<section class="ptshero"><div class="ptsglow" aria-hidden="true"></div><span class="ptskick">${ic('sprout',14)} Feedback</span>
+  <h2>Good feedback gets paid in points.</h2><p>Tell us what broke, what confused you or what’s missing. Every piece the team marks valid earns <b>+${fp} points</b> on your account.</p>
+  <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap"><button class="btn primary" data-act="feedback">${ic('pen',16)} Give feedback</button><button class="btn ghost" data-act="bugreport" data-f="security">${ic('lock',16)} Report a security issue</button></div></section>
+ <div class="pad"><h3 class="psec" style="margin:6px 0 10px">How points work</h3></div>
+ <div class="ptshow">${[['sprout','+'+fp,'valid feedback'],['swap','1 pt / $10','traded on Callit'],['market','+50','call holds 2X'],['target','+100','call hits target']].map(([i,a,b])=>`<div><span>${ic(i,16)}</span><b>${a}</b><em>${b}</em></div>`).join('')}</div>
+ <div class="pad"><p class="hint" style="line-height:1.55">Points put you on the Points board. The top of the month board gets paid when monthly rewards switch on, and points unlock buyer cashback. ${S.connected?'':'Sign in first so the points land on your account. '}One clear problem with the steps to see it beats ten vague lines.</p>
+ <a class="btn ghost block" style="margin-top:12px" href="#/callerboard" data-act="lbv" data-f="points">See the Points board</a></div>`}
 /* Report a bug / security issue / idea. Saved for the team; admins read them under Admin › Reports. */
 function bugModal(kind){kind=['bug','security','idea'].includes(kind)?kind:'bug';
  const K={bug:['Report a bug','What happened, and what did you expect? Steps help us fix it fast.','e.g. I tapped Sell on $TOKEN, the button spun and nothing happened…'],
@@ -1864,7 +1885,7 @@ async function astSend(text){const q=String(text||'').trim();if(!q||AST.busy)ret
 
 /* ---------- chrome ---------- */
 /* One tray, no Features/Products split. Messages and News sit right under Home. */
-const NAV_A=[['home','Home'],['market','Market'],['messages','Messages'],['defi','DeFi'],['callerboard','Callerboard'],['news','News'],['you','You'],['assistant','SI Assistant'],['bookmarks','Bookmarks'],['lists','Lists'],['promote','Promote'],['about','About'],['settings','Settings']]; // Bot hidden until the new Telegram is set up
+const NAV_A=[['home','Home'],['market','Market'],['messages','Messages'],['defi','DeFi'],['callerboard','Callerboard'],['news','News'],['you','You'],['assistant','SI Assistant'],['bookmarks','Bookmarks'],['lists','Lists'],['promote','Promote'],['feedback','Feedback'],['about','About'],['settings','Settings']]; // Bot hidden until the new Telegram is set up
 const NAV_B=[];
 const TITLES=Object.fromEntries([...NAV_A,...NAV_B,['notifications','Notifications'],['bookmarks','Bookmarks'],['token','Token'],['community','Community'],['post','Post'],['premium','Premium'],['messages','Messages'],['admin','Admin'],['tag','Tag'],['alerts','Alerts'],['legal','Legal'],['profile','Profile'],['quotes','Quotes'],['docs','Docs'],['transparency','Transparency']]);
 P.lists=P.list;P.defi='<circle cx="12" cy="12" r="8.5"/><path d="M8 10h8l-2.5-2.5M16 14H8l2.5 2.5"/>';P.callerboard=P.leaderboard;P.you=P.profile;
@@ -1872,7 +1893,7 @@ const NAVH={stack:[],cur:location.hash||'#/home',back:false};
 function goBack(){let prev;do{prev=NAVH.stack.pop()}while(prev&&(prev===location.hash||/^#\/messages\/(?!c-|join-)[^/]+$/.test(prev)));
  NAVH.back=true;location.hash=prev||(/^#\/messages\/./.test(location.hash)?'#/messages':'#/home')}
 const NAVC=(()=>{try{return JSON.parse(localStorage.getItem('callit.navc')||'{}')}catch(_){return {}}})();
-function chrome(route){const link=([k,l])=>`<a href="#/${k}" class="${route===k?'on':''}" title="${l}">${k==='notifications'?`<span class="nbadge">${ic('bell')}${unreadN()?`<i>${unreadN()}</i>`:''}</span>`:k==='messages'&&window.__chU?`<span class="nbadge">${ic(k)}<i>${window.__chU>99?'99+':window.__chU}</i></span>`:ic(k)}<span class="lbl">${l}</span></a>`;
+function chrome(route){const link=([k,l])=>`<a href="#/${k}" class="${route===k?'on':''}" title="${l}">${k==='notifications'?`<span class="nbadge">${ic('bell')}${unreadN()?`<i>${unreadN()}</i>`:''}</span>`:k==='feedback'?ic('sprout'):k==='messages'&&window.__chU?`<span class="nbadge">${ic(k)}<i>${window.__chU>99?'99+':window.__chU}</i></span>`:ic(k)}<span class="lbl">${l}</span></a>`;
  $('#navA').innerHTML=NAV_A.map(link).join('');$('#navB').innerHTML=NAV_B.map(link).join('');
  // Premium sits at the bottom of the tray, under Products (the tray scrolls on short screens).
  $('#navP').innerHTML=`<a href="#/premium" class="navprem${route==='premium'?' on':''}${isPrem(S.me)?' active':''}" title="Premium">${ic('verified',20)}<span class="lbl">${isPrem(S.me)?'Premium':'Get Premium'}</span></a>`;
@@ -1937,7 +1958,6 @@ setInterval(()=>{if(document.hidden||S.tab!=='watchlist'||currentRoute()!=='home
  fetchTokens(ks.slice(0,50)).then(l=>l.forEach(x=>{const t=regLive(x);if(!t)return;const a=document.querySelector(`[data-wpx="${t.key}"]`),b=document.querySelector(`[data-wmc="${t.key}"]`);
   const dir=t._wp?Math.sign(t.price-t._wp):0;t._wp=t.price;if(a)flashSet(a,fmtSmall(t.price),dir);if(b)flashSet(b,fmtSmall(mcap(t)),dir)})).catch(()=>{})},6000);
 function render(){if(isPhone())document.body.classList.add('collapsed');const [,r0='home',p]=location.hash.split('/');
- if(r0==='feedback'){location.replace('#/home');setTimeout(feedbackModal,450);return}
  routeTabs(r0||'home',p);const r=canonRoute(r0||'home',p);let html;
  if(r==='token'&&p&&!T[p]&&LIVEMAP[p]){location.replace('#/token/'+LIVEMAP[p]);return}
  if(r==='community')html=vRoom(p);
@@ -1945,9 +1965,9 @@ function render(){if(isPhone())document.body.classList.add('collapsed');const [,
  else if(r==='token'){const t=T[p];if(t&&tradable(t)&&p!==S.swap.from){S.swap.from=S.swap.from===p?S.swap.from:(S.swap.from===S.swap.to||!T[S.swap.from]?'SOL':S.swap.from);S.swap.to=p}html=vToken(p)}
  else html=({market:vMarket,trenches:vMarket,defi:vDefi,you:()=>{adminPing();return (S.admin?`<div class="pad" style="padding-bottom:0"><a class="btn sm primary" href="#/admin">${ic('leaderboard',15)} Admin panel</a></div>`:'')+vYou()},profile:()=>vProfile(p),callerboard:vLeaders,admin:vAdmin,promote:vPromote,about:vAbout,docs:vDocs,transparency:vTransparency,
   messages:()=>vMessages(p),lists:()=>vLists(p),
-  bot:vBot,settings:vSettings,news:vNews,premium:vPremium,notifications:vNotifs,assistant:vAssistant,bookmarks:vBookmarks,tag:()=>vTag(p),legal:()=>vLegal(p),alerts:vAlerts,quotes:()=>vQuotes(p)}[r]||vHome)();
+  bot:vBot,feedback:vFeedback,settings:vSettings,news:vNews,premium:vPremium,notifications:vNotifs,assistant:vAssistant,bookmarks:vBookmarks,tag:()=>vTag(p),legal:()=>vLegal(p),alerts:vAlerts,quotes:()=>vQuotes(p)}[r]||vHome)();
  if(LCHART){LCHART();LCHART=null}
- $('#view').innerHTML=html;document.body.classList.toggle('mwide',r!=='home');document.body.dataset.route=r;drawRail();chrome(r);renderSwaps();skin($('#view'));syncLanding();mountLiveChart();if(window.__callitIslands)window.__callitIslands($('#view'));
+ $('#view').innerHTML=html;document.body.classList.toggle('mwide',r!=='home');document.body.dataset.route=r;drawRail();chrome(r);renderSwaps();skin($('#view'));syncLanding();mountLiveChart();setTimeout(spkSync,60);if(window.__callitIslands)window.__callitIslands($('#view'));
  if(r==='post'){wireAttach($('#rbox'),RDRAFT,()=>drawRMedia());if(S.focusReply){S.focusReply=false;setTimeout(()=>{const i=$('#rin');i&&i.focus()},60)}}}
 
 /* ---------- modals ---------- */
@@ -2416,18 +2436,18 @@ function pvLoad(m){pvMod().then(mod=>Promise.all([mod.walletBalances(S.addr),mod
  }})).catch(err=>{if(!m.isConnected)return;$('#pvbody',m).innerHTML=`<div class="empty" style="padding:18px 8px"><b>Private withdraw is unavailable right now</b><p>${esc(isUserCancel(err)?'You cancelled the signature.':friendlyError(err))}</p><button class="btn block" data-act="pwithdraw">Try again</button></div>`})}
 /* Helius Rings rail: same two steps, SOL only, send fees sponsored by Callit's gas wallet. */
 const HX={mode:null,priv:null};
-function pvLoadH(m){hxMod().then(mod=>Promise.all([mod.walletSol(S.addr),mod.isUnlocked(S.addr)?mod.privateBalance(S.addr).catch(()=>null):Promise.resolve(HX.priv),mod.gasInfo()]).then(([sol,priv,gas])=>{if(!m.isConnected)return;
+function pvLoadH(m){hxMod().then(mod=>Promise.all([mod.walletSol(S.addr),mod.isUnlocked(S.addr)?mod.privateBalance(S.addr).catch(()=>null):Promise.resolve(HX.priv),mod.gasInfo(),mod.protocolFee()]).then(([sol,priv,gas,pf])=>{if(!m.isConnected)return;
  HX.priv=priv;const pb=priv?priv.ui:0;
  if(!HX.mode)HX.mode=pb>0?'send':'shield';
- const wMax=Math.max(0,Math.floor((sol-mod.SOL_FEE_RESERVE)*1e6)/1e6),pMax=Math.floor(pb*1e6)/1e6;
+ const wMax=Math.max(0,Math.floor((sol-mod.SOL_FEE_RESERVE-(pf?pf.sol:0))*1e6)/1e6),pMax=Math.floor(pb*1e6)/1e6;
  const balCard=priv?`<div class="pvbal"><span class="pvbalh">${ic('lock',14)} Private balance</span><div class="pvbalrow"><div><b class="num">${fmtAmt(pb)}</b><small>SOL</small></div></div>${priv.registered?'':'<p class="hint" style="margin:8px 0 0">New here — your private wallet registers with your first deposit (one extra approval, one time).</p>'}</div>`
   :`<div class="pvbal"><span class="pvbalh">${ic('lock',14)} Private balance</span><p class="hint" style="margin:6px 0 10px">Hidden until you unlock it. Unlocking is one free signature, not a transaction.</p><button class="btn block" id="hxunlock">Show private balance</button></div>`;
  const shieldForm=`<div class="field"><label for="hxv">Amount of SOL to add to your private balance</label><div style="display:flex;gap:8px"><input id="hxv" class="input num" inputmode="decimal" placeholder="0"><button class="mx lg" id="hxmax">Max</button></div></div>
- <p class="hint pvcfee">No Callit fee on this.${gas?' Network fees on private sends are covered by Callit.':''}</p>
+ <p class="hint pvcfee">${pf?`Privacy fee <b>$${pf.usd.toFixed(2)}</b> (${fmtAmt(pf.sol)} SOL), taken with this deposit.`:'No Callit fee on this.'}${gas?' Network fees on private sends are covered by Callit.':''}</p>
  <div class="err" id="hxerr"></div><button class="btn primary block" id="hxgo">${ic('lock',16)} Add to private balance</button>`;
  const sendForm=`<div class="field"><label for="hxa">To address</label><input id="hxa" class="input" placeholder="Solana address" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
  <div class="field"><label for="hxv">Amount (SOL)</label><div style="display:flex;gap:8px"><input id="hxv" class="input num" inputmode="decimal" placeholder="0"><button class="mx lg" id="hxmax">Max</button></div></div>
- <p class="hint" style="margin:-4px 0 10px">${gas?`Free — Callit covers the network fee, and your wallet signs nothing on-chain. Minimum ${mod.MIN_SOL} SOL.`:'Private sending is paused right now. Your funds stay safe in your private balance.'}</p>
+ <p class="hint" style="margin:-4px 0 10px">${gas?`${pf?'Nothing more to pay':'Free'} — Callit covers the network fee, and your wallet signs nothing on-chain. Minimum ${mod.MIN_SOL} SOL.`:'Private sending is paused right now. Your funds stay safe in your private balance.'}</p>
  <div class="err" id="hxerr"></div><button class="btn primary block" id="hxgo" ${gas?'':'disabled'}>${ic('send',16)} Send privately</button>`;
  $('#pvbody',m).innerHTML=`${pvRail()}${balCard}<div class="seg pvmode"><button data-m="shield" class="${HX.mode==='shield'?'on':''}">1. Add funds</button><button data-m="send" class="${HX.mode==='send'?'on':''}">2. Send privately</button></div>
   <div id="pvform">${HX.mode==='shield'?shieldForm:sendForm}</div>
@@ -2510,20 +2530,24 @@ const COMMS=[
 const MSG={};
 S.joined=new Set(['lounge']);
 const commAv=c=>c.sym?tokav(c.sym):'<span class="mark" style="width:44px;height:44px;border-radius:12px"></span>';
+/* A room's token by its ticker, never its contract address. Holders-only rooms open to people who hold it. */
+const commSym=c=>c.sym?(T[c.sym]&&T[c.sym].sym||c.sym):'';
+const commHeld=c=>!c.gate||(S.connected&&(S.bal[c.sym]||0)>0);
+const commJoin=(c,j)=>!commHeld(c)&&!j?`<button class="btn sm primary" data-act="qbuy" data-t="${c.sym}">Buy to join</button>`:`<button class="btn sm ${j?'ghost':'primary'}" data-act="join" data-f="${c.id}">${j?'Joined':'Join'}</button>`;
 function vCommunity(){return `<div>${COMMS.map(c=>{const last=(MSG[c.id]||[]).slice(-1)[0],j=S.joined.has(c.id);
  return `<div class="comm" data-go="#/community/${c.id}">${commAv(c)}<div class="grow"><div class="cn1"><b>${esc(c.name)}</b>${c.gate?`<span class="gate">${ic('lock',11)} Holders</span>`:''}</div>
  <div class="hint num">${fmtK(c.members)} members · <span class="odot"></span>${fmtK(c.online)} online</div>
  ${last?`<p class="lastm"><b>${esc(last[0])}:</b> ${esc(last[1])}</p>`:''}</div>
- <button class="btn sm ${j?'ghost':'primary'}" data-act="join" data-f="${c.id}">${j?'Joined':'Join'}</button></div>`}).join('')}</div>
- <p class="hint pad">Holders-only rooms check your wallet. Hold the token to chat, anyone can read.</p>`}
-function vRoom(id){const c=COMMS.find(x=>x.id===id);if(!c)return vHome();const held=!c.gate||(S.connected&&(S.bal[c.sym]||0)>0),t=c.sym&&T[c.sym];
+ ${commJoin(c,j)}</div>`}).join('')}</div>
+ <p class="hint pad">Holders-only rooms check your wallet. Buy the token to join and chat, anyone can read. Links outside trusted sites are blocked.</p>`}
+function vRoom(id){const c=COMMS.find(x=>x.id===id);if(!c)return vHome();const held=commHeld(c),t=c.sym&&T[c.sym],sy=commSym(c);
  const on=calls.filter(k=>c.sym&&k.t===c.sym);
  return `<div class="rhead">${commAv(c)}<div class="grow"><b>${esc(c.name)}</b><div class="hint num">${fmtK(c.members)} members · <span class="odot"></span>${fmtK(c.online)} online</div></div>
- ${t?`<a class="btn sm ghost" href="#/token/${c.sym}">$${c.sym}</a>`:''}<button class="btn sm ${S.joined.has(id)?'ghost':'primary'}" data-act="join" data-f="${id}">${S.joined.has(id)?'Joined':'Join'}</button></div>
- ${on.length?`<div class="pinned">${ic('promote',14)} ${on.length} call${on.length>1?'s':''} on $${c.sym} · <a href="#/token/${c.sym}">see them</a></div>`:''}
+ ${t&&held?`<button class="btn sm primary" data-act="qbuy" data-t="${c.sym}">Buy</button>`:''}${commJoin(c,S.joined.has(id))}</div>
+ ${on.length?`<div class="pinned">${ic('promote',14)} ${on.length} call${on.length>1?'s':''} on $${esc(sy)} · <a href="#/token/${c.sym}">see them</a></div>`:''}
  <div class="msgs" id="msgs">${(MSG[id]||[]).map(([h,tx,ago])=>`<div class="msg${h===S.me?' me':''}">${avatar(h)}<div><div class="mh"><b>${esc(h)}</b><span class="hint">${ago}</span></div><p>${esc(tx)}</p></div></div>`).join('')}</div>
  <div class="composer">${held?`<input class="input" id="msgin" maxlength="280" placeholder="${S.connected?'Say something':'Connect a wallet to chat'}" ${S.connected?'':'disabled'}><button class="btn primary" data-act="${S.connected?'msend':'connect'}" data-f="${id}">${S.connected?'Send':'Connect'}</button>`
-  :`<div class="grow"><b>Holders only</b><div class="hint">Hold any amount of $${c.sym} to chat here.</div></div>${S.connected?`<button class="btn primary" data-act="qbuy" data-t="${c.sym}">Buy $${c.sym}</button>`:`<button class="btn primary" data-act="connect">Connect</button>`}`}</div>`}
+  :`<div class="grow"><b>Holders only</b><div class="hint">Hold any amount of $${esc(sy)} to join and chat here.</div></div>${S.connected?`<button class="btn primary" data-act="qbuy" data-t="${c.sym}">Buy</button>`:`<button class="btn primary" data-act="connect">Connect</button>`}`}</div>`}
 
 /* ---------- profile tabs ---------- */
 /* ---------- what kind of asset is this ----------
@@ -2877,7 +2901,7 @@ function vSettings(){const th=document.documentElement.dataset.theme||'system',c
   ${zoomOn()?`<button class="setrow" data-act="bpreset">${ic('rotate',18)}<span class="grow"><b>Reset home panels</b></span></button>`:''}
   ${row('about','Terms, privacy, risks & security','',go,'#/legal/terms')}${row('verified','Premium','',go,'#/premium')}</section>
  <section class="setcard"><div class="seth">${ic('about',18)}<b>Help</b></div>
-  <button class="setrow" data-act="feedback">${ic('sprout',18)}<span class="grow"><b>Give feedback</b><span class="hint">Testing Callit? Tell us what worked, what broke and what’s missing.</span></span>${go}</button>
+  <button class="setrow" data-act="feedback">${ic('sprout',18)}<span class="grow"><b>Give feedback</b><span class="hint">Tell us what worked, what broke and what’s missing. Valid feedback earns points.</span></span>${go}</button>
   <button class="setrow" data-act="bugreport" data-f="bug">${ic('pen',18)}<span class="grow"><b>Report a bug</b><span class="hint">Something broken or confusing? Tell us. It goes straight to the team.</span></span>${go}</button>
   <button class="setrow" data-act="bugreport" data-f="security">${ic('lock',18)}<span class="grow"><b>Report a security issue</b><span class="hint">Found a way to lose funds or see what you shouldn’t? Report it privately.</span></span>${go}</button>
   <button class="setrow" data-act="bugreport" data-f="idea">${ic('sprout',18)}<span class="grow"><b>Suggest a feature</b></span>${go}</button></section>
@@ -3008,7 +3032,7 @@ function chSeen(p){if(p&&p.handle){if(p.avatar)AVURL[p.handle]=p.avatar;if(p.nam
 function chErr(e){const m=String(e&&e.message||e||'');return ({
  blocked_link:'Links outside trusted sites are blocked in public groups',blocked_scam:'That reads like a scam line, so it wasn’t sent',blocked_key:'That looks like a private key. Never share it',
  slow_down:'Slow mode. Give it a few seconds',duplicate:'You just said that',chat_key_missing:'Private chat isn’t switched on yet (server needs CHAT_KEY)',
- not_member:'You’re not in this chat',banned:'You were removed from this group',cant_message:'This caller isn’t taking messages from you',you_blocked:'Unblock them first to message',
+ friends_links:'Links are for friends. Follow each other first, then share links.',friends_only:'Calls are for friends. Follow each other first, then call.',not_member:'You’re not in this chat',banned:'You were removed from this group',cant_message:'This caller isn’t taking messages from you',you_blocked:'Unblock them first to message',
  user_not_found:'That caller hasn’t joined Callit yet',invite_not_found:'This invite link has expired or was reset',invite_required:'This group is invite-only',
  too_many_groups:'You’ve started 5 groups today. Try again tomorrow',admins_only:'Only admins can send messages in this group',bad_image:'That photo couldn’t be used. Try another',run_migration_0014:'Run migration 0014 in Supabase to switch this on',not_allowed:'Only the group owner or admins can do that',title_required:'Give the group a name',cant_leave_dm:'DMs can be muted, not left'})[m]||m||'Something went wrong'}
 function chAgo(at){const d=new Date(at),m=(Date.now()-d)/6e4;if(m<1)return 'now';if(m<60)return Math.floor(m)+'m';if(m<1440)return Math.floor(m/60)+'h';
@@ -3129,9 +3153,9 @@ function vInbox(){if(chOn()&&!CH.inbox&&!CH.ibusy)loadInbox();if(CH.tab==='publi
   const l=CH.inbox.filter(c=>c.kind!=='public');
   return top+(l.length?`<div class="chlist">${l.map(chRow).join('')}</div>`:chEmpty('private'))+`<p class="chfoot">${ic('lock',13)} DMs and private groups are encrypted on Callit’s servers. Only members can open them.</p>`}
  const mine=(CH.inbox||[]).filter(c=>c.kind==='public');
- return top+`${mine.length?`<div class="chsec">Your groups</div><div class="chlist">${mine.map(chRow).join('')}</div>`:''}
+ return top+`<div class="chsearch chsearchtop">${ic('search',17)}<input class="input" id="chq" placeholder="Search public groups" value="${esc(CH.dq)}" autocomplete="off"></div>
+ ${mine.length?`<div class="chsec">Your groups</div><div class="chlist">${mine.map(chRow).join('')}</div>`:''}
  <div class="chsec">Discover<button class="btn sm primary" data-cx="newgroup" data-f="public">${ic('plus',14)} Start one</button></div>
- <div class="chsearch">${ic('search',17)}<input class="input" id="chq" placeholder="Search public groups" value="${esc(CH.dq)}" autocomplete="off"></div>
  <div id="chdisc">${chDiscList()}</div>${!mine.length&&CH.disc&&!CH.disc.length&&!CH.dq?chEmpty('public'):''}
  <p class="chfoot">${ic('shield',13)} Public groups are guarded. Links outside trusted sites, invite links and wallet-drain lines are blocked before they post.</p>`}
 
@@ -3498,7 +3522,7 @@ function rankChip(h){const t=tierOf(h),r=rankOf(h);
  <span class="rkpop" role="tooltip"><b>${ic('star',13,true)} ${t.name}${r?` · Leaderboard #${r}`:''}</b><span class="rkbar"><i style="width:${Math.max(4,t.pct)}%"></i></span><small>${t.next?`${t.xp.toLocaleString()} pts · ${t.need.toLocaleString()} to <b>${t.next}</b>`:`${t.xp.toLocaleString()} pts · top of the ladder`}</small>${r?'':'<small>10 calls to join the leaderboard</small>'}</span></button>`}
 function ranksModal(h){const t=tierOf(h);
  modal('Caller ranks',`${h===S.me?'You are':'@'+esc(h)+' is'} <b>${t.name}</b> with ${t.xp.toLocaleString()} points`,`<div class="ladder">${TIERS.map(([n,p],i)=>`<div class="lrow${i===t.i?' on':i<t.i?' done':''}"><span class="lstar t${i}">${ic('star',16,i<=t.i)}</span><b>${n}</b><span class="hint num">${p.toLocaleString()} pts</span>${i===t.i&&t.next?`<span class="rkbar sm"><i style="width:${Math.max(4,t.pct)}%"></i></span>`:''}</div>`).join('')}</div>
- <p class="hint" style="margin:14px 0 0;line-height:1.5">Points are verified on-chain activity: 1 point per $10 you trade on Callit, +50 when your call holds 2X and +100 when it hits your target. Points unlock cashback and count toward monthly rewards and $CALLIT. The Callerboard ranks callers by win rate.</p>`)}
+ <p class="hint" style="margin:14px 0 0;line-height:1.5">Points are verified on-chain activity: 1 point per $10 you trade on Callit, +50 when your call holds 2X and +100 when it hits your target. Valid feedback earns points too. Points unlock cashback and count toward monthly rewards and $CALLIT. The Callerboard ranks callers by win rate.</p>`)}
 
 /* ---------- PnL year to date + wallet balance (own profile and wallet) ---------- */
 function ytdSeries(){const now=new Date(),y0=new Date(now.getFullYear(),0,1).getTime(),cash=new Set([SOL_MINT,USDC_MINT]),P={};let realY=0,cost=0;const pts=[[y0,0]];
@@ -3871,7 +3895,7 @@ document.addEventListener('click',e=>{
   belldel:()=>API('/api/alerts/bell?mint='+encodeURIComponent(b.dataset.f),{method:'DELETE'}).then(()=>{BELLS.delete(b.dataset.f);AL.d=null;alLoad(1)}).catch(e=>toast(e.message)),
   wtab:()=>{S.wtab=b.dataset.f;render()},flowre:()=>loadFlow(1),
   acgen:()=>{const n=+$('#acn').value||1,u=+$('#acu').value||1,note=$('#acnote').value.trim(),code=$('#acc').value.trim();b.disabled=true;API('/api/admin/access',{body:{count:n,uses:u,note,code}}).then(j=>{toast(`${(j.codes||[]).length} code${(j.codes||[]).length===1?'':'s'} made`);ACA.d=null;loadAca(1)}).catch(e=>toast(e.message)).finally(()=>{b.disabled=false})},
-  accopy:()=>{const l=((ACA.d&&ACA.d.codes)||[]).filter(c=>c.uses<c.max_uses).map(c=>c.code).join('\n');if(!l)return toast('No unused codes');navigator.clipboard.writeText(l).then(()=>toast('Unused codes copied')).catch(()=>toast('Couldn’t copy'))},wmenu:()=>walletMenu(),wmgo:()=>{const u=b.dataset.f;closeModal();if(u.startsWith('#'))location.hash=u.slice(1)?u:'#/home';else window.open(u,'_blank','noopener')},lbsw:()=>lbSwipe(+b.dataset.f),bugreport:()=>{closeModal();bugModal(b.dataset.f)},feedback:()=>{closeModal();feedbackModal()},fbhide:()=>{try{localStorage.setItem(FBK,'1')}catch(_){}const x=b.closest('.fbstrip');x&&x.remove()},wbopen:()=>walletSheet(b.dataset.f),
+  accopy:()=>{const l=((ACA.d&&ACA.d.codes)||[]).filter(c=>c.uses<c.max_uses).map(c=>c.code).join('\n');if(!l)return toast('No unused codes');navigator.clipboard.writeText(l).then(()=>toast('Unused codes copied')).catch(()=>toast('Couldn’t copy'))},wmenu:()=>walletMenu(),wmgo:()=>{const u=b.dataset.f;closeModal();if(u.startsWith('#'))location.hash=u.slice(1)?u:'#/home';else window.open(u,'_blank','noopener')},lbsw:()=>lbSwipe(+b.dataset.f),bugreport:()=>{closeModal();bugModal(b.dataset.f)},feedback:()=>{closeModal();feedbackModal()},fbvalid:()=>{b.disabled=true;API('/api/bugs',{method:'PATCH',body:{id:+b.dataset.f}}).then(j=>{const r=(BUGS.d||[]).find(x=>String(x.id)===b.dataset.f);if(r)r.awarded=j.awarded;toast(j.already?'Already credited':`Credited +${j.awarded} points`);render()}).catch(e=>{b.disabled=false;toast(e.message||'Couldn’t credit')})},fbhide:()=>{try{localStorage.setItem(FBK,'1')}catch(_){}const x=b.closest('.fbstrip');x&&x.remove()},wbopen:()=>walletSheet(b.dataset.f),
   lbv:()=>{S.lbv=b.dataset.f;render();scrollTo({top:0})},
   ptp:()=>{S.ptp=b.dataset.f;render()},
   dgo:()=>{e.preventDefault();const el=document.getElementById(b.dataset.f);if(el)el.scrollIntoView({behavior:'smooth',block:'start'})},
@@ -3936,8 +3960,8 @@ document.addEventListener('click',e=>{
   mt:()=>{if(S.mt===b.dataset.f)return scrollTo({top:0,behavior:'smooth'});if(slideTo(b)&&!b.dataset.slid){b.dataset.slid=1;return setTimeout(()=>b.isConnected?b.click():null,170)}S.mt=b.dataset.f;render()},tpick:()=>pickToken(b.dataset.f),
   signup:()=>connectModal(null,'up'),signin:()=>connectModal(null,'in'),explore:()=>{try{sessionStorage.setItem('callit.explore','1')}catch(_){}syncLanding()},qbuy:()=>quickBuy(b.dataset.t,b.dataset.id),qsell:()=>quickBuy(b.dataset.t,b.dataset.id,'sell'),
   back:()=>goBack(),totop:()=>scrollTo({top:0,behavior:'smooth'}),
-  join:()=>{const f=b.dataset.f;S.joined.has(f)?S.joined.delete(f):S.joined.add(f);toast(S.joined.has(f)?'Joined':'Left the community');render()},
-  msend:()=>{const i=$('#msgin'),v=i&&i.value.trim();if(!v)return;(MSG[b.dataset.f]=MSG[b.dataset.f]||[]).push([S.me,v,'now']);render();const m=$('#msgs');m&&m.lastElementChild&&m.lastElementChild.scrollIntoView({block:'end',behavior:'smooth'});setTimeout(()=>{const n=$('#msgin');n&&n.focus()},50)},
+  join:()=>{const f=b.dataset.f,cm=COMMS.find(x=>x.id===f);if(cm&&!S.joined.has(f)&&!commHeld(cm)){toast(`Buy $${commSym(cm)} to join this room`);return S.connected?quickBuy(cm.sym):connectModal()}S.joined.has(f)?S.joined.delete(f):S.joined.add(f);toast(S.joined.has(f)?'Joined':'Left the community');render()},
+  msend:()=>{const i=$('#msgin'),v=i&&i.value.trim();if(!v)return;const g=guardPublic(v,[location.hostname]);if(!g.ok)return toast(g.reason==='link'?'Links outside trusted sites are blocked in rooms':g.reason==='key'?'That looks like a private key. Never share it.':'That message looks like a scam line, so it wasn’t sent');S.joined.add(b.dataset.f);(MSG[b.dataset.f]=MSG[b.dataset.f]||[]).push([S.me,v,'now']);render();const m=$('#msgs');m&&m.lastElementChild&&m.lastElementChild.scrollIntoView({block:'end',behavior:'smooth'});setTimeout(()=>{const n=$('#msgin');n&&n.focus()},50)},
   ptab:()=>{S.ptab=b.dataset.f;render()},connect:()=>connectModal(),search:()=>searchModal(),notifs:()=>notifsModal(),settings:()=>{closeModal();if(isPhone())document.body.classList.add('collapsed');location.hash='#/settings'},
   disconnect:()=>act2.disconnect(),
   me:()=>S.connected?location.hash='#/you':connectModal(),

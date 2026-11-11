@@ -66,3 +66,8 @@ export function cleanBody(v: unknown, max = 1000): string {
   return v.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F​-‏‪-‮⁦-⁩]/g, '')
     .replace(/\n{3,}/g, '\n\n').trim().slice(0, max);
 }
+
+/** True when the text carries any link at all (trusted or not). Used for the friends-only rule in DMs. */
+export function hasLink(text: string): boolean {
+  return [...text.replace(GIF_MARK, ' ').matchAll(URL_RE)].length > 0;
+}

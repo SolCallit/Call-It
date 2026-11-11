@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { dbOrNull, json, maybeMe, str } from '@/lib/db/me';
 import { requireAdmin } from '@/lib/db/admin';
+import { feedbackPoints } from '@/lib/fees/model';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -51,5 +52,36 @@ export async function GET(req: Request) {
   const ids = [...new Set((data || []).map((r) => r.profile_id).filter(Boolean))] as string[];
   const { data: ps } = ids.length ? await a.db.from('profiles').select('id, handle').in('id', ids) : { data: [] };
   const H = new Map((ps || []).map((p) => [p.id as string, p.handle as string]));
-  return json({ reports: (data || []).map(({ profile_id, ...r }) => ({ ...r, handle: profile_id ? H.get(profile_id) || null : null })) });
+  // Which reports already earned their sender points (points.ref = fb:<report id>).
+  const refs = (data || []).map((r) => 'fb:' + r.id);
+  const { data: aw } = refs.length ? await a.db.from('points').select('ref, amount').in('ref', refs) : { data: [] };
+  const A = new Map(((aw || []) as { ref: string; amount: number }[]).map((x) => [x.ref, Math.floor(Number(x.amount))]));
+  return json({
+    points: feedbackPoints(),
+    reports: (data || []).map(({ profile_id, ...r }) => ({ ...r, handle: profile_id ? H.get(profile_id) || null : null, awarded: A.get('fb:' + r.id) ?? null })),
+  });
+}
+
+/**
+ * PATCH /api/bugs — admins only: mark a report as valid and award its sender points.
+ * One award per report (points.ref is unique), and only reports sent by a signed-in user can earn.
+ */
+export async function PATCH(req: Request) {
+  const a = await requireAdmin(req);
+  if (a instanceof NextResponse) return a;
+  const b = (await req.json().catch(() => ({}))) as { id?: unknown };
+  const id = Number(b.id);
+  if (!Number.isInteger(id) || id <= 0) return json({ error: 'invalid' }, 400);
+  const pts = feedbackPoints();
+  if (!pts) return json({ error: 'Feedback points are switched off (FEEDBACK_POINTS=0).' }, 400);
+  const { data: r, error } = await a.db.from('bug_reports').select('id, profile_id, kind').eq('id', id).maybeSingle();
+  if (error) return json({ error: error.message }, 500);
+  if (!r) return json({ error: 'not_found' }, 404);
+  if (!r.profile_id) return json({ error: 'This one was sent by a guest, so there is no account to credit.' }, 400);
+  const ins = await a.db.from('points').insert({ profile_id: r.profile_id, kind: 'bonus', amount: pts, ref: 'fb:' + id, note: 'Valid feedback' });
+  if (ins.error) {
+    if (ins.error.code === '23505') return json({ ok: true, awarded: pts, already: true });
+    return json({ error: ins.error.code === '42P01' ? 'Points are not set up yet (migration 0015).' : ins.error.message }, 500);
+  }
+  return json({ ok: true, awarded: pts });
 }

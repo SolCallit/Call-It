@@ -50,6 +50,9 @@ export const cashbackMinPoints = () => num(process.env.CASHBACK_MIN_POINTS, 100)
  */
 export const POINTS = { perUsd: 0.1, perTradeCap: 1000, qualified: 50, target: 100 };
 
+/** Points for a piece of tester feedback an admin marks as valid (FEEDBACK_POINTS, default 25). One award per report. */
+export const feedbackPoints = () => Math.max(0, Math.round(num(process.env.FEEDBACK_POINTS, 25)));
+
 /**
  * Milestone points: a call earns each tier once, as its rolling-average X (peak_x, wick-proof) climbs.
  * Money share stays capped (CALLER_CAP); runners are rewarded in points instead. Points convert from a

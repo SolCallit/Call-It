@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { HELIUS_PRIVATE_BETA, HELIUS_PRIVATE_ON, PRIVATE_BETA, PRIVATE_ON, PC_RELAYER } from '@/lib/privacy/config';
 import { gasAddress, relayWithdrawal } from '@/lib/privacy/gas-server';
+import { solPrice } from '@/lib/payouts/payout';
 import { burst, clientIp } from '@/lib/ratelimit';
 import { rpcUrl } from '@/lib/solana/rpc';
 import { verifyPrivyToken } from '@/lib/auth/privy-server';
@@ -78,6 +79,16 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ svc: string; pa
   }
   if (!burst(`privacy:${svc}:${clientIp(req)}`, 300, 60_000)) return NextResponse.json({ error: 'Too many requests. Slow down a little.' }, { status: 429 });
   if (svc === 'rpc') return rpc(req);
+  if (svc === 'hfee') {
+    // Helius rail protocol fee, charged in SOL to the treasury inside the add-funds transaction.
+    // Off unless HELIUS_PRIVATE_FEE_USD is set above zero AND a treasury wallet and a live SOL price exist.
+    const t = (process.env.TREASURY_WALLET || '').trim();
+    const usd = Number(process.env.HELIUS_PRIVATE_FEE_USD ?? 0);
+    const ok = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(t) && Number.isFinite(usd) && usd > 0 && usd <= 5;
+    const price = ok ? await solPrice().catch(() => null) : null;
+    const lamports = ok && price ? Math.ceil((usd / price) * 1e9) : 0;
+    return NextResponse.json({ treasury: lamports ? t : null, usd: lamports ? usd : 0, lamports }, { headers: { 'cache-control': 'no-store' } });
+  }
   if (svc === 'hgas') {
     // Helius rail: the gas wallet that pays withdrawal fees so the user's wallet appears nowhere.
     if (!HELIUS_PRIVATE_ON && !HELIUS_PRIVATE_BETA) return NextResponse.json({ error: 'not_allowed' }, { status: 404 });

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireMe, json } from '@/lib/db/me';
-import { getChat, isUuid, liveCall, memberOf, systemMsg } from '@/lib/chat/store';
+import { dmFriends, getChat, isUuid, liveCall, memberOf, systemMsg } from '@/lib/chat/store';
 import { broadcast, callTopic, iceServers, ringTopic } from '@/lib/chat/ring';
 import { pushTo } from '@/lib/push/send';
 
@@ -32,6 +32,8 @@ export async function POST(req: Request) {
     if (!c) return json({ error: 'not_found' }, 404);
     const mem = await memberOf(db, c.id, me.id);
     if (!mem || mem.role === 'banned') return json({ error: 'not_member' }, 403);
+    // DMs: only friends (you follow each other) can ring each other.
+    if (c.kind === 'dm' && !(await dmFriends(db, c.id, me))) return json({ error: 'friends_only' }, 403);
 
     const live = await liveCall(db, c.id);
     if (live) return json({ call: { ...live, chat: c.id, topic: callTopic(live.id), joined: true }, ice: iceServers() });

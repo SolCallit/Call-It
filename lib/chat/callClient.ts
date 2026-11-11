@@ -125,7 +125,7 @@ async function getMedia(kind: Kind): Promise<MediaStream | null> {
 }
 function errText(e: unknown) {
   const m = String((e as Error)?.message || e || '');
-  return ({ call_full: 'This call is full (6 people max)', call_ended: 'That call has ended', call_not_found: 'That call has ended', calls_not_ready: 'Calls aren’t switched on yet (run migration 0014 in Supabase)', not_member: 'You’re not in this chat' } as Record<string, string>)[m] || m || 'Couldn’t connect the call';
+  return ({ call_full: 'This call is full (6 people max)', call_ended: 'That call has ended', call_not_found: 'That call has ended', calls_not_ready: 'Calls aren’t switched on yet (run migration 0014 in Supabase)', not_member: 'You’re not in this chat', friends_only: 'Calls are for friends. Follow each other first, then call.' } as Record<string, string>)[m] || m || 'Couldn’t connect the call';
 }
 
 async function enter(call: { id: string; chat: string; kind: Kind; topic: string }, ice: RTCIceServer[], stream: MediaStream, caller: boolean) {
@@ -243,17 +243,39 @@ function toggleCam() {
   if (S.kind !== 'video') return;
   S.cam = !S.cam; S.local?.getVideoTracks().forEach((t) => (t.enabled = S.cam)); sendState(); paintControls(); paintTiles();
 }
+/**
+ * Switch between the front and back camera. Most phones can't open a second camera while the first is
+ * still running, so the current one is released first. `facingMode` alone is only a hint and can hand
+ * back the same lens, so it's asked for exactly, then by picking a different device; if nothing else
+ * opens, the original camera comes back so the call never ends up without a picture.
+ */
+let flipping = false;
 async function flipCam() {
-  if (S.kind !== 'video' || !S.local) return;
-  S.facing = S.facing === 'user' ? 'environment' : 'user';
-  const v = await navigator.mediaDevices.getUserMedia({ video: videoConstraints(S.facing) }).catch(() => null);
-  const nt = v?.getVideoTracks()[0];
-  if (!nt) return D!.toast('Only one camera on this device');
-  const old = S.local.getVideoTracks()[0];
-  S.peers.forEach((p) => p.pc.getSenders().find((s) => s.track?.kind === 'video')?.replaceTrack(nt));
-  if (old) { S.local.removeTrack(old); old.stop(); }
-  S.local.addTrack(nt); nt.enabled = S.cam;
-  paintTiles();
+  if (S.kind !== 'video' || !S.local || flipping) return;
+  flipping = true;
+  const md = navigator.mediaDevices, want = S.facing === 'user' ? 'environment' : 'user';
+  const old = S.local.getVideoTracks()[0] || null;
+  const oldId = old?.getSettings().deviceId || '';
+  const open = (c: MediaTrackConstraints) => md.getUserMedia({ video: c }).then((m) => m.getVideoTracks()[0] || null).catch(() => null);
+  const size = { width: { ideal: 640 }, height: { ideal: 640 }, frameRate: { ideal: 24, max: 30 } };
+  try {
+    if (old) { S.local.removeTrack(old); old.stop(); }
+    let nt = await open({ ...size, facingMode: { exact: want } });
+    if (!nt) {
+      const cams = (await md.enumerateDevices().catch(() => [])).filter((d) => d.kind === 'videoinput' && d.deviceId && d.deviceId !== oldId);
+      const pick = cams.find((d) => (want === 'environment' ? /back|rear|environment/i : /front|user|face/i).test(d.label)) || cams[0];
+      if (pick) nt = await open({ ...size, deviceId: { exact: pick.deviceId } });
+    }
+    const flipped = !!nt;
+    if (!nt) nt = await open(oldId ? { ...size, deviceId: { exact: oldId } } : videoConstraints(S.facing));
+    if (!nt) { D!.toast('Couldn’t switch camera. Turn the camera off and on again.'); return; }
+    if (flipped) S.facing = want; else D!.toast('Only one camera on this device');
+    const track = nt;
+    await Promise.all([...S.peers.values()].map((p) => p.pc.getSenders().find((x) => x.track?.kind === 'video')?.replaceTrack(track).catch(() => {})));
+    S.local.addTrack(track); track.enabled = S.cam;
+    const self = document.getElementById('cuself') as HTMLVideoElement | null;
+    if (self) { self.srcObject = null; self.srcObject = S.local; self.play().catch(() => {}); }
+  } finally { flipping = false; paintTiles(); }
 }
 const stopStream = (s: MediaStream | null) => s?.getTracks().forEach((t) => t.stop());
 

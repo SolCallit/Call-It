@@ -430,3 +430,72 @@ body:has(.chdock) .fab{right:420px}
 .fbstrip .btn{flex:none;white-space:nowrap}
 .fbstrip .ib{flex:none}
 .fbrate button{font-weight:800}
+
+/* ---------- Community room fills the screen; the message box sits on the floor ---------- */
+body:has(#view>#msgs) #view{display:flex;flex-direction:column}
+#view>#msgs{flex:1 0 auto;min-height:0}
+#view>#msgs~.composer{margin-top:auto;z-index:5}
+.rhead .btn,.comm .btn{flex:none;white-space:nowrap}
+
+.chsearchtop{margin-top:12px}
+
+/* ---------- Token card in chat: Buy and Call it were crushed into 30px by the dock's close button rule ---------- */
+.chdrop .chdb{flex:none;width:auto;height:auto;border-radius:0;background:none;color:inherit;display:grid;grid-template-columns:1fr 1.4fr;gap:8px;place-items:stretch;cursor:default;padding:0}
+.chdrop .chdb:hover{background:none}
+.chdrop .chdb .btn{width:100%;min-width:0;white-space:nowrap;padding-left:8px;padding-right:8px}
+
+/* ---------- Call card: mini price line in the open space beside the name ---------- */
+.cspk{flex:1 1 60px;min-width:0;max-width:150px;height:32px;margin-left:auto;display:block;pointer-events:none}
+.cspk:empty{flex:0 0 0;max-width:0}
+.cspk svg{display:block;width:100%;height:100%;overflow:visible}
+.cspk path{fill:none;stroke-width:1.8;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke}
+.cspk svg.up path{stroke:var(--up)}.cspk svg.down path{stroke:var(--down)}
+@media (max-width:520px){.cspk{flex:1 1 0;max-width:46%;height:30px}.ccard:has(.stamps) .cspk{margin-top:8px}}
+@media (min-width:521px) and (max-width:760px){.cspk{display:none}}
+
+/* ---------- Post actions on phones: one row. Icons take what's left of the MC + Buy side ---------- */
+@media (max-width:600px){
+ .pbar{flex-wrap:nowrap;column-gap:4px}
+ .pbar .icons{flex:1 1 auto!important;min-width:0!important;justify-content:space-between}
+ .pbar .act{padding:6px 3px!important;min-width:0;gap:2px!important}
+ .pbar .act svg{width:17px;height:17px}
+ .pbar .act .num{font-size:12px}
+ .pbar .pright{flex:none;padding:0;gap:6px}
+ .pbar .pright .mc{font-size:12.5px!important;white-space:nowrap}
+ /* Holding the token adds a Sell button: that needs the second row back. */
+ .pbar:has(.sellq){flex-wrap:wrap}
+ .pbar:has(.sellq) .icons{flex:1 1 100%!important}
+ .pbar:has(.sellq) .pright{flex:1 1 100%;justify-content:flex-end;padding:0 0 4px}
+}
+@media (max-width:380px){.pbar .pright .mc small{display:none}.pbar .act svg{width:16px;height:16px}}
+
+/* ---------- Withdraw tabs: "Private · Coming soon" stays on one line on narrow phones ---------- */
+.pvseg button{min-width:0;white-space:nowrap}
+.pvsoonb{white-space:nowrap;flex:none}
+@media (max-width:400px){.pvseg button{font-size:13px;gap:4px;padding-left:8px;padding-right:8px}.pvsoonb{font-size:9px;padding:1px 6px;margin-left:2px}}
+
+/* ---------- Top caller cards: readable in the light theme ----------
+ * A lightbox caption shares the .lbc class and was painting these cards' text pale grey. */
+article.lbc{color:var(--text);font-size:inherit;font-weight:inherit;top:auto;left:auto;translate:none}
+[data-theme="light"] article.lbc .lbcrk,[data-theme="light"] article.lbc .lbctag{color:color-mix(in srgb,var(--acc) 52%,#101820);text-shadow:none}
+[data-theme="light"] article.lbc .lbctag{border-color:color-mix(in srgb,var(--acc) 60%,#101820);background:color-mix(in srgb,var(--acc) 22%,transparent)}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]) article.lbc .lbcrk,:root:not([data-theme="dark"]) article.lbc .lbctag{color:color-mix(in srgb,var(--acc) 52%,#101820);text-shadow:none}}
+
+.pnote .sold{display:inline}
+
+/* ---------- Wallet board in the light theme: light chart box and readable labels (it kept its dark-mode greys) ---------- */
+[data-theme="light"] .pboard .pbytd .ytd{background:color-mix(in srgb,var(--bg) 78%,transparent);border-color:var(--line)}
+[data-theme="light"] .pboard .pblab{color:var(--muted)}
+[data-theme="light"] .pboard .pbval{text-shadow:none}
+[data-theme="light"] .pboard .ytdfoot,.pboard .ytdtop small{color:var(--muted)}
+@media (prefers-color-scheme:light){
+:root:not([data-theme="dark"]) .pboard .pbytd .ytd{background:color-mix(in srgb,var(--bg) 78%,transparent);border-color:var(--line)}
+:root:not([data-theme="dark"]) .pboard .pblab{color:var(--muted)}
+:root:not([data-theme="dark"]) .pboard .pbval{text-shadow:none}
+:root:not([data-theme="dark"]) .pboard .ytdfoot,.pboard .ytdtop small{color:var(--muted)}
+}
+
+.comm .grow{flex:1;min-width:0}
+.pnote .sold b{white-space:nowrap}
+.composer>.grow{flex:1;min-width:0}
+@media (min-width:761px){.ccard .cn{flex:0 0 auto;max-width:46%}.cspk{flex:1 1 40px}}
