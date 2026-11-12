@@ -39,12 +39,18 @@ export async function GET(req: Request) {
       const list = await candles(t.pool, r.mint, tfFor((Date.now() / 1000 - born) / 3600));
       const supply = t.mc / t.price;
       const target = Number(r.target_mc) || 0;
-      for (const c of list || []) {
+      // Candles must agree with the live price, or they're for the wrong pool / wrong side of the
+      // pair and every "high" in them is garbage (this showed JUP calls as 4,900X "Target hit").
+      const last = list?.length ? list[list.length - 1][4] : 0;
+      const sane = last > 0 && last / t.price < 2 && last / t.price > 0.5;
+      for (const c of sane ? list || [] : []) {
         if (c[0] + 60 < born) continue; // candle closed before the call
-        const x = (c[2] * supply) / entry;
+        // One bad print on a thin pool isn't a peak: a wick counts up to 3X the candle's body.
+        const high = Math.min(c[2], Math.max(c[1], c[4]) * 3);
+        const x = (high * supply) / entry;
         if (!Number.isFinite(x) || x <= 0 || x > 100000) continue;
         if (x > hi) hi = x;
-        if (!hitAt && target > 0 && c[2] * supply >= target) hitAt = new Date(Math.max(c[0], born) * 1000).toISOString();
+        if (!hitAt && target > 0 && high * supply >= target) hitAt = new Date(Math.max(c[0], born) * 1000).toISOString();
       }
       // Live MC counts too.
       const now = t.mc / entry;
