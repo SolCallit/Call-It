@@ -40,15 +40,16 @@ export function callerShare(xReached: number, boughtIn = true): number {
 
 /** Buyer cashback: % of Callit's fee (after Jupiter's cut) on every buy, paid once the buyer has CASHBACK_MIN_POINTS. */
 export const CASHBACK_PCT = BUCKETS.find((b) => b.key === 'cashback')!.buy;
-export const cashbackMinPoints = () => num(process.env.CASHBACK_MIN_POINTS, 100);
+// 1,000 points = $100 traded at 10 pts per $10 (was 100 at the old 1-per-$10 rate: same unlock, new scale).
+export const cashbackMinPoints = () => num(process.env.CASHBACK_MIN_POINTS, 1000);
 
 /**
  * Points (server side, from verified facts only, so they can back real rewards):
- * - trading: 1 point per $10 of verified volume through Callit (buys and sells), up to 1,000 per trade
+ * - trading: 10 points for every $10 of verified volume through Callit (buys and sells), up to 10,000 per trade
  * - a call that holds 2X: +50 · a call that hits the caller's target: +100
  * Fees make wash trading cost more than it earns back (cashback is a slice of the fee you paid).
  */
-export const POINTS = { perUsd: 0.1, perTradeCap: 1000, qualified: 50, target: 100 };
+export const POINTS = { perUsd: 1, perTradeCap: 10000, qualified: 50, target: 100 };
 
 /** Points for a piece of tester feedback an admin marks as valid (FEEDBACK_POINTS, default 25). One award per report. */
 export const feedbackPoints = () => Math.max(0, Math.round(num(process.env.FEEDBACK_POINTS, 25)));
