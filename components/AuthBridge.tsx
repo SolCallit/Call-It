@@ -100,7 +100,7 @@ export default function AuthBridge() {
         try {
           const { signedTransaction } = await guarded(signTransaction({
             transaction: b64ToBytes(tx), wallet: w, chain,
-            // Privy's window ends on a receipt; the trade only goes out once it's closed, so say so.
+            // Only used when Privy's window is switched back on (NEXT_PUBLIC_WALLET_CONFIRM=1).
             options: { uiOptions: { successHeader: 'Signed', successDescription: 'Close this and Callit sends it.' } },
           }));
           return bytesToB64(signedTransaction);

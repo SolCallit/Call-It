@@ -50,6 +50,8 @@ export type JupiterExecuteResult = {
   [k: string]: unknown;
 };
 
+let referralOffUntil = 0;
+
 export async function getOrder(p: OrderParams): Promise<JupiterOrder> {
   const qs = new URLSearchParams({
     inputMint: p.inputMint,
@@ -76,13 +78,18 @@ export async function getOrder(p: OrderParams): Promise<JupiterOrder> {
     return { ok: res.ok, status: res.status, data };
   };
 
-  let r = await call(withFee);
+  // A referral Jupiter rejects as not set up is skipped for 10 minutes, so trades don't pay
+  // for a failing round trip every time.
+  const useFee = withFee && Date.now() > referralOffUntil;
+  let r = await call(useFee);
   // A misconfigured referral (account not initialised, no fee token account for this mint, bad bps)
-  // must never block trading: retry once without the fee and log why.
-  if (withFee && (!r.ok || !r.data.transaction)) {
-    console.warn('[jupiter] order with referral failed, retrying without fee:', r.status, r.data?.error || r.data?.errorMessage);
-    const plain = await call(false);
-    if (plain.ok && plain.data.transaction) r = plain;
+  // must never block trading: retry once without the fee and log why. If that fails too,
+  // the user sees the plain order's error (the real reason), not the referral one.
+  if (useFee && (!r.ok || !r.data.transaction)) {
+    const why = String(r.data?.error || r.data?.errorMessage || '');
+    console.warn('[jupiter] order with referral failed, retrying without fee:', r.status, why);
+    if (/referral/i.test(why)) referralOffUntil = Date.now() + 600_000;
+    r = await call(false);
   }
   if (!r.ok) throw new Error(errText(r.data?.error ?? r.data) || `Jupiter /order failed (${r.status})`);
   return r.data as JupiterOrder;

@@ -5,6 +5,7 @@ import { defaultSolanaRpcsPlugin, toSolanaWalletConnectors } from '@privy-io/rea
 import { PRIVY_APP_ID } from '@/lib/config';
 import AuthBridge from '@/components/AuthBridge';
 
+const WALLET_CONFIRM = process.env.NEXT_PUBLIC_WALLET_CONFIRM === '1';
 const solanaConnectors = toSolanaWalletConnectors({ shouldAutoConnect: true });
 // Privy's "Confirm transaction" window reads the chain (fee, balance, lookup tables) through an
 // RPC. With none configured it throws while drawing, which took the whole page down on every
@@ -27,7 +28,14 @@ export default function PrivyLayer() {
           walletChainType: 'solana-only',
           showWalletLoginFirst: false,
         },
-        embeddedWallets: { solana: { createOnLogin: 'users-without-wallets' }, ethereum: { createOnLogin: 'off' } },
+        embeddedWallets: {
+          solana: { createOnLogin: 'users-without-wallets' },
+          ethereum: { createOnLogin: 'off' },
+          // In-app wallets sign straight away: the user already confirmed on Callit's own button
+          // (amount and token shown there). NEXT_PUBLIC_WALLET_CONFIRM=1 brings Privy's window back.
+          // Phantom / Solflare / Backpack still ask in their own app.
+          showWalletUIs: WALLET_CONFIRM,
+        },
         externalWallets: { solana: { connectors: solanaConnectors } },
         plugins,
       }}

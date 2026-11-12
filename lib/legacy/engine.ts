@@ -323,8 +323,15 @@ function loadMe(){if(!SYNC())return;API('/api/me').then(j=>{
   if(Array.isArray(j.bookmarks)){const local=[...S.bm].filter(x=>!j.bookmarks.includes(x));S.bm=new Set([...j.bookmarks,...local]);saveBm();local.forEach(ref=>bg('/api/social',{action:'bookmark',ref,on:true}))}
   const R={};(j.reactions||[]).forEach(x=>{(R[x.post_ref]=R[x.post_ref]||{})[x.kind]=1});
   calls.forEach(k=>{const r=R[String(k.id)];if(!r)return;if(r.like&&!k.liked){k.liked=true;if(!k.srv)k.likes++}if(r.repost&&!k.reposted){k.reposted=true;if(!k.srv)k.reposts++}});
-  S.ledger=j.transactions||[];S.activity=S.ledger.map(txRow);render()}).catch(e=>console.warn('[callit] /api/me',e.message))}
-function txRow(t){const K={buy:'Bought',sell:'Sold',swap:'Swapped',withdraw:'Withdrew',deposit:'Received'};
+  S.ledger=j.transactions||[];S.activity=actRows();render();chainHist(1)}).catch(e=>console.warn('[callit] /api/me',e.message))}
+/* Callit's own ledger plus what the chain shows for the wallet (deposits, swaps and sends made anywhere). */
+function actRows(){const seen=new Set((S.ledger||[]).map(t=>t.signature));
+ const all=[...(S.ledger||[]),...(S.chainTx||[]).filter(t=>t.signature&&!seen.has(t.signature))];
+ all.sort((a,b)=>(Date.parse(b.created_at)||0)-(Date.parse(a.created_at)||0));return all.map(txRow)}
+function chainHist(force){if(!SYNC()||!S.connected)return;if(!force&&Date.now()-(S.chainAt||0)<45e3)return;S.chainAt=Date.now();
+ API('/api/wallet/history').then(j=>{const rows=Array.isArray(j.rows)?j.rows:[];const sig=r=>r.map(x=>x.signature).join();
+  if(sig(rows)===sig(S.chainTx||[]))return;S.chainTx=rows;S.activity=actRows();if($('#walhist'))render()}).catch(()=>{})}
+function txRow(t){const K={buy:'Bought',sell:'Sold',swap:'Swapped',withdraw:'Withdrew',deposit:'Received',send:'Sent'};
  const d=Date.parse(t.created_at),m=(Date.now()-d)/6e4;
  return {k:K[t.kind]||t.kind,d:t.label||'',t:m<1?'Just now':m<60?Math.round(m)+'m ago':m<1440?Math.round(m/60)+'h ago':new Date(d).toLocaleDateString(),sig:t.signature}}
 /* Records a real on-chain transaction to the user's account (and stamps a call's buy-in). */
@@ -1571,7 +1578,7 @@ function vWallet(){if(!S.connected)return `<div class="empty"><b class="h2">No w
  return `<div class="pad wpage"><div class="wbg" aria-hidden="true">${walletArt(artSeed(),4,'art wbgart')}</div><div class="wcsw">${vseg('wcard',[['pf','Portfolio','wallet'],['earn','Earnings','crown']],wc,'Wallet view')}</div><div class="wcbody">${cardArt}</div>
  <div class="acts2 acts3"><button class="btn primary" data-act="deposit">${ic('down',16)} Deposit</button><button class="btn" data-act="withdraw">${ic('up',16)} Withdraw</button><a class="btn" href="#/swap">${ic('swap',16)} Swap</a></div>
  ${vAssets(rows)}
- <div id="walords">${ordersList()}</div><b class="h2" style="display:block;margin:22px 0 4px">History</b><div class="list">${S.activity.map(a=>`<div class="li"><div class="grow"><b>${esc(a.k)}</b><div class="hint">${esc(a.t)}${a.sig?` · <a class="lnk" href="https://solscan.io/tx/${a.sig}" target="_blank" rel="noopener noreferrer">View</a>`:''}</div></div><div class="r num">${esc(a.d)}</div></div>`).join('')||'<div class="empty" style="padding:18px 8px"><b>No history yet</b><p>Deposits, trades and withdrawals show up here.</p></div>'}</div></div>`}
+ <div id="walords">${ordersList()}</div><b class="h2" style="display:block;margin:22px 0 4px">History</b><div class="list" id="walhist">${(chainHist(),"")}${S.activity.map(a=>`<div class="li"><div class="grow"><b>${esc(a.k)}</b><div class="hint">${esc(a.t)}${a.sig?` · <a class="lnk" href="https://solscan.io/tx/${a.sig}" target="_blank" rel="noopener noreferrer">View</a>`:''}</div></div><div class="r num">${esc(a.d)}</div></div>`).join('')||'<div class="empty" style="padding:18px 8px"><b>No history yet</b><p>Deposits, trades and withdrawals show up here.</p></div>'}</div></div>`}
 
 /* ---------- caller earnings + Claim ----------
  * Calls pay once they hold 2X on a rolling-average MC (a wick doesn't count).
@@ -3781,10 +3788,14 @@ setTimeout(()=>syncLanding(),BOOT_MAX+50);
 /* ---------- Invite-only gate ---------- */
 const GATE={gate:false,granted:true,for:null,busy:0};
 function accessCheck(){if(GATE.busy)return;GATE.busy=1;const who=S.connected?S.me:null;
- API('/api/access').then(j=>{GATE.gate=!!j.gate;GATE.granted=!!j.granted;GATE.for=who;
+ API('/api/access').then(j=>{
+  // Signed in here but the server didn't see a session yet (Privy token still loading).
+  // That says nothing about access, so never lock the account out on it: ask again shortly.
+  if(j.gate&&!j.signedIn&&S.connected){GATE.tries=(GATE.tries||0)+1;if(GATE.tries<8)setTimeout(accessCheck,1200);return}
+  GATE.tries=0;GATE.gate=!!j.gate;GATE.granted=!!j.granted;GATE.for=who;
   let pend=null;try{pend=sessionStorage.getItem('callit.code')}catch(_){}
   if(GATE.gate&&!GATE.granted&&j.signedIn&&pend)return redeemCode(pend);gateSync()}).catch(()=>{}).finally(()=>{GATE.busy=0})}
-function redeemCode(code){return API('/api/access',{body:{code}}).then(()=>{try{sessionStorage.removeItem('callit.code')}catch(_){}GATE.granted=true;gateSync();toast('You’re in. Welcome to Callit');render()})
+function redeemCode(code){return API('/api/access',{body:{code}}).then(j=>{try{sessionStorage.removeItem('callit.code')}catch(_){}GATE.granted=true;gateSync();toast(j&&j.already?'You already have access. Keep that code for someone else':'You’re in. Welcome to Callit');render()})
  .catch(e=>{try{sessionStorage.removeItem('callit.code')}catch(_){}gateSync(e.message)})}
 function gateSync(err){let el=$('#gate');const land=$('#landing'),show=GATE.gate&&!GATE.granted&&!(land&&!land.hidden);
  if(!show){if(el)el.remove();document.body.classList.remove('gated');return}
@@ -3842,7 +3853,7 @@ function scopeLocal(owner){let prev='';try{prev=localStorage.getItem('callit.own
   try{const lg=localStorage.getItem('callit.drafts');if(lg!=null){if(prev&&!localStorage.getItem(DKEY(prev)))localStorage.setItem(DKEY(prev),lg);localStorage.removeItem('callit.drafts')}}catch(_){}}
  if(prev!==owner){S.bm=new Set();saveBm();S.notifyOn={};S.premium=null;S.stakeWait=false;
   try{['callit.notify','callit.premium','callit.recent'].forEach(k=>localStorage.removeItem(k))}catch(_){}
-  S.watch=new Set();S.following=new Set();S.followers=0;S.muted=new Set();S.blocked=new Set();S.lists=[];S.ledger=[];S.activity=[];
+  S.watch=new Set();S.following=new Set();S.followers=0;S.muted=new Set();S.blocked=new Set();S.lists=[];S.ledger=[];S.chainTx=[];S.chainAt=0;S.activity=[];
   calls.forEach(k=>{if(k.liked){k.liked=false;if(!k.srv)k.likes=Math.max(0,k.likes-1)}if(k.reposted){k.reposted=false;if(!k.srv)k.reposts=Math.max(0,k.reposts-1)}});
   DRAFTS.length=0;try{DRAFTS.push(...(JSON.parse(localStorage.getItem(DKEY(owner))||'[]')||[]))}catch(_){}}
  DOWN=owner;try{owner?localStorage.setItem('callit.owner',owner):localStorage.removeItem('callit.owner')}catch(_){}}
@@ -3855,7 +3866,7 @@ window.callitApplySession=(p,o={})=>{
  scopeLocal(ownerOf(p));
  try{localStorage.setItem('callit.lastProfile',JSON.stringify(p))}catch(_){}
  const first=!S.connected,prevAddr=S.addr;if(first)nextArtOnLogin();S.connected=true;S.profile=p;S.me=p.handle;S.addr=p.wallet_address||'';
- if(realAuth()&&S.addr!==prevAddr){S.bal={SOL:0};S.activity=[];S.balAt=0;for(const k in RAW)delete RAW[k];S.swap.amt=''}
+ if(realAuth()&&S.addr!==prevAddr){S.bal={SOL:0};S.activity=[];S.chainTx=[];S.chainAt=0;S.balAt=0;for(const k in RAW)delete RAW[k];S.swap.amt=''}
  C[S.me]=C[S.me]||{h:S.me,win:0,avg:0,calls:0,best:0,followers:0};
  const owner=ownerOf(p);if(PROF._o!==owner)PROF={_o:owner};/* never show another account's picture, banner or bio */
  PROF={...PROF,name:p.display_name??PROF.name??'',bio:p.bio??PROF.bio??'',web:p.website??PROF.web??'',x:p.x_handle??PROF.x??'',avatar:p.avatar_url||PROF.avatar,banner:p.banner_url||PROF.banner};saveProf();
