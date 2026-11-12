@@ -521,3 +521,79 @@ article.lbc .lbcstats>div{background:color-mix(in srgb,var(--bg) 55%,transparent
 .lbpnl{font-weight:800;white-space:nowrap}
 .person .vb{margin-left:2px}
 article.lbc::after{display:none}
+
+/* ---------- Callerboard: top-caller cards were oversized on desktop ---------- */
+@media (min-width:900px){
+  .lbtrack{grid-auto-columns:212px;gap:10px;padding:8px 16px 14px}
+  article.lbc{gap:9px;padding:12px 12px 11px;border-radius:16px}
+  article.lbc .lbcrk{font-size:21px}
+  article.lbc .lbctag{font-size:9px;padding:4px 7px;letter-spacing:.12em}
+  article.lbc .lbcmed{font-size:17px}
+  article.lbc .lbcwho{gap:9px}article.lbc .lbcwho b{font-size:14px}article.lbc .lbcwho small{font-size:12px}
+  article.lbc .lbcav .av{width:34px;height:34px;font-size:12px}
+  article.lbc .lbcpnl{margin:-2px 0}article.lbc .lbcpnl b{font-size:21px}article.lbc .lbcpnl span{font-size:9.5px}
+  article.lbc .lbcstats{gap:6px}
+  article.lbc .lbcstats>div{padding:6px 9px;border-radius:10px}
+  article.lbc .lbcstats small{font-size:8.5px;margin-bottom:2px}
+  article.lbc .lbcstats b{font-size:14px}
+  article.lbc .lbcxpt{font-size:11px;margin-bottom:4px}
+  article.lbc .lbcbar{height:4px}
+  article.lbc .lbcgo{min-height:30px;height:30px;font-size:12.5px;padding:0 10px}
+  .lbcar{padding-bottom:8px}
+}
+
+/* ---------- Desktop side columns: quick swap (left) + Home feed (right) ---------- */
+.sidel{display:none}.termh,.termmore{display:none}
+@media (min-width:1100px) and (pointer:fine){
+  body.sides .cols{grid-template-columns:minmax(0,1fr) minmax(330px,400px);gap:0;padding:0}
+  body.sides.sides2 .cols{grid-template-columns:minmax(300px,350px) minmax(0,1fr) minmax(330px,400px)}
+  body.sides.mwide:not([data-route=market]):not([data-route=trenches]) .center{max-width:none;justify-self:stretch;border-left:1px solid var(--line);border-right:1px solid var(--line)}
+  body.sides.sides2 .sidel{display:block;position:sticky;top:var(--hdr);align-self:start;max-height:calc(100vh / var(--z,1) - var(--hdr));overflow-y:auto;padding:16px 14px 24px;scrollbar-width:none}
+  body.sides .sidel::-webkit-scrollbar{display:none}
+  body.sides .sidesw{padding:14px}
+  body.sides .sidesw .tradeh{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  body.sides .sidesw h3{margin:0}
+  body.sides.mwide .rail{display:flex;position:sticky;top:var(--hdr);align-self:start;height:calc(100vh / var(--z,1) - var(--hdr));max-height:none;padding:0;gap:0;overflow:hidden}
+  body.sides .rail>*{display:flex!important}
+  .sidep{flex:1;min-width:0;flex-direction:column;height:100%}
+  .sideh{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line);flex:none}
+  .sideh h3{margin:0;flex:1;font-size:15px}
+  .sideb{flex:1;min-height:0;overflow-y:auto;scrollbar-width:thin;zoom:.9}
+  .sideb .post{padding-left:12px;padding-right:12px}
+  /* Call cards in a narrow column (side feed, token terminal): use the phone layout, not the desktop one */
+  .sideb .pbar,.tright .pbar{flex-wrap:nowrap;column-gap:4px}
+  .sideb .pbar .icons,.tright .pbar .icons{flex:1 1 auto!important;min-width:0!important;justify-content:space-between}
+  .sideb .pbar .act,.tright .pbar .act{padding:6px 3px!important;min-width:0;gap:2px!important}
+  .sideb .pbar .act svg,.tright .pbar .act svg{width:17px;height:17px}
+  .sideb .pbar .act .num,.tright .pbar .act .num{font-size:12px}
+  .sideb .pbar .pright,.tright .pbar .pright{flex:none;padding:0;gap:6px}
+  .sideb .pbar .pright .mc,.tright .pbar .pright .mc{font-size:12.5px!important;white-space:nowrap}
+  .sideb .pbar .pright .mc small,.tright .pbar .pright .mc small{display:none}
+  .sideb .pbar:has(.sellq),.tright .pbar:has(.sellq){flex-wrap:wrap}
+  .sideb .ccard .cspk,.tright .ccard .cspk{display:none}
+  .sideb .ccard .cr3,.tright .ccard .cr3{gap:10px}
+  .sideb .ccard .cr2 b,.tright .ccard .cr2 b{font-size:14px}
+  .sideb .ccard .cn,.tright .ccard .cn{flex:1 1 0;min-width:0;max-width:none}
+  .sideb .ccard,.tright .ccard{padding-left:12px;padding-right:12px}
+  .sideb .ccard .cn .chain,.tright .ccard .cn .chain{display:none}
+  .tright .ccard .cr2 b{font-size:13px}.tright .ccard .cr3{gap:8px}
+  .tright .ccard .cn{min-width:64px}
+  .tright .post{padding-left:12px;padding-right:12px}
+  .termmore{display:none}
+  body.term #view .termmore{display:block;border-top:1px solid var(--line);margin-top:8px}
+
+  /* Token page as a terminal: trade + token/pool info | chart + holders | calls on this token */
+  body.term.mwide[data-route=token] .center{max-width:none;justify-self:stretch}
+  body.term #view:has(>.tmain){display:grid;grid-template-columns:minmax(280px,340px) minmax(0,1fr) minmax(330px,440px);align-items:start}
+  body.term #view>.tleft{grid-column:1;grid-row:1;position:sticky;top:calc(var(--hdr) / .9);max-height:calc((100vh / var(--z,1) - var(--hdr)) / .9);overflow-y:auto;scrollbar-width:none;border-right:1px solid var(--line)}
+  body.term #view>.tleft::-webkit-scrollbar{display:none}
+  body.term #view>.tmain{grid-column:2;grid-row:1;min-width:0}
+  body.term #view>.tright{grid-column:3;grid-row:1;position:sticky;top:calc(var(--hdr) / .9);max-height:calc((100vh / var(--z,1) - var(--hdr)) / .9);overflow-y:auto;scrollbar-width:thin;border-left:1px solid var(--line)}
+  body.term #view .lpanel{display:block!important}
+  body.term #view .ltabs{display:none}
+  body.term #view .termh{display:block;margin:4px 0 10px}
+  body.term #view .tleft .lpanel.pad{padding:14px 12px 0}
+  body.term #view .tleft .lpanel:last-child{padding-bottom:24px}
+  body.term #view .tleft .card{padding:14px}
+  body.term #view .tmain .lchart{height:min(54vh,520px)}
+}
