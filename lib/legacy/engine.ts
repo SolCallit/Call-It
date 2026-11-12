@@ -727,7 +727,7 @@ function realSwap(from,to,amt,desc,done,opt={}){let base;try{base=baseOf(from,am
   const od=decOf(to),got=r.outAmount&&od!=null?Number(r.outAmount)/10**od:null;
   const kind=from==='SOL'?'buy':to==='SOL'?'sell':'swap',pf=T[from]&&T[from].price;
   const res=kind==='sell'?sellResult(from,+amt,got,pf):null;
-  logTx({k:{buy:'Bought',sell:'Sold',swap:'Swapped'}[kind],kind,label:`${fmtAmt(amt)} ${symOf(from)} → ${got!=null?fmtAmt(got)+' ':''}${symOf(to)}`,signature:r.signature,in_mint:mintOf(from),in_amount:amt,out_mint:mintOf(to),out_amount:got,usd_value:pf?amt*pf:null,call_ref:opt.callRef!=null?String(opt.callRef):null});if(opt.after)setTimeout(()=>{try{opt.after(r)}catch(e){console.warn(e)}},1800);if(res)setTimeout(()=>resultPop(res),700);return r.signature}),done)}
+  logTx({k:{buy:'Bought',sell:'Sold',swap:'Swapped'}[kind],kind,label:`${fmtAmt(amt)} ${symOf(from)} → ${got!=null?fmtAmt(got)+' ':''}${symOf(to)}`,signature:r.signature,in_mint:mintOf(from),in_amount:amt,out_mint:mintOf(to),out_amount:got,usd_value:pf?amt*pf:null,call_ref:opt.callRef!=null?String(opt.callRef):null,fee_proof:r.feeProof||undefined});if(opt.after)setTimeout(()=>{try{opt.after(r)}catch(e){console.warn(e)}},1800);if(res)setTimeout(()=>resultPop(res),700);return r.signature}),done)}
 /* ---------- Sell result: realized PnL against your average cost, confetti on a win ---------- */
 function sellResult(key,amt,gotSol,pf){const p=pnlBook().P[mintOf(key)],t=T[key];if(!p||!(p.amt>0)||!(amt>0)||!t)return null;
  const q=Math.min(amt,p.amt),avg=p.cost/p.amt,cost=avg*q,sp=T.SOL&&T.SOL.price,proceeds=gotSol!=null&&sp?gotSol*sp:pf?amt*pf:0;if(!(cost>0)||!(proceeds>0))return null;

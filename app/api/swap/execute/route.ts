@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyPrivyToken } from "@/lib/auth/privy-server";
 import { executeOrder } from "@/lib/jupiter";
 import { errText } from "@/lib/errors";
+import { feeProof, orderTagOk } from "@/lib/fees/proof";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,7 +28,7 @@ function friendly(raw: string, code?: number): string {
 export async function POST(req: NextRequest) {
   if (!(await verifyPrivyToken(req))) return NextResponse.json({ error: "Sign in to trade" }, { status: 401 });
 
-  let body: { signedTransaction?: unknown; requestId?: unknown };
+  let body: { signedTransaction?: unknown; requestId?: unknown; feeTag?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -55,6 +56,7 @@ export async function POST(req: NextRequest) {
       signature: result.signature ?? null,
       error: result.status === "Success" ? null : friendly(errText(result.error), result.code),
       code: result.code,
+      feeProof: result.status === "Success" && result.signature && orderTagOk(requestId, body.feeTag) ? feeProof(result.signature) : undefined,
     });
   } catch (e) {
     console.error("[swap/execute]", e);

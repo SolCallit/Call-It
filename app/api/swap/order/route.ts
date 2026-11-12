@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyPrivyToken } from "@/lib/auth/privy-server";
 import { getOrder } from "@/lib/jupiter";
 import { errText } from "@/lib/errors";
+import { orderTag } from "@/lib/fees/proof";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -78,6 +79,8 @@ export async function GET(req: NextRequest) {
       feeBps: order.feeBps,
       router: order.router,
       gasless: order.gasless,
+      // Present only when the order carries Callit's fee; execute trades it for a proof.
+      feeTag: order.withReferral ? orderTag(order.requestId) : undefined,
     });
   } catch (e) {
     console.error("[swap/order]", e);

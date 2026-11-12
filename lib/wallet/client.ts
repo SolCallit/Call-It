@@ -71,7 +71,7 @@ const sign = async (b64: string, owner: string) => {
   return stepRun('sign', () => w.signTx(b64, owner));
 };
 
-export type SwapResult = { signature: string; inAmount?: string; outAmount?: string };
+export type SwapResult = { signature: string; inAmount?: string; outAmount?: string; feeProof?: string };
 
 /** Jupiter Meta-Aggregator: quote + assembled tx, user signs, Jupiter lands it. */
 export async function swap(
@@ -83,18 +83,18 @@ export async function swap(
   if (p.slippageBps != null) qs.set('slippageBps', String(p.slippageBps));
   if (p.priorityFeeLamports) qs.set('priorityFeeLamports', String(p.priorityFeeLamports));
   if (p.jitoTipLamports) qs.set('jitoTipLamports', String(p.jitoTipLamports));
-  const q = (await stepRun('quote', () => authed(`/api/swap/order?${qs}`))) as { requestId: string; transaction: string; inAmount: string; outAmount: string };
+  const q = (await stepRun('quote', () => authed(`/api/swap/order?${qs}`))) as { requestId: string; transaction: string; inAmount: string; outAmount: string; feeTag?: string };
   step('Approve in your wallet…');
   const signed = await sign(q.transaction, p.taker);
   step('Sending to Solana…');
   const r = (await stepRun('execute', () => authed('/api/swap/execute', {
     method: 'POST',
-    body: JSON.stringify({ signedTransaction: signed, requestId: q.requestId }),
-  }))) as { status: string; signature: string | null; error?: unknown; code?: number };
+    body: JSON.stringify({ signedTransaction: signed, requestId: q.requestId, feeTag: q.feeTag }),
+  }))) as { status: string; signature: string | null; error?: unknown; code?: number; feeProof?: string };
   if (r.status !== 'Success' || !r.signature) {
     throw new TxError(friendlyError(r.error ? { message: errText(r.error), code: r.code } : 'Swap failed. Nothing was spent.'), 'execute', r);
   }
-  return { signature: r.signature, inAmount: q.inAmount, outAmount: q.outAmount };
+  return { signature: r.signature, inAmount: q.inAmount, outAmount: q.outAmount, feeProof: r.feeProof };
 }
 
 /** Withdraw SOL or any SPL token to an outside address. */

@@ -37,6 +37,8 @@ export type JupiterOrder = {
   feeBps?: number;
   router?: "metis" | "jupiterz" | "dflow" | "okx";
   gasless?: boolean;
+  /** Set by getOrder: true only when this order was built with Callit's referral fee. */
+  withReferral?: boolean;
   errorCode?: number;
   errorMessage?: string;
   error?: string;
@@ -82,6 +84,7 @@ export async function getOrder(p: OrderParams): Promise<JupiterOrder> {
   // for a failing round trip every time.
   const useFee = withFee && Date.now() > referralOffUntil;
   let r = await call(useFee);
+  let feeOn = useFee;
   // A misconfigured referral (account not initialised, no fee token account for this mint, bad bps)
   // must never block trading: retry once without the fee and log why. If that fails too,
   // the user sees the plain order's error (the real reason), not the referral one.
@@ -90,9 +93,10 @@ export async function getOrder(p: OrderParams): Promise<JupiterOrder> {
     console.warn('[jupiter] order with referral failed, retrying without fee:', r.status, why);
     if (/referral/i.test(why)) referralOffUntil = Date.now() + 600_000;
     r = await call(false);
+    feeOn = false;
   }
   if (!r.ok) throw new Error(errText(r.data?.error ?? r.data) || `Jupiter /order failed (${r.status})`);
-  return r.data as JupiterOrder;
+  return { ...(r.data as JupiterOrder), withReferral: feeOn && !!r.data.transaction };
 }
 
 export async function executeOrder(

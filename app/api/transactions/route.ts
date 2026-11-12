@@ -2,6 +2,7 @@ import { NextResponse, after } from 'next/server';
 import { requireMe, json, isMint, num, str } from '@/lib/db/me';
 import { rpc } from '@/lib/solana/rpc';
 import { liveFeeBps } from '@/lib/fees/model';
+import { feeProofOk } from '@/lib/fees/proof';
 import { solPrice } from '@/lib/payouts/payout';
 import { onTrade } from '@/lib/alerts/triggers';
 
@@ -97,9 +98,10 @@ export async function POST(req: Request) {
     call_ref: typeof b.call_ref === 'string' || typeof b.call_ref === 'number' ? String(b.call_ref).slice(0, 64) : null,
     label: str(b.label, 160) || null, verified: verified === true,
   };
-  // Fee Callit earned on this trade, stamped server-side from the live referral setting.
+  // Fee Callit earned on this trade. Only booked when the server proved the order carried the
+  // referral fee (Jupiter drops it when the referral account isn't set up for that token).
   const trade = row.kind === 'buy' || row.kind === 'sell' || row.kind === 'swap';
-  const fee_bps = trade ? liveFeeBps() : 0;
+  const fee_bps = trade && feeProofOk(row.signature, b.fee_proof) ? liveFeeBps() : 0;
   const fee_usd = fee_bps && row.usd_value ? (row.usd_value * fee_bps) / 10_000 : 0;
   let { error } = await db.from('transactions').upsert({ ...row, fee_bps, fee_usd }, { onConflict: 'signature', ignoreDuplicates: true });
   // Migration 0006 not run yet: still record the trade, just without fee columns.
