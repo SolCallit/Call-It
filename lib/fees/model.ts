@@ -78,10 +78,11 @@ export const moonshotMinMc = () => num(process.env.MOONSHOT_MIN_MC, 250_000);
 /** Claim limits (USD). Payouts stay off until PAYOUTS_ON=1 and a payout wallet is set. */
 export const PAYOUT = {
   minUsd: () => num(process.env.PAYOUT_MIN_USD, 1),
-  // No caps by default: callers are paid whatever they earned, 24/7. The payout wallet's balance is the
-  // real limit, and the admin pause switch stops everything at once. Set these only as an emergency brake.
-  maxPerClaimUsd: () => num(process.env.PAYOUT_MAX_CLAIM_USD, Infinity),
-  dailyCapUsd: () => num(process.env.PAYOUT_DAILY_CAP_USD, Infinity),
+  // Brakes so one bug or one abuser can never empty the payout wallet. Bigger balances still get paid,
+  // just over several claims/days. Override in Vercel env if needed.
+  maxPerClaimUsd: () => num(process.env.PAYOUT_MAX_CLAIM_USD, 100),       // one claim
+  userDailyCapUsd: () => num(process.env.PAYOUT_USER_DAILY_CAP_USD, 200), // one user, rolling 24h
+  dailyCapUsd: () => num(process.env.PAYOUT_DAILY_CAP_USD, 3000),         // everyone, rolling 24h
 };
 const num = (v: string | undefined, d: number) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : d; };
 

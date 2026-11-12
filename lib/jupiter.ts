@@ -40,6 +40,9 @@ export type JupiterOrder = {
   errorCode?: number;
   errorMessage?: string;
   error?: string;
+  /** Callit's own fee on this order in bps: the referral fee was attached AND Jupiter honoured it (0 otherwise). */
+  callitFeeBps?: number;
+  feeMint?: string;
 };
 
 export type JupiterExecuteResult = {
@@ -77,15 +80,20 @@ export async function getOrder(p: OrderParams): Promise<JupiterOrder> {
   };
 
   let r = await call(withFee);
+  let feeOn = withFee;
   // A misconfigured referral (account not initialised, no fee token account for this mint, bad bps)
   // must never block trading: retry once without the fee and log why.
   if (withFee && (!r.ok || !r.data.transaction)) {
     console.warn('[jupiter] order with referral failed, retrying without fee:', r.status, r.data?.error || r.data?.errorMessage);
     const plain = await call(false);
-    if (plain.ok && plain.data.transaction) r = plain;
+    if (plain.ok && plain.data.transaction) { r = plain; feeOn = false; }
   }
   if (!r.ok) throw new Error(errText(r.data?.error ?? r.data) || `Jupiter /order failed (${r.status})`);
-  return r.data as JupiterOrder;
+  // Jupiter silently drops the referral fee when Callit has no fee account for the fee mint, and falls back
+  // to its own default feeBps. Only count it as Callit's fee when the order echoes back our exact bps.
+  const out = r.data as JupiterOrder;
+  out.callitFeeBps = feeOn && Number(out.feeBps) === Number(referralFee) ? Number(referralFee) : 0;
+  return out;
 }
 
 export async function executeOrder(

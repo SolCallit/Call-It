@@ -9,7 +9,6 @@ import { getTransferSolInstruction } from '@solana-program/system';
 import { getOrder, executeOrder } from '@/lib/jupiter';
 import { rpc, SOL_MINT } from '@/lib/solana/rpc';
 import { jupMany, type LiveToken } from '@/lib/market/sources';
-import { liveFeeBps } from '@/lib/fees/model';
 import { onNewCall, onTrade } from '@/lib/alerts/triggers';
 import { signerOf, solBalance, tokenBalance, maxBuySol, type BotWallet } from '@/lib/telegram/wallet';
 
@@ -70,8 +69,8 @@ function friendly(m: string): string {
 }
 
 type Rec = { kind: 'buy' | 'sell'; signature: string; in_mint: string; out_mint: string; in_amount: number; out_amount: number; usd: number; label: string; call_ref?: string | null };
-async function record(db: SupabaseClient, me: { id: string; handle: string }, w: BotWallet, r: Rec) {
-  const fee_bps = liveFeeBps(), fee_usd = fee_bps && r.usd ? (r.usd * fee_bps) / 10_000 : 0;
+async function record(db: SupabaseClient, me: { id: string; handle: string }, w: BotWallet, r: Rec, feeBps = 0) {
+  const fee_bps = feeBps, fee_usd = fee_bps && r.usd ? (r.usd * fee_bps) / 10_000 : 0;
   const row = {
     profile_id: me.id, wallet: w.address, kind: r.kind, signature: r.signature, in_mint: r.in_mint, in_amount: r.in_amount,
     out_mint: r.out_mint, out_amount: r.out_amount, usd_value: r.usd, call_ref: r.call_ref ?? null, label: r.label.slice(0, 160),
@@ -116,7 +115,7 @@ export async function buy(db: SupabaseClient, w: BotWallet, tgUser: { id: number
     const outUi = t.decimals != null ? Number(order.outAmount) / 10 ** t.decimals : Number(order.outAmount);
     let callId: string | null = null;
     if (w.auto_call && t.mc) callId = await autoCall(db, me, t, signature, usd, sol);
-    await record(db, me, w, { kind: 'buy', signature, in_mint: SOL_MINT, out_mint: mint, in_amount: sol, out_amount: outUi, usd, label: `Bot buy $${t.sym}`, call_ref: callRef || callId });
+    await record(db, me, w, { kind: 'buy', signature, in_mint: SOL_MINT, out_mint: mint, in_amount: sol, out_amount: outUi, usd, label: `Bot buy $${t.sym}`, call_ref: callRef || callId }, order.callitFeeBps || 0);
     return { ok: true, signature, callId, text: `Bought ~${fmtN(outUi)} $${t.sym} for ${sol} SOL${usd ? ` ($${usd.toFixed(2)})` : ''}` };
   } catch (e) { return { ok: false, error: (e as Error).message || 'Buy failed. Nothing was spent.' }; }
 }
@@ -131,7 +130,7 @@ export async function sell(db: SupabaseClient, w: BotWallet, tgUser: { id: numbe
     const { signature, order } = await swapSigned(w, mint, SOL_MINT, amt);
     const me = await profileFor(db, w, tgUser);
     const sol = Number(order.outAmount) / 1e9, usd = Number(order.outUsdValue) || 0;
-    await record(db, me, w, { kind: 'sell', signature, in_mint: mint, out_mint: SOL_MINT, in_amount: Number(amt) / 10 ** bal.decimals, out_amount: sol, usd, label: `Bot sell $${t?.sym || ''}` });
+    await record(db, me, w, { kind: 'sell', signature, in_mint: mint, out_mint: SOL_MINT, in_amount: Number(amt) / 10 ** bal.decimals, out_amount: sol, usd, label: `Bot sell $${t?.sym || ''}` }, order.callitFeeBps || 0);
     return { ok: true, signature, text: `Sold ${pct}% of $${t?.sym || 'token'} for ${sol.toFixed(4)} SOL${usd ? ` ($${usd.toFixed(2)})` : ''}` };
   } catch (e) { return { ok: false, error: (e as Error).message || 'Sell failed. Nothing was spent.' }; }
 }
