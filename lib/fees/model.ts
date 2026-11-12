@@ -40,7 +40,7 @@ export function callerShare(xReached: number, boughtIn = true): number {
 
 /** Buyer cashback: % of Callit's fee (after Jupiter's cut) on every buy, paid once the buyer has CASHBACK_MIN_POINTS. */
 export const CASHBACK_PCT = BUCKETS.find((b) => b.key === 'cashback')!.buy;
-// 1,000 points = $100 traded at 10 pts per $10 (was 100 at the old 1-per-$10 rate: same unlock, new scale).
+// 1,000 points = $1,000 traded at 10 pts per $10 (was 100 at the old 1-per-$10 rate: same unlock, new scale).
 export const cashbackMinPoints = () => num(process.env.CASHBACK_MIN_POINTS, 1000);
 
 /**
