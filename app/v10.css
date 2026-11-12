@@ -591,9 +591,30 @@ article.lbc::after{display:none}
   body.term #view>.tright{grid-column:3;grid-row:1;position:sticky;top:calc(var(--hdr) / .9);max-height:calc((100vh / var(--z,1) - var(--hdr)) / .9);overflow-y:auto;scrollbar-width:thin;border-left:1px solid var(--line)}
   body.term #view .lpanel{display:block!important}
   body.term #view .ltabs{display:none}
-  body.term #view .termh{display:block;margin:4px 0 10px}
+  /* Under the chart: Holders / Calls / Info, as tabs */
+  body.term #view .ltabs.ctabs{display:grid;grid-template-columns:repeat(3,1fr);position:static;margin:12px 0 0;padding:6px 0;background:none;backdrop-filter:none}
+  body.term #view .cpanel{display:block}
+  body.term #view [data-cp].cpoff{display:none!important}
   body.term #view .tleft .lpanel.pad{padding:14px 12px 0}
   body.term #view .tleft .lpanel:last-child{padding-bottom:24px}
   body.term #view .tleft .card{padding:14px}
   body.term #view .tmain .lchart{height:min(54vh,520px)}
 }
+
+/* ---------- Token page: centre tabs (desktop terminal only) + holders table ---------- */
+.ctabs,.cpanel{display:none}
+.hbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:4px 0 8px}
+.hchips{display:flex;gap:6px;flex-wrap:wrap;flex:1}
+.hchip{border:1px solid var(--line);background:none;color:var(--muted);font:700 12.5px var(--body);padding:6px 11px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.hchip:hover{color:var(--text)}.hchip.on{background:var(--text);color:var(--bg);border-color:var(--text)}
+.hsearch{display:flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:999px;padding:0 12px;height:34px;color:var(--muted);min-width:0;flex:0 1 230px}
+.hsearch input{border:0;background:none;outline:0;color:var(--text);font:600 13px var(--body);width:100%;min-width:0}
+.htw{overflow-x:auto;scrollbar-width:thin;margin:0 -4px;padding:0 4px}
+.htbl{min-width:660px}
+.htr{display:grid;grid-template-columns:24px minmax(150px,1.6fr) repeat(6,minmax(64px,.8fr)) 34px;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--line);font-size:13.5px}
+.htr>*:nth-child(n+3):not(:last-child){text-align:right}
+.htr.hth{border-top:0;padding:4px 0 8px;font-size:11.5px;font-weight:700;color:var(--muted);letter-spacing:.02em}
+.htr .up{color:var(--up)}.htr .down{color:var(--down)}
+.hsk{display:inline-block;width:38px;height:10px;border-radius:5px;background:var(--bg2);animation:hsk 1.1s ease-in-out infinite alternate}
+@keyframes hsk{from{opacity:.35}to{opacity:.9}}
+@media (prefers-reduced-motion:reduce){.hsk{animation:none}}

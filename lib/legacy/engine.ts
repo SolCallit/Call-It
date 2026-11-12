@@ -1402,7 +1402,7 @@ const QUOTES={'So11111111111111111111111111111111111111112':'SOL','EPjFWdd5AufqS
 function pairChip(t){const q=t.L&&t.L.quote;if(!q||!q.mint||QUOTES[q.mint]==='SOL')return '';const sym=QUOTES[q.mint]||q.sym||'?',stock=/x$/.test(sym)&&sym.length<=6&&!QUOTES[q.mint];
  return ` <a class="chain pairchip${stock?' stock':''}" href="#/token/${esc(q.mint)}" title="Trades against ${esc(sym)}. Buys route through ${esc(sym)} automatically.">${stock?'📈 ':''}Paired · ${esc(sym)}</a>`}
 function vLiveToken(t){const key=t.key,tr=S.watch.has(key),on=calls.filter(k=>k.t===key),L=t.L||{},ch=(L.chg||{}).h24;
- S.ltf=S.ltf&&S.ltfUser?S.ltf:((t.ageH||0)<.5?'1m':'15m');S.lmode=S.lmode||'mc';if(!S.ltab){try{S.ltab=localStorage.getItem('callit.ltab')||'calls'}catch(_){S.ltab='calls'}}const lt=LTABS.some(x=>x[0]===S.ltab)?S.ltab:'calls';{let sv=null;try{sv=localStorage.getItem('callit.lsrc')}catch(_){}S.lsrc=sv||(hasActivity(key)?'callit':'dex')}
+ S.ltf=S.ltf&&S.ltfUser?S.ltf:((t.ageH||0)<.5?'1m':'15m');S.lmode=S.lmode||'mc';if(!S.ltab){try{S.ltab=localStorage.getItem('callit.ltab')||'calls'}catch(_){S.ltab='calls'}}const lt=LTABS.some(x=>x[0]===S.ltab)?S.ltab:'calls';if(!S.ctab){try{S.ctab=localStorage.getItem('callit.ctab')||'holders'}catch(_){S.ctab='holders'}}const ct=['holders','calls','info'].includes(S.ctab)?S.ctab:'holders';{let sv=null;try{sv=localStorage.getItem('callit.lsrc')}catch(_){}S.lsrc=sv||(hasActivity(key)?'callit':'dex')}
  return `<div class="tmain"><div class="pad" style="padding-bottom:0"><div style="display:flex;align-items:center;gap:12px">${tokav(key)}<div style="flex:1;min-width:0"><b class="h2">${esc(t.name)}</b>${L.verified?`<span class="vbadge" title="Verified on Jupiter">${ic('check',11)}</span>`:''} <span class="muted">$${esc(t.sym)}</span>
  <div><span class="chain">Solana</span>${t.lp?` <span class="chain lpchip">${esc(t.lp)}</span>`:''}${pairChip(t)} <button class="copyca" data-act="copy" data-v="${esc(t.ca)}">${short(t.ca)} ${ic('copy',13)}</button></div></div>
  ${(()=>{if(S.connected&&!AL.d)alLoad();const bo=BELLS.has(key);return `<button class="ib bellb ${bo?'on':''}" data-act="bell" data-t="${key}" aria-label="${bo?'Edit':'Set'} alerts for $${esc(t.sym)}" title="Alerts">${ic('bell',18)}</button>`})()}<button class="btn sm ${tr?'primary':'ghost'}" data-act="track" data-t="${key}">${ic('star',15,tr)} ${tr?'On watchlist':'Watchlist'}</button></div>
@@ -1411,8 +1411,11 @@ function vLiveToken(t){const key=t.key,tr=S.watch.has(key),on=calls.filter(k=>k.
  <div class="lsrc"><button class="lnk" data-act="lsrc">${S.lsrc==='callit'?'Use DexScreener chart':'Use Callit chart'}</button></div>
  <div class="seg ltf" role="tablist">${['1m','5m','15m','1h','4h','1d'].map(x=>`<button class="${S.ltf===x?'on':''}" data-act="ltf" data-f="${x}">${x}</button>`).join('')}</div>
  <div class="lchart" id="lchart" data-mint="${key}"><div class="lchart-msg" id="lchartmsg">${t.pool?'Loading chart…':'No trading pool for a chart yet.'}</div></div>
- <div class="ltabs" role="tablist" aria-label="Token sections">${LTABS.map(([k,l,i])=>`<button role="tab" aria-selected="${lt===k}" class="${lt===k?'on':''}" data-act="ltab" data-f="${k}">${ic(i,15)}<span>${l}</span>${k==='calls'&&on.length?`<b class="num">${on.length}</b>`:''}</button>`).join('')}</div></div>
- <section class="lpanel pad" data-lp="holders" ${lt==='holders'?'':'hidden'}><h3 class="termh">Holders</h3><div id="lholders">${holdersPanel(t)}</div></section></div>
+ <div class="ltabs" role="tablist" aria-label="Token sections">${LTABS.map(([k,l,i])=>`<button role="tab" aria-selected="${lt===k}" class="${lt===k?'on':''}" data-act="ltab" data-f="${k}">${ic(i,15)}<span>${l}</span>${k==='calls'&&on.length?`<b class="num">${on.length}</b>`:''}</button>`).join('')}</div>
+ <div class="ltabs ctabs" role="tablist" aria-label="Under the chart">${[['holders','Holders','profile'],['calls','Calls','promote'],['info','Info','news']].map(([k,l,i])=>`<button role="tab" aria-selected="${ct===k}" class="${ct===k?'on':''}" data-act="ctab" data-f="${k}">${ic(i,15)}<span>${l}</span>${k==='calls'&&on.length?`<b class="num">${on.length}</b>`:''}</button>`).join('')}</div></div>
+ <section class="lpanel pad ${ct==='holders'?'':'cpoff'}" data-lp="holders" data-cp="holders" ${lt==='holders'?'':'hidden'}><div id="lholders">${holdersPanel(t)}</div></section>
+ <section class="cpanel ${ct==='calls'?'':'cpoff'}" data-cp="calls">${on.map(post).join('')||'<div class="empty"><b>No calls yet</b><p>Call it first and your entry gets stamped at the live market cap.</p><button class="btn primary" data-act="newcall" data-t="'+key+'">Call it</button></div>'}</section>
+ <section class="cpanel pad ${ct==='info'?'':'cpoff'}" data-cp="info">${liveStats(t)}<div class="llinks">${liveLinks(t)}</div>${pairCard(t)}${aboutCard(t)}</section></div>
  <div class="tright"><section class="lpanel" data-lp="calls" ${lt==='calls'?'':'hidden'}><div class="pad" style="padding-bottom:0"><div class="lpcallh"><b class="h2">Calls on $${esc(t.sym)}</b><button class="btn sm primary" data-act="newcall" data-t="${key}">Call it</button></div></div>
  <div id="feed" style="border-top:1px solid var(--line);margin-top:6px">${on.map(post).join('')||'<div class="empty"><b>No calls yet</b><p>Call it first and your entry gets stamped at the live market cap.</p></div>'}</div></section>
  ${(h=>h?`<div class="termmore"><div class="pad" style="padding-bottom:6px"><b class="h2">Latest on Callit</b></div>${h}</div>`:'')(calls.filter(k=>visible(k)&&k.t!==key).slice(0,12).map(post).join(''))}</div>
@@ -1430,18 +1433,42 @@ const HWAL={},HWQ=new Set();
 function holderCallers(ws){const miss=ws.filter(w=>!(w in HWAL)&&!HWQ.has(w));if(!miss.length)return;miss.forEach(w=>HWQ.add(w));
  fetch('/api/profile?wallets='+miss.slice(0,100).join(',')).then(r=>r.ok?r.json():{map:{}}).then(j=>{miss.forEach(w=>{HWAL[w]=(j.map||{})[w]||null;const p=HWAL[w];if(p){if(p.avatar_url)AVURL[p.handle]=p.avatar_url;if(p.display_name)DN[p.handle]=p.display_name}})})
   .catch(()=>{}).finally(()=>{const [,r,p]=location.hash.split('/');const el=$('#lholders');if(el&&r==='token'&&T[p])el.innerHTML=holdersPanel(T[p])})}
-function holdersPanel(t){const R=t._risk,hs=R&&R.holders,a=(t.L&&t.L.audit)||{},mc=mcap(t)||0;
+/* What each top holder paid: average entry, bought, sold. One request per token, cached server-side. */
+const HPNL={};
+function loadHolderPnl(t,list){const k=t.key,h=HPNL[k]||(HPNL[k]={rows:{},at:0,busy:0});if(h.busy||Date.now()-h.at<3e5||!isMintStr(k))return;
+ const sup=t.price?(mcap(t)||0)/t.price:0,ws=list.filter(x=>x.tag!=='pool').slice(0,20);if(!ws.length||!sup)return;h.busy=1;
+ fetch('/api/market/holders/'+k+'?w='+ws.map(x=>x.owner).join(',')+'&held='+ws.map(x=>Math.round(sup*x.pct/100)).join(',')).then(r=>r.ok?r.json():null)
+  .then(j=>{if(j&&j.rows)Object.assign(h.rows,j.rows);h.at=Date.now()}).catch(()=>{}).finally(()=>{h.busy=0;h.done=1;const el=$('#hrows');if(el&&currentRoute()==='token'&&location.hash.split('/')[2]===k)el.innerHTML=holderRows(t)})}
+function holderCalc(t,h){const sup=t.price?(mcap(t)||0)/t.price:0,pos=(mcap(t)||0)*h.pct/100,r=(HPNL[t.key]||{rows:{}}).rows[h.owner];
+ return {held:sup*h.pct/100,pos,avgMc:r&&r.avg!=null&&sup?r.avg*sup:null,bought:r&&r.bought>0?r.bought:null,profit:r&&r.full?pos+r.sold-r.bought:null}}
+function holderRows(t){const R=t._risk,list=((R&&R.holders)||[]).slice(0,25),tags={pool:'Pool',dev:'Creator',bundle:'Bundle'},f=S.hf||'all',q=(S.hq||'').trim().toLowerCase(),busy=!(HPNL[t.key]||{}).done;
+ let rows=list.map((h,i)=>({h,i,p:HWAL[h.owner],c:holderCalc(t,h)}));
+ if(f==='callit')rows=rows.filter(x=>x.p);else if(f==='profit')rows=rows.filter(x=>x.c.profit!=null&&x.c.profit>0);else if(f==='loss')rows=rows.filter(x=>x.c.profit!=null&&x.c.profit<0);
+ else if(f==='top')rows=rows.filter(x=>x.c.profit!=null).sort((a,b)=>b.c.profit-a.c.profit);
+ if(q)rows=rows.filter(x=>x.h.owner.toLowerCase().includes(q)||(x.p&&((x.p.handle||'')+' '+(x.p.display_name||'')).toLowerCase().includes(q)));
+ const dash=busy?'<i class="hsk"></i>':'<span class="muted">—</span>';
+ if(!rows.length)return `<div class="empty" style="padding:18px 8px"><b>No holders match</b><p>${f==='callit'?'No Callit caller is in the top holders yet.':'Try another filter.'}</p></div>`;
+ return rows.map(({h,i,p,c})=>{const me=h.owner===S.addr;
+  return `<div class="htr"><span class="hrk num">${i+1}</span>${p?`<a class="hwho" href="#/profile/${esc(p.handle)}">${avatar(p.handle)}<span><b>${esc(p.display_name||p.handle)}</b><small>@${esc(p.handle)} · Callit caller</small></span></a>`
+   :`<a class="hwho" href="https://solscan.io/account/${esc(h.owner)}" target="_blank" rel="noopener"><span class="tokav alwav">${ic('wallet',14)}</span><span><b class="num">${me?'You':short(h.owner)}</b>${h.tag?`<small class="htag2 ${h.tag}">${tags[h.tag]||h.tag}</small>`:''}</span></a>`}
+   <b class="num">${fmtK(Math.round(c.held))}</b><span class="num muted">${h.pct<0.01?'<0.01':h.pct.toFixed(2)}%</span><b class="num">${c.pos?fmtUsd(c.pos):'—'}</b>
+   <b class="num ${c.profit==null?'':c.profit>=0?'up':'down'}">${h.tag==='pool'?'<span class="muted">—</span>':c.profit==null?dash:(c.profit>=0?'+':'−')+fmtUsd(Math.abs(c.profit))}</b>
+   <span class="num">${h.tag==='pool'?'<span class="muted">—</span>':c.avgMc==null?dash:fmtUsd(c.avgMc)}</span><span class="num up">${h.tag==='pool'?'<span class="muted">—</span>':c.bought==null?dash:fmtUsd(c.bought)}</span>
+   ${!p&&!me&&h.tag!=='pool'?`<button class="ib sm" data-act="htrack" data-f="${esc(h.owner)}" title="Track this wallet" aria-label="Track ${short(h.owner)}">${ic('bell',15)}</button>`:'<span aria-hidden="true"></span>'}</div>`}).join('')}
+function holdersPanel(t){const R=t._risk,hs=R&&R.holders,a=(t.L&&t.L.audit)||{};
  if(!R){loadRisk(t.key);return `<div class="card">${rskel(5)}</div>`}
- const tags={pool:'Pool',dev:'Creator',bundle:'Bundle'},list=(hs||[]).slice(0,25);holderCallers(list.map(h=>h.owner));
+ const list=(hs||[]).slice(0,25);holderCallers(list.map(h=>h.owner));loadHolderPnl(t,list);
  const sum=`<div class="hsum num"><div><span>Holders</span><b>${t.holders?fmtK(t.holders):'—'}</b></div><div><span>Top 10</span><b class="${a.top10>45?'down':''}">${a.top10!=null?a.top10.toFixed(1)+'%':'—'}</b></div><div><span>Creator</span><b class="${a.dev>15?'down':''}">${a.dev!=null?a.dev.toFixed(1)+'%':'—'}</b></div>${R.bundle&&R.bundle.pct!=null?`<div><span>Bundled</span><b class="${R.bundle.pct>25?'down':''}">${R.bundle.pct.toFixed(1)}%</b></div>`:''}</div>`;
  if(!list.length)return `<div class="card">${sum}<p class="hint" style="margin:10px 0 0">No holder list for this token yet.</p></div>`;
- const max=Math.max(...list.map(h=>h.pct));
- return `<div class="card">${sum}<div class="hlist">${list.map((h,i)=>{const p=HWAL[h.owner],me=h.owner===S.addr;
-  return `<div class="hrw"><span class="hrk num">${i+1}</span>${p?`<a class="hwho" href="#/profile/${esc(p.handle)}">${avatar(p.handle)}<span><b>${esc(p.display_name||p.handle)}</b><small>@${esc(p.handle)} · Callit caller</small></span></a>`
-   :`<a class="hwho" href="https://solscan.io/account/${esc(h.owner)}" target="_blank" rel="noopener"><span class="tokav alwav">${ic('wallet',14)}</span><span><b class="num">${me?'You':short(h.owner)}</b>${h.tag?`<small class="htag2 ${h.tag}">${tags[h.tag]||h.tag}</small>`:''}</span></a>`}
-   <span class="hpct num"><b>${h.pct<0.01?'<0.01':h.pct.toFixed(2)}%</b><small>${mc?fmtUsd(mc*h.pct/100):''}</small><i style="width:${Math.max(3,h.pct/max*100)}%"></i></span>
-   ${!p&&!me&&h.tag!=='pool'?`<button class="ib sm" data-act="htrack" data-f="${esc(h.owner)}" title="Track this wallet" aria-label="Track ${short(h.owner)}">${ic('bell',15)}</button>`:'<span aria-hidden="true"></span>'}</div>`}).join('')}</div></div>
+ const f=S.hf||'all',nC=list.filter(h=>HWAL[h.owner]).length;
+ return `<div class="card">${sum}
+  <div class="hbar"><div class="hchips">${[['all','Top '+list.length],['callit','Callit'+(nC?' '+nC:'')],['top','Top traders'],['profit','In profit'],['loss','At a loss']].map(([k,l])=>`<button class="hchip ${f===k?'on':''}" data-act="hf" data-f="${k}">${l}</button>`).join('')}</div>
+  <label class="hsearch">${ic('search',14)}<input id="hq" class="num" placeholder="Search holder or wallet" value="${esc(S.hq||'')}" autocomplete="off" spellcheck="false"></label></div>
+  <div class="htw"><div class="htbl"><div class="htr hth"><span>#</span><span>Holder</span><span>Held</span><span>% supply</span><span>Position</span><span>Profit</span><span>Avg entry MC</span><span>Bought</span><span></span></div>
+  <div id="hrows">${holderRows(t)}</div></div></div>
+  <p class="hint" style="margin:10px 0 0">Profit, average entry and bought come from each wallet’s recent on-chain trades and are estimates. A dash means the wallet’s buys are older than we can read, or the tokens were sent to it.</p></div>
  ${bubCard(t)}`}
+if(typeof document!=='undefined')document.addEventListener('input',e=>{const el=e.target;if(!el||el.id!=='hq')return;S.hq=el.value;const k=location.hash.split('/')[2],r=$('#hrows');if(r&&T[k])r.innerHTML=holderRows(T[k])});
 /* Holder map starts closed: clusters of circles can trigger trypophobia, so people read a heads-up first and choose to open it. */
 const bubOpen=()=>{try{return localStorage.getItem('callit.bubopen')==='1'}catch(_){return false}};
 let BUBT=null;
@@ -3945,6 +3972,8 @@ document.addEventListener('click',e=>{
   lbv:()=>{S.lbv=b.dataset.f;render();scrollTo({top:0})},
   ptp:()=>{S.ptp=b.dataset.f;render()},
   dgo:()=>{e.preventDefault();const el=document.getElementById(b.dataset.f);if(el)el.scrollIntoView({behavior:'smooth',block:'start'})},
+  hf:()=>{S.hf=b.dataset.f;const k=location.hash.split('/')[2];document.querySelectorAll('.hchip').forEach(x=>x.classList.toggle('on',x.dataset.f===S.hf));const r=$('#hrows');if(r&&T[k])r.innerHTML=holderRows(T[k])},
+  ctab:()=>{S.ctab=b.dataset.f;try{localStorage.setItem('callit.ctab',S.ctab)}catch(_){}document.querySelectorAll('.ctabs [data-act="ctab"]').forEach(x=>{const on=x.dataset.f===S.ctab;x.classList.toggle('on',on);x.setAttribute('aria-selected',on)});document.querySelectorAll('[data-cp]').forEach(p=>p.classList.toggle('cpoff',p.dataset.cp!==S.ctab))},
   ltab:()=>{S.ltab=b.dataset.f;try{localStorage.setItem('callit.ltab',S.ltab)}catch(_){}document.querySelectorAll('.ltabs [data-act="ltab"]').forEach(x=>{const on=x.dataset.f===S.ltab;x.classList.toggle('on',on);x.setAttribute('aria-selected',on)});document.querySelectorAll('.lpanel').forEach(p=>p.hidden=p.dataset.lp!==S.ltab);const [,,p]=location.hash.split('/');if(S.ltab==='holders'&&T[p]){const el=$('#lholders');if(el)el.innerHTML=holdersPanel(T[p])}},
   htrack:()=>{if(!S.connected)return connectModal();const a=b.dataset.f;API('/api/alerts/wallets',{body:{address:a,label:''}}).then(j=>{toast(j.live?'Tracking. You’ll get a pop-up on every swap':'Wallet saved to your tracker');AL.d=null}).catch(e=>toast(e.message))},
   ord:()=>{const k=tokPath(b.dataset.k);closeModal();setTimeout(()=>orderModal(k,b.dataset.f||'tpsl'),60)},

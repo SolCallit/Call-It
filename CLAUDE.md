@@ -104,6 +104,7 @@ Set `__callitRealAuth` to `false` instead for the signed-out/demo path. Check `p
 - Navy theme matching the white-megaphone logo.
 - Phone-first, but the desktop layout matters too (tray + feed + rail + the chat dock).
 - No gambling or risk disclaimers in UI copy. Meme traders know.
+- **No grid lines. Anywhere.** Not in UI, charts, cards, or video/marketing backgrounds. Reuben has asked for this more than once.
 - Marketing and demo content: real logo, real UI, real tokens. No Nigerian names or Nigerian-specific content.
 
 ---
