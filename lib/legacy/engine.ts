@@ -270,8 +270,17 @@ Object.assign(S,{cat:(()=>{try{const v=localStorage.getItem('callit.cat');return
  bm:(()=>{try{return new Set(JSON.parse(localStorage.getItem('callit.bm')||'[]'))}catch(_){return new Set()}})()});
 const saveBm=()=>{try{localStorage.setItem('callit.bm',JSON.stringify([...S.bm]))}catch(_){}};
 const PUB={},AVURL={},RLOADED={};let SYNCWARN=0;
-async function API(path,o={}){const w=window.CallitWallet,tok=w&&w.token?await w.token().catch(()=>null):null,has=o.body!==undefined;
+/* Right after the app opens, Privy can take a few seconds to hand over the session token. A request
+   sent in that gap looks signed-out to the server. Wait for the token (only when this browser had a
+   session) instead of telling a signed-in user their session expired. */
+async function waitTok(ms=6000){let had=false;try{had=!!localStorage.getItem('privy:token')}catch(_){}
+ if(!had||!realAuth())return null;const end=Date.now()+ms;
+ while(Date.now()<end){const w=window.CallitWallet,A=window.CallitAuth;if(A&&A.ready&&!A.authenticated)return null;
+  const t=w&&w.token?await w.token().catch(()=>null):null;if(t)return t;await new Promise(r=>setTimeout(r,300))}
+ return null}
+async function API(path,o={}){const w=window.CallitWallet,tok=o._tok||(w&&w.token?await w.token().catch(()=>null):null),has=o.body!==undefined;
  const r=await fetch(path,{method:o.method||(has?'POST':'GET'),headers:{...(has?{'content-type':'application/json'}:{}),...(tok?{authorization:'Bearer '+tok}:{})},body:has?JSON.stringify(o.body):undefined,cache:'no-store'});
+ if(r.status===401&&!o._re){const t=tok?null:await waitTok();if(t)return API(path,{...o,_re:1,_tok:t})}
  const j=await r.json().catch(()=>({}));if(!r.ok){if(j.detail)console.error('[callit]',path,j.error,j.detail);throw new Error(apiErr(j,r.status))}return j}
 /* Turn server error codes into something a person can act on (was showing raw "db_write" / "upload_failed"). */
 function apiErr(j,st){const e=String(j.error||''),d=String(j.detail||'');
@@ -1160,7 +1169,9 @@ function vTrenches(){const on=TS.feeds.filter(f=>f[1]).map(f=>f[0]);if(S.tt!=='w
 /* ---------- admin: users, trades and calls, live (only for handles in ADMIN_HANDLES) ---------- */
 const ADM={tab:'radar',rwin:'d7',data:null,radar:null,rerr:null,err:null,busy:0};
 function loadAdmin(){if(ADM.busy)return;ADM.busy=1;Promise.all([
-  API('/api/admin/overview').then(j=>{ADM.data=j;ADM.err=null}).catch(e=>{ADM.err=e.message||'Not allowed'}),
+  API('/api/admin/overview').then(j=>{ADM.data=j;ADM.err=null;ADM.tries=0}).catch(e=>{const m=e.message||'Not allowed';
+   /* session not ready yet: keep "Loading" and try again rather than showing "Admins only" to an admin */
+   if(/session expired/i.test(m)&&(ADM.tries=(ADM.tries||0)+1)<4){ADM.err=null;setTimeout(()=>{if(currentRoute()==='admin'&&!ADM.data)loadAdmin()},1500)}else ADM.err=m}),
   API('/api/admin/radar').then(j=>{ADM.radar=j;ADM.rerr=null}).catch(e=>{ADM.rerr=e.message||'Radar unavailable'})
  ]).finally(()=>{ADM.busy=0;if(currentRoute()==='admin'&&!document.querySelector('#modal .modal'))render()})}
 /* Radar: volume, fees and where the fees go. Admins only. */
@@ -1236,10 +1247,12 @@ function vReports(){if(BUGS.err==='migration')return `<div class="rdnote"><b>Run
  return `<div class="tablewrap"><table><thead><tr><th>When</th><th>Type</th><th>From</th><th>Report</th><th>Screen</th><th>Points</th></tr></thead><tbody>${BUGS.d.map(r=>`<tr title="${esc(r.user_agent||'')}"><td>${agoT(r.created_at)}</td><td><span class="akind ${r.kind==='security'?'sell':r.kind==='idea'?'buy':'swap'}">${/^Tester feedback/.test(r.body||'')?'Feedback':KL[r.kind]||esc(r.kind)}</span></td><td>${r.handle?`<a href="#/profile/${esc(r.handle)}">@${esc(r.handle)}</a>`:'<span class="muted">guest</span>'}${r.contact?`<div class="hint">${esc(r.contact)}</div>`:''}</td><td style="white-space:pre-wrap;min-width:240px">${esc(r.body)}</td><td class="hint">${esc(r.page||'')}</td><td>${r.awarded!=null?`<span class="akind buy">+${r.awarded} pts</span>`:r.handle?`<button class="btn sm primary" data-act="fbvalid" data-f="${r.id}">Valid +${BUGS.pts||25}</button>`:'<span class="muted">guest</span>'}</td></tr>`).join('')}</tbody></table></div>
  <p class="hint pad">“Valid” credits the sender’s account with points, once per report. Guests can’t be credited.</p>`}
 const big2=(l,v,sub)=>`<div class="rdstat"><span>${l}</span><b class="num">${v}</b>${sub?`<small>${sub}</small>`:''}</div>`;
-function adminPing(){if(S.admin!=null||!realAuth()||!S.connected)return;S.admin=false;API('/api/admin/overview?ping=1').then(()=>{S.admin=true;if(currentRoute()==='you')render()}).catch(()=>{})}
+function adminPing(){if(S.admin!=null||!realAuth()||!S.connected)return;S.admin=false;API('/api/admin/overview?ping=1').then(()=>{S.admin=true;if(currentRoute()==='you')render()})
+ .catch(e=>{/* a session hiccup isn't a "no": ask again on the next visit to You (a few times at most) */
+  if(/session expired/i.test(e.message||'')&&(S.adminTry=(S.adminTry||0)+1)<5)setTimeout(()=>{S.admin=null;if(currentRoute()==='you')render()},1500)})}
 const agoT=iso=>{const m=(Date.now()-Date.parse(iso))/6e4;return m<1?'now':m<60?Math.round(m)+'m':m<1440?Math.round(m/60)+'h':Math.round(m/1440)+'d'};
 function vAdmin(){if(!ADM.data&&!ADM.err)loadAdmin();
- if(ADM.err)return `<div class="empty"><b class="h2">Admins only</b><p>${esc(String(ADM.err).replace(/\.+$/,''))}. Add your username to <code>ADMIN_HANDLES</code> in Vercel (comma-separated), then reload.</p></div>`;
+ if(ADM.err)return `<div class="empty"><b class="h2">Admins only</b><p>${esc(String(ADM.err).replace(/\.+$/,''))}.${/session expired/i.test(ADM.err)?'':' Add your username to <code>ADMIN_HANDLES</code> in Vercel (comma-separated), then reload.'}</p><button class="btn primary" data-act="admretry">Try again</button></div>`;
  if(!ADM.data)return `<div class="empty"><p>Loading admin data…</p></div>`;
  const d=ADM.data,s=d.stats||{},tab=(k,l)=>`<button role="tab" aria-selected="${ADM.tab===k}" class="${ADM.tab===k?'on':''}" data-act="admtab" data-f="${k}">${l}</button>`;
  const stat=(l,v,sub)=>`<div class="astat"><span class="muted">${l}</span><b class="num">${v}</b>${sub?`<small class="muted">${sub}</small>`:''}</div>`;
@@ -3956,7 +3969,7 @@ document.addEventListener('click',e=>{
   spotf:()=>{S.sf=b.dataset.f;render()},
   spotclear:()=>{S.sq='';render();setTimeout(()=>{const i=$('#sq');i&&i.focus()},30)},
   spotretry:()=>{LIVE.err.verified=0;delete LIVE.feeds.verified;loadFeed('verified');render()},
-  wcard:()=>{if(S.wcard===b.dataset.f)return;if(slideTo(b)&&!b.dataset.slid){b.dataset.slid=1;return setTimeout(()=>b.isConnected?b.click():null,170)}S.wcard=b.dataset.f;render()},
+  admretry:()=>{ADM.err=null;ADM.tries=0;loadAdmin();render()},wcard:()=>{if(S.wcard===b.dataset.f)return;if(slideTo(b)&&!b.dataset.slid){b.dataset.slid=1;return setTimeout(()=>b.isConnected?b.click():null,170)}S.wcard=b.dataset.f;render()},
   buycustom:()=>{const cur=PREF.buy&&!BUY_STD.includes(PREF.buy)?PREF.buy:'';
    modal('Custom buy amount','Your one-tap buy on calls. Any amount from 0.01 to 100 SOL.',`<label class="solin ssin"><input id="cbamt" class="num" inputmode="decimal" placeholder="e.g. 0.3" value="${esc(cur)}" aria-label="Buy amount in SOL"><span class="muted">SOL</span></label><div class="err" id="cberr"></div><button class="btn primary block" id="cbgo">Save amount</button>`,
     m=>{const i=$('#cbamt',m);setTimeout(()=>i.focus(),60);const go=()=>{const v=parseFloat(String(i.value).replace(',','.'));if(!(v>=0.01&&v<=100)){$('#cberr',m).textContent='Pick an amount between 0.01 and 100 SOL.';return}
