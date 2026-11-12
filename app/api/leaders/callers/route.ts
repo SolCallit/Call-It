@@ -40,10 +40,10 @@ export async function GET(req: Request) {
   if (!posts?.length) return NextResponse.json({ callers: [] }, { headers: { 'cache-control': 'public, s-maxage=10' } });
 
   const mints = [...new Set(posts.map((p) => p.mint as string).filter(Boolean))];
-  const mc = new Map<string, number>();
+  const mc = new Map<string, number>(), px = new Map<string, number>();
   for (let i = 0; i < mints.length && i < 200; i += 50) {
     const l = await jupMany(mints.slice(i, i + 50)).catch(() => []);
-    l.forEach((t) => t.mc && mc.set(t.mint, t.mc));
+    l.forEach((t) => { if (t.mc) mc.set(t.mint, t.mc); if (t.price) px.set(t.mint, t.price); });
   }
   type Agg = { calls: number; wins: number; sum: number; priced: number; best: number; pnl: number };
   const by = new Map<string, Agg>();
@@ -60,12 +60,41 @@ export async function GET(req: Request) {
     const a = by.get(p.profile_id) || { calls: 0, wins: 0, sum: 0, priced: 0, best: -100, pnl: 0 };
     a.calls++;
     a.best = Math.max(a.best, peakPerf);
-    if (perf != null) { a.sum += perf; a.priced++; a.pnl += (Number(p.buy_usd) || 0) * (perf / 100); }
+    if (perf != null) { a.sum += perf; a.priced++; }
     if (p.target_at || (target && now && now >= target) || peakPerf >= 50) a.wins++;
     by.set(p.profile_id, a);
   }
   const ids = [...by.keys()];
   if (!ids.length) return NextResponse.json({ callers: [] });
+
+  // Real PnL in dollars on the tokens each caller called: what their sells brought in, plus what they still
+  // hold at today's price, minus what they paid. Counted once per caller per token, from their first call on it.
+  // Sold positions are fixed at the sale; only what they still hold moves with the price.
+  const firstCall = new Map<string, number>();
+  for (const p of posts) {
+    if (!p.mint || !by.has(p.profile_id)) continue;
+    const k = p.profile_id + '|' + p.mint, t = Date.parse(p.created_at) - 10 * 60e3;
+    if (!firstCall.has(k) || t < firstCall.get(k)!) firstCall.set(k, t);
+  }
+  const { data: txs } = await db.from('transactions')
+    .select('profile_id, kind, in_mint, in_amount, out_mint, out_amount, usd_value, created_at')
+    .in('profile_id', ids).in('kind', ['buy', 'sell']).eq('verified', true)
+    .gte('created_at', new Date(Math.min(...firstCall.values(), Date.now())).toISOString()).limit(10000);
+  const pos = new Map<string, { bought: number; sold: number; cost: number; got: number }>();
+  for (const t of (txs || []) as { profile_id: string; kind: string; in_mint: string; in_amount: number; out_mint: string; out_amount: number; usd_value: number | null; created_at: string }[]) {
+    const mint = t.kind === 'buy' ? t.out_mint : t.in_mint, k = t.profile_id + '|' + mint, since = firstCall.get(k);
+    if (since == null || Date.parse(t.created_at) < since) continue;
+    const r = pos.get(k) || { bought: 0, sold: 0, cost: 0, got: 0 };
+    if (t.kind === 'buy') { r.bought += Number(t.out_amount) || 0; r.cost += Number(t.usd_value) || 0; }
+    else { r.sold += Number(t.in_amount) || 0; r.got += Number(t.usd_value) || 0; }
+    pos.set(k, r);
+  }
+  for (const [k, r] of pos) {
+    const [pid, mint] = k.split('|'), a = by.get(pid);
+    if (!a || !r.cost) continue;
+    const held = Math.max(0, r.bought - r.sold), price = px.get(mint);
+    a.pnl += r.got + (held && price ? held * price : 0) - r.cost;
+  }
   const { data: profs } = await db.from('profiles').select('id, handle, display_name, avatar_url').in('id', ids);
   const handles = (profs || []).map((p) => p.handle as string);
   const { data: fol } = handles.length ? await db.from('follows').select('target_handle').in('target_handle', handles).limit(20000) : { data: [] };

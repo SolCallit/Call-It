@@ -114,7 +114,34 @@ export async function GET(req: Request) {
     }
   }
 
+  // What a call brought in: verified buys by OTHER people through the call's Buy button, and what the caller
+  // earned from them. Only the caller sees this on their own calls (NEXT_PUBLIC_CALL_VOLUME=public shows it to all).
+  const pubVol = (process.env.NEXT_PUBLIC_CALL_VOLUME || '').trim().toLowerCase() === 'public';
+  const brought: Record<string, { usd: number; buyers: number; earned: number }> = {};
+  const volFor = rows.filter((r) => r.kind === 'meme' && (pubVol || (me && r.profile_id === me.id)));
+  if (volFor.length) {
+    const ids = volFor.map((r) => r.id as string), owner = new Map(volFor.map((r) => [r.id as string, r.profile_id as string]));
+    const [{ data: bt }, { data: er }] = await Promise.all([
+      db.from('transactions').select('profile_id, call_ref, usd_value').eq('kind', 'buy').eq('verified', true).in('call_ref', ids).limit(5000),
+      db.from('earnings').select('call_id, usd').in('call_id', ids).limit(5000),
+    ]);
+    const who: Record<string, Set<string>> = {};
+    for (const t of (bt || []) as { profile_id: string; call_ref: string; usd_value: number | null }[]) {
+      if (t.profile_id === owner.get(t.call_ref)) continue; // your own buys never count
+      const b = (brought[t.call_ref] ||= { usd: 0, buyers: 0, earned: 0 });
+      b.usd += Number(t.usd_value) || 0;
+      (who[t.call_ref] ||= new Set()).add(t.profile_id);
+    }
+    for (const e of (er || []) as { call_id: string; usd: number }[]) (brought[e.call_id] ||= { usd: 0, buyers: 0, earned: 0 }).earned += Number(e.usd) || 0;
+    for (const id of Object.keys(brought)) {
+      const b = brought[id];
+      b.buyers = who[id]?.size || 0; b.usd = Math.round(b.usd * 100) / 100; b.earned = Math.round(b.earned * 100) / 100;
+    }
+    for (const id of ids) brought[id] ||= { usd: 0, buyers: 0, earned: 0 };
+  }
+
   const posts = rows.map(({ profiles, profile_id: _p, ...r }) => ({
+    brought: brought[r.id] ?? null,
     ...r,
     sold_pct: sold[r.id]?.pct ?? null,
     sold_at: sold[r.id]?.at ?? null,

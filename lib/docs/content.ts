@@ -104,7 +104,7 @@ Whatever a caller doesn't take (for example a 5% caller) stays in Treasury & gro
 |---|---|---|
 | Standard withdraw | **Free** | Solana network fee (~0.00001 SOL) |
 | Private withdraw (Privacy Cash) | **Free.** Callit takes nothing | Privacy Cash: 0.35% + a small flat fee (0.006 SOL, or ~$0.62 for USDC/USDT) when you send |
-| Private withdraw (Helius Rings) | **Free.** Callit even pays the network fee on sends | None |
+| Private withdraw (Helius Rings) | **$0.20** per deposit into your private balance. Callit pays the network fee on sends | None |
 
 Every fee is shown before you approve.
 
