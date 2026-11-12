@@ -3793,7 +3793,7 @@ function gateSync(err){let el=$('#gate');const land=$('#landing'),show=GATE.gate
  el.innerHTML=`<div class="gatecard"><span class="mark gatemark" aria-hidden="true"></span><span class="gatek">INVITE ONLY</span><h1>Call it. Get paid.</h1><p>Callit is opening in waves. Enter your access code to get in.</p>
   <form id="gatef" class="gatef"><label class="sr" for="gatein">Access code</label><input id="gatein" class="input num" placeholder="CALL-XXXX-XXXX" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" maxlength="40"><button class="btn primary block" type="submit">${S.connected?'Unlock Callit':'Sign in and unlock'}</button></form>
   <div class="err" id="gateerr">${err?esc(err):''}</div>
-  <p class="hint">No code? Follow <a href="https://x.com/CallitApp_Sol" target="_blank" rel="noopener">Callit on X</a>. Codes drop there first.</p>
+  <p class="hint">No code? Follow <a href="${esc(process.env.NEXT_PUBLIC_X_URL||'https://x.com/CallitApp_Sol')}" target="_blank" rel="noopener">Callit on X</a>. Codes drop there first. One code per person; once you're in, you stay in.</p>
   ${S.connected?`<button class="lnk" data-act="logout">Not @${esc(S.me)}? Log out</button>`:''}</div>`;
  const f=$('#gatef',el),i=$('#gatein',el);f.onsubmit=e=>{e.preventDefault();const c=i.value.trim().toUpperCase().replace(/\s+/g,'');if(c.length<4){$('#gateerr',el).textContent='Enter your access code.';return}
   if(!S.connected){try{sessionStorage.setItem('callit.code',c)}catch(_){}return connectModal()}
