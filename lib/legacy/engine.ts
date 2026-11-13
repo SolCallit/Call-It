@@ -53,7 +53,9 @@ const isPrem=h=>h===S.me&&S.premium&&S.premium.until>Date.now();
 const VERIFIED=new Set(['callit',...String(process.env.NEXT_PUBLIC_VERIFIED_HANDLES||'').toLowerCase().split(',').map(x=>x.trim().replace(/^@/,'')).filter(Boolean)]);
 const isVer=h=>VERIFIED.has(String(h||'').toLowerCase());
 const vbadge=h=>isVer(h)?`<span class="vb" title="Verified by Callit">${ic('verified',17)}</span>`:isPrem(h)?`<span class="vb" title="Callit Premium">${ic('verified',17)}</span>`:'';
-const bannerBg=h=>h===S.me&&PROF.banner?`background:#0B1B27 url(${PROF.banner}) center/cover`:`background:linear-gradient(120deg,hsl(${(hue(h)%70)+185} 55% 26%),#0B1B27 70%),#0B1B27`;
+/* Your own banner comes from your saved profile; anyone else's from their public profile. */
+const bannerUrl=h=>{const u=h===S.me?PROF.banner:(typeof PUB!=='undefined'&&PUB[h]&&PUB[h].banner_url);return u&&/^(https:\/\/|data:image\/|blob:)/.test(u)?String(u).replace(/["'()\\\s]/g,encodeURIComponent):null};
+const bannerBg=h=>bannerUrl(h)?`background:#0B1B27 url(${bannerUrl(h)}) center/cover`:`background:linear-gradient(120deg,hsl(${(hue(h)%70)+185} 55% 26%),#0B1B27 70%),#0B1B27`;
 const followingOf=h=>h===S.me?[...S.following]:ranked().map(c=>c.h).filter(x=>x!==h).slice(0,(hue(h)%3)+2);
 const followersOf=h=>h===S.me?[]:ranked().map(c=>c.h).filter(x=>x!==h&&(S.following.has(x)||hue(x+h)%2===0)).concat(S.following.has(h)&&S.me?[S.me]:[]);
 function shrink(file,max,cb){const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,max/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);cb(c.toDataURL('image/jpeg',.82))};im.src=r.result};r.readAsDataURL(file)}
@@ -4287,6 +4289,17 @@ document.addEventListener('input',e=>{if(e.target.id!=='astin')return;const t=e.
  document.addEventListener('click',e=>{const b=e.target.closest('[data-act="follow"]');if(!b)return;const h=b.dataset.h;
   requestAnimationFrame(()=>document.querySelectorAll(`[data-act="follow"][data-h="${CSS.escape(h)}"]`).forEach(x=>{x.classList.add('bump');setTimeout(()=>x.classList.remove('bump'),500)}))});
 })();
+
+/* Pull down at the top of a page to refresh. The installed app (and iPhone's home-screen app) has
+   no browser reload button, so without this there's no way to refresh at all. */
+if('ontouchstart' in window)(()=>{let y0=null,d=0,el=null;const top=()=>(window.scrollY||document.documentElement.scrollTop||document.body.scrollTop||0)<=0;
+ const busy=t=>{if(document.querySelector('#modal .modal,#gate,.sheet.open'))return true;for(let n=t;n&&n!==document.body;n=n.parentElement){if(n.scrollTop>0)return true;if(n.classList&&(n.classList.contains('lchart')||n.classList.contains('lbtrack')))return true}return false};
+ document.addEventListener('touchstart',e=>{y0=e.touches.length===1&&top()&&!busy(e.target)?e.touches[0].clientY:null;d=0},{passive:true});
+ document.addEventListener('touchmove',e=>{if(y0==null)return;d=e.touches[0].clientY-y0;if(d<=8||!top()){if(el){el.style.opacity=0}return}
+  if(!el){el=document.createElement('div');el.id='ptr';el.setAttribute('aria-hidden','true');el.innerHTML='<i></i>';document.body.appendChild(el)}
+  const p=Math.min(1,d/96);el.style.opacity=p;el.style.transform=`translate(-50%,${Math.min(d*.45,64)}px) rotate(${p*300}deg)`;el.classList.toggle('go',d>=96)},{passive:true});
+ const end=()=>{if(y0==null)return;const go=d>=96&&top();y0=null;if(!el)return;if(go){el.classList.add('spin');el.style.transform='translate(-50%,56px)';setTimeout(()=>location.reload(),220)}else{el.style.opacity=0;el.classList.remove('go')}};
+ document.addEventListener('touchend',end,{passive:true});document.addEventListener('touchcancel',end,{passive:true})})();
 
   // used by an inline handler in the reply box
   (window as any).drawRMedia = drawRMedia;

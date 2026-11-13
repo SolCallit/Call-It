@@ -122,9 +122,14 @@ export async function claim(db: SupabaseClient, me: { id: string; wallet_address
   if (!price) return { ok: false, error: 'Couldn’t get the SOL price. Try again in a minute.', status: 503 };
 
   const { data: r, error } = await db.rpc('claim_start', {
-    p_profile: me.id, p_wallet: me.wallet_address, p_min: PAYOUT.minUsd(), p_max: Math.min(PAYOUT.maxPerClaimUsd(), room, 1e9), // 1e9: SQL needs a number, Infinity means no cap p_cb_points: cashbackMinPoints(),
+    p_profile: me.id, p_wallet: me.wallet_address, p_min: PAYOUT.minUsd(), // 1e9: SQL needs a number, Infinity means no cap
+    p_max: Math.min(PAYOUT.maxPerClaimUsd(), room, 1e9),
+    p_cb_points: cashbackMinPoints(),
   });
-  if (error) return { ok: false, error: 'Claims aren’t set up on the server yet (migration 0015).', status: 503 };
+  if (error) {
+    console.error('[claim] claim_start', error.message);
+    return { ok: false, error: /does not exist|schema cache/i.test(error.message) ? 'Claims aren’t set up on the server yet (migration 0015).' : 'Couldn’t start the claim. Try again in a minute.', status: 503 };
+  }
   const row = (r as { claim_id: string; usd: number }[] | null)?.[0];
   if (!row) return { ok: false, error: `You need at least $${PAYOUT.minUsd()} ready to claim (calls pay once they hit target), and only one claim at a time.` };
   const usd = Number(row.usd);

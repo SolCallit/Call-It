@@ -522,8 +522,8 @@ article.lbc .lbcstats>div{background:color-mix(in srgb,var(--bg) 55%,transparent
 .person .vb{margin-left:2px}
 article.lbc::after{display:none}
 
-/* ---------- Callerboard: top-caller cards were oversized on desktop ---------- */
-@media (min-width:900px){
+/* ---------- Callerboard: compact top-caller cards on every screen ---------- */
+@media all{
   .lbtrack{grid-auto-columns:212px;gap:10px;padding:8px 16px 14px}
   article.lbc{gap:9px;padding:12px 12px 11px;border-radius:16px}
   article.lbc .lbcrk{font-size:21px}
@@ -618,3 +618,32 @@ article.lbc::after{display:none}
 .hsk{display:inline-block;width:38px;height:10px;border-radius:5px;background:var(--bg2);animation:hsk 1.1s ease-in-out infinite alternate}
 @keyframes hsk{from{opacity:.35}to{opacity:.9}}
 @media (prefers-reduced-motion:reduce){.hsk{animation:none}}
+
+/* Phones: top-caller cards are a small strip, so the ranking table is on screen without scrolling. */
+@media (max-width:899px){
+  .lbtrack{grid-auto-columns:158px;gap:8px;padding:6px 14px 10px}
+  article.lbc{gap:7px;padding:10px 10px 9px;border-radius:14px}
+  article.lbc .lbcrk{font-size:17px}
+  article.lbc .lbctag{font-size:8px;padding:3px 6px}
+  article.lbc .lbcmed{font-size:14px}
+  article.lbc .lbcwho{gap:7px}article.lbc .lbcwho b{font-size:13px}article.lbc .lbcwho small{font-size:11px}
+  article.lbc .lbcav .av{width:28px;height:28px;font-size:11px}
+  article.lbc .lbcpnl b{font-size:18px}
+  article.lbc .lbcstats{gap:5px}
+  article.lbc .lbcstats>div{padding:5px 7px;border-radius:9px}
+  article.lbc .lbcstats small{font-size:7px;margin-bottom:0;letter-spacing:.06em;white-space:nowrap}
+  article.lbc .lbcstats>div{padding:4px 7px 5px}
+  article.lbc .lbcstats small{letter-spacing:.02em}
+  article.lbc .lbcgo{display:none}
+  article.lbc .lbcpnl{margin:-3px 0 -2px}
+  article.lbc .lbcstats b{font-size:12.5px}
+  article.lbc .lbcxp{display:none}
+  article.lbc .lbcgo{min-height:26px;height:26px;font-size:11.5px}
+  .lbcar{padding-bottom:4px}.lbcnav{padding-top:2px;padding-bottom:2px}.lbcnav .lbarr{display:none}
+}
+/* Pull to refresh */
+#ptr{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 6px);z-index:400;width:38px;height:38px;border-radius:50%;background:var(--bg2);border:1px solid var(--line);box-shadow:0 8px 24px rgba(0,0,0,.35);display:grid;place-items:center;opacity:0;transform:translate(-50%,0);pointer-events:none}
+#ptr i{width:18px;height:18px;border-radius:50%;border:2.5px solid var(--muted);border-top-color:transparent}
+#ptr.go i{border-color:var(--hi);border-top-color:transparent}
+#ptr.spin{transition:transform .2s}#ptr.spin i{animation:ptrspin .6s linear infinite}
+@keyframes ptrspin{to{transform:rotate(360deg)}}
