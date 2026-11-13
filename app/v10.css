@@ -732,3 +732,48 @@ body.cdrag iframe{pointer-events:none}
 :root{--sat:env(safe-area-inset-top,0px)}
 .hdr{top:var(--sat)}
 html::after{content:'';position:fixed;left:0;right:0;top:0;height:var(--sat);background:var(--bg);z-index:16;pointer-events:none}
+
+/* ---------- Chart card: toolbar, legend, bottom bar (terminal style) ---------- */
+.chcard{position:relative;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:16px;background:var(--bg);margin-bottom:12px;overflow:visible}
+.chcard .lchart{border:0;border-radius:0;margin:0;height:340px}
+body.term #view .tmain .chcard .lchart{height:min(56vh,560px)}
+@media (max-width:520px){.chcard .lchart{height:320px}}
+.ctool,.cbot{display:flex;align-items:center;gap:1px;padding:5px 8px;overflow-x:auto;scrollbar-width:none;white-space:nowrap}
+.ctool::-webkit-scrollbar,.cbot::-webkit-scrollbar{display:none}
+.ctool button,.cbot button{flex:none;border:0;background:none;color:var(--muted);font:700 13px var(--body);padding:6px 8px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;line-height:1}
+.ctool button:hover,.cbot button:hover{background:var(--bg2);color:var(--text)}
+.ctool button.on,.cbot button.on{color:var(--hi)}
+.ctool .cfx{font:italic 800 15px Georgia,serif}
+.cpm{display:inline-flex;align-items:center;color:var(--muted);font-weight:700}
+.cpm button{padding:6px 4px}
+.csep{flex:none;width:10px}
+.cgap{flex:1;min-width:8px}
+.ctool .csrc{font-size:12.5px;color:var(--muted)}
+.cbot{font:600 12.5px var(--body);color:var(--muted);padding-top:2px}
+.cclock{font-size:12.5px;padding:0 6px}
+.ctrack{display:flex;justify-content:center;align-items:center;gap:6px;padding:4px 0 8px;font:600 12px var(--body);color:var(--muted)}
+.ctrack img{width:16px;height:16px;border-radius:5px}
+.clegend{position:absolute;left:10px;top:8px;z-index:3;pointer-events:none;font:600 12px/1.55 var(--body);color:var(--muted);text-shadow:0 1px 2px var(--bg)}
+.clegend b{color:var(--text);font-weight:700;margin:0 8px 0 3px}
+.clg1 b{margin-left:0}
+.clegend b.up{color:var(--up)}.clegend b.down{color:var(--down)}
+.lchart.cdraw{cursor:crosshair}
+.cindm{position:absolute;top:44px;left:8px;z-index:20;min-width:170px;padding:6px;background:var(--bg);border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 40px rgba(0,0,0,.35)}
+.cindm button{display:flex;width:100%;align-items:center;gap:10px;border:0;background:none;color:var(--text);font:700 13.5px var(--body);padding:9px 10px;border-radius:10px;cursor:pointer}
+.cindm button:hover{background:var(--bg2)}
+.cindm i{width:16px;height:16px;border-radius:5px;border:2px solid var(--muted)}
+.cindm button.on i{background:var(--hi);border-color:var(--hi)}
+.chcard.lfull{position:fixed;inset:0;z-index:600;border-radius:0;margin:0;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.chcard.lfull .lchart{flex:1;height:auto!important}
+body.lfull-on{overflow:hidden}
+.chcard.isdex .lchart{height:420px}
+/* ---------- Switch token: chevron next to the name ---------- */
+.tswrap{position:relative;display:flex;align-items:center;gap:6px;max-width:100%;min-width:0}
+.tswrap>span:first-child{min-width:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.tswitch{flex:none;width:28px;height:28px;border-radius:50%;border:1px solid var(--line);background:var(--bg2);color:var(--text);display:inline-grid;place-items:center;cursor:pointer;vertical-align:middle}
+.tswitch:hover{filter:brightness(1.12)}
+.tswitch.on svg{transform:rotate(180deg)}
+.tswrap .tnpop{left:0;translate:none;top:38px;width:min(400px,calc(100vw - 32px))}
+.tnph .tnarr{display:flex;gap:6px;align-items:center}
+.tnph .ib{width:30px;height:30px}
+.tnph .tnnext svg{transform:scaleX(-1)}

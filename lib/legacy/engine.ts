@@ -1406,14 +1406,11 @@ function pairChip(t){const q=t.L&&t.L.quote;if(!q||!q.mint||QUOTES[q.mint]==='SO
  return ` <a class="chain pairchip${stock?' stock':''}" href="#/token/${esc(q.mint)}" title="Trades against ${esc(sym)}. Buys route through ${esc(sym)} automatically.">${stock?'📈 ':''}Paired · ${esc(sym)}</a>`}
 function vLiveToken(t){const key=t.key,tr=S.watch.has(key),on=calls.filter(k=>k.t===key),L=t.L||{},ch=(L.chg||{}).h24;
  S.ltf=S.ltf&&S.ltfUser?S.ltf:((t.ageH||0)<.5?'1m':'15m');S.lmode=S.lmode||'mc';if(!S.ltab){try{S.ltab=localStorage.getItem('callit.ltab')||'calls'}catch(_){S.ltab='calls'}}const lt=LTABS.some(x=>x[0]===S.ltab)?S.ltab:'calls';if(!S.ctab){try{S.ctab=localStorage.getItem('callit.ctab')||'holders'}catch(_){S.ctab='holders'}}const ct=['holders','calls','info'].includes(S.ctab)?S.ctab:'holders';{let sv=null;try{sv=localStorage.getItem('callit.lsrc')}catch(_){}S.lsrc=sv||(hasActivity(key)?'callit':'dex')}
- return `<div class="tmain"><div class="pad" style="padding-bottom:0">${tnavBar(key)}<div style="display:flex;align-items:center;gap:12px">${tokav(key)}<div style="flex:1;min-width:0"><b class="h2">${esc(t.name)}</b>${L.verified?`<span class="vbadge" title="Verified on Jupiter">${ic('check',11)}</span>`:''} <span class="muted">$${esc(t.sym)}</span>
+ return `<div class="tmain"><div class="pad" style="padding-bottom:0"><div style="display:flex;align-items:center;gap:12px">${tokav(key)}<div style="flex:1;min-width:0"><span class="tswrap"><span><b class="h2">${esc(t.name)}</b>${L.verified?`<span class="vbadge" title="Verified on Jupiter">${ic('check',11)}</span>`:''} <span class="muted">$${esc(t.sym)}</span></span><button class="tswitch" data-act="tlist" aria-haspopup="dialog" aria-label="Switch to another token" title="Switch token">${ic('down',16)}</button></span>
  <div><span class="chain">Solana</span>${t.lp?` <span class="chain lpchip">${esc(t.lp)}</span>`:''}${pairChip(t)} <button class="copyca" data-act="copy" data-v="${esc(t.ca)}">${short(t.ca)} ${ic('copy',13)}</button></div></div>
  ${(()=>{if(S.connected&&!AL.d)alLoad();const bo=BELLS.has(key);return `<button class="ib bellb ${bo?'on':''}" data-act="bell" data-t="${key}" aria-label="${bo?'Edit':'Set'} alerts for $${esc(t.sym)}" title="Alerts">${ic('bell',18)}</button>`})()}<button class="btn sm ${tr?'primary':'ghost'}" data-act="track" data-t="${key}">${ic('star',15,tr)} ${tr?'On watchlist':'Watchlist'}</button></div>
- <div class="lhead"><span class="price num" id="lprice">${S.lmode==='mc'?fmtSmall(mcap(t)):fmtSmall(t.price)}</span><b class="num ${pcls(ch)}" id="lchg">${pctS(ch)} 24h</b><span class="livetag" title="Live"><i></i>LIVE</span>
- <div class="seg lmode">${[['mc','MC'],['price','Price']].map(([k,l])=>`<button class="${S.lmode===k?'on':''}" data-act="lmode" data-f="${k}">${l}</button>`).join('')}</div></div>
- <div class="lsrc"><button class="lnk" data-act="lsrc">${S.lsrc==='callit'?'Use DexScreener chart':'Use Callit chart'}</button></div>
- <div class="seg ltf" role="tablist">${['1m','5m','15m','1h','4h','1d'].map(x=>`<button class="${S.ltf===x?'on':''}" data-act="ltf" data-f="${x}">${x}</button>`).join('')}</div>
- <div class="lchart" id="lchart" data-mint="${key}"><div class="lchart-msg" id="lchartmsg">${t.pool?'Loading chart…':'No trading pool for a chart yet.'}</div></div>
+ <div class="lhead"><span class="price num" id="lprice">${S.lmode==='mc'?fmtSmall(mcap(t)):fmtSmall(t.price)}</span><b class="num ${pcls(ch)}" id="lchg">${pctS(ch)} 24h</b><span class="livetag" title="Live"><i></i>LIVE</span></div>
+ ${lcardHTML(t,key)}
  <div class="ltabs${LTABS.length>4?' ltabs5':''}" role="tablist" aria-label="Token sections">${LTABS.map(([k,l,i])=>`<button role="tab" aria-selected="${lt===k}" class="${lt===k?'on':''}" data-act="ltab" data-f="${k}">${ic(i,15)}<span>${l}</span>${k==='calls'&&on.length?`<b class="num">${on.length}</b>`:''}</button>`).join('')}</div>
  <div class="ltabs ctabs" role="tablist" aria-label="Under the chart">${[['holders','Holders','profile'],['calls','Calls','promote'],['info','Info','news']].map(([k,l,i])=>`<button role="tab" aria-selected="${ct===k}" class="${ct===k?'on':''}" data-act="ctab" data-f="${k}">${ic(i,15)}<span>${l}</span>${k==='calls'&&on.length?`<b class="num">${on.length}</b>`:''}</button>`).join('')}</div></div>
  <section class="lpanel pad ${ct==='holders'?'':'cpoff'}" data-lp="holders" data-cp="holders" ${lt==='holders'?'':'hidden'}><div id="lholders">${holdersPanel(t)}</div></section>
@@ -1434,16 +1431,31 @@ function vLiveToken(t){const key=t.key,tr=S.watch.has(key),on=calls.filter(k=>k.
 function tnavList(cur){const tt=S.tt&&S.tt!=='watch'&&FEEDS[S.tt]?S.tt:'trending';let ks=[],src='';
  const w=[...(S.watch||[])].filter(k=>T[k]);if(w.includes(cur)&&w.length>1){ks=w;src='Watchlist'}
  if(!ks.length){const r=feedRows(tt,filOf(tt));if(r&&r.length){ks=r.map(t=>t.key);src=FEEDS[tt][0]}}
+ if(!ks.length){ks=Object.values(T).filter(t=>t&&t.live&&t.price&&!t.base&&!t.prelaunch&&!NOT_MEME.has(String(t.sym).toUpperCase())).sort((a,b)=>(b.vol||0)-(a.vol||0)).map(t=>t.key);src='Trending'}
  return {ks:ks.filter(k=>T[k]).slice(0,60),src}}
+/* Chart card: toolbar (timeframes, chart type, indicators, Price/MCap, tools), the chart, and a bottom bar (ranges, clock, %, log, auto). */
+const CSVG={candle:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 3v4M7 17v4M17 3v2M17 15v6"/><rect x="5" y="7" width="4" height="10" rx="1"/><rect x="15" y="5" width="4" height="10" rx="1"/></svg>',
+ line:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 17l6-6 4 4 8-8"/></svg>',
+ hline:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12h18"/><circle cx="12" cy="12" r="2.2"/></svg>',
+ trash:'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>',
+ shot:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
+ fs:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>'};
+function lcardHTML(t,key){const dex=S.lsrc!=='callit',tfs=[['1m','1m'],['5m','5m'],['15m','15m'],['1h','1h'],['4h','4h'],['1d','D']];
+ const tf=tfs.map(([k,l])=>`<button class="${S.ltf===k?'on':''}" data-act="ltf" data-f="${k}">${l}</button>`).join('');
+ const pm=`<span class="cpm"><button class="${S.lmode==='price'?'on':''}" data-act="lmode" data-f="price">Price</button>/<button class="${S.lmode==='mc'?'on':''}" data-act="lmode" data-f="mc">MCap</button></span>`;
+ const tools=dex?'':`<i class="csep"></i><button data-ch="type" title="Candles or line">${CSVG.candle}</button><button data-ch="ind" title="Indicators"><b class="cfx">ƒx</b><span>Indicators</span></button><i class="csep"></i>${pm}<i class="csep"></i><button data-ch="hline" title="Draw a horizontal line, then click the chart">${CSVG.hline}</button><button data-ch="clear" title="Clear your lines">${CSVG.trash}</button><button data-ch="shot" title="Save a screenshot">${CSVG.shot}</button><button data-ch="fs" title="Full screen">${CSVG.fs}</button>`;
+ const bot=dex?'':`<div class="cbot">${[['1D',86400],['5D',432e3],['1M',2592e3],['3M',7776e3]].map(([l,s])=>`<button data-ch="rng" data-f="${s}">${l}</button>`).join('')}<span class="cgap"></span><span class="cclock num"></span><i class="csep"></i><button data-ch="pct">%</button><button data-ch="log">log</button><button data-ch="auto" class="on">auto</button></div>`;
+ return `<div class="chcard${dex?' isdex':''}" id="chcard"><div class="ctool">${tf}${dex?`<i class="csep"></i>${pm}`:tools}<span class="cgap"></span><button class="csrc" data-act="lsrc">${dex?'Callit chart':'DexScreener'}</button></div>
+ <div class="lchart" id="lchart" data-mint="${key}"><div class="lchart-msg" id="lchartmsg">${t.pool?'Loading chart…':'No trading pool for a chart yet.'}</div></div>${bot}${dex?'':`<div class="ctrack">Charted by <img src="/icon-192.png" alt=""> Callit</div>`}</div>`}
 function tnavBar(key){const {ks,src}=tnavList(key),i=ks.indexOf(key);
  return `<div class="tnbar"><button class="ib sm" data-act="tnav" data-f="-1" aria-label="Previous token" title="Previous token">${ic('chev',16)}</button><button class="tnlbl" data-act="tlist" aria-haspopup="dialog">${ic('list',14)}<span>${ks.length?esc(src)+(i>=0?` · ${i+1} of ${ks.length}`:''):'Switch token'}</span>${ic('down',14)}</button><button class="ib sm tnnext" data-act="tnav" data-f="1" aria-label="Next token" title="Next token">${ic('chev',16)}</button></div>`}
 function tnavGo(d){const cur=location.hash.split('/')[2],{ks}=tnavList(cur);if(!ks.length){toast('Loading the token list. Try again in a second.');return}
  const i=ks.indexOf(cur),n=ks.length,nx=i<0?ks[d>0?0:n-1]:ks[(i+d+n)%n];if(nx&&nx!==cur)location.hash='#/token/'+nx}
-function tnavOpen(){const old=$('#tnavpop');if(old){old.remove();return}const bar=$('.tnbar');if(!bar)return;const cur=location.hash.split('/')[2],{ks,src}=tnavList(cur);
+function tnavOpen(){const old=$('#tnavpop'),sw=$('.tswitch');if(old){old.remove();if(sw)sw.classList.remove('on');return}const bar=$('.tswrap');if(!bar)return;if(sw)sw.classList.add('on');const cur=location.hash.split('/')[2],{ks,src}=tnavList(cur);
  const rows=ks.map(k=>{const t=T[k],c=chgOf(t,'1h');return `<a class="tnrow${k===cur?' on':''}" href="#/token/${esc(k)}">${tokav(k)}<b>$${esc(t.sym)}</b><span class="num">${fmtUsd(mcap(t)||0)}</span><span class="num ${pcls(c)}">${pctS(c)}</span></a>`}).join('');
- bar.insertAdjacentHTML('beforeend',`<div class="tnpop" id="tnavpop" role="dialog" aria-label="Switch token"><div class="tnph"><b>${esc(src||'Tokens')}</b><a class="lnk" href="#/market">Market</a></div><div class="tnpl">${rows||'<p class="hint" style="padding:12px">Loading the list…</p>'}</div></div>`);
+ bar.insertAdjacentHTML('beforeend',`<div class="tnpop" id="tnavpop" role="dialog" aria-label="Switch token"><div class="tnph"><b>${esc(src||'Tokens')}</b><span class="tnarr"><button class="ib sm" data-act="tnav" data-f="-1" aria-label="Previous token" title="Previous token">${ic('chev',16)}</button><button class="ib sm tnnext" data-act="tnav" data-f="1" aria-label="Next token" title="Next token">${ic('chev',16)}</button><a class="lnk" href="#/market">Market</a></span></div><div class="tnpl">${rows||'<p class="hint" style="padding:12px">Loading the list…</p>'}</div></div>`);
  const on=$('#tnavpop .tnrow.on');if(on)on.scrollIntoView({block:'center'})}
-document.addEventListener('click',e=>{const p=$('#tnavpop');if(p&&!e.target.closest('.tnbar'))p.remove()},true);
+document.addEventListener('click',e=>{const p=$('#tnavpop');if(p&&!e.target.closest('.tswrap')){p.remove();const sw=$('.tswitch');if(sw)sw.classList.remove('on')}},true);
 addEventListener('hashchange',()=>{const p=$('#tnavpop');if(p)p.remove()});
 /* Your bag in this token, under the trade box (like a Positions tab). */
 function posCard(key){const t=T[key],amt=S.connected?(S.bal[key]||0):0;if(!t||!amt||!t.price)return '';const val=amt*t.price,x=posPnl(key),avg=x&&x.val>0?(mcap(t)||0)*x.cost/x.val:null;
@@ -2068,11 +2080,11 @@ function mountLiveChart(){const el=$('#lchart');if(!el)return;const t=T[el.datas
  el.classList.remove('dsx');if(!t.pool)return;
  const msg=$('#lchartmsg'),want=t.key+'|'+S.ltf+'|'+S.lmode;el.dataset.want=want;
  chartMod().then(({mountChart})=>{if(!el.isConnected||el.dataset.want!==want||LCHART)return;
- LCHART=mountChart(el,{pool:t.pool,mint:t.key,tf:S.ltf,factor:S.lmode==='mc'&&t.supply?t.supply:1,
+ LCHART=mountChart(el,{pool:t.pool,mint:t.key,sym:t.sym,mode:S.lmode,tf:S.ltf,factor:S.lmode==='mc'&&t.supply?t.supply:1,
   onState:st=>{if(st==='error'&&chartFallback(t))return;if(!msg)return;msg.hidden=st==='ok';msg.textContent=st==='loading'?'Loading chart…':st==='empty'?'No trades in this timeframe yet.':'Chart is unavailable right now.'}});
  LCHART.overlay(chartOverlay(t.key))}).catch(()=>{if(chartFallback(t))return;if(msg){msg.hidden=false;msg.textContent='Chart is unavailable right now.'}})}
 /* Our candles come from GeckoTerminal. When it has nothing for this pool (or is rate-limiting us), show DexScreener's chart instead of an error. */
-function chartFallback(t){if(!t||!isMintStr(t.key)||S.lsrc==='dex')return false;S.lsrc='dex';const old=LCHART;LCHART=null;setTimeout(()=>{if(old)try{old()}catch(_){}const lk=$('.lsrc .lnk');if(lk)lk.textContent='Use Callit chart';mountLiveChart()},0);return true}
+function chartFallback(t){if(!t||!isMintStr(t.key)||S.lsrc==='dex')return false;S.lsrc='dex';const old=LCHART;LCHART=null;setTimeout(()=>{if(old)try{old()}catch(_){}render()},0);return true}
 /* Your activity on the Callit chart: avg entry, open orders (limit / TP / SL / trailing), your buys and sells, and calls on this token. */
 const cssv=(v,f)=>getComputedStyle(document.documentElement).getPropertyValue(v).trim()||f;
 function hasActivity(key){const m=mintOf(key);return (S.bal[key]||0)>0||(ORD.list||[]).some(o=>o.inputMint===m||o.outputMint===m)||(S.ledger||[]).some(x=>x.in_mint===m||x.out_mint===m)}
