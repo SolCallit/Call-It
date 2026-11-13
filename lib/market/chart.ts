@@ -37,12 +37,13 @@ export function mountChart(
   chart = createChart(el, {
     autoSize: true,
     layout: { background: { type: ColorType.Solid, color: 'transparent' }, textColor: text, fontSize: 11, attributionLogo: true },
-    grid: { vertLines: { color: 'transparent' }, horzLines: { color: line } },
+    grid: { vertLines: { visible: false }, horzLines: { visible: false } },
     rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.1, bottom: 0.22 } },
-    timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false, rightOffset: 4 },
+    timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false, rightOffset: 6, minBarSpacing: 0.2 },
     crosshair: { mode: 0 },
     localization: { locale: 'en-US', priceFormatter: (v: number) => fmtSmall(v) },
-    handleScale: { axisPressedMouseMove: true },
+    handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true, axisDoubleClickReset: true },
+    handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
   });
   const candles = chart.addSeries(CandlestickSeries, {
     upColor: up, downColor: down, borderUpColor: up, borderDownColor: down, wickUpColor: up, wickDownColor: down,
@@ -56,6 +57,31 @@ export function mountChart(
 
   let first = true;
   let fails = 0;
+  // Every candle seen so far, by time. Polls merge into it; scrolling to the left edge loads older ones.
+  const all = new Map<number, number[]>();
+  const paint = () => {
+    const f = opts.factor || 1;
+    const list = [...all.values()].sort((a, b) => a[0] - b[0]);
+    candles.setData(list.map(([t, o, h, l, c]) => ({ time: t as UTCTimestamp, open: o * f, high: h * f, low: l * f, close: c * f })));
+    vol.setData(list.map(([t, o, , , c, v]) => ({ time: t as UTCTimestamp, value: v, color: c >= o ? up + '66' : down + '66' })));
+  };
+  let olderBusy = false, olderDone = false;
+  const loadOlder = async () => {
+    if (olderBusy || olderDone || dead || !chart || !all.size) return;
+    olderBusy = true;
+    try {
+      const oldest = Math.min(...all.keys());
+      const r = await fetch(`/api/market/chart?pool=${opts.pool}&mint=${opts.mint}&tf=${opts.tf}&before=${oldest}`);
+      const list = r.ok ? (((await r.json()).candles || []) as number[][]).filter((c) => c[0] < oldest) : [];
+      if (dead || !chart) return;
+      if (!list.length) { olderDone = true; return; }
+      const ts = chart.timeScale(), vr = ts.getVisibleLogicalRange();
+      for (const c of list) all.set(c[0], c);
+      paint();
+      if (last) put(last);
+      if (vr) ts.setVisibleLogicalRange({ from: vr.from + list.length, to: vr.to + list.length });
+    } catch { /* try again on the next scroll */ } finally { olderBusy = false; }
+  };
   let retry: ReturnType<typeof setTimeout> | null = null;
   // Newest candle in raw price units (before the MC factor), so ticks and reloads agree.
   let last: { time: number; open: number; high: number; low: number; close: number } | null = null;
@@ -72,13 +98,12 @@ export function mountChart(
       const list = ((await r.json()).candles || []) as number[][];
       if (dead || !chart) return;
       if (!list.length) { if (first && fails++ < 2) { retry = setTimeout(load, 2500); return; } opts.onState?.('empty'); return; }
-      const f = opts.factor || 1;
-      candles.setData(list.map(([t, o, h, l, c]) => ({ time: t as UTCTimestamp, open: o * f, high: h * f, low: l * f, close: c * f })));
+      for (const c of list) all.set(c[0], c);
+      paint();
       const z = list[list.length - 1];
       // Keep a live-ticked candle that is newer than what the API returned.
       if (last && last.time > z[0]) put(last);
       else last = { time: z[0], open: z[1], high: z[2], low: z[3], close: z[4] };
-      vol.setData(list.map(([t, o, , , c, v]) => ({ time: t as UTCTimestamp, value: v, color: c >= o ? up + '66' : down + '66' })));
       if (first) chart.timeScale().fitContent();
       if (first && ov) drawMarks(ov);
       first = false;
@@ -93,6 +118,7 @@ export function mountChart(
     }
   };
   load();
+  chart.timeScale().subscribeVisibleLogicalRangeChange((r) => { if (r && r.from < 30) loadOlder(); });
   timer = setInterval(() => { if (!document.hidden) load(); }, POLL[opts.tf]);
 
   const size = BUCKET[opts.tf];

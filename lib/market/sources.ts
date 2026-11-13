@@ -386,10 +386,11 @@ export const TIMEFRAMES = {
 export type Tf = keyof typeof TIMEFRAMES;
 
 /** Candles oldest-first: [unixSeconds, open, high, low, close, volumeUsd]. */
-export async function candles(pool: string, mint: string, tf: Tf): Promise<number[][] | null> {
+export async function candles(pool: string, mint: string, tf: Tf, before?: number): Promise<number[][] | null> {
   const [unit, agg, ttl] = TIMEFRAMES[tf];
+  const bt = before ? `&before_timestamp=${before}` : '';
   const data = await getJSON<{ data?: { attributes?: { ohlcv_list?: number[][] } } }>(
-    `${GT}/networks/solana/pools/${pool}/ohlcv/${unit}?aggregate=${agg}&limit=300&currency=usd&token=${mint}`,
+    `${GT}/networks/solana/pools/${pool}/ohlcv/${unit}?aggregate=${agg}&limit=1000&currency=usd&token=${mint}${bt}`,
     ttl,
   );
   let list = data?.data?.attributes?.ohlcv_list;
@@ -399,7 +400,7 @@ export async function candles(pool: string, mint: string, tf: Tf): Promise<numbe
     const alt = pools?.data?.map((p) => p.attributes?.address).find((a) => a && a !== pool);
     if (alt) {
       const d2 = await getJSON<{ data?: { attributes?: { ohlcv_list?: number[][] } } }>(
-        `${GT}/networks/solana/pools/${alt}/ohlcv/${unit}?aggregate=${agg}&limit=300&currency=usd&token=${mint}`, ttl);
+        `${GT}/networks/solana/pools/${alt}/ohlcv/${unit}?aggregate=${agg}&limit=1000&currency=usd&token=${mint}${bt}`, ttl);
       const l2 = d2?.data?.attributes?.ohlcv_list;
       if (Array.isArray(l2)) list = l2;
     }
