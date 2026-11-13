@@ -340,7 +340,7 @@ body:has(.chdock) .fab{right:420px}
 @media (max-width:520px){.rkids{margin-left:46px}.rkids.open::before{left:-22px}.rmore{margin-left:-22px}.rep.rkid{padding-right:12px}}
 
 /* ---------- Spot: plain rows, its own search, most-traded first ---------- */
-.spothead{position:sticky;top:var(--hdr);z-index:11;padding:10px 14px 6px;
+.spothead{position:sticky;top:calc(var(--hdr) + var(--sat,0px));z-index:11;padding:10px 14px 6px;
  background:color-mix(in srgb,var(--bg) 94%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
 .spotsearch{display:flex;align-items:center;gap:8px;padding:0 12px;height:42px;border-radius:999px;
  background:var(--bg2);border:1px solid var(--line);box-shadow:var(--raise-sm)}
@@ -548,12 +548,12 @@ article.lbc::after{display:none}
   body.sides .cols{grid-template-columns:minmax(0,1fr) minmax(330px,400px);gap:0;padding:0}
   body.sides.sides2 .cols{grid-template-columns:minmax(300px,350px) minmax(0,1fr) minmax(330px,400px)}
   body.sides.mwide:not([data-route=market]):not([data-route=trenches]) .center{max-width:none;justify-self:stretch;border-left:1px solid var(--line);border-right:1px solid var(--line)}
-  body.sides.sides2 .sidel{display:block;position:sticky;top:var(--hdr);align-self:start;max-height:calc(100vh / var(--z,1) - var(--hdr));overflow-y:auto;padding:16px 14px 24px;scrollbar-width:none}
+  body.sides.sides2 .sidel{display:block;position:sticky;top:calc(var(--hdr) + var(--sat,0px));align-self:start;max-height:calc(100vh / var(--z,1) - var(--hdr));overflow-y:auto;padding:16px 14px 24px;scrollbar-width:none}
   body.sides .sidel::-webkit-scrollbar{display:none}
   body.sides .sidesw{padding:14px}
   body.sides .sidesw .tradeh{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
   body.sides .sidesw h3{margin:0}
-  body.sides.mwide .rail{display:flex;position:sticky;top:var(--hdr);align-self:start;height:calc(100vh / var(--z,1) - var(--hdr));max-height:none;padding:0;gap:0;overflow:hidden}
+  body.sides.mwide .rail{display:flex;position:sticky;top:calc(var(--hdr) + var(--sat,0px));align-self:start;height:calc(100vh / var(--z,1) - var(--hdr));max-height:none;padding:0;gap:0;overflow:hidden}
   body.sides .rail>*{display:flex!important}
   .sidep{flex:1;min-width:0;flex-direction:column;height:100%}
   .sideh{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line);flex:none}
@@ -689,3 +689,46 @@ body.term #view .trdlist{height:min(560px,calc(100vh - 230px));overflow-y:auto;s
 @media (max-width:420px){.ltabs.ltabs5 button svg{display:none}}
 /* Since-bought % on a buyer's call card: sits on the Bought-in line and wraps as one piece */
 .sbk{white-space:nowrap;color:var(--muted)}
+
+/* ---------- Trades column fills the side down to the bottom of the screen ---------- */
+body.term #view>.tmain>.trdpanel{align-self:stretch}
+body.term #view .trdcol{position:sticky;top:calc(var(--hdr) / .9 + 6px);height:calc((100vh / var(--z,1) - var(--hdr)) / .9 - 12px);display:flex;flex-direction:column;min-height:0}
+body.term #view .trdlist{flex:1;min-height:0;height:auto}
+/* ---------- Resizable desktop columns ---------- */
+body.term #view:has(>.tmain){grid-template-columns:var(--tc1,minmax(330px,440px)) minmax(0,1fr) var(--tc3,minmax(280px,340px))}
+@media (min-width:900px){
+  body.sides .cols{grid-template-columns:minmax(0,1fr) var(--sc3,minmax(330px,400px))}
+  body.sides.sides2 .cols{grid-template-columns:var(--sc1,minmax(300px,350px)) minmax(0,1fr) var(--sc3,minmax(330px,400px))}
+}
+.cgrip{position:fixed;top:0;bottom:0;width:10px;z-index:14;cursor:col-resize;touch-action:none}
+.cgrip::after{content:'';position:absolute;left:4px;top:0;bottom:0;width:2px;border-radius:2px;background:var(--hi);opacity:0;transition:opacity .15s}
+.cgrip:hover::after,.cgrip.on::after{opacity:.7}
+body.cdrag{cursor:col-resize;user-select:none}
+body.cdrag iframe{pointer-events:none}
+@media (max-width:899px),(pointer:coarse){.cgrip{display:none}}
+/* ---------- Switch token bar ---------- */
+.tnbar{position:relative;display:flex;align-items:center;gap:6px;margin:0 0 10px}
+.tnbar .ib{width:32px;height:32px}
+.tnbar .tnnext svg{transform:scaleX(-1)}
+.tnlbl{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:6px;height:32px;border:1px solid var(--line);border-radius:999px;background:var(--bg2);color:var(--text);font:700 13px var(--body);cursor:pointer;padding:0 12px}
+.tnlbl span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tnlbl:hover{filter:brightness(1.08)}
+.tnpop{position:absolute;left:50%;translate:-50% 0;width:min(440px,calc(100% - 76px));top:40px;z-index:30;background:var(--bg);border:1px solid var(--line);border-radius:18px;box-shadow:0 18px 50px rgba(0,0,0,.35);overflow:hidden}
+.tnph{display:flex;justify-content:space-between;align-items:center;padding:12px 14px 8px}
+.tnpl{max-height:min(60vh,460px);overflow-y:auto;scrollbar-width:thin;padding:0 6px 8px}
+.tnrow{display:grid;grid-template-columns:28px minmax(0,1fr) auto 64px;align-items:center;gap:10px;padding:7px 8px;border-radius:12px;color:var(--text);font-size:13.5px;text-decoration:none}
+.tnrow .tokav{width:28px;height:28px}
+.tnrow>span{text-align:right}
+.tnrow:hover{background:var(--bg2)}
+.tnrow.on{background:color-mix(in srgb,var(--hi) 14%,transparent)}
+/* ---------- Your position card ---------- */
+.poscard{margin-top:12px}
+.poscard h3{margin:0 0 10px}
+.posg{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
+.posg span{display:block;font-size:12px;color:var(--muted);font-weight:600}
+.posg b{font-size:15px;font-weight:800}
+.posg small{font-size:12px;font-weight:700}
+/* ---------- Installed iPhone app: keep the header below the clock and battery ---------- */
+:root{--sat:env(safe-area-inset-top,0px)}
+.hdr{top:var(--sat)}
+html::after{content:'';position:fixed;left:0;right:0;top:0;height:var(--sat);background:var(--bg);z-index:16;pointer-events:none}

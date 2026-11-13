@@ -51,6 +51,30 @@ async function bundleOf(mint: string, supply: number) {
   return { pct: supply ? (total / supply) * 100 : null, wallets: buyers.length, dev, buyers: new Set(buyers.map(([o]) => o)) };
 }
 
+/**
+ * Top 100 holders from a full scan of the token's accounts (Helius DAS). Only possible when the token
+ * has at most 5,000 accounts: past that the scan isn't complete, so we can't rank and keep the RPC top 20.
+ */
+async function dasTop(mint: string, decimals: number): Promise<{ owner: string; ui: number }[] | null> {
+  const url = rpcUrl();
+  if (!/helius/.test(url)) return null;
+  const all = new Map<string, number>();
+  for (let page = 1; page <= 5; page++) {
+    const r = await fetch(url, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 'h', method: 'getTokenAccounts', params: { mint, limit: 1000, page } }),
+      signal: AbortSignal.timeout(6000),
+    }).then((x) => x.json()).catch(() => null) as { result?: { token_accounts?: { owner?: string; amount?: number | string }[] } } | null;
+    const list = r?.result?.token_accounts;
+    if (!Array.isArray(list)) return null;
+    for (const a of list) if (a?.owner) all.set(a.owner, (all.get(a.owner) || 0) + Number(a.amount || 0));
+    if (list.length < 1000) {
+      return [...all.entries()].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 100).map(([owner, raw]) => ({ owner, ui: raw / 10 ** decimals }));
+    }
+  }
+  return null;
+}
+
 /** GET /api/market/risk/<mint>: Dex paid, launch bundle %, and top holders for the bubble map. Cached 5 min. */
 export async function GET(_req: Request, ctx: { params: Promise<{ mint: string }> }) {
   const { mint } = await ctx.params;
@@ -63,15 +87,22 @@ export async function GET(_req: Request, ctx: { params: Promise<{ mint: string }
   let holders: Holder[] = [];
   let bundle: Risk['bundle'] = null;
   try {
-    const sup = await rpc<{ value: { uiAmount: number | null } }>('getTokenSupply', [mint]);
+    const sup = await rpc<{ value: { uiAmount: number | null; decimals?: number } }>('getTokenSupply', [mint]);
     const supply = sup.value.uiAmount || 0;
     const [largest, b] = await Promise.all([
       rpc<{ value: { address: string; uiAmount: number | null }[] }>('getTokenLargestAccounts', [mint]),
       onHelius ? bundleOf(mint, supply).catch(() => null) : Promise.resolve(null),
     ]);
-    const accs = largest.value.slice(0, 20);
-    const info = await rpc<{ value: ({ data: { parsed?: { info?: { owner?: string } } } } | null)[] }>('getMultipleAccounts', [accs.map((a) => a.address), { encoding: 'jsonParsed' }]);
-    const owners = accs.map((_, i) => info.value[i]?.data?.parsed?.info?.owner || accs[i].address);
+    let accs: { address: string; uiAmount: number | null }[] = largest.value.slice(0, 20);
+    let owners: string[];
+    const full = onHelius && accs.length >= 20 ? await dasTop(mint, sup.value.decimals ?? 0).catch(() => null) : null;
+    if (full && full.length > accs.length) {
+      owners = full.map((x) => x.owner);
+      accs = full.map((x) => ({ address: x.owner, uiAmount: x.ui }));
+    } else {
+      const info = await rpc<{ value: ({ data: { parsed?: { info?: { owner?: string } } } } | null)[] }>('getMultipleAccounts', [accs.map((a) => a.address), { encoding: 'jsonParsed' }]);
+      owners = accs.map((_, i) => info.value[i]?.data?.parsed?.info?.owner || accs[i].address);
+    }
     const ownerAcc = await rpc<{ value: ({ owner: string } | null)[] }>('getMultipleAccounts', [owners, { encoding: 'base64', dataSlice: { offset: 0, length: 0 } }]);
     holders = accs.map((a, i) => {
       const o = owners[i];

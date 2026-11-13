@@ -413,7 +413,7 @@ export type Trade = { tx: string; t: number; side: 'buy' | 'sell'; usd: number; 
 
 /** Latest trades on a pool, newest first. GeckoTerminal, cached for a few seconds so open token pages share one call. */
 export async function recentTrades(pool: string, mint: string): Promise<Trade[] | null> {
-  const data = await getJSON<{ data?: { attributes?: Record<string, unknown> }[] }>(`${GT}/networks/solana/pools/${pool}/trades`, 3);
+  const data = await getJSON<{ data?: { attributes?: Record<string, unknown> }[] }>(`${GT}/networks/solana/pools/${pool}/trades`, 4);
   if (!data || !Array.isArray(data.data)) return null;
   const out: Trade[] = [];
   for (const row of data.data) {

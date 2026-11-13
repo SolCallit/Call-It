@@ -1406,7 +1406,7 @@ function pairChip(t){const q=t.L&&t.L.quote;if(!q||!q.mint||QUOTES[q.mint]==='SO
  return ` <a class="chain pairchip${stock?' stock':''}" href="#/token/${esc(q.mint)}" title="Trades against ${esc(sym)}. Buys route through ${esc(sym)} automatically.">${stock?'📈 ':''}Paired · ${esc(sym)}</a>`}
 function vLiveToken(t){const key=t.key,tr=S.watch.has(key),on=calls.filter(k=>k.t===key),L=t.L||{},ch=(L.chg||{}).h24;
  S.ltf=S.ltf&&S.ltfUser?S.ltf:((t.ageH||0)<.5?'1m':'15m');S.lmode=S.lmode||'mc';if(!S.ltab){try{S.ltab=localStorage.getItem('callit.ltab')||'calls'}catch(_){S.ltab='calls'}}const lt=LTABS.some(x=>x[0]===S.ltab)?S.ltab:'calls';if(!S.ctab){try{S.ctab=localStorage.getItem('callit.ctab')||'holders'}catch(_){S.ctab='holders'}}const ct=['holders','calls','info'].includes(S.ctab)?S.ctab:'holders';{let sv=null;try{sv=localStorage.getItem('callit.lsrc')}catch(_){}S.lsrc=sv||(hasActivity(key)?'callit':'dex')}
- return `<div class="tmain"><div class="pad" style="padding-bottom:0"><div style="display:flex;align-items:center;gap:12px">${tokav(key)}<div style="flex:1;min-width:0"><b class="h2">${esc(t.name)}</b>${L.verified?`<span class="vbadge" title="Verified on Jupiter">${ic('check',11)}</span>`:''} <span class="muted">$${esc(t.sym)}</span>
+ return `<div class="tmain"><div class="pad" style="padding-bottom:0">${tnavBar(key)}<div style="display:flex;align-items:center;gap:12px">${tokav(key)}<div style="flex:1;min-width:0"><b class="h2">${esc(t.name)}</b>${L.verified?`<span class="vbadge" title="Verified on Jupiter">${ic('check',11)}</span>`:''} <span class="muted">$${esc(t.sym)}</span>
  <div><span class="chain">Solana</span>${t.lp?` <span class="chain lpchip">${esc(t.lp)}</span>`:''}${pairChip(t)} <button class="copyca" data-act="copy" data-v="${esc(t.ca)}">${short(t.ca)} ${ic('copy',13)}</button></div></div>
  ${(()=>{if(S.connected&&!AL.d)alLoad();const bo=BELLS.has(key);return `<button class="ib bellb ${bo?'on':''}" data-act="bell" data-t="${key}" aria-label="${bo?'Edit':'Set'} alerts for $${esc(t.sym)}" title="Alerts">${ic('bell',18)}</button>`})()}<button class="btn sm ${tr?'primary':'ghost'}" data-act="track" data-t="${key}">${ic('star',15,tr)} ${tr?'On watchlist':'Watchlist'}</button></div>
  <div class="lhead"><span class="price num" id="lprice">${S.lmode==='mc'?fmtSmall(mcap(t)):fmtSmall(t.price)}</span><b class="num ${pcls(ch)}" id="lchg">${pctS(ch)} 24h</b><span class="livetag" title="Live"><i></i>LIVE</span>
@@ -1423,13 +1423,51 @@ function vLiveToken(t){const key=t.key,tr=S.watch.has(key),on=calls.filter(k=>k.
  <div id="feed" style="border-top:1px solid var(--line);margin-top:6px">${on.map(post).join('')||'<div class="empty"><b>No calls yet</b><p>Call it first and your entry gets stamped at the live market cap.</p></div>'}</div></section>
  ${(h=>h?`<div class="termmore"><div class="pad" style="padding-bottom:6px"><b class="h2">Latest on Callit</b></div>${h}</div>`:'')(calls.filter(k=>visible(k)&&k.t!==key).slice(0,12).map(post).join(''))}</div>
  <div class="tleft"><section class="lpanel pad" data-lp="swap" ${lt==='swap'?'':'hidden'}>
- ${key===SOL_MINT||key===USDC_MINT?`<div class="card"><h3>Swap</h3><div data-swapbox></div></div>`:`<div class="card"><div class="tradeh"><h3>Trade $${esc(t.sym)}</h3><span class="ordbtns"><button class="btn sm ghost" data-act="ord" data-k="${key}" data-f="limit">${ic('up',14)} Limit</button><button class="btn sm ghost" data-act="ord" data-k="${key}" data-f="tpsl">${ic('target',14)} TP / SL</button></span></div><div data-swapbox data-tok="${key}"></div><div id="tokords">${ordersList(key)}</div></div>`}</section>
+ ${key===SOL_MINT||key===USDC_MINT?`<div class="card"><h3>Swap</h3><div data-swapbox></div></div>`:`<div class="card"><div class="tradeh"><h3>Trade $${esc(t.sym)}</h3><span class="ordbtns"><button class="btn sm ghost" data-act="ord" data-k="${key}" data-f="limit">${ic('up',14)} Limit</button><button class="btn sm ghost" data-act="ord" data-k="${key}" data-f="tpsl">${ic('target',14)} TP / SL</button></span></div><div data-swapbox data-tok="${key}"></div><div id="tokords">${ordersList(key)}</div></div>`}${posCard(key)}</section>
  <section class="lpanel pad" data-lp="info" ${lt==='info'?'':'hidden'}>
  <div id="lstats">${liveStats(t)}</div>
  <div class="llinks">${liveLinks(t)}</div>
  <div id="lpair">${pairCard(t)}</div><div id="labout">${aboutCard(t)}</div>
  <div id="lheat">${heatCard(t)}</div>${(sc=>`<details class="card sfcard" data-sf ${(SFOPEN==null?sc.bad:SFOPEN)?'open':''}><summary><h3>Safety check</h3><span class="sfbadge ${!sc.n?'unk':sc.bad?(sc.ok>=sc.n-1&&!(t.L&&t.L.audit&&t.L.audit.sus)?'warn':'bad'):'ok'}">${sc.n?`${sc.ok}/${sc.n} passed`:'No data'}</span><span class="sfchev" aria-hidden="true">${ic('down',18)}</span></summary><div class="sflist">${liveSafety(t)}${taxRows(t)}</div><p class="hint" style="margin:10px 0 0">From Jupiter's token audit. Not a guarantee. Always size your bets.</p></details>`)(sfScore(t))}</section></div>`}
 /* Token page sections. Panels are all rendered and just shown/hidden, so the chart never reloads. */
+/* ---------- Switch token: ‹ › through the list you were browsing, or open the list to jump ---------- */
+function tnavList(cur){const tt=S.tt&&S.tt!=='watch'&&FEEDS[S.tt]?S.tt:'trending';let ks=[],src='';
+ const w=[...(S.watch||[])].filter(k=>T[k]);if(w.includes(cur)&&w.length>1){ks=w;src='Watchlist'}
+ if(!ks.length){const r=feedRows(tt,filOf(tt));if(r&&r.length){ks=r.map(t=>t.key);src=FEEDS[tt][0]}}
+ return {ks:ks.filter(k=>T[k]).slice(0,60),src}}
+function tnavBar(key){const {ks,src}=tnavList(key),i=ks.indexOf(key);
+ return `<div class="tnbar"><button class="ib sm" data-act="tnav" data-f="-1" aria-label="Previous token" title="Previous token">${ic('chev',16)}</button><button class="tnlbl" data-act="tlist" aria-haspopup="dialog">${ic('list',14)}<span>${ks.length?esc(src)+(i>=0?` · ${i+1} of ${ks.length}`:''):'Switch token'}</span>${ic('down',14)}</button><button class="ib sm tnnext" data-act="tnav" data-f="1" aria-label="Next token" title="Next token">${ic('chev',16)}</button></div>`}
+function tnavGo(d){const cur=location.hash.split('/')[2],{ks}=tnavList(cur);if(!ks.length){toast('Loading the token list. Try again in a second.');return}
+ const i=ks.indexOf(cur),n=ks.length,nx=i<0?ks[d>0?0:n-1]:ks[(i+d+n)%n];if(nx&&nx!==cur)location.hash='#/token/'+nx}
+function tnavOpen(){const old=$('#tnavpop');if(old){old.remove();return}const bar=$('.tnbar');if(!bar)return;const cur=location.hash.split('/')[2],{ks,src}=tnavList(cur);
+ const rows=ks.map(k=>{const t=T[k],c=chgOf(t,'1h');return `<a class="tnrow${k===cur?' on':''}" href="#/token/${esc(k)}">${tokav(k)}<b>$${esc(t.sym)}</b><span class="num">${fmtUsd(mcap(t)||0)}</span><span class="num ${pcls(c)}">${pctS(c)}</span></a>`}).join('');
+ bar.insertAdjacentHTML('beforeend',`<div class="tnpop" id="tnavpop" role="dialog" aria-label="Switch token"><div class="tnph"><b>${esc(src||'Tokens')}</b><a class="lnk" href="#/market">Market</a></div><div class="tnpl">${rows||'<p class="hint" style="padding:12px">Loading the list…</p>'}</div></div>`);
+ const on=$('#tnavpop .tnrow.on');if(on)on.scrollIntoView({block:'center'})}
+document.addEventListener('click',e=>{const p=$('#tnavpop');if(p&&!e.target.closest('.tnbar'))p.remove()},true);
+addEventListener('hashchange',()=>{const p=$('#tnavpop');if(p)p.remove()});
+/* Your bag in this token, under the trade box (like a Positions tab). */
+function posCard(key){const t=T[key],amt=S.connected?(S.bal[key]||0):0;if(!t||!amt||!t.price)return '';const val=amt*t.price,x=posPnl(key),avg=x&&x.val>0?(mcap(t)||0)*x.cost/x.val:null;
+ return `<div class="card poscard"><h3>Your position</h3><div class="posg num"><div><span>Held</span><b>${fmtK(amt)}</b></div><div><span>Value</span><b>${fmtUsd(val)}</b></div><div><span>Avg entry MC</span><b>${avg?fmtUsd(avg):'—'}</b></div><div><span>Profit</span><b class="${x?(x.pnl>=0?'up':'down'):''}">${x?money(x.pnl)+(x.pct!=null?` <small>${pctS(x.pct)}</small>`:''):'—'}</b></div></div></div>`}
+/* ---------- Resizable columns on desktop: drag the border between columns, double-click to reset ---------- */
+const CW=(()=>{try{return JSON.parse(localStorage.getItem('callit.cols')||'{}')||{}}catch(_){return {}}})();
+function cwApply(){const R=document.documentElement.style;['tc1','tc3','sc1','sc3'].forEach(k=>CW[k]?R.setProperty('--'+k,CW[k]+'px'):R.removeProperty('--'+k))}cwApply();
+const isB=c=>document.body.classList.contains(c);
+const GRIPS=[{id:'tc1',on:()=>isB('term'),col:()=>$('#view>.tright'),side:'r',min:280,max:680},{id:'tc3',on:()=>isB('term'),col:()=>$('#view>.tleft'),side:'l',min:260,max:600},
+ {id:'sc1',on:()=>isB('sides2')&&!isB('term'),col:()=>$('#sidel'),side:'r',min:240,max:520},{id:'sc3',on:()=>isB('sides')&&!isB('term'),col:()=>$('#rail'),side:'l',min:280,max:600}];
+function placeGrips(){if(isPhone())return;GRIPS.forEach(g=>{let el=document.getElementById('grip-'+g.id);const c=g.on()&&g.col();
+ if(!c||!c.offsetParent){if(el)el.hidden=true;return}
+ if(!el){el=document.createElement('div');el.id='grip-'+g.id;el.className='cgrip';el.setAttribute('role','separator');el.setAttribute('aria-orientation','vertical');el.title='Drag to resize. Double-click to reset.';document.body.appendChild(el);gripWire(el,g)}
+ const r=c.getBoundingClientRect();el.hidden=false;el.style.left=Math.round((g.side==='r'?r.right:r.left)-5)+'px'})}
+function gripWire(el,g){el.addEventListener('dblclick',()=>{delete CW[g.id];try{localStorage.setItem('callit.cols',JSON.stringify(CW))}catch(_){}cwApply();requestAnimationFrame(placeGrips)});
+ el.addEventListener('pointerdown',e=>{const c=g.col();if(!c)return;e.preventDefault();el.setPointerCapture(e.pointerId);const r=c.getBoundingClientRect(),sc=(r.width/(c.offsetWidth||r.width))||1,w0=r.width/sc,x0=e.clientX;document.body.classList.add('cdrag');el.classList.add('on');
+  const mv=ev=>{const d=(ev.clientX-x0)/sc,w=Math.round(Math.max(g.min,Math.min(g.max,g.side==='r'?w0+d:w0-d)));CW[g.id]=w;cwApply();placeGrips();if(LCHART&&window.dispatchEvent)window.dispatchEvent(new Event('resize'))};
+  const up=()=>{el.removeEventListener('pointermove',mv);el.removeEventListener('pointerup',up);el.removeEventListener('pointercancel',up);document.body.classList.remove('cdrag');el.classList.remove('on');try{localStorage.setItem('callit.cols',JSON.stringify(CW))}catch(_){}placeGrips()};
+  el.addEventListener('pointermove',mv);el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up)})}
+let GRAF=0;const gripsSoon=()=>{if(GRAF)return;GRAF=requestAnimationFrame(()=>{GRAF=0;placeGrips()})};
+addEventListener('resize',gripsSoon);addEventListener('hashchange',()=>setTimeout(gripsSoon,60));setInterval(gripsSoon,1000);
+/* Holders: profit / entry for more wallets as you scroll the table (20 at a time, so we don't burn API credits on rows nobody looks at). */
+addEventListener('scroll',()=>{if(currentRoute()!=='token')return;const el=$('#hrows');if(!el)return;if(el.getBoundingClientRect().bottom-innerHeight>500)return;
+ const k=location.hash.split('/')[2],t=T[k],h=HPNL[k];if(!t||!h||h.busy||!t._risk)return;const list=(t._risk.holders||[]).slice(0,100);if((h.want||20)>=list.length)return;h.want=(h.want||20)+20;loadHolderPnl(t,list)},{passive:true});
 /* ---------- Live trades under the chart: every buy and sell on this pool, refreshed every second ---------- */
 const TRD={key:'',rows:[],seen:new Set(),timer:0,busy:0,ok:0};
 const agoTxt=ms=>{const s=Math.max(0,(Date.now()-ms)/1000);return s<60?Math.floor(s)+'s':s<3600?Math.floor(s/60)+'m':Math.floor(s/3600)+'h'};
@@ -1438,11 +1476,13 @@ function trdPaint(){const b=document.getElementById('trdbody');if(!b)return;cons
  TRD.rows.forEach(r=>{if(r.fresh&&Date.now()-r.seenAt>1200)r.fresh=false});
  b.innerHTML=TRD.rows.length?TRD.rows.map(trdRow).join(''):'<div class="trdempty">Waiting for the first trade…</div>';
  if(was>0)sc.scrollTop=was+(sc.scrollHeight-h0)}
+function tnavLbl(){const lb=document.querySelector('.tnlbl span'),k=location.hash.split('/')[2];if(!lb||!k)return;const {ks,src}=tnavList(k),i=ks.indexOf(k),x=ks.length?src+(i>=0?` · ${i+1} of ${ks.length}`:''):'Switch token';if(lb.textContent!==x)lb.textContent=x}
+setInterval(()=>{if(currentRoute()==='token'&&!document.hidden)tnavLbl()},2000);
 function trdAges(){document.querySelectorAll('#trdbody [data-ts]').forEach(e=>e.textContent=agoTxt(+e.dataset.ts));
  const l=document.getElementById('trdlive');if(l){const stale=!TRD.ok||Date.now()-TRD.ok>8000;l.classList.toggle('stale',stale);const s=l.querySelector('span');if(s)s.textContent=stale?'Reconnecting':'Live'}}
 function trdTick(){const b=document.getElementById('trdbody'),t=T[TRD.key];if(!b||!t){trdStop();return}
- if(!t.pool||!b.offsetParent||TRD.busy){trdAges();return}
- TRD.busy=1;const mint=t.mint||t.key;
+ if(!t.pool||!b.offsetParent||TRD.busy||Date.now()-(TRD.last||0)<2000){trdAges();return}
+ TRD.busy=1;TRD.last=Date.now();const mint=t.mint||t.key;
  fetch(`/api/market/trades?pool=${encodeURIComponent(t.pool)}&mint=${encodeURIComponent(mint)}`).then(r=>r.ok?r.json():null).then(j=>{
   if(!j||!Array.isArray(j.trades))return;TRD.ok=Date.now();const now=Date.now(),mcNow=mcap(t),pNow=t.price;
   if(TRD.seen.size>3000)TRD.seen=new Set(TRD.rows.map(r=>r.tx));
@@ -1465,20 +1505,22 @@ function holderCallers(ws){const miss=ws.filter(w=>!(w in HWAL)&&!HWQ.has(w));if
   .catch(()=>{}).finally(()=>{const [,r,p]=location.hash.split('/');const el=$('#lholders');if(el&&r==='token'&&T[p])el.innerHTML=holdersPanel(T[p])})}
 /* What each top holder paid: average entry, bought, sold. One request per token, cached server-side. */
 const HPNL={};
-function loadHolderPnl(t,list){const k=t.key,h=HPNL[k]||(HPNL[k]={rows:{},at:0,busy:0});if(h.busy||Date.now()-h.at<3e5||!isMintStr(k))return;
- const sup=t.price?(mcap(t)||0)/t.price:0,ws=list.filter(x=>x.tag!=='pool').slice(0,20);if(!ws.length||!sup)return;h.busy=1;
+function loadHolderPnl(t,list){const k=t.key;if(!isMintStr(k))return;const h=HPNL[k]||(HPNL[k]={rows:{},at:Date.now(),busy:0,want:20,tried:new Set()});
+ if(!h.tried)h.tried=new Set();if(!h.want)h.want=20;if(Date.now()-(h.at||0)>6e5){h.tried=new Set();h.at=Date.now()}if(h.busy)return;
+ const sup=t.price?(mcap(t)||0)/t.price:0;if(!sup)return;const ws=list.filter(x=>x.tag!=='pool').slice(0,h.want).filter(x=>!h.tried.has(x.owner)).slice(0,20);if(!ws.length){h.done=1;return}
+ ws.forEach(x=>h.tried.add(x.owner));h.busy=1;
  fetch('/api/market/holders/'+k+'?w='+ws.map(x=>x.owner).join(',')+'&held='+ws.map(x=>Math.round(sup*x.pct/100)).join(',')).then(r=>r.ok?r.json():null)
-  .then(j=>{if(j&&j.rows)Object.assign(h.rows,j.rows);h.at=Date.now()}).catch(()=>{}).finally(()=>{h.busy=0;h.done=1;const el=$('#hrows');if(el&&currentRoute()==='token'&&location.hash.split('/')[2]===k)el.innerHTML=holderRows(t)})}
+  .then(j=>{if(j&&j.rows)Object.assign(h.rows,j.rows)}).catch(()=>{}).finally(()=>{h.busy=0;h.done=1;const el=$('#hrows');const here=el&&currentRoute()==='token'&&location.hash.split('/')[2]===k;if(here)el.innerHTML=holderRows(t);
+   if(here&&list.filter(x=>x.tag!=='pool').slice(0,h.want).some(x=>!h.tried.has(x.owner)))loadHolderPnl(t,list)})}
 function holderCalc(t,h){const sup=t.price?(mcap(t)||0)/t.price:0,pos=(mcap(t)||0)*h.pct/100,r=(HPNL[t.key]||{rows:{}}).rows[h.owner];
  return {held:sup*h.pct/100,pos,avgMc:r&&r.avg!=null&&sup?r.avg*sup:null,bought:r&&r.bought>0?r.bought:null,profit:r&&r.full?pos+r.sold-r.bought:null}}
-function holderRows(t){const R=t._risk,list=((R&&R.holders)||[]).slice(0,25),tags={pool:'Pool',dev:'Creator',bundle:'Bundle'},f=S.hf||'all',q=(S.hq||'').trim().toLowerCase(),busy=!(HPNL[t.key]||{}).done;
+function holderRows(t){const R=t._risk,list=((R&&R.holders)||[]).slice(0,100),tags={pool:'Pool',dev:'Creator',bundle:'Bundle'},f=S.hf||'all',q=(S.hq||'').trim().toLowerCase(),H=HPNL[t.key]||{},pend=o=>!(H.tried&&H.tried.has(o))||(H.busy&&!(H.rows&&H.rows[o]));
  let rows=list.map((h,i)=>({h,i,p:HWAL[h.owner],c:holderCalc(t,h)}));
  if(f==='callit')rows=rows.filter(x=>x.p);else if(f==='profit')rows=rows.filter(x=>x.c.profit!=null&&x.c.profit>0);else if(f==='loss')rows=rows.filter(x=>x.c.profit!=null&&x.c.profit<0);
  else if(f==='top')rows=rows.filter(x=>x.c.profit!=null).sort((a,b)=>b.c.profit-a.c.profit);
  if(q)rows=rows.filter(x=>x.h.owner.toLowerCase().includes(q)||(x.p&&((x.p.handle||'')+' '+(x.p.display_name||'')).toLowerCase().includes(q)));
- const dash=busy?'<i class="hsk"></i>':'<span class="muted">—</span>';
  if(!rows.length)return `<div class="empty" style="padding:18px 8px"><b>No holders match</b><p>${f==='callit'?'No Callit caller is in the top holders yet.':'Try another filter.'}</p></div>`;
- return rows.map(({h,i,p,c})=>{const me=h.owner===S.addr;
+ return rows.map(({h,i,p,c})=>{const me=h.owner===S.addr,dash=pend(h.owner)?'<i class="hsk"></i>':'<span class="muted">—</span>';
   return `<div class="htr"><span class="hrk num">${i+1}</span>${p?`<a class="hwho" href="#/profile/${esc(p.handle)}">${avatar(p.handle)}<span><b>${esc(p.display_name||p.handle)}</b><small>@${esc(p.handle)} · Callit caller</small></span></a>`
    :`<a class="hwho" href="https://solscan.io/account/${esc(h.owner)}" target="_blank" rel="noopener"><span class="tokav alwav">${ic('wallet',14)}</span><span><b class="num">${me?'You':short(h.owner)}</b>${h.tag?`<small class="htag2 ${h.tag}">${tags[h.tag]||h.tag}</small>`:''}</span></a>`}
    <b class="num">${fmtK(Math.round(c.held))}</b><span class="num muted">${h.pct<0.01?'<0.01':h.pct.toFixed(2)}%</span><b class="num">${c.pos?fmtUsd(c.pos):'—'}</b>
@@ -1487,8 +1529,8 @@ function holderRows(t){const R=t._risk,list=((R&&R.holders)||[]).slice(0,25),tag
    ${!p&&!me&&h.tag!=='pool'?`<button class="ib sm" data-act="htrack" data-f="${esc(h.owner)}" title="Track this wallet" aria-label="Track ${short(h.owner)}">${ic('bell',15)}</button>`:'<span aria-hidden="true"></span>'}</div>`}).join('')}
 function holdersPanel(t){const R=t._risk,hs=R&&R.holders,a=(t.L&&t.L.audit)||{};
  if(!R){loadRisk(t.key);return `<div class="card">${rskel(5)}</div>`}
- const list=(hs||[]).slice(0,25);holderCallers(list.map(h=>h.owner));loadHolderPnl(t,list);
- const sum=`<div class="hsum num"><div><span>Holders</span><b>${t.holders?fmtK(t.holders):'—'}</b></div><div><span>Top 10</span><b class="${a.top10>45?'down':''}">${a.top10!=null?a.top10.toFixed(1)+'%':'—'}</b></div><div><span>Creator</span><b class="${a.dev>15?'down':''}">${a.dev!=null?a.dev.toFixed(1)+'%':'—'}</b></div>${R.bundle&&R.bundle.pct!=null?`<div><span>Bundled</span><b class="${R.bundle.pct>25?'down':''}">${R.bundle.pct.toFixed(1)}%</b></div>`:''}</div>`;
+ const list=(hs||[]).slice(0,100);holderCallers(list.map(h=>h.owner));loadHolderPnl(t,list);
+ const sum=`<div class="hsum num"><div><span>Holders</span><b>${t.holders?fmtK(t.holders):'—'}</b></div><div><span>Top 10</span><b class="${a.top10>45?'down':''}">${a.top10!=null?a.top10.toFixed(1)+'%':'—'}</b></div>${a.dev!=null?`<div><span>Creator</span><b class="${a.dev>15?'down':''}">${a.dev.toFixed(1)}%</b></div>`:''}${R.bundle&&R.bundle.pct!=null?`<div><span>Bundled</span><b class="${R.bundle.pct>25?'down':''}">${R.bundle.pct.toFixed(1)}%</b></div>`:''}</div>`;
  if(!list.length)return `<div class="card">${sum}<p class="hint" style="margin:10px 0 0">No holder list for this token yet.</p></div>`;
  const f=S.hf||'all',nC=list.filter(h=>HWAL[h.owner]).length;
  return `<div class="card">${sum}
@@ -2027,8 +2069,10 @@ function mountLiveChart(){const el=$('#lchart');if(!el)return;const t=T[el.datas
  const msg=$('#lchartmsg'),want=t.key+'|'+S.ltf+'|'+S.lmode;el.dataset.want=want;
  chartMod().then(({mountChart})=>{if(!el.isConnected||el.dataset.want!==want||LCHART)return;
  LCHART=mountChart(el,{pool:t.pool,mint:t.key,tf:S.ltf,factor:S.lmode==='mc'&&t.supply?t.supply:1,
-  onState:st=>{if(!msg)return;msg.hidden=st==='ok';msg.textContent=st==='loading'?'Loading chart…':st==='empty'?'No trades in this timeframe yet.':'Chart is unavailable right now.'}});
- LCHART.overlay(chartOverlay(t.key))}).catch(()=>{if(msg){msg.hidden=false;msg.textContent='Chart is unavailable right now.'}})}
+  onState:st=>{if(st==='error'&&chartFallback(t))return;if(!msg)return;msg.hidden=st==='ok';msg.textContent=st==='loading'?'Loading chart…':st==='empty'?'No trades in this timeframe yet.':'Chart is unavailable right now.'}});
+ LCHART.overlay(chartOverlay(t.key))}).catch(()=>{if(chartFallback(t))return;if(msg){msg.hidden=false;msg.textContent='Chart is unavailable right now.'}})}
+/* Our candles come from GeckoTerminal. When it has nothing for this pool (or is rate-limiting us), show DexScreener's chart instead of an error. */
+function chartFallback(t){if(!t||!isMintStr(t.key)||S.lsrc==='dex')return false;S.lsrc='dex';const old=LCHART;LCHART=null;setTimeout(()=>{if(old)try{old()}catch(_){}const lk=$('.lsrc .lnk');if(lk)lk.textContent='Use Callit chart';mountLiveChart()},0);return true}
 /* Your activity on the Callit chart: avg entry, open orders (limit / TP / SL / trailing), your buys and sells, and calls on this token. */
 const cssv=(v,f)=>getComputedStyle(document.documentElement).getPropertyValue(v).trim()||f;
 function hasActivity(key){const m=mintOf(key);return (S.bal[key]||0)>0||(ORD.list||[]).some(o=>o.inputMint===m||o.outputMint===m)||(S.ledger||[]).some(x=>x.in_mint===m||x.out_mint===m)}
@@ -4003,6 +4047,7 @@ document.addEventListener('click',e=>{
   ptp:()=>{S.ptp=b.dataset.f;render()},
   dgo:()=>{e.preventDefault();const el=document.getElementById(b.dataset.f);if(el)el.scrollIntoView({behavior:'smooth',block:'start'})},
   hf:()=>{S.hf=b.dataset.f;const k=location.hash.split('/')[2];document.querySelectorAll('.hchip').forEach(x=>x.classList.toggle('on',x.dataset.f===S.hf));const r=$('#hrows');if(r&&T[k])r.innerHTML=holderRows(T[k])},
+  tnav:()=>tnavGo(+b.dataset.f||1),tlist:()=>tnavOpen(),
   ctab:()=>{S.ctab=b.dataset.f;try{localStorage.setItem('callit.ctab',S.ctab)}catch(_){}document.querySelectorAll('.ctabs [data-act="ctab"]').forEach(x=>{const on=x.dataset.f===S.ctab;x.classList.toggle('on',on);x.setAttribute('aria-selected',on)});document.querySelectorAll('[data-cp]').forEach(p=>p.classList.toggle('cpoff',p.dataset.cp!==S.ctab))},
   ltab:()=>{S.ltab=b.dataset.f;try{localStorage.setItem('callit.ltab',S.ltab)}catch(_){}document.querySelectorAll('.ltabs [data-act="ltab"]').forEach(x=>{const on=x.dataset.f===S.ltab;x.classList.toggle('on',on);x.setAttribute('aria-selected',on)});document.querySelectorAll('.lpanel').forEach(p=>p.hidden=p.dataset.lp!==S.ltab);const [,,p]=location.hash.split('/');if(S.ltab==='holders'&&T[p]){const el=$('#lholders');if(el)el.innerHTML=holdersPanel(T[p])}},
   htrack:()=>{if(!S.connected)return connectModal();const a=b.dataset.f;API('/api/alerts/wallets',{body:{address:a,label:''}}).then(j=>{toast(j.live?'Tracking. You’ll get a pop-up on every swap':'Wallet saved to your tracker');AL.d=null}).catch(e=>toast(e.message))},
