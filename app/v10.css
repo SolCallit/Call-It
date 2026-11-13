@@ -584,11 +584,11 @@ article.lbc::after{display:none}
 
   /* Token page as a terminal: trade + token/pool info | chart + holders | calls on this token */
   body.term.mwide[data-route=token] .center{max-width:none;justify-self:stretch}
-  body.term #view:has(>.tmain){display:grid;grid-template-columns:minmax(280px,340px) minmax(0,1fr) minmax(330px,440px);align-items:start}
-  body.term #view>.tleft{grid-column:1;grid-row:1;position:sticky;top:calc(var(--hdr) / .9);max-height:calc((100vh / var(--z,1) - var(--hdr)) / .9);overflow-y:auto;scrollbar-width:none;border-right:1px solid var(--line)}
+  body.term #view:has(>.tmain){display:grid;grid-template-columns:minmax(330px,440px) minmax(0,1fr) minmax(280px,340px);align-items:start}
+  body.term #view>.tleft{grid-column:3;grid-row:1;position:sticky;top:calc(var(--hdr) / .9);max-height:calc((100vh / var(--z,1) - var(--hdr)) / .9);overflow-y:auto;scrollbar-width:none;border-left:1px solid var(--line)}
   body.term #view>.tleft::-webkit-scrollbar{display:none}
   body.term #view>.tmain{grid-column:2;grid-row:1;min-width:0}
-  body.term #view>.tright{grid-column:3;grid-row:1;position:sticky;top:calc(var(--hdr) / .9);max-height:calc((100vh / var(--z,1) - var(--hdr)) / .9);overflow-y:auto;scrollbar-width:thin;border-left:1px solid var(--line)}
+  body.term #view>.tright{grid-column:1;grid-row:1;position:sticky;top:calc(var(--hdr) / .9);max-height:calc((100vh / var(--z,1) - var(--hdr)) / .9);overflow-y:auto;scrollbar-width:thin;border-right:1px solid var(--line)}
   body.term #view .lpanel{display:block!important}
   body.term #view .ltabs{display:none}
   /* Under the chart: Holders / Calls / Info, as tabs */
@@ -647,3 +647,45 @@ article.lbc::after{display:none}
 #ptr.go i{border-color:var(--hi);border-top-color:transparent}
 #ptr.spin{transition:transform .2s}#ptr.spin i{animation:ptrspin .6s linear infinite}
 @keyframes ptrspin{to{transform:rotate(360deg)}}
+
+/* ---------- Token page: live trades under the chart (updates every second) ---------- */
+.trdpanel{padding-top:14px}
+.trdh{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px}
+.trdh .h2{margin:0}
+.trdhint{margin-left:auto;font-size:12.5px;color:var(--muted)}
+.trdlive{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font:700 12px var(--body);color:var(--up);background:color-mix(in srgb,var(--up) 14%,transparent)}
+.trdlive i{width:7px;height:7px;border-radius:50%;background:currentColor;animation:trdpulse 1.2s ease-in-out infinite}
+.trdlive.stale{color:var(--muted);background:var(--bg2)}
+.trdlive.stale i{animation:none;opacity:.5}
+@keyframes trdpulse{0%,100%{opacity:1}50%{opacity:.25}}
+.trdthead,.tdr{display:grid;grid-template-columns:44px 36px minmax(56px,1fr) minmax(56px,1fr) minmax(70px,1.2fr);gap:8px;align-items:center}
+.trdthead{padding:2px 10px 6px;font-size:11.5px;font-weight:700;letter-spacing:.02em;color:var(--muted)}
+.tdr{padding:7px 10px;border-radius:10px;font-size:13px;color:var(--text);text-decoration:none;transition:background .15s;border:0}
+.tdr:hover{background:var(--bg2)}
+.trdthead>*:nth-child(n+3),.tdr>*:nth-child(n+3){text-align:right}
+.tdr-a,.tdr-w{color:var(--muted)}
+.tdr-w{font-size:12px}
+.tdr-s{font-weight:700}
+.tdr.tdr-buy .tdr-s,.tdr.tdr-buy .tdr-u{color:var(--up)}
+.tdr.tdr-sell .tdr-s,.tdr.tdr-sell .tdr-u{color:var(--down)}
+.tdr.tdr-new{animation:trdin .9s ease-out}
+@keyframes trdin{from{background:color-mix(in srgb,var(--text) 10%,transparent)}to{background:transparent}}
+.trdempty{padding:26px 10px;text-align:center;color:var(--muted);font-size:13.5px}
+@media (prefers-reduced-motion:reduce){.trdlive i,.tdr.tdr-new{animation:none}}
+/* Desktop terminal: holders / calls / info on the left of the trades column; the trades list scrolls on its own */
+body.term #view>.tmain{display:grid;grid-template-columns:minmax(0,1fr);align-items:start}
+body.term #view>.tmain>.pad:first-child{grid-column:1}
+body.term #view>.tmain>section{grid-column:1;grid-row:2;min-width:0}
+body.term #view>.tmain>.trdpanel{grid-column:1;grid-row:3;padding-top:14px;min-width:0}
+/* Wide desktops: trades sit beside holders / calls / info. Narrower: trades stack under them. */
+@media (min-width:1560px){
+  body.term #view>.tmain{grid-template-columns:minmax(0,1fr) minmax(300px,380px);column-gap:18px}
+  body.term #view>.tmain>.pad:first-child{grid-column:1/-1}
+  body.term #view>.tmain>.trdpanel{grid-column:2;grid-row:2}
+}
+body.term #view .trdlist{height:min(560px,calc(100vh - 230px));overflow-y:auto;scrollbar-width:thin;padding-right:4px}
+/* Under-chart tabs on phones: five tabs; icons drop out on narrow screens */
+.ltabs.ltabs5{grid-template-columns:repeat(5,1fr)}
+@media (max-width:420px){.ltabs.ltabs5 button svg{display:none}}
+/* Since-bought % on a buyer's call card: sits on the Bought-in line and wraps as one piece */
+.sbk{white-space:nowrap;color:var(--muted)}

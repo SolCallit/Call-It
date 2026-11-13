@@ -776,7 +776,7 @@ const usd=(s,a)=>T[s].price*a;
 const tradable=t=>t.chain==='Solana'&&!t.prelaunch&&(!REALW()||!!t.base||!!t.live);
 
 /* ---------- post (X layout + pump call card) ---------- */
-const money=n=>(n>=0?'+':'−')+fmtUsd(Math.abs(n));
+const money=n=>!n?fmtUsd(0):(n>0?'+':'−')+fmtUsd(Math.abs(n));
 function nums(k){const t=T[k.t];if(!t||t.prelaunch||!k.entry)return null;const mc=mcap(t),x=mc/k.entry,o={mc,p:(x-1)*100,up:x>=1};if(k.buy){const keep=1-((k.sold&&k.sold.pct)||0)/100;o.pos=k.buy*x*keep;o.pnl=k.buy*x-k.buy}return o}
 /* Call outcome stamps, like a desk stamp on the call card: Target hit (green) and Sold (red). */
 const hitOf=k=>!!(k.target&&k.entry&&(k.hit||(k.hi&&k.hi*k.entry>=k.target)||(T[k.t]&&!T[k.t].prelaunch&&mcap(T[k.t])>=k.target)));
@@ -810,6 +810,7 @@ const broughtLine=k=>{const b=k.brought;if(!b||k.sponsored)return '';
 function mkt(k){const n=nums(k);
  return k.buy?`<div class="cr2 cr3 num"><div><span>Entry</span><b>${fmtUsd(k.entry)}</b></div><div><span>Position</span><b data-pos="${k.id}">${fmtUsd(n.pos)}</b></div><div><span>Profit</span><b class="${n.pnl>=0?'up':'down'}" data-pnl="${k.id}">${money(n.pnl)}</b></div></div>`
   :`<div class="cr2 num"><div><span>Called at</span><b>${fmtUsd(k.entry)}</b></div><div><span>Since call</span><b class="${n.up?'up':'down'}" data-perf="${k.id}">${fmtPct(n.p)}</b></div></div>`}
+const sinceBuy=k=>{const n=k.buy&&nums(k);return n?` <span class="sbk">·&nbsp;Since bought <b class="num ${n.up?'up':'down'}">${fmtPct(n.p)}</b></span>`:''};
 function post(k){if(k.kind==='random')return postRandom(k);if(k.kind==='perps')return postPerp(k);const t=T[k.t];if(!t)return '';const p=perf(k),r=rankOf(k.c);
  const right=p===null?`<div class="cr"><b>Soon</b><span>Launches ${esc(t.prelaunch)}</span></div>`:mkt(k);
  return `<article class="post${k.fresh?' fresh':''}" data-go="#/post/${k.id}" tabindex="0" aria-label="Call by ${esc(k.c)} on $${t.sym}">
@@ -818,7 +819,7 @@ function post(k){if(k.kind==='random')return postRandom(k);if(k.kind==='perps')r
   <div class="phead">${who(k.c)}${r&&!k.sponsored?`<span class="rk">#${r}</span>`:''}${k.sponsored?'<span class="tag">Sponsored</span>':''}${k.src==='telegram'?tgChip(k):''}${k.c!==S.me?`<button class="fchip${S.following.has(k.c)?' on':''}" data-act="follow" data-h="${k.c}" aria-label="${S.following.has(k.c)?'Following':'Follow'} ${esc(k.c)}">${S.following.has(k.c)?ic('check',12)+'<span>Following</span>':'+<span>Follow</span>'}</button>`:''}<time>${k.ago==='now'?'now':k.ago+' ago'}</time>${k.sponsored?'':moreBtn(k)}</div>
   <p class="ptext">${rich(k.thesis)}</p>${mediaGrid(k.media)}${quoteCard(k.quote)}
   <a class="ccard${hitOf(k)?' ishit':''}${k.sold?' issold':''}" href="#/token/${t.key}">${tokav(t.key)}<div class="cn"><b>${esc(t.name)}</b><span>$${t.sym} <span class="chain">${t.chain}</span></span></div><span class="cspk" data-spk="${t.key}">${spkSvg(t.key)}</span>${right}${stamps(k)}</a>
-  ${k.sponsored?`<div class="pnote">Paid promotion by ${esc(k.sponsor)}. Not counted in rankings.</div>`:`<div class="pnote">${k.target?(hitOf(k)?`<span class="tgt hit">${ic('target',13)} ${fmtUsd(k.target)} hit</span> · `:`Target ${fmtUsd(k.target)} within ${esc(k.horizon)} · `):''}${k.hi>=2&&!hitOf(k)?`<span class="tgt pk">Peaked ${k.hi.toFixed(1)}X</span> · `:''}${k.buy?`<span class="bk">${ic('check',13)} Bought in</span>`:`<span class="bk no">No buy · earns ${EARN_RULE.noBuy}% after ${EARN_RULE.minX}X</span>`}${k.sold?` · <span class="sold">Caller sold ${k.sold.pct}%${soldNote(k)}${soldAgo(k)?' · '+soldAgo(k)+' ago':''}</span>`:''}</div>${broughtLine(k)}`}
+  ${k.sponsored?`<div class="pnote">Paid promotion by ${esc(k.sponsor)}. Not counted in rankings.</div>`:`<div class="pnote">${k.target?(hitOf(k)?`<span class="tgt hit">${ic('target',13)} ${fmtUsd(k.target)} hit</span> · `:`Target ${fmtUsd(k.target)} within ${esc(k.horizon)} · `):''}${k.hi>=2&&!hitOf(k)?`<span class="tgt pk">Peaked ${k.hi.toFixed(1)}X</span> · `:''}${k.buy?`<span class="bk">${ic('check',13)} Bought in</span>${sinceBuy(k)}`:`<span class="bk no">No buy · earns ${EARN_RULE.noBuy}% after ${EARN_RULE.minX}X</span>`}${k.sold?` · <span class="sold">Caller sold ${k.sold.pct}%${soldNote(k)}${soldAgo(k)?' · '+soldAgo(k)+' ago':''}</span>`:''}</div>${broughtLine(k)}`}
   <div class="pbar"><div class="icons">
    <button class="act" data-act="reply" aria-label="Reply">${ic('reply',18)}<span class="num">${k.replies||''}</span></button>
    <button class="act${k.reposted?' reposted':''}" data-act="repost" data-id="${k.id}" aria-label="Repost">${ic('repost',18)}<span class="num">${(k.reposts||0)+quotesOf(k.id)||''}</span></button>
@@ -1413,11 +1414,11 @@ function vLiveToken(t){const key=t.key,tr=S.watch.has(key),on=calls.filter(k=>k.
  <div class="lsrc"><button class="lnk" data-act="lsrc">${S.lsrc==='callit'?'Use DexScreener chart':'Use Callit chart'}</button></div>
  <div class="seg ltf" role="tablist">${['1m','5m','15m','1h','4h','1d'].map(x=>`<button class="${S.ltf===x?'on':''}" data-act="ltf" data-f="${x}">${x}</button>`).join('')}</div>
  <div class="lchart" id="lchart" data-mint="${key}"><div class="lchart-msg" id="lchartmsg">${t.pool?'Loading chart…':'No trading pool for a chart yet.'}</div></div>
- <div class="ltabs" role="tablist" aria-label="Token sections">${LTABS.map(([k,l,i])=>`<button role="tab" aria-selected="${lt===k}" class="${lt===k?'on':''}" data-act="ltab" data-f="${k}">${ic(i,15)}<span>${l}</span>${k==='calls'&&on.length?`<b class="num">${on.length}</b>`:''}</button>`).join('')}</div>
+ <div class="ltabs${LTABS.length>4?' ltabs5':''}" role="tablist" aria-label="Token sections">${LTABS.map(([k,l,i])=>`<button role="tab" aria-selected="${lt===k}" class="${lt===k?'on':''}" data-act="ltab" data-f="${k}">${ic(i,15)}<span>${l}</span>${k==='calls'&&on.length?`<b class="num">${on.length}</b>`:''}</button>`).join('')}</div>
  <div class="ltabs ctabs" role="tablist" aria-label="Under the chart">${[['holders','Holders','profile'],['calls','Calls','promote'],['info','Info','news']].map(([k,l,i])=>`<button role="tab" aria-selected="${ct===k}" class="${ct===k?'on':''}" data-act="ctab" data-f="${k}">${ic(i,15)}<span>${l}</span>${k==='calls'&&on.length?`<b class="num">${on.length}</b>`:''}</button>`).join('')}</div></div>
  <section class="lpanel pad ${ct==='holders'?'':'cpoff'}" data-lp="holders" data-cp="holders" ${lt==='holders'?'':'hidden'}><div id="lholders">${holdersPanel(t)}</div></section>
  <section class="cpanel ${ct==='calls'?'':'cpoff'}" data-cp="calls">${on.map(post).join('')||'<div class="empty"><b>No calls yet</b><p>Call it first and your entry gets stamped at the live market cap.</p><button class="btn primary" data-act="newcall" data-t="'+key+'">Call it</button></div>'}</section>
- <section class="cpanel pad ${ct==='info'?'':'cpoff'}" data-cp="info">${liveStats(t)}<div class="llinks">${liveLinks(t)}</div>${pairCard(t)}${aboutCard(t)}</section></div>
+ <section class="cpanel pad ${ct==='info'?'':'cpoff'}" data-cp="info">${liveStats(t)}<div class="llinks">${liveLinks(t)}</div>${pairCard(t)}${aboutCard(t)}</section>${trdSection(t,lt)}</div>
  <div class="tright"><section class="lpanel" data-lp="calls" ${lt==='calls'?'':'hidden'}><div class="pad" style="padding-bottom:0"><div class="lpcallh"><b class="h2">Calls on $${esc(t.sym)}</b><button class="btn sm primary" data-act="newcall" data-t="${key}">Call it</button></div></div>
  <div id="feed" style="border-top:1px solid var(--line);margin-top:6px">${on.map(post).join('')||'<div class="empty"><b>No calls yet</b><p>Call it first and your entry gets stamped at the live market cap.</p></div>'}</div></section>
  ${(h=>h?`<div class="termmore"><div class="pad" style="padding-bottom:6px"><b class="h2">Latest on Callit</b></div>${h}</div>`:'')(calls.filter(k=>visible(k)&&k.t!==key).slice(0,12).map(post).join(''))}</div>
@@ -1429,7 +1430,34 @@ function vLiveToken(t){const key=t.key,tr=S.watch.has(key),on=calls.filter(k=>k.
  <div id="lpair">${pairCard(t)}</div><div id="labout">${aboutCard(t)}</div>
  <div id="lheat">${heatCard(t)}</div>${(sc=>`<details class="card sfcard" data-sf ${(SFOPEN==null?sc.bad:SFOPEN)?'open':''}><summary><h3>Safety check</h3><span class="sfbadge ${!sc.n?'unk':sc.bad?(sc.ok>=sc.n-1&&!(t.L&&t.L.audit&&t.L.audit.sus)?'warn':'bad'):'ok'}">${sc.n?`${sc.ok}/${sc.n} passed`:'No data'}</span><span class="sfchev" aria-hidden="true">${ic('down',18)}</span></summary><div class="sflist">${liveSafety(t)}${taxRows(t)}</div><p class="hint" style="margin:10px 0 0">From Jupiter's token audit. Not a guarantee. Always size your bets.</p></details>`)(sfScore(t))}</section></div>`}
 /* Token page sections. Panels are all rendered and just shown/hidden, so the chart never reloads. */
-const LTABS=[['calls','Calls','promote'],['holders','Holders','profile'],['info','Info','news'],['swap','Swap','swap']];
+/* ---------- Live trades under the chart: every buy and sell on this pool, refreshed every second ---------- */
+const TRD={key:'',rows:[],seen:new Set(),timer:0,busy:0,ok:0};
+const agoTxt=ms=>{const s=Math.max(0,(Date.now()-ms)/1000);return s<60?Math.floor(s)+'s':s<3600?Math.floor(s/60)+'m':Math.floor(s/3600)+'h'};
+const trdRow=x=>`<a class="tdr tdr-${x.side}${x.fresh?' tdr-new':''}" href="https://solscan.io/tx/${esc(x.tx)}" target="_blank" rel="noopener noreferrer"><span class="tdr-a num" data-ts="${x.t}">${agoTxt(x.t)}</span><b class="tdr-s">${x.side==='buy'?'Buy':'Sell'}</b><span class="num">${x.mc==null?'—':fmtUsd(x.mc)}</span><span class="num tdr-u">${fmtUsd(x.usd)}</span><span class="tdr-w num">${x.who?short(x.who):'—'}</span></a>`;
+function trdPaint(){const b=document.getElementById('trdbody');if(!b)return;const sc=b.parentElement,was=sc.scrollTop,h0=sc.scrollHeight;
+ TRD.rows.forEach(r=>{if(r.fresh&&Date.now()-r.seenAt>1200)r.fresh=false});
+ b.innerHTML=TRD.rows.length?TRD.rows.map(trdRow).join(''):'<div class="trdempty">Waiting for the first trade…</div>';
+ if(was>0)sc.scrollTop=was+(sc.scrollHeight-h0)}
+function trdAges(){document.querySelectorAll('#trdbody [data-ts]').forEach(e=>e.textContent=agoTxt(+e.dataset.ts));
+ const l=document.getElementById('trdlive');if(l){const stale=!TRD.ok||Date.now()-TRD.ok>8000;l.classList.toggle('stale',stale);const s=l.querySelector('span');if(s)s.textContent=stale?'Reconnecting':'Live'}}
+function trdTick(){const b=document.getElementById('trdbody'),t=T[TRD.key];if(!b||!t){trdStop();return}
+ if(!t.pool||!b.offsetParent||TRD.busy){trdAges();return}
+ TRD.busy=1;const mint=t.mint||t.key;
+ fetch(`/api/market/trades?pool=${encodeURIComponent(t.pool)}&mint=${encodeURIComponent(mint)}`).then(r=>r.ok?r.json():null).then(j=>{
+  if(!j||!Array.isArray(j.trades))return;TRD.ok=Date.now();const now=Date.now(),mcNow=mcap(t),pNow=t.price;
+  if(TRD.seen.size>3000)TRD.seen=new Set(TRD.rows.map(r=>r.tx));
+  const fresh=j.trades.filter(x=>x&&x.tx&&!TRD.seen.has(x.tx));
+  if(!fresh.length)return;
+  const hadRows=TRD.rows.length>0;
+  const add=fresh.map(x=>{TRD.seen.add(x.tx);return {...x,mc:x.px&&pNow?mcNow*x.px/pNow:null,fresh:hadRows,seenAt:now}});
+  TRD.rows=[...add,...TRD.rows].slice(0,150);trdPaint()
+ }).catch(()=>{}).finally(()=>{TRD.busy=0;trdAges()})}
+function trdStart(t){if(!t||!t.pool)return;if(TRD.key!==t.key){trdStop();TRD.key=t.key}if(!TRD.timer)TRD.timer=setInterval(trdTick,1000)}
+function trdStop(){if(TRD.timer)clearInterval(TRD.timer);TRD.timer=0;TRD.key='';TRD.rows=[];TRD.seen=new Set();TRD.busy=0;TRD.ok=0}
+function trdSection(t,lt){const rows=TRD.key===t.key?TRD.rows:[];trdStart(t);
+ const body=t.pool?(rows.map(trdRow).join('')||'<div class="trdempty">Waiting for the first trade…</div>'):'<div class="trdempty">No pool to read trades from yet.</div>';
+ return `<section class="lpanel pad trdpanel" data-lp="trades" ${lt==='trades'?'':'hidden'}><div class="trdcol"><div class="trdh"><b class="h2">Trades</b><span class="trdlive" id="trdlive"><i></i><span>Live</span></span><span class="trdhint">Every buy and sell</span></div><div class="trdthead" aria-hidden="true"><span>Age</span><span>Side</span><span>MC</span><span>USD</span><span>Trader</span></div><div class="trdlist"><div id="trdbody">${body}</div></div></div></section>`}
+const LTABS=[['calls','Calls','promote'],['trades','Trades','market'],['holders','Holders','profile'],['info','Info','news'],['swap','Swap','swap']];
 /* Top holders, with Callit callers named when a holder wallet belongs to one. */
 const HWAL={},HWQ=new Set();
 function holderCallers(ws){const miss=ws.filter(w=>!(w in HWAL)&&!HWQ.has(w));if(!miss.length)return;miss.forEach(w=>HWQ.add(w));

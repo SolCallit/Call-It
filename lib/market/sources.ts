@@ -136,6 +136,18 @@ export async function jupVerified(limit = 300): Promise<LiveToken[] | null> {
     .slice(0, Math.min(limit, 500))
     .map(fromJup);
 }
+/** Memecoins only, for the Trenches feeds: no majors, LSTs, stables, tokenized stocks or $5B+ names. */
+const isMemeJup = (j: JupToken) => {
+  const sym = String(j.symbol || '').toUpperCase();
+  const mc = num(j.mcap) ?? num(j.fdv) ?? 0;
+  return !NOT_MEME.has(sym) && !STABLE.has(sym) && !stockish(j) && !/USD|SOL$/.test(sym)
+    && !(j.tags || []).some((t) => /lst|stable/i.test(t)) && mc < 5e9;
+};
+const isMemeLive = (t: LiveToken) => {
+  const sym = String(t.sym || '').toUpperCase();
+  return !NOT_MEME.has(sym) && !STABLE.has(sym) && !/xstock|securities|proshares|tokenized/i.test(t.name || '')
+    && !/USD|SOL$/.test(sym) && !(t.tags || []).some((x) => /lst|stable/i.test(x)) && (t.mc ?? 0) < 5e9;
+};
 export async function jupList(feed: Feed, interval: '5m' | '1h' | '6h' | '24h' = '1h', limit = 50): Promise<LiveToken[] | null> {
   if (feed === 'verified') return jupVerified(limit);
   const path =
@@ -145,13 +157,17 @@ export async function jupList(feed: Feed, interval: '5m' | '1h' | '6h' | '24h' =
     getJSON<JupToken[]>(JUP + path, feed === 'new' ? 5 : 6, jupHeaders()),
     feed === 'new' ? gtNewLaunches() : Promise.resolve([] as LiveToken[]),
   ]);
+  // Trenches feeds are memecoins only: majors, LSTs, stables and tokenized stocks come out here.
+  const memes = feed === 'movers' || feed === 'traded' || feed === 'new';
   if (Array.isArray(data) && data.length) {
-    const out = data.filter((j) => j && j.id).map(fromJup);
+    const out = data.filter((j) => j && j.id && (!memes || isMemeJup(j))).map(fromJup);
     const seen = new Set(out.map((t) => t.mint));
-    for (const t of extra) if (!seen.has(t.mint)) { seen.add(t.mint); out.push(t); }
+    for (const t of extra) if (!seen.has(t.mint) && (!memes || isMemeLive(t))) { seen.add(t.mint); out.push(t); }
     return out;
   }
-  return extra.length ? extra : dsList(feed); // Jupiter unavailable (no key / rate limit): fall back to DexScreener
+  // Jupiter unavailable (no key / rate limit): fall back to DexScreener
+  const fallback = extra.length ? extra : await dsList(feed);
+  return memes && fallback ? fallback.filter(isMemeLive) : fallback;
 }
 
 /**
@@ -390,6 +406,25 @@ export async function candles(pool: string, mint: string, tf: Tf): Promise<numbe
   }
   if (!Array.isArray(list)) return null;
   return list.filter((c) => Array.isArray(c) && c.length >= 6).map((c) => c.slice(0, 6).map(Number)).reverse();
+}
+
+/* ---------- Live trades on one pool (token page feed) ---------- */
+export type Trade = { tx: string; t: number; side: 'buy' | 'sell'; usd: number; px: number | null; who: string };
+
+/** Latest trades on a pool, newest first. GeckoTerminal, cached for a few seconds so open token pages share one call. */
+export async function recentTrades(pool: string, mint: string): Promise<Trade[] | null> {
+  const data = await getJSON<{ data?: { attributes?: Record<string, unknown> }[] }>(`${GT}/networks/solana/pools/${pool}/trades`, 3);
+  if (!data || !Array.isArray(data.data)) return null;
+  const out: Trade[] = [];
+  for (const row of data.data) {
+    const a = row?.attributes || {};
+    const tx = String(a.tx_hash || '');
+    const t = Date.parse(String(a.block_timestamp || ''));
+    const side = a.to_token_address === mint ? 'buy' : a.from_token_address === mint ? 'sell' : null;
+    if (!tx || !Number.isFinite(t) || !side) continue;
+    out.push({ tx, t, side, usd: num(a.volume_in_usd) ?? 0, px: num(side === 'buy' ? a.price_to_in_usd : a.price_from_in_usd), who: String(a.tx_from_address || '') });
+  }
+  return out.slice(0, 100);
 }
 
 /* ---------- Meme market flow (radar) ---------- */
