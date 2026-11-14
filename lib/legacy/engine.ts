@@ -1157,6 +1157,22 @@ function aiChipBar(f){if(!f.ai)return '';const [,l]=AIM[f.ai]||AIM.balanced;
  return `<span class="aitog"><button type="button" data-act="fsopen" data-tab="auto" title="AI Auto is on: ${esc(l)}. Tap to change">🎯 <b>AI</b><span>${esc(l)}</span></button><button type="button" class="aix" data-act="aiq" aria-label="Turn AI Auto off" title="Turn off">${ic('x',12)}</button></span>`}
 function aiBar(f){const on=!!f.ai,[e,l]=AIM[f.ai||'balanced'];if(!on)return '';
  return `<div class="aibar${on?' on':''}"><button type="button" class="aiq" data-act="aiq" aria-pressed="${on}"><span class="aiqi">🎯</span><span><b>AI Auto${on?` · ${l}`:''}</b><small>${on?'Showing the best entries right now, best first':'Let Callit filter for you. One tap.'}</small></span><i class="aisw"></i></button>${on?`<button type="button" class="lnk" data-act="fsopen" data-tab="auto">Change</button>`:''}</div>`}
+/* ---------- Called board (Trenches > Called): every token our callers are on, with price at the first call,
+   now, change since the call and the peak since the call. Sortable. ---------- */
+const CBS=[['move','Top movers'],['calls','Most called'],['new','Newest call'],['peak','Peak'],['mc','Market cap']];
+function cbStats(t){const cs=callsOn(t).filter(k=>k.entry>0);if(!cs.length)return null;
+ const first=cs.reduce((a,k)=>(k.born||Infinity)<(a.born||Infinity)?k:a,cs[0]),last=cs.reduce((a,k)=>(k.born||0)>(a.born||0)?k:a,cs[0]),now=mcap(t)||0;
+ const peak=Math.max(now,...cs.map(k=>(k.hi||0)*k.entry)),by=[...new Set(cs.map(k=>k.c))];
+ return {n:cs.length,entry:first.entry,now,since:first.entry?(now/first.entry-1)*100:null,peak,px:first.entry?peak/first.entry:null,at:last.born||0,by}}
+function calledBoard(rows){const s=CBS.some(x=>x[0]===S.csort)?S.csort:'move';
+ const L=rows.map(t=>({t,x:cbStats(t)})).filter(r=>r.x);
+ const key={move:r=>r.x.since??-1e9,calls:r=>r.x.n,new:r=>r.x.at,peak:r=>r.x.px||0,mc:r=>r.x.now}[s];L.sort((a,b)=>key(b)-key(a));
+ const chips=`<div class="cbsort">${CBS.map(([k,l])=>`<button class="hchip ${s===k?'on':''}" data-act="csort" data-f="${k}">${l}</button>`).join('')}</div>`;
+ if(!L.length)return chips+`<div class="empty"><b class="h2">No calls yet</b><p>Tokens our callers are on show up here, with how they've done since the call.</p><button class="btn primary" data-act="newcall">Make a call</button></div>`;
+ return chips+`<div class="cbhead"><span>Token</span><span>Called at</span><span>Now</span><span>Since call</span><span>Peak</span><span class="cbsp">Chart</span></div>`
+  +L.map(({t,x})=>`<a class="cbrow" href="#/token/${esc(t.key)}"><span class="cbt">${tokav(t.key)}<span class="cbn"><b>$${esc(t.sym)}</b><small>${x.n} call${x.n>1?'s':''} · ${x.by.slice(0,2).map(h=>'@'+esc(h)).join(', ')}${x.by.length>2?` +${x.by.length-2}`:''}${x.at?` · ${agoMin(x.at)} ago`:''}</small></span></span>
+   <span class="num">${fmtUsd(x.entry)}</span><span class="num">${x.now?fmtUsd(x.now):'—'}</span><b class="num ${pcls(x.since)}">${pctS(x.since)}</b>
+   <span class="num cbpk">${fmtUsd(x.peak)}${x.px?`<small class="${x.px>=2?'up':''}">${x.px>=10?Math.round(x.px):x.px.toFixed(1)}X</small>`:''}</span><span class="cspk cbsp" data-spk="${esc(t.key)}">${spkSvg(t.key)}</span></a>`).join('')}
 function vTrenches(){const on=TS.feeds.filter(f=>f[1]).map(f=>f[0]);if(S.tt!=='watch'&&!on.includes(S.tt))S.tt=on[0]||'watch';
  const f=filOf(S.tt);S.rowTf=f.tf||'1h';S.aiMode=f.ai||'';const raw=feedRows(S.tt,f),rows=aiSort(heatApply(raw),f.ai),n=activeCount(f);
  const tab=(k,l)=>`<button role="tab" aria-selected="${S.tt===k}" class="${S.tt===k?'on':''}" data-act="tt" data-f="${k}">${l}</button>`;
@@ -1165,7 +1181,7 @@ function vTrenches(){const on=TS.feeds.filter(f=>f[1]).map(f=>f[0]);if(S.tt!=='w
  <div class="tfbar"><span class="tflive"><i></i>Live</span><span class="muted tflbl">${S.tt==='movers'?'Top gainers':S.tt==='trending'?'Most traded':'% change'}</span>${aiChipBar(f)}<div class="seg tfseg" role="tablist" aria-label="Timeframe">${TF_OK.map(x=>`<button role="tab" aria-selected="${S.rowTf===x}" class="${S.rowTf===x?'on':''}" data-act="ttf" data-f="${x}">${x}</button>`).join('')}</div></div>
  ${raw&&raw.length?heatBar(raw):''}
  ${n-(f.ai?1:0)>0?`<div class="fline"><span>${n} filter${n>1?'s':''} on ${S.tt==='watch'?'Watchlist':FEEDS[S.tt][0]}</span><button data-act="fsclear1">Clear</button></div>`:''}
- <div class="tgridw">${rows===null?((lfIds(S.tt,f)||[]).some(id=>LIVE.err[id])?`<div class="empty"><b class="h2">Live data is taking a break</b><p>We couldn't reach the market feed. It usually comes back in a few seconds.</p><button class="btn primary" data-act="lretry">Try again</button></div>`:skelRows()):rows.map(trow).join('')||`<div class="empty"><b class="h2">${S.tt==='watch'?'No watchlist tokens yet':HEATF.k?'No '+(HEATF.k==='called'?'caller-backed':HEAT[HEATF.k][1].toLowerCase())+' tokens right now':'Nothing matches'}</b><p>${S.tt==='watch'?'Open any token and tap Watchlist to pin it here.':'Loosen the filters or try another feed.'}</p>${n?'<button class="btn primary" data-act="fsclear1">Clear filters</button>':''}</div>`}</div>
+ <div class="tgridw">${rows===null?((lfIds(S.tt,f)||[]).some(id=>LIVE.err[id])?`<div class="empty"><b class="h2">Live data is taking a break</b><p>We couldn't reach the market feed. It usually comes back in a few seconds.</p><button class="btn primary" data-act="lretry">Try again</button></div>`:skelRows()):(S.tt==='called'?`<div class="cbwrap">${calledBoard(rows)}</div>`:rows.map(trow).join(''))||`<div class="empty"><b class="h2">${S.tt==='watch'?'No watchlist tokens yet':HEATF.k?'No '+(HEATF.k==='called'?'caller-backed':HEAT[HEATF.k][1].toLowerCase())+' tokens right now':'Nothing matches'}</b><p>${S.tt==='watch'?'Open any token and tap Watchlist to pin it here.':'Loosen the filters or try another feed.'}</p>${n?'<button class="btn primary" data-act="fsclear1">Clear filters</button>':''}</div>`}</div>
  <p class="hint pad">Degen zone. New tokens are high risk. Row icons: holders, top 10, dev, snipers, insiders. The ring around each token fills as it moves through its bonding curve.</p>`}
 
 
@@ -4109,6 +4125,7 @@ document.addEventListener('click',e=>{
   setzoom:()=>{try{localStorage.setItem('callit.zoom',b.dataset.f)}catch(_){}zoomApply();closeModal();currentRoute()==='settings'?render():settingsModal()},
   bpdel:()=>{const k=b.dataset.f;bpSet(bpGet().filter(x=>x!==k));BPMENU=null;drawRail();toast(`${BP[k][0]} removed. Bring panels back in Settings`)},
   bpmenu:()=>{BPMENU=BPMENU===b.dataset.f?null:b.dataset.f;drawRail()},
+  csort:()=>{S.csort=b.dataset.f;render()},
   spmenu:()=>{SPMENU=SPMENU===b.dataset.f?null:b.dataset.f;drawRail()},
   sppick:()=>{const v=spSaved(),slot=b.dataset.f,to=b.dataset.to,o=slot==='L'?'R':'L';if(v[o]===to)v[o]=v[slot];v[slot]=to;try{localStorage.setItem('callit.sides',JSON.stringify(v))}catch(_){}SPMENU=null;drawRail()},
   bppick:()=>{const from=b.dataset.f,to=b.dataset.to,v=bpGet(),i=v.indexOf(from),j=v.indexOf(to);if(i<0||from===to){BPMENU=null;return drawRail()}

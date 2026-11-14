@@ -790,3 +790,22 @@ body.sides.sides2 .sidel>.sidep{display:flex;flex-direction:column;height:100%}
 .sideh .bpttl h3{margin:0;font-size:15px}
 .sideh .bpmenu{top:46px;left:12px}
 .sidel .post,.rail .sidep .post{padding-left:12px;padding-right:12px}
+
+/* ---------- Called board ---------- */
+.cbwrap{grid-column:1/-1;width:100%;min-width:0;display:block}
+.cbsort{display:flex;gap:6px;flex-wrap:wrap;padding:4px 16px 10px}
+.cbhead,.cbrow{display:grid;grid-template-columns:minmax(150px,1.6fr) repeat(4,minmax(70px,.8fr)) 110px;gap:10px;align-items:center}
+.cbhead{padding:4px 16px 6px;font-size:11.5px;font-weight:700;color:var(--muted);letter-spacing:.02em}
+.cbhead>*:not(:first-child),.cbrow>*:not(:first-child){text-align:right}
+.cbrow{padding:10px 16px;color:var(--text);text-decoration:none;font-size:13.5px;border-radius:14px}
+.cbrow:hover{background:var(--bg2)}
+.cbt{display:flex;align-items:center;gap:10px;min-width:0}
+.cbt .tokav{flex:none;width:34px;height:34px}
+.cbn{display:flex;flex-direction:column;min-width:0}
+.cbn b{font-weight:800}
+.cbn small{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cbpk small{display:block;font-size:11.5px;color:var(--muted);font-weight:700}
+.cbpk small.up{color:var(--up)}
+.cbrow .cspk{display:block;height:30px}
+.cbrow .cspk svg{width:100%;height:30px}
+@media (max-width:640px){.cbhead,.cbrow{grid-template-columns:minmax(0,1.5fr) repeat(3,minmax(58px,.8fr));gap:8px;padding-left:12px;padding-right:12px}.cbhead>:nth-child(2),.cbrow>:nth-child(2),.cbhead .cbsp,.cbrow .cbsp{display:none}}
