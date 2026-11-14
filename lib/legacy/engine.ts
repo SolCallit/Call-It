@@ -228,7 +228,7 @@ function ppConnect(){if(PP||!ppWant()||typeof WebSocket==='undefined')return;let
  w.onclose=()=>{if(PP===w)PP=null;if(ppWant())setTimeout(ppConnect,Math.min(3e4,1e3*2**PPN++))};w.onerror=()=>{try{w.close()}catch(_){}}}
 function ppClose(){const w=PP;PP=null;if(w){w.onclose=null;try{w.close()}catch(_){}}}
 function ppNew(d){const sp=(T.SOL||{}).price||0;if(!sp)return;const mc=(+d.marketCapSol||0)*sp,price=mc/1e9;if(!price)return;
- const t=regLive({mint:d.mint,sym:String(d.symbol||'?').slice(0,20),name:String(d.name||d.symbol||'New token').slice(0,60),icon:null,price,mc,fdv:mc,liq:(+d.vSolInBondingCurve||0)*sp,holders:1,vol24:(+d.solAmount||0)*sp,
+ const t=regLive({mint:d.mint,sym:String(d.symbol||'?').replace(/^\$+/,'').slice(0,20),name:String(d.name||d.symbol||'New token').slice(0,60),icon:null,price,mc,fdv:mc,liq:(+d.vSolInBondingCurve||0)*sp,holders:1,vol24:(+d.solAmount||0)*sp,
   chg:{m5:null,h1:null,h6:null,h24:null},buys24:d.initialBuy?1:0,sells24:0,traders24:1,createdAt:new Date().toISOString(),pool:null,dex:null,verified:false,organic:null,
   audit:{mintOff:null,freezeOff:null,top10:null,dev:null,sus:false},socials:{x:null,web:null,tg:null},launchpad:d.pool==='bonk'?'bonk':'pump.fun',decimals:6,flow:null});
  if(!t)return;t._pp=Date.now();t._fx={c:'fx-new',u:Date.now()+3500};PPKEYS.unshift(d.mint);PPKEYS.length=Math.min(PPKEYS.length,80);
@@ -1961,7 +1961,7 @@ function bpAddModal(){const off=Object.keys(BP).filter(k=>!bpGet().includes(k));
  modal('Add a panel','Panels sit beside your feed and scroll on their own.',`<div class="bpopts">${off.map(k=>`<button class="bpopt" data-bp="${k}"><span class="bpic">${ic(BP[k][1],18)}</span><b>${BP[k][0]}</b><span class="hint">Add</span></button>`).join('')}</div>`,
   m=>m.addEventListener('click',e=>{const o=e.target.closest('[data-bp]');if(!o)return;const v=bpGet();v.push(o.dataset.bp);bpSet(v);closeModal();drawRail()}))}
 function drawRail(){const r=$('#rail');if(!r||document.body.classList.contains('bpdrag')||BPDRAG)return;const keep={};r.querySelectorAll('.bpb').forEach(b=>keep[b.dataset.p]=b.scrollTop);const sl=r.scrollLeft;
- document.body.classList.toggle('board',boardOn());bpApplyFeed();drawSides();const sf0=$('#sidefeed'),st0=sf0?sf0.scrollTop:0;r.innerHTML=rail();r.scrollLeft=sl;{const sf=$('#sidefeed');if(sf&&st0)sf.scrollTop=st0}r.querySelectorAll('.bpb').forEach(b=>{if(keep[b.dataset.p])b.scrollTop=keep[b.dataset.p]})}
+ document.body.classList.toggle('board',boardOn());bpApplyFeed();drawSides();const sf0=$('#sidefeed'),st0=sf0?sf0.scrollTop:0;r.innerHTML=rail();r.scrollLeft=sl;if(r.querySelector('.sidep [data-swapbox]'))renderSwaps();{const sf=$('#sidefeed');if(sf&&st0)sf.scrollTop=st0}r.querySelectorAll('.bpb').forEach(b=>{if(keep[b.dataset.p])b.scrollTop=keep[b.dataset.p]})}
 /* Resize: drag a divider; double-click resets that column. Arrow keys work too. */
 document.addEventListener('pointerdown',e=>{const h=e.target.closest&&e.target.closest('.bprz');if(!h)return;e.preventDefault();
  const k=h.dataset.rz,col=k==='feed'?$('#view'):h.closest('.bp');if(!col)return;const x0=e.clientX,w0=col.getBoundingClientRect().width/curZoom(),z=curZoom();
@@ -1989,16 +1989,33 @@ let SIDEK='';if(typeof ResizeObserver!=='undefined')setTimeout(()=>{const c=docu
 /* Desktop side columns. Pages other than Home, Market and a token used to sit in a narrow strip with
    empty space either side. Now: quick swap on the left, the Home feed on the right.
    A token page becomes a terminal instead (trade + info | chart | calls), laid out in CSS (body.term). */
-const SIDE_OFF=new Set(['home','market','trenches','token','admin','messages','community','docs','legal','transparency']);
+const SIDE_OFF=new Set(['home','market','trenches','token','admin','legal']);
 function colsW(){const c=document.querySelector('.cols');return c?c.getBoundingClientRect().width/curZoom():0}
 /* 0 = none, 1 = feed on the right only, 2 = swap left + feed right */
 function sidesMode(){if(isPhone()||!matchMedia('(min-width:1100px) and (pointer:fine)').matches||SIDE_OFF.has(currentRoute()))return 0;const w=colsW();return w>=1240?2:w>=980?1:0}
 const termOn=()=>currentRoute()==='token'&&!isPhone()&&matchMedia('(min-width:1100px) and (pointer:fine)').matches&&colsW()>=1080;
+/* ---------- Side panels on desktop: the feed sits next to the tray (like the token page), a second panel on the far side.
+   Each one can be switched to another page from its title. Saved per browser. ---------- */
+const SPKINDS={home:['Home','home','#/home'],...BP,swap:['Swap','swap','#/defi']};
+let SPMENU=null;
+const spSaved=()=>{let v={};try{v=JSON.parse(localStorage.getItem('callit.sides')||'{}')||{}}catch(_){}return {L:SPKINDS[v.L]?v.L:'home',R:SPKINDS[v.R]?v.R:'market'}};
+/* A side panel never repeats the page you're on or the other panel. */
+function spKind(slot){const v=spSaved(),r=currentRoute(),here={home:'home',market:'market',trenches:'market',defi:'swap',callerboard:'callers',news:'news'}[r];
+ const other=slot==='L'?null:spKind('L'),order=slot==='L'?['home','calls','callers','market','news']:['market','swap','trending','callers','news','watch'];
+ const ok=k=>k!==here&&k!==other;return ok(v[slot])?v[slot]:order.find(ok)||'news'}
+function sideBody(k){if(k==='home'){const l=calls.filter(c=>visible(c)).slice(0,25);return l.map(post).join('')||'<div class="empty" style="padding:26px 12px"><b>No calls yet</b><p>Make the first one.</p><button class="btn primary" data-act="newcall">Make a call</button></div>'}
+ if(k==='swap')return `<div class="card sidesw" style="margin:12px"><div data-swapbox></div></div>`;return bpBody(k)}
+function sidePanel(slot){const k=spKind(slot),[l,icn,href]=SPKINDS[k];
+ const menu=SPMENU===slot?`<div class="bpmenu" role="menu" aria-label="Change panel">${Object.keys(SPKINDS).map(x=>`<button role="menuitemradio" aria-checked="${x===k}" class="${x===k?'on':''}" data-act="sppick" data-f="${slot}" data-to="${x}">${ic(SPKINDS[x][1],15)}<span>${SPKINDS[x][0]}</span>${x===k?ic('check',14):''}</button>`).join('')}</div>`:'';
+ return `<section class="sidep" data-sp="${slot}" data-k="${k}" aria-label="${l}"><header class="sideh"><span class="bpic">${ic(icn,17)}</span><button class="bpttl" data-act="spmenu" data-f="${slot}" aria-haspopup="menu" aria-expanded="${SPMENU===slot}" title="Switch this panel"><h3>${l}</h3>${ic('down',14)}</button>${menu}<a class="lnk" href="${href}">Open</a></header><div class="sideb"${k==='home'?' id="sidefeed"':''}>${sideBody(k)}</div></section>`}
+document.addEventListener('pointerdown',e=>{if(SPMENU&&!(e.target.closest&&e.target.closest('.sideh .bpmenu,.sideh .bpttl'))){SPMENU=null;drawRail()}});
 function sideFeed(){const l=calls.filter(k=>visible(k)).slice(0,25);
  return `<section class="sidep" aria-label="Home feed"><header class="sideh"><span class="bpic">${ic('home',17)}</span><h3>Home</h3><a class="lnk" href="#/home">Open</a></header><div class="sideb" id="sidefeed">${l.map(post).join('')||'<div class="empty" style="padding:26px 12px"><b>No calls yet</b><p>Make the first one.</p><button class="btn primary" data-act="newcall">Make a call</button></div>'}</div></section>`}
-function drawSides(){const m=sidesMode(),B=document.body,sl=$('#sidel');B.classList.toggle('sides',m>0);B.classList.toggle('sides2',m===2&&currentRoute()!=='defi');B.classList.toggle('term',termOn());
- if(!sl)return;if(B.classList.contains('sides2')){if(!sl.querySelector('[data-swapbox]')){sl.innerHTML=`<div class="card sidesw"><div class="tradeh"><h3>Swap</h3><a class="lnk" href="#/defi">Open</a></div><div data-swapbox></div></div>`;renderSwaps()}}else if(sl.firstChild)sl.innerHTML=''}
-function rail(){const r=currentRoute();if(boardOn())return board();if(sidesMode())return sideFeed();return (r==='market'?callerCard()+railRest(1)+adBoard():r==='home'?adBoard()+marketCard()+railNews()+railRest():adBoard()+railRest())+railFoot()}
+function drawSides(){const m=sidesMode(),B=document.body,sl=$('#sidel');B.classList.toggle('sides',m>0);B.classList.toggle('sides2',m===2);B.classList.toggle('term',termOn());
+ if(!sl)return;if(B.classList.contains('sides2')){const k=spKind('L'),cur=sl.querySelector('.sidep');
+  if(k==='swap'&&cur&&cur.dataset.k==='swap'&&SPMENU!=='L'&&sl.querySelector('[data-swapbox] *'))return;
+  const f=sl.querySelector('.sideb'),st=f?f.scrollTop:0;sl.innerHTML=sidePanel('L');const f2=sl.querySelector('.sideb');if(f2&&st&&cur&&cur.dataset.k===k)f2.scrollTop=st;if(k==='swap')renderSwaps()}else if(sl.firstChild)sl.innerHTML=''}
+function rail(){const r=currentRoute();if(boardOn())return board();if(sidesMode())return sidePanel(document.body.classList.contains('sides2')?'R':'L');return (r==='market'?callerCard()+railRest(1)+adBoard():r==='home'?adBoard()+marketCard()+railNews()+railRest():adBoard()+railRest())+railFoot()}
 /* Build tag: the commit this site was built from. Once the repo is public (NEXT_PUBLIC_REPO_URL set), it links to that exact commit. */
 const buildTag=()=>{const sha=process.env.NEXT_PUBLIC_BUILD_SHA||'',repo=process.env.NEXT_PUBLIC_REPO_URL||'';if(!sha)return '';
  return repo?`<a href="${esc(repo.replace(/\/$/,''))}/commit/${esc(sha)}" target="_blank" rel="noopener" title="The exact code running this site">Build ${esc(sha)}</a>`:`<span title="The commit this site was built from">Build ${esc(sha)}</span>`};
@@ -4092,6 +4109,8 @@ document.addEventListener('click',e=>{
   setzoom:()=>{try{localStorage.setItem('callit.zoom',b.dataset.f)}catch(_){}zoomApply();closeModal();currentRoute()==='settings'?render():settingsModal()},
   bpdel:()=>{const k=b.dataset.f;bpSet(bpGet().filter(x=>x!==k));BPMENU=null;drawRail();toast(`${BP[k][0]} removed. Bring panels back in Settings`)},
   bpmenu:()=>{BPMENU=BPMENU===b.dataset.f?null:b.dataset.f;drawRail()},
+  spmenu:()=>{SPMENU=SPMENU===b.dataset.f?null:b.dataset.f;drawRail()},
+  sppick:()=>{const v=spSaved(),slot=b.dataset.f,to=b.dataset.to,o=slot==='L'?'R':'L';if(v[o]===to)v[o]=v[slot];v[slot]=to;try{localStorage.setItem('callit.sides',JSON.stringify(v))}catch(_){}SPMENU=null;drawRail()},
   bppick:()=>{const from=b.dataset.f,to=b.dataset.to,v=bpGet(),i=v.indexOf(from),j=v.indexOf(to);if(i<0||from===to){BPMENU=null;return drawRail()}
    if(j>=0){v[j]=from}v[i]=to;const w=bpW[from];if(w!=null){bpW[to]=w;delete bpW[from];bpWSave()}bpSet(v);BPMENU=null;drawRail()},
   bpreset:()=>{bpSet(BP_DEF.slice());Object.keys(bpW).forEach(k=>delete bpW[k]);bpWSave();bpApplyFeed();closeModal();drawRail();toast('Panels reset')},

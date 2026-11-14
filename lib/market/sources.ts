@@ -83,7 +83,7 @@ function fromJup(j: JupToken): LiveToken {
   const vol = (s24.buyVolume ?? 0) + (s24.sellVolume ?? 0);
   return {
     mint: j.id,
-    sym: (j.symbol || '').slice(0, 16) || j.id.slice(0, 4),
+    sym: (j.symbol || '').replace(/^\$+/, '').slice(0, 16) || j.id.slice(0, 4),
     name: (j.name || j.symbol || 'Unknown').slice(0, 48),
     icon: j.icon || null,
     price: num(j.usdPrice),
@@ -292,7 +292,7 @@ async function pumpSearch(q: string): Promise<LiveToken[]> {
   const data = await getJSON<PumpCoin[] | { coins?: PumpCoin[] }>(url, 20, { 'user-agent': 'Mozilla/5.0 (compatible; Callit/1.0)' });
   const list = Array.isArray(data) ? data : Array.isArray(data?.coins) ? data!.coins! : [];
   return list.filter((c) => c && c.mint && isMint(c.mint)).map((c) => ({
-    mint: c.mint!, sym: String(c.symbol || '').slice(0, 16), name: String(c.name || '').slice(0, 64), icon: c.image_uri || null,
+    mint: c.mint!, sym: String(c.symbol || '').replace(/^\$+/, '').slice(0, 16), name: String(c.name || '').slice(0, 64), icon: c.image_uri || null,
     price: null, mc: num(c.usd_market_cap), fdv: null, liq: null, holders: null, vol24: null,
     chg: { m5: null, h1: null, h6: null, h24: null }, buys24: null, sells24: null, traders24: null,
     createdAt: c.created_timestamp ? new Date(c.created_timestamp).toISOString() : null,
@@ -324,7 +324,7 @@ export function withPair(t: LiveToken | null, pairs: DsPair[]): LiveToken | null
   if (!best) return t;
   const soc = (type: string) => best.info?.socials?.find((s) => s.type === type)?.url || null;
   const base: LiveToken = t ?? {
-    mint: best.baseToken.address, sym: best.baseToken.symbol, name: best.baseToken.name, icon: null,
+    mint: best.baseToken.address, sym: String(best.baseToken.symbol || '').replace(/^\$+/, ''), name: best.baseToken.name, icon: null,
     price: num(best.priceUsd), mc: num(best.marketCap) ?? num(best.fdv), fdv: num(best.fdv), liq: num(best.liquidity?.usd),
     holders: null, vol24: num(best.volume?.h24),
     chg: { m5: num(best.priceChange?.m5), h1: num(best.priceChange?.h1), h6: num(best.priceChange?.h6), h24: num(best.priceChange?.h24) },
@@ -507,7 +507,7 @@ export async function memeFlow(): Promise<MarketFlow | null> {
   const per = toks.map((j) => {
     const s = j.stats1h || {};
     const buy = Number(s.buyVolume) || 0, sell = Number(s.sellVolume) || 0;
-    return { mint: j.id, sym: (j.symbol || '').slice(0, 16), icon: j.icon || null, mc: num(j.mcap) ?? num(j.fdv), net: buy - sell, buy, sell };
+    return { mint: j.id, sym: (j.symbol || '').replace(/^\$+/, '').slice(0, 16), icon: j.icon || null, mc: num(j.mcap) ?? num(j.fdv), net: buy - sell, buy, sell };
   });
   const by = [...per].sort((a, b) => b.net - a.net);
 
@@ -526,7 +526,7 @@ export async function memeFlow(): Promise<MarketFlow | null> {
   const majPer = majToks.map((j) => {
     const s = j.stats1h || {};
     const buy = Number(s.buyVolume) || 0, sell = Number(s.sellVolume) || 0;
-    return { mint: j.id, sym: (j.symbol || '').slice(0, 16), icon: j.icon || null, mc: num(j.mcap) ?? num(j.fdv), net: buy - sell, buy, sell };
+    return { mint: j.id, sym: (j.symbol || '').replace(/^\$+/, '').slice(0, 16), icon: j.icon || null, mc: num(j.mcap) ?? num(j.fdv), net: buy - sell, buy, sell };
   }).sort((a, b) => Math.abs(b.net) - Math.abs(a.net));
   const majors: MajorsFlow = { n: majToks.length, w: sumWin(majToks), toks: majPer.slice(0, 8) };
 

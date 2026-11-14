@@ -777,3 +777,16 @@ body.lfull-on{overflow:hidden}
 .tnph .tnarr{display:flex;gap:6px;align-items:center}
 .tnph .ib{width:30px;height:30px}
 .tnph .tnnext svg{transform:scaleX(-1)}
+
+/* ---------- Side panels: feed next to the tray, switchable panels ---------- */
+@media (min-width:900px){
+  body.sides .cols{grid-template-columns:minmax(0,1fr) var(--sc3,minmax(330px,420px))}
+  body.sides.sides2 .cols{grid-template-columns:var(--sc1,minmax(340px,420px)) minmax(0,1fr) var(--sc3,minmax(300px,360px))}
+}
+body.sides.sides2 .sidel{padding:0!important;height:calc(100vh / var(--z,1) - var(--hdr));display:flex!important;flex-direction:column;overflow:hidden!important}
+body.sides.sides2 .sidel>.sidep{display:flex;flex-direction:column;height:100%}
+.sidep{position:relative}
+.sideh .bpttl{display:inline-flex;align-items:center;gap:6px;flex:1;min-width:0;border:0;background:none;color:var(--text);cursor:pointer;padding:0;text-align:left}
+.sideh .bpttl h3{margin:0;font-size:15px}
+.sideh .bpmenu{top:46px;left:12px}
+.sidel .post,.rail .sidep .post{padding-left:12px;padding-right:12px}
