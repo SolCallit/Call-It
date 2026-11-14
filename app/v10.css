@@ -809,3 +809,10 @@ body.sides.sides2 .sidel>.sidep{display:flex;flex-direction:column;height:100%}
 .cbrow .cspk{display:block;height:30px}
 .cbrow .cspk svg{width:100%;height:30px}
 @media (max-width:640px){.cbhead,.cbrow{grid-template-columns:minmax(0,1.5fr) repeat(3,minmax(58px,.8fr));gap:8px;padding-left:12px;padding-right:12px}.cbhead>:nth-child(2),.cbrow>:nth-child(2),.cbhead .cbsp,.cbrow .cbsp{display:none}}
+
+/* ---------- Close-position popup shows the real share card ---------- */
+.pnlpop.pnlx{width:min(480px,calc(100vw - 24px));padding:16px}
+.pnlpop.pnlx .xstage{margin:0 0 14px}
+.pnlpop.pnlx .xhead{display:none}
+/* Share card on phones: let it grow instead of squeezing the numbers into each other */
+@media (max-width:520px){.xcard{aspect-ratio:auto}.xmid{min-height:0;padding:14px 0 12px}.xcard .xtop{gap:10px}.xcard .xtag{font-size:10px;letter-spacing:.14em}}

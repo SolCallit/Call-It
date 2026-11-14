@@ -744,15 +744,16 @@ function sellResult(key,amt,gotSol,pf){const p=pnlBook().P[mintOf(key)],t=T[key]
  const q=Math.min(amt,p.amt),avg=p.cost/p.amt,cost=avg*q,sp=T.SOL&&T.SOL.price,proceeds=gotSol!=null&&sp?gotSol*sp:pf?amt*pf:0;if(!(cost>0)||!(proceeds>0))return null;
  const mc=mcap(t);return {key,sym:symOf(key),cost,proceeds,pnl:proceeds-cost,pct:(proceeds/cost-1)*100,x:proceeds/cost,entryMc:t.price?avg*mc/t.price:0,exitMc:mc,full:amt>=p.amt*.999}}
 function resultPop(r){const win=r.pnl>=0,sy=esc(r.sym);
- $('#modal').innerHTML=`<div class="scrim" data-act="close"><div class="pnlpop ${win?'win':'loss'}" role="dialog" aria-modal="true" aria-label="${win?'Win':'Trade closed'} on $${sy}">
-  <div class="pnlhd">${tokav(r.key)}<span class="grow"><b>${r.full?'Closed':'Took profit on'} $${sy}</b><small>${win?(r.x>=2?'Called it.':'Locked in.'):'On to the next one.'}</small></span><span class="pnltag">${win?'WIN':'LOSS'}</span></div>
-  <div class="pnlbig num">${money(r.pnl)}</div>
-  <div class="pnlchips"><span class="num">${fmtPct(r.pct)}</span><span class="num">${r.x.toFixed(r.x>=10?1:2)}X</span></div>
-  <div class="pnlrow"><div><small>Entry MC</small><b class="num">${fmtSmall(r.entryMc)}</b></div><div aria-hidden="true">${ic('chev',16)}</div><div><small>Exit MC</small><b class="num">${fmtSmall(r.exitMc)}</b></div></div>
+ const d={h:S.me,name:nameOf(S.me),tag:r.full?'CLOSED':'TOOK PROFIT',head:`@${S.me}'s $${sy}`,label:'Realized PnL',big:money(r.pnl),up:win,
+  sub:`${fmtUsd(r.entryMc)} → ${fmtUsd(r.exitMc)} MC`,chips:[fmtPct(r.pct),r.x.toFixed(r.x>=10?1:2)+'X'],tok:tokav(r.key),tokLab:'$'+sy};
+ d.sty=XSTY();
+ $('#modal').innerHTML=`<div class="scrim" data-act="close"><div class="pnlpop pnlx ${win?'win':'loss'}" role="dialog" aria-modal="true" aria-label="${win?'Win':'Trade closed'} on $${sy}">
+  ${xcardHTML(d)}
   <div class="pnlrow sub"><div><small>Cost</small><b class="num">${fmtUsd(r.cost)}</b></div><div></div><div><small>Got back</small><b class="num">${fmtUsd(r.proceeds)}</b></div></div>
   <div class="pnlact"><button class="btn ghost" data-act="close">Done</button><button class="btn primary" id="pnlshare">${ic('xlogo',15)} Share</button></div></div></div>`;
+ const m=$('#modal');try{paintX(m,d)}catch(_){}
  requestAnimationFrame(()=>{const x=$('#modal .pnlpop');x&&x.classList.add('in')});
- $('#pnlshare').onclick=()=>{closeModal();shareModal({h:S.me,name:nameOf(S.me),tag:'REALIZED',head:`@${S.me}'s $${sy}`,label:'Realized PnL',big:money(r.pnl),up:win,sub:`${fmtUsd(r.cost)} → ${fmtUsd(r.proceeds)}`,chips:[fmtPct(r.pct),r.x.toFixed(2)+'X'],tok:tokav(r.key),tokLab:'$'+sy},SITE+'/#/token/'+encodeURIComponent(r.key),'callit-win-'+r.sym,win?`Took ${fmtPct(r.pct)} on $${r.sym} with Callit 📣`:`My $${r.sym} trade on Callit`)};
+ $('#pnlshare').onclick=()=>{closeModal();shareModal(d,SITE+'/#/token/'+encodeURIComponent(r.key),'callit-win-'+r.sym,win?`Took ${fmtPct(r.pct)} on $${r.sym} with Callit 📣`:`My $${r.sym} trade on Callit`)};
  if(win){try{navigator.vibrate&&navigator.vibrate([24,40,60])}catch(_){}confetti(r.x>=2?220:120)}}
 /* Tiny canvas confetti: no dependency, skipped with reduced motion. */
 function confetti(n){if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;const c=document.createElement('canvas'),dpr=Math.min(2,devicePixelRatio||1),W=innerWidth,H=innerHeight;
