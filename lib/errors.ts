@@ -37,6 +37,7 @@ export const isUserCancel = (e: unknown) => CANCEL.test(errText(e)) || CANCEL_CA
 const RULES: [RegExp, string][] = [
   [CANCEL, 'You cancelled it. Nothing was sent.'],
   [/insufficient (funds|lamports|sol)|attempt to debit|custom program error: 0x1\b|not enough balance/i, 'Not enough SOL to cover this and the network fee.'],
+  [/privy-request-expiry|request has expired/i, "Your device's clock is wrong, so the wallet refused to sign. Turn on 'Set time automatically' in your date and time settings, then try again. Nothing was sent."],
   [/blockhash not found|block height exceeded|expired/i, 'The network took too long and it expired. Nothing was sent. Try again.'],
   [/429|too many requests|rate.?limit/i, 'Solana is busy right now. Try again in a few seconds.'],
   [/slippage|0x1771|exceeds desired slippage/i, 'Price moved past your slippage. Raise slippage in swap settings or retry.'],

@@ -340,7 +340,10 @@ export function withPair(t: LiveToken | null, pairs: DsPair[]): LiveToken | null
   const dsPrice = num(best.priceUsd);
   const live: Partial<LiveToken> = dsPrice ? {
     price: dsPrice,
-    mc: num(best.marketCap) ?? (base.mc && base.price ? (base.mc * dsPrice) / base.price : base.mc),
+    // Keep Jupiter's supply (what call entries, targets and lists use) and move it with DexScreener's price.
+    // DexScreener's own market cap can use a different supply (e.g. $44.9M vs $34.8M on STONK), which made
+    // the header, the chart and "since call" disagree on the same token.
+    mc: base.mc && base.price ? (base.mc * dsPrice) / base.price : num(best.marketCap) ?? num(best.fdv),
     fdv: num(best.fdv) ?? base.fdv,
     liq: num(best.liquidity?.usd) ?? base.liq,
     vol24: num(best.volume?.h24) ?? base.vol24,
