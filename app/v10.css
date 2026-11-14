@@ -816,3 +816,31 @@ body.sides.sides2 .sidel>.sidep{display:flex;flex-direction:column;height:100%}
 .pnlpop.pnlx .xhead{display:none}
 /* Share card on phones: let it grow instead of squeezing the numbers into each other */
 @media (max-width:520px){.xcard{aspect-ratio:auto}.xmid{min-height:0;padding:14px 0 12px}.xcard .xtop{gap:10px}.xcard .xtag{font-size:10px;letter-spacing:.14em}}
+
+/* ---------- Tray: icons only by default; opening it slides over the page instead of squeezing it ---------- */
+@media (min-width:761px){
+  .shell{grid-template-columns:80px minmax(0,1fr)}
+  body:not(.collapsed) .sb{position:fixed;left:0;top:0;bottom:0;height:auto;z-index:70;box-shadow:16px 0 48px rgba(0,0,0,.28)}
+}
+
+/* Calls under the chart (desktop, beside Trades): same compact card layout as the calls column */
+@media (min-width:1100px) and (pointer:fine){
+  body.term #view .tmain .cpanel .pbar{flex-wrap:nowrap;column-gap:4px}
+  body.term #view .tmain .cpanel .pbar .icons{flex:1 1 auto!important;min-width:0!important;justify-content:space-between}
+  body.term #view .tmain .cpanel .pbar .act{padding:6px 3px!important;min-width:0;gap:2px!important}
+  body.term #view .tmain .cpanel .pbar .act svg{width:17px;height:17px}
+  body.term #view .tmain .cpanel .pbar .act .num{font-size:12px}
+  body.term #view .tmain .cpanel .pbar .pright{flex:none;padding:0;gap:6px}
+  body.term #view .tmain .cpanel .pbar .pright .mc{font-size:12.5px!important;white-space:nowrap}
+  body.term #view .tmain .cpanel .pbar .pright .mc small{display:none}
+  body.term #view .tmain .cpanel .pbar:has(.sellq){flex-wrap:wrap}
+  body.term #view .tmain .cpanel .ccard .cspk{display:none}
+  body.term #view .tmain .cpanel .ccard .cr3{gap:10px}
+  body.term #view .tmain .cpanel .ccard .cr2 b{font-size:14px}
+  body.term #view .tmain .cpanel .ccard .cn{flex:1 1 0;min-width:0;max-width:none}
+  body.term #view .tmain .cpanel .ccard{padding-left:12px;padding-right:12px}
+  body.term #view .tmain .cpanel .ccard .cn .chain{display:none}
+  body.term #view .tmain .cpanel .ccard .cr2 b{font-size:13px}.tright .ccard .cr3{gap:8px}
+  body.term #view .tmain .cpanel .ccard .cn{min-width:64px}
+  body.term #view .tmain .cpanel .post{padding-left:12px;padding-right:12px}
+}

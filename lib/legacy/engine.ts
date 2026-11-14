@@ -692,7 +692,7 @@ const mintOf=k=>k==='SOL'?SOL_MINT:k==='USDC'?USDC_MINT:(T[k]&&isMintStr(T[k].ca
 const keyOfMint=m=>m===SOL_MINT?'SOL':m===USDC_MINT?'USDC':m;
 const decOf=k=>DEC[k]!=null?DEC[k]:(T[k]&&T[k].L&&T[k].L.decimals!=null?T[k].L.decimals:null);
 /* Whole balance -> exact raw amount from chain (no rounding dust left behind). */
-const baseOf=(k,a)=>{const d=decOf(k);if(d==null)throw new Error('Token details are still loading. Try again in a second.');return RAW[k]&&k!=='SOL'&&a>=(S.bal[k]||0)*(1-1e-9)?RAW[k]:toBaseUnits(a,d)};
+const baseOf=(k,a)=>{const d=decOf(k);if(d==null)throw new Error('Token details are still loading. Try again in a second.');return RAW[k]&&k!=='SOL'&&a>=(S.bal[k]||0)*(1-2e-6)?RAW[k]:toBaseUnits(a,d)};
 function balRender(){const ae=document.activeElement;if(ae&&ae.matches&&ae.matches('input,textarea,select')){S.dirty=1;renderSwapsSoft();return}
  if($('#modal').innerHTML||document.querySelector('.sheet.open')){S.dirty=1;renderSwapsSoft();return}
  const r=currentRoute();if(r==='you'||r==='profile')render();else renderSwapsSoft()}
@@ -850,13 +850,14 @@ function adBoard(){if(!ADS_ON)return '';const a=ADS[S.board%ADS.length];
 
 /* ---------- swap widget ---------- */
 const FEE_RESERVE=0.01;
-const maxOf=sym=>{const b=S.bal[sym]||0;const v=sym==='SOL'?Math.max(0,b-FEE_RESERVE):b;return String(+v.toFixed(6))};
+const floor6=v=>String(Math.floor((+v||0)*1e6+1e-7)/1e6);
+const maxOf=sym=>{const b=S.bal[sym]||0;const v=sym==='SOL'?Math.max(0,b-FEE_RESERVE):b;return floor6(v)};
 const impact=(sym,usdIn)=>{const t=T[sym];return t&&t.liq?usdIn/(t.liq/2+usdIn)*100:0};
 function swapHTML(tok){const w=S.swap,side=tok?(w.from===tok?'sell':'buy'):null,f=T[w.from],t=T[w.to],a=parseFloat(w.amt)||0,out=a?usd(w.from,a)*.995/t.price:0,imp=a?impact(w.to,usd(w.from,a)):0,sl=S.slip||0;
  const opts=sel=>Object.values(T).filter(tradable).map(x=>`<option ${x.sym===sel?'selected':''}>${x.sym}</option>`).join('');
  let label='Swap',dis=false;const warn=a&&imp>5?`<div class="swarn ${imp>15?'bad':''}">${ic('bell',15)} ${imp>15?'Very high':'High'} price impact. Thin liquidity on $${t.sym}.</div>`:'';
  const held=tok?(S.bal[tok]||0):0;
- if(!S.connected)label='Connect wallet';else if(side==='sell'&&!held){label=`You don't hold $${symOf(tok)}`;dis=true}else if(!a){label='Enter an amount';dis=true}else if(a>(S.bal[w.from]||0)){label=`Not enough ${symOf(w.from)}`;dis=true}else if(side)label=`${side==='sell'?'Sell':'Buy'} $${symOf(tok)}`;
+ if(!S.connected)label='Connect wallet';else if(side==='sell'&&!held){label=`You don't hold $${symOf(tok)}`;dis=true}else if(!a){label='Enter an amount';dis=true}else if(a>(S.bal[w.from]||0)*(1+1e-9)+1e-9){label=`Not enough ${symOf(w.from)}`;dis=true}else if(side)label=`${side==='sell'?'Sell':'Buy'} $${symOf(tok)}`;
  const tabs=tok?`<div class="bstabs" role="tablist" aria-label="Buy or sell"><button role="tab" aria-selected="${side==='buy'}" class="${side==='buy'?'on buy':''}" data-act="tside" data-f="buy" data-t="${tok}">Buy</button><button role="tab" aria-selected="${side==='sell'}" class="${side==='sell'?'on sell':''}" data-act="tside" data-f="sell" data-t="${tok}">Sell${held?` <span class="num">${fmtAmt(held)}</span>`:''}</button></div>`:'';
  const quick=S.connected&&(S.bal[w.from]||0)>0?(side==='sell'?[['.25','25%'],['.5','50%'],['.75','75%'],['1','Max']]:[['.5','Half'],['1','Max']]).map(([f,l])=>`<button class="mx" data-act="swmax" data-f="${f}">${l}</button>`).join(''):'';
  if(S.swUsd&&w.amt!==w._ua){w.usdTxt=w.amt&&f.price?String(+(+w.amt*f.price).toFixed(2)):'';w._ua=w.amt}
@@ -2697,7 +2698,7 @@ function quickBuy(sym,cid,startSide){if(!S.connected)return connectModal();const
   m.querySelectorAll('[data-side]').forEach(x=>x.onclick=()=>{side=x.dataset.side;draw(m)});
   const si=$('#qin',m);if(si)si.addEventListener('input',()=>{const v=si.value.replace(/[^0-9.]/g,'');if(side==='buy')sol=v;else{amt=v;pct=''}const pos=si.selectionStart;draw(m);const n=$('#qin',m);n.focus();try{n.setSelectionRange(pos,pos)}catch(_){}});
   m.querySelectorAll('[data-sol]').forEach(x=>x.onclick=()=>{sol=x.dataset.sol;draw(m)});
-  m.querySelectorAll('[data-pct]').forEach(x=>x.onclick=()=>{pct=x.dataset.pct;amt=pct==='100'?String(h):String(+(h*pct/100).toFixed(6));draw(m)});
+  m.querySelectorAll('[data-pct]').forEach(x=>x.onclick=()=>{pct=x.dataset.pct;amt=pct==='100'?String(h):floor6(h*pct/100);draw(m)});
   const mx=$('#qmax',m);if(mx)mx.onclick=e=>{e.preventDefault();if(side==='buy')sol=maxOf('SOL');else{pct='100';amt=String(h)}draw(m)};
   const go=$('#qgo',m);if(!go)return;
   go.onclick=()=>{if(side==='buy'){const a=parseFloat(sol)||0,got=a*T.SOL.price*.995/t.price;
@@ -4242,7 +4243,7 @@ document.addEventListener('click',e=>{
    const go=()=>{const f=w.from,t=w.to;w.amt='';renderSwaps();if(REALW())return realSwap(f,t,x,f==='SOL'?`Buy $${symOf(t)} with ${fmtAmt(x)} SOL`:t==='SOL'?`Sell ${fmtAmt(x)} $${symOf(f)}`:`Swap ${fmtAmt(x)} ${symOf(f)} → ${symOf(t)}`);txRun(`Swap ${fmtAmt(x)} ${symOf(f)} → ${fmtAmt(out)} ${symOf(t)}`,()=>{S.bal[f]-=x;S.bal[t]=(S.bal[t]||0)+out;S.activity.unshift({k:'Swapped',d:`${fmtAmt(x)} ${symOf(f)} for ${fmtAmt(out)} ${symOf(t)}`,t:'Just now'});render()})};
    if(imp>15)return modal('High price impact',`This swap moves the price about ${imp.toFixed(1)}%. You may get much less than shown.`,`<button class="btn block" style="background:var(--down);color:#fff;border-color:var(--down)" id="impgo">Swap anyway</button><button class="btn ghost block" data-act="close" style="margin-top:8px">Cancel</button>`,m=>$('#impgo',m).onclick=()=>{closeModal();go()});
    go()},
-  swmax:()=>{const w=S.swap,f=+b.dataset.f;w.amt=f===1?maxOf(w.from):String(+(+maxOf(w.from)*f).toFixed(6));renderSwaps();if(f===1&&w.from==='SOL')toast(`Kept ${FEE_RESERVE} SOL for network fees`)},
+  swmax:()=>{const w=S.swap,f=+b.dataset.f;w.amt=f===1?maxOf(w.from):floor6(+maxOf(w.from)*f);renderSwaps();if(f===1&&w.from==='SOL')toast(`Kept ${FEE_RESERVE} SOL for network fees`)},
   slip:()=>{S.slip=+b.dataset.f;SWS.slip=S.slip;saveSWS();renderSwaps()},swapset:()=>swapSettings(),heatf:()=>{HEATF.k=HEATF.k===b.dataset.f?'':b.dataset.f;saveHeat();render()},heatdz:()=>{HEATF.hide=!HEATF.hide;saveHeat();render()},admtab:()=>{ADM.tab=b.dataset.f;if(b.dataset.f==='payouts')loadPayouts(1);if(b.dataset.f==='telegram')loadTgAdmin(1);render()},
   claim:()=>doClaim(),earnopen:()=>{EARN.open=!EARN.open;render()},tglink:()=>{tgLink()},tgunlink:()=>{API('/api/telegram/link',{method:'DELETE'}).then(()=>{TGL.d=null;loadTg();toast('Telegram unlinked')}).catch(e=>toast(e.message))},
   paypause:()=>{API('/api/admin/payouts',{body:{action:b.dataset.f}}).then(()=>{toast(b.dataset.f==='pause'?'Claims paused':'Claims resumed');loadPayouts(1)}).catch(e=>toast(e.message))},
@@ -4291,7 +4292,10 @@ function queueDemoCalls(){/* demo calls retired: real calls only */if(true||QUEU
 
 /* static icons */
 $('#setIcon').innerHTML=ic('settings',20);$('#fab').innerHTML=ic('plus',28);$('#searchBtn').innerHTML=ic('search',18)+'<span class="lbl">Search</span>';
-if(innerWidth<1100)document.body.classList.add('collapsed');
+document.body.classList.add('collapsed');
+/* The tray opens over the page (it never squeezes the columns) and closes when you pick a page or click away. */
+document.addEventListener('click',e=>{const B=document.body;if(B.classList.contains('collapsed')||isPhone())return;const t=e.target;if(!t||!t.closest)return;
+ if(t.closest('#brand,[data-act=collapse]'))return;const sb=t.closest('.sb');if(sb&&!t.closest('a[href],[data-act=newcall],[data-act=connect]'))return;B.classList.add('collapsed');syncTray()},true);
 /* Each screen remembers where you were. Back (in-app, browser or swipe) lands you on the same post; new screens start at the top. */
 const SCRY={};addEventListener('scroll',()=>{if(!SCRY._lock)SCRY[NAVH.cur||location.hash]=scrollY},{passive:true});
 function restoreScroll(y){if(!(y>0)){scrollTo({top:0});return}SCRY._lock=1;let n=0,last=-1;
