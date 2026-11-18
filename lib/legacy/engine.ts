@@ -2556,9 +2556,9 @@ const pvMod=()=>import('@/lib/privacy/privacycash');
 const HXACC={};
 const hxOn=()=>HELIUS_PRIVATE_ON||(HELIUS_PRIVATE_BETA&&HXACC[S.addr]===true);
 const hxMod=()=>import('@/lib/privacy/helius');
-const pvRail=()=>pvOn()&&hxOn()?`<div class="seg pvrail" role="tablist" style="margin:0 0 12px"><button role="tab" aria-selected="${PV.rail!=='hx'}" class="${PV.rail==='hx'?'':'on'}" data-r="pc">Privacy Cash</button><button role="tab" aria-selected="${PV.rail==='hx'}" class="${PV.rail==='hx'?'on':''}" data-r="hx">Helius Rings</button></div>`:'';
+const pvRail=()=>pvOn()&&hxOn()?`<div class="seg pvrail" role="tablist" style="margin:0 0 12px"><button role="tab" aria-selected="${PV.rail==='hx'}" class="${PV.rail==='hx'?'on':''}" data-r="hx">Helius Rings</button><button role="tab" aria-selected="${PV.rail!=='hx'}" class="${PV.rail==='hx'?'':'on'}" data-r="pc">Privacy Cash</button></div>`:'';
 const pvRailWire=m=>m.querySelectorAll('.pvrail button').forEach(b=>b.onclick=()=>{if(b.dataset.r!==PV.rail){PV.rail=b.dataset.r;pvAny(m)}});
-function pvAny(m){if(!PV.rail)PV.rail=pvOn()?'pc':'hx';if(PV.rail==='hx'&&!hxOn())PV.rail='pc';if(PV.rail==='pc'&&!pvOn()&&hxOn())PV.rail='hx';return PV.rail==='hx'?pvLoadH(m):pvLoad(m)}
+function pvAny(m){if(!PV.rail)PV.rail=hxOn()?'hx':'pc';if(PV.rail==='hx'&&!hxOn())PV.rail='pc';if(PV.rail==='pc'&&!pvOn()&&hxOn())PV.rail='hx';return PV.rail==='hx'?pvLoadH(m):pvLoad(m)}
 const pvSeg=on=>{pvCheck();if(!pvOn()&&!hxOn())return `<div class="seg pvseg soon"><button class="on">Standard</button><button data-act="pvsoon" aria-disabled="true">${ic('lock',14)} Private <span class="pvsoonb">Coming soon</span></button></div>`;return `<div class="seg pvseg" role="tablist"><button class="${on?'':'on'}" role="tab" aria-selected="${!on}" data-act="withdraw">Standard</button><button class="${on?'on':''}" role="tab" aria-selected="${!!on}" data-act="pwithdraw">${ic('lock',14)} Private</button></div>`};
 const PV={mode:null,then:'keep',priv:null,rail:null};
 function pwithdrawModal(){if(!S.connected)return connectModal(()=>pwithdrawModal());if(!pvOn()&&!hxOn())return withdrawModal();

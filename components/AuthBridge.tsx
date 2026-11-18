@@ -79,6 +79,25 @@ export default function AuthBridge() {
   const { signMessage } = useSignMessage();
   const { exportWallet } = useExportWallet();
 
+  // Latest wallet state, read live while a signature waits. On a weak network Privy can drop
+  // the wallet list for a few seconds mid-flow (e.g. between the two steps of Add & send);
+  // waiting for it to come back beats failing with "sign in again".
+  const live = useRef({ authenticated, wallets });
+  live.current = { authenticated, wallets };
+  const waitWallet = async (owner?: string, fallback = false) => {
+    const until = Date.now() + 30_000;
+    for (;;) {
+      const { authenticated: a, wallets: ws } = live.current;
+      const w = a && ws.length ? (pickWallet(ws, owner) || (fallback ? ws[0] : undefined)) : undefined;
+      if (w) return w;
+      if (Date.now() > until) {
+        if (a && ws.length && owner) throw new Error(`Wallet ${owner.slice(0, 4)}…${owner.slice(-4)} isn't connected in this browser. Reconnect it, or sign in again.`);
+        throw new Error('No wallet connected. Check your connection, then sign in again.');
+      }
+      await new Promise((r) => setTimeout(r, 500));
+    }
+  };
+
   // Expose the user's wallet to the engine: real balances, swaps and withdrawals.
   // The engine only ever gets back signed bytes; keys stay in Privy / Phantom / Solflare.
   useEffect(() => {
@@ -92,11 +111,9 @@ export default function AuthBridge() {
       addresses: authenticated ? wallets.map((w) => w.address) : [],
       token: () => getAccessToken(),
       signTx: async (tx, owner, chain = 'solana:mainnet') => {
-        if (!authenticated || !wallets.length) throw new Error('No wallet connected. Sign in again.');
         // Sign with the exact wallet the transaction was built for. Falling back to another
         // wallet produces a signature the network rejects, so say what's wrong instead.
-        const w = pickWallet(wallets, owner);
-        if (!w) throw new Error(`Wallet ${owner!.slice(0, 4)}…${owner!.slice(-4)} isn't connected in this browser. Reconnect it, or sign in again.`);
+        const w = await waitWallet(owner);
         try {
           const { signedTransaction } = await guarded(signTransaction({
             transaction: b64ToBytes(tx), wallet: w, chain,
@@ -111,15 +128,13 @@ export default function AuthBridge() {
       },
       // Signs a plain-text message (Jupiter order login). Returns the signature as base64.
       signMsg: async (text, owner) => {
-        const w = pickWallet(wallets, owner) || wallets[0];
-        if (!authenticated || !w) throw new Error('No wallet connected. Sign in again.');
+        const w = await waitWallet(owner, true);
         const { signature } = await guarded(signMessage({ message: new TextEncoder().encode(text), wallet: w }));
         return bytesToB64(signature);
       },
       // Raw-bytes signature, for Private Withdraw's key derivation. Same wallet rules as signMsg.
       signBytes: async (b64, owner) => {
-        const w = pickWallet(wallets, owner) || wallets[0];
-        if (!authenticated || !w) throw new Error('No wallet connected. Sign in again.');
+        const w = await waitWallet(owner, true);
         const { signature } = await guarded(signMessage({ message: b64ToBytes(b64), wallet: w }));
         return bytesToB64(signature);
       },
