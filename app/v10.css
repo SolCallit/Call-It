@@ -846,3 +846,50 @@ body.sides.sides2 .sidel>.sidep{display:flex;flex-direction:column;height:100%}
   body.term #view .tmain .cpanel .ccard .cn{min-width:64px}
   body.term #view .tmain .cpanel .post{padding-left:12px;padding-right:12px}
 }
+
+/* ---------- Token terminal reaches the bottom of the window ----------
+   The page's 120px bottom padding (room for the floating buttons on phones) ended the grid early,
+   so the sticky side columns stopped short and left an empty band under every column.
+   On the terminal the side columns scroll on their own, so the right one makes room for the buttons itself. */
+@media (min-width:1100px) and (pointer:fine){
+  body.term .center{padding-bottom:0}
+  body.term #view>.tleft{padding-bottom:110px}
+  body.term #view>.tright{padding-bottom:24px}
+}
+
+/* ---------- Chart: TradingView-style controls on every screen size ----------
+   Zoom/scroll buttons (hover on desktop, after a touch on phones), A / L on the price axis,
+   a gear for the price-scale menu, a countdown to bar close, and a grip to resize the chart. */
+.lchart .cnavb{position:absolute;z-index:6;transform:translateX(-50%);display:flex;gap:6px;opacity:0;pointer-events:none;transition:opacity .18s}
+.lchart:hover .cnavb,.lchart.ctouch .cnavb{opacity:1;pointer-events:auto}
+.lchart .cnavb button{width:32px;height:32px;border-radius:999px;border:1px solid var(--line);background:color-mix(in srgb,var(--bg) 88%,transparent);color:var(--text);display:grid;place-items:center;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.18);transition:transform .12s,background .12s}
+.lchart .cnavb button:hover{background:var(--bg2);transform:translateY(-1px)}
+.lchart .cnavb button:active{transform:translateY(1px)}
+.lchart .caxb{position:absolute;z-index:6;display:flex;justify-content:center;gap:4px;pointer-events:none}
+.lchart .caxb button{pointer-events:auto;min-width:22px;height:22px;padding:0 5px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--muted);font:700 11.5px var(--body);cursor:pointer;line-height:1}
+.lchart .caxb button:hover{color:var(--text);background:var(--bg2)}
+.lchart .caxb button.on{color:var(--hi);border-color:color-mix(in srgb,var(--hi) 45%,var(--line))}
+.lchart .cgear{position:absolute;bottom:0;z-index:6;border:0;background:none;color:var(--muted);display:grid;place-items:center;cursor:pointer;padding:0}
+.lchart .cgear:hover{color:var(--text);background:var(--bg2)}
+.lchart .ccd{position:absolute;z-index:5;display:none;color:#fff;font:700 10.5px var(--mono,ui-monospace),monospace;text-align:center;padding:1px 0 2px;border-radius:0 0 3px 3px;pointer-events:none;opacity:.92}
+.cscalem{position:absolute;right:10px;z-index:30;min-width:260px;max-width:calc(100% - 20px);max-height:70vh;overflow-y:auto;padding:6px;border-radius:14px;border:1px solid var(--line);background:var(--bg);box-shadow:0 16px 40px rgba(0,0,0,.28)}
+.cscalem.left{right:auto;left:10px}
+
+.cscalem hr{border:0;border-top:1px solid var(--line);margin:5px 4px}
+
+.cscalem button{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;color:var(--text);font:600 13.5px var(--body);padding:8px 10px;border-radius:9px;cursor:pointer;text-align:left}
+
+.cscalem button:hover{background:var(--bg2)}
+
+.cscalem button span{flex:1}
+
+.cscalem button i{flex:none;width:16px;height:16px;display:grid;place-items:center}
+
+.cscalem button i.on::before{content:"";width:9px;height:5px;border-left:2px solid var(--hi);border-bottom:2px solid var(--hi);transform:translateY(-2px) rotate(-45deg)}
+
+.cscalem kbd{font:600 11px var(--body);color:var(--muted)}
+.chgrip{height:14px;margin:-2px 0 0;cursor:row-resize;display:grid;place-items:center;touch-action:none;flex:none}
+.chgrip::before{content:"";width:44px;height:4px;border-radius:999px;background:var(--line);transition:background .15s,width .15s}
+.chgrip:hover::before,.chgrip.on::before{background:var(--muted);width:64px}
+.chcard.lfull .chgrip{display:none}
+@media (hover:none){.lchart .cnavb button{width:36px;height:36px}.lchart .caxb button{min-width:26px;height:26px}}
