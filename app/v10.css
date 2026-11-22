@@ -820,6 +820,8 @@ body.sides.sides2 .sidel>.sidep{display:flex;flex-direction:column;height:100%}
 /* ---------- Tray: icons only by default; opening it slides over the page instead of squeezing it ---------- */
 @media (min-width:761px){
   .shell{grid-template-columns:80px minmax(0,1fr)}
+  /* Keep the page in its own column: a fixed tray leaves the grid, and without this the page drops into the 80px tray slot and vanishes behind it */
+  .shell>.main{grid-column:2;grid-row:1}
   body:not(.collapsed) .sb{position:fixed;left:0;top:0;bottom:0;height:auto;z-index:70;box-shadow:16px 0 48px rgba(0,0,0,.28)}
 }
 
