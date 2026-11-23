@@ -1730,8 +1730,17 @@ function vWallet(){if(!S.connected)return `<div class="empty"><b class="h2">No w
 const EARN_RULE={minX:2,noBuy:5,lo:20,hi:30};
 const EARN={d:null,busy:0,claiming:0,open:0,at:0};
 function loadEarn(force){if(!SYNC()||EARN.busy||(!force&&Date.now()-EARN.at<30e3))return;EARN.busy=1;
- API('/api/earnings').then(j=>{EARN.d=j;EARN.at=Date.now();if(j.rules){EARN_RULE.minX=j.rules.minX;EARN_RULE.noBuy=j.rules.noBuy;EARN_RULE.lo=j.rules.boughtIn[0];EARN_RULE.hi=j.rules.boughtIn[1]}
-  if(currentRoute()==='you'&&!document.querySelector('#modal .modal'))render()}).catch(()=>{}).finally(()=>{EARN.busy=0})}
+ API('/api/earnings').then(j=>{EARN.d=j;EARN.at=Date.now();if(j.rules){EARN_RULE.minX=j.rules.minX;EARN_RULE.noBuy=j.rules.noBuy;EARN_RULE.lo=j.rules.boughtIn[0];EARN_RULE.hi=j.rules.boughtIn[1];EARN_RULE.hold=j.rules.hold||null}
+  if(currentRoute()==='you'&&!document.querySelector('#modal .modal'))render();holdPopCheck(j)}).catch(()=>{}).finally(()=>{EARN.busy=0})}
+function holdPopCheck(j){try{const H=EARN_RULE.hold,sk='callit.holdSeen';if(!H)return;const seen=JSON.parse(localStorage.getItem(sk)||'[]');const nw=(j.holds||[]).filter(h=>h.status==='open'&&!seen.includes(h.call_id));if(!nw.length)return;localStorage.setItem(sk,JSON.stringify(seen.concat(nw.map(h=>h.call_id)).slice(-60)));if($('#modal')&&$('#modal').innerHTML.trim())return;const h=nw[0];
+ modal(`$${esc(h.sym||'?')} hit your target`,'You got paid. Now the bonus starts.',`<div class="holdpop"><p>Keep holding and you stack up to <b>+${H.max}%</b> more on <b>every buy your call brought in</b>, on top of what you just got paid.</p>
+ <ul><li>Your bag needs to be worth <b>$${H.minUsd}+</b> for it to count. Bought less? It starts counting once your bag grows past $${H.minUsd}.</li><li>Hold your full bag for <b>${H.fullH}h</b> while the token stays at your target for the full +${H.max}%. Partial sells slow it down.</li><li>Selling is your stop sign. The bonus locks the moment you sell out (or after ${H.days} days) and lands in your earnings.</li></ul>
+ <p class="hint">The more you shill, the more buys come in, the bigger it gets.</p><button class="btn primary" data-act="close" style="width:100%">Got it, I’m holding</button></div>`)}catch(e){}}
+function holdRows(d){const H=EARN_RULE.hold;if(!H||!(d.holds||[]).length)return '';
+ return `<div class="earnlist"><span class="earnh">Hold bonus</span>${d.holds.map(h=>{const open=h.status==='open',p=Math.max(0,Math.min(100,h.pct/H.max*100));
+  const left=open?Math.max(0,Date.parse(h.ends)-Date.now()):0,lh=Math.floor(left/36e5);
+  const st=open?(h.counting?`Building · ${(+h.pct).toFixed(1)}% of ${H.max}% · ${lh>=24?Math.floor(lh/24)+'d':lh+'h'} left`:`Paused · bag under $${H.minUsd}`):`Locked at +${(+h.pct).toFixed(1)}%`;
+  return `<a class="earnrow holdrow" href="#/post/${esc(h.call_id)}">${h.mint&&T[h.mint]?tokav(h.mint):`<span class="earndot"></span>`}<div class="grow"><b>$${esc(h.sym||'?')}</b><span class="hint">${st}</span>${open?`<span class="cbbar" role="progressbar" aria-valuenow="${Math.round(p)}" aria-valuemin="0" aria-valuemax="100"><i style="width:${Math.max(3,p)}%"></i></span>`:''}</div><b class="num ${open?'muted':'up'}">${open?'~':'+'}${fmtUsd(h.usd)}</b></a>`}).join('')}</div>`}
 function earnCard(){if(!SYNC())return '';loadEarn();const d=EARN.d;
  if(!d)return `<div class="earn sk"><div class="earnt"><span class="earnic">${ic('crown',18)}</span><b>Caller earnings</b></div><div class="earnamt num">—</div></div>`;
  if(!d.ready)return '';
@@ -1749,8 +1758,10 @@ function earnCard(){if(!SYNC())return '';loadEarn();const d=EARN.d;
  <button class="btn primary earnbtn${EARN.claiming?' busy':''}" data-act="claim" ${can?'':'disabled'}>${EARN.claiming?'Sending…':'Claim'}</button></div>${cbBox}
  ${EARN.open?`<div class="earnhowto"><p><b>Call it. Get paid.</b> When people buy a token from your call, you earn part of Callit’s fee on every buy once it <b>holds ${EARN_RULE.minX}X</b>. The moment your call <b>hits your target</b>, it pays out in SOL, about a minute later, no waiting for payday. More buys after that keep paying.</p>
   <div class="earntiers"><div><b>${EARN_RULE.lo}–${EARN_RULE.hi}%</b><span>You bought in and held to your target. Grows as the call climbs.</span></div><div><b>${EARN_RULE.noBuy}%</b><span>You didn’t buy, or sold before your target.</span></div></div>
+  ${EARN_RULE.hold?`<p><b>Hit target, keep holding, earn more.</b> After your target pays, hold a bag worth <b>$${EARN_RULE.hold.minUsd}+</b> and a bonus of up to <b>+${EARN_RULE.hold.max}%</b> builds on every buy your call brought in. Full bonus after ${EARN_RULE.hold.fullH}h of holding your whole bag with the token at or above target. Sell out and it locks in (or after ${EARN_RULE.hold.days} days). Max ${EARN_RULE.hi+EARN_RULE.hold.max}% total.</p>`:''}
   <p><b>No buys? No worries.</b> Points land every time your call hits a milestone or your target, buys or not. Runners earn big: <b>+50</b> at 2X, <b>+300</b> at 10X, <b>+3,000</b> at 100X, up to <b>+100,000</b> at 10,000X. Points count toward cashback, monthly rewards and $CALLIT.</p>
   <p class="hint">Sells and your own buys never pay out. Calls you drop in Telegram count too once you <a class="lnk" href="#" data-act="tglink">link Telegram</a>.</p></div>`:''}
+ ${holdRows(d)}
  ${calls?`<div class="earnlist"><span class="earnh">Top earning calls</span>${calls}</div>`:`<p class="hint earnempty">No earnings yet. Make a call, buy in, and share it. Every buy through it counts.</p><p class="hint earnempty"><b>No buys? No worries.</b> Your calls still earn points every time they hit a milestone or your target.</p>`}
  ${hist?`<div class="earnlist"><span class="earnh">Claims</span>${hist}</div>`:''}</section>`}
 async function doClaim(){if(EARN.claiming)return;EARN.claiming=1;render();

@@ -22,9 +22,11 @@ export const DOCS_MD = `# Callit Docs
 | 2. Others buy | Every buy someone else makes through your call earns you part of Callit's fee on that buy. |
 | 3. Hit target | When your call holds its target on the rolling-average market cap (a wick doesn't count), your earnings are sent to your wallet in SOL, usually within a minute. No target set: it pays at 2X. |
 | 4. Keep earning | Every buy after that keeps paying, automatically. |
+| 5. Hold for more | Keep holding after target and a hold bonus of up to +20% builds on every buy your call brought in. It locks when you sell out. |
 
 - **Bought in and held to target:** 20% of Callit's fee on those buys, rising to 30% on bigger runs.
 - **Didn't buy, or sold before target:** 5%.
+- **Hold bonus, up to +20% more:** once your target pays, keep holding. While your bag is worth **$50+**, a bonus builds on *all* the buy fees your call brought in, before and after target. Hold your full bag for 72 hours with the token at or above your target and you get the full +20%. Partial sells or a token that bleeds below target slow it down. Bought under $50? It starts counting once your bag grows past $50. Selling out is your stop sign: the bonus locks in and lands in your earnings (it also locks 7 days after target). Max total: 50%. It's checked on-chain, so selling from another wallet app counts as selling.
 - **Your own buys never pay you**, so the only way to earn is a call other traders believe in. Slop calls earn nothing.
 - **No caps.** Callers are paid 24/7, as much as they earn.
 - Sells never pay callers.
@@ -96,7 +98,7 @@ The trading fee is **1%** on swaps made through Callit, taken in the same transa
 | Buyback & burn | 15% | 20% | 30% |
 | Treasury & growth | 45% | 60% | 70% |
 
-Whatever a caller doesn't take (for example a 5% caller) stays in Treasury & growth. Solana network fees go to the network, not Callit.
+Whatever a caller doesn't take (for example a 5% caller) stays in Treasury & growth. Hold bonuses (up to +20% on call buys) come out of the Treasury & growth slice. Solana network fees go to the network, not Callit.
 
 **Withdrawals**
 

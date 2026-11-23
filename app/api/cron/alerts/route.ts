@@ -4,6 +4,7 @@ import { alertUsers, bellersOf, usd } from '@/lib/push/send';
 import { jupMany, memeFlow, type LiveToken } from '@/lib/market/sources';
 import { sampleCalls, settleEarnings, creditCashback, awardPoints } from '@/lib/earnings/settle';
 import { payReady } from '@/lib/payouts/payout';
+import { runHolds } from '@/lib/earnings/hold';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -76,6 +77,8 @@ export async function GET(req: Request) {
   const sampled = await sampleCalls(db, samples).catch(() => false);
   const earned = sampled ? await settleEarnings(db).catch(() => ({ credited: 0, usd: 0 })) : { credited: 0, usd: 0 };
   const [cashback, points] = await Promise.all([creditCashback(db).catch(() => null), awardPoints(db).catch(() => 0)]);
+  // Hold bonus: open holds on fresh target hits, add held time, lock it in when the caller sells out.
+  const holds = await runHolds(db).catch((e) => { console.warn('[hold]', e?.message || e); return null; });
   // Instant payouts: a call that hit its target this minute gets paid this minute.
   const paid = process.env.AUTO_PAYOUTS === '1' ? await payReady(db, 20_000).catch((e) => ({ error: String(e?.message || e) })) : { skipped: 'AUTO_PAYOUTS is not 1' };
   // Meme market radar: keep a 5-minute history even when nobody has the radar open.
@@ -87,5 +90,5 @@ export async function GET(req: Request) {
         buy_5m: f.win.m5.buy, sell_5m: f.win.m5.sell, buy_1h: f.win.h1.buy, sell_1h: f.win.h1.sell, tokens: f.tokens });
     }
   } catch { /* radar history is best-effort */ }
-  return json({ ok: true, bells: bells?.length || 0, calls: calls?.length || 0, sent, earnings: earned, cashback, points, paid });
+  return json({ ok: true, bells: bells?.length || 0, calls: calls?.length || 0, sent, earnings: earned, cashback, points, holds, paid });
 }

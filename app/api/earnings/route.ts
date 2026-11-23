@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireMe, json } from '@/lib/db/me';
 import { claim, isPaused, payoutIssue, resolvePending } from '@/lib/payouts/payout';
-import { PAYOUT, CALLER_NOBUY, CALLER_BASE, CALLER_CAP, CALLER_MIN_X, CASHBACK_PCT, cashbackMinPoints } from '@/lib/fees/model';
+import { PAYOUT, CALLER_NOBUY, CALLER_BASE, CALLER_CAP, CALLER_MIN_X, CASHBACK_PCT, cashbackMinPoints, HOLD, JUP_CUT, holdOn } from '@/lib/fees/model';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -17,7 +17,7 @@ export async function GET(req: Request) {
   if (pend) await resolvePending(db, pend);
 
   const [e, c, pt] = await Promise.all([
-    db.from('earnings').select('usd, claim_id, kind, bought_in, share_pct, created_at, call_id, posts(token_sym, mint, target_at, target_mc, entry_mc)').eq('profile_id', me.id).order('created_at', { ascending: false }).limit(1000),
+    db.from('earnings').select('usd, claim_id, kind, bought_in, share_pct, fee_usd, created_at, call_id, posts(token_sym, mint, target_at, target_mc, entry_mc)').eq('profile_id', me.id).order('created_at', { ascending: false }).limit(1000),
     db.from('claims').select('id, usd, lamports, signature, status, created_at').eq('profile_id', me.id).order('created_at', { ascending: false }).limit(20),
     db.rpc('points_of', { p: me.id }),
   ]);
@@ -31,7 +31,7 @@ export async function GET(req: Request) {
   const pendingIds = new Set(claims.filter((x) => x.status === 'pending').map((x) => x.id));
   // Mirrors earning_ready() in SQL: caller money unlocks when the call hits its target (or 2X with no target).
   const hitTarget = (r: E) => !r.posts || !!r.posts.target_at || !(Number(r.posts.target_mc) > 0) || !(Number(r.posts.entry_mc) > 0);
-  const rows = all.filter((r) => (r.kind || 'caller') === 'caller');
+  const rows = all.filter((r) => (r.kind || 'caller') === 'caller' || r.kind === 'hold');
   const cb = all.filter((r) => r.kind === 'cashback');
   const sum = (l: E[]) => l.reduce((a, r) => a + Number(r.usd), 0);
   const unclaimed = rows.filter((r) => !r.claim_id);
@@ -44,9 +44,25 @@ export async function GET(req: Request) {
   // Per call: what each call has earned so far.
   const by: Record<string, { call_id: string; sym: string | null; mint: string | null; usd: number; buys: number; bought_in: boolean; share: number; locked: boolean }> = {};
   for (const r of rows) {
-    if (!r.call_id) continue;
+    if (!r.call_id || r.kind === 'hold') continue;
     const k = (by[r.call_id] ||= { call_id: r.call_id, sym: r.posts?.token_sym ?? null, mint: r.posts?.mint ?? null, usd: 0, buys: 0, bought_in: r.bought_in, share: Number(r.share_pct), locked: !hitTarget(r) });
     k.usd += Number(r.usd); k.buys++;
+  }
+
+  // Hold bonus: open holds (live meter) and recently locked ones.
+  type H = { call_id: string; bonus_pct: number; held_min: number; last_usd: number; status: string; started_at: string; bonus_usd: number | null; note: string | null;
+    posts: { token_sym: string | null; mint: string | null } | null };
+  let holds: unknown[] = [];
+  if (holdOn()) {
+    const { data: hd } = await db.from('call_holds').select('call_id, bonus_pct, held_min, last_usd, status, started_at, bonus_usd, note, posts(token_sym, mint)')
+      .eq('profile_id', me.id).in('status', ['open', 'settled']).order('started_at', { ascending: false }).limit(10);
+    const fee = (id: string) => rows.filter((r) => r.call_id === id && (r.kind || 'caller') === 'caller').reduce((a, r) => a + Number((r as unknown as { fee_usd?: number }).fee_usd || 0), 0);
+    holds = ((hd || []) as unknown as H[]).map((h) => ({
+      call_id: h.call_id, sym: h.posts?.token_sym ?? null, mint: h.posts?.mint ?? null, status: h.status, pct: Number(h.bonus_pct),
+      counting: h.status === 'open' && Number(h.last_usd) >= HOLD.minUsd, bag: Number(h.last_usd),
+      ends: new Date(Date.parse(h.started_at) + HOLD.windowDays * 864e5).toISOString(),
+      usd: h.status === 'settled' ? Number(h.bonus_usd || 0) : +(fee(h.call_id) * (1 - JUP_CUT) * Number(h.bonus_pct) / 100).toFixed(4),
+    }));
   }
 
   const issue = await payoutIssue(await isPaused(db));
@@ -56,7 +72,8 @@ export async function GET(req: Request) {
     calls: Object.values(by).sort((x, y) => y.usd - x.usd).slice(0, 20),
     claims: claims.map((x) => ({ ...x, sol: x.lamports ? Number(x.lamports) / 1e9 : null })),
     claimOpen: !issue, autoPay: process.env.AUTO_PAYOUTS === '1', minUsd: PAYOUT.minUsd(), maxUsd: Number.isFinite(PAYOUT.maxPerClaimUsd()) ? PAYOUT.maxPerClaimUsd() : null,
-    rules: { minX: CALLER_MIN_X, boughtIn: [CALLER_BASE, CALLER_CAP], noBuy: CALLER_NOBUY },
+    rules: { minX: CALLER_MIN_X, boughtIn: [CALLER_BASE, CALLER_CAP], noBuy: CALLER_NOBUY, hold: holdOn() ? { max: HOLD.maxPct, minUsd: HOLD.minUsd, fullH: HOLD.fullMin / 60, days: HOLD.windowDays } : null },
+    holds,
   });
 }
 

@@ -893,3 +893,9 @@ body.sides.sides2 .sidel>.sidep{display:flex;flex-direction:column;height:100%}
 .chgrip:hover::before,.chgrip.on::before{background:var(--muted);width:64px}
 .chcard.lfull .chgrip{display:none}
 @media (hover:none){.lchart .cnavb button{width:36px;height:36px}.lchart .caxb button{min-width:26px;height:26px}}
+
+/* Hold bonus */
+.holdrow .cbbar{max-width:220px}
+.holdpop p{margin:0 0 10px;line-height:1.5}
+.holdpop ul{margin:0 0 12px;padding-left:18px;display:grid;gap:8px;line-height:1.45}
+.holdpop .hint{margin-bottom:14px}

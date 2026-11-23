@@ -16,11 +16,11 @@ export type Bucket = 'caller' | 'referrer' | 'cashback' | 'buyback' | 'treasury'
 export type Mode = 'call' | 'buy' | 'sell';
 
 export const BUCKETS: { key: Bucket; label: string; call: number; buy: number; sell: number; note: string }[] = [
-  { key: 'caller',   label: 'Callers',           call: 20, buy: 0,  sell: 0,  note: 'Buys from a call, once it holds 2X. Bought in: 20% up to 30%. No buy: 5%' },
+  { key: 'caller',   label: 'Callers',           call: 20, buy: 0,  sell: 0,  note: 'Buys from a call, once it holds 2X. Bought in: 20% up to 30%, plus up to +20% hold bonus after target (max 50%). No buy: 5%' },
   { key: 'referrer', label: 'Referrals',         call: 10, buy: 10, sell: 0,  note: 'Whoever invited the buyer' },
   { key: 'cashback', label: 'Trader cashback',   call: 10, buy: 10, sell: 0,  note: 'Back to the buyer, claimable once they have enough points' },
   { key: 'buyback',  label: 'Buyback & burn',    call: 15, buy: 20, sell: 30, note: '$CALLIT bought and burned after launch' },
-  { key: 'treasury', label: 'Treasury & growth', call: 45, buy: 60, sell: 70, note: 'Team, infra, product expansion' },
+  { key: 'treasury', label: 'Treasury & growth', call: 45, buy: 60, sell: 70, note: 'Team, infra, product expansion. Hold bonuses come out of this slice on call buys' },
 ];
 
 /**
@@ -32,6 +32,27 @@ export const BUCKETS: { key: Bucket; label: string; call: number; buy: number; s
 export const CALLER_MIN_X = 2;
 export const CALLER_BASE = 20, CALLER_STEP = 2.5, CALLER_CAP = 30;
 export const CALLER_NOBUY = 5;
+
+/**
+ * Hold bonus: after the call hits its target the base share is paid at once. If the caller keeps holding,
+ * a bonus of up to HOLD.maxPct builds on ALL the buy fees the call brought in (before and after target).
+ * - It only builds while the caller's position is worth HOLD.minUsd+ (buy $50+ and it counts from target;
+ *   buy less and it starts once the bag grows past $50).
+ * - Each minute counts in full only if they still hold their whole bag and the token is still at/above target
+ *   (rolling-average MC, wick-proof). Partial sells or a bleeding token slow it down.
+ * - Full bonus after HOLD.fullMin of such holding. Selling out (or HOLD.windowDays after target) locks it in
+ *   and it's paid like any other earning. Max total: CALLER_CAP + HOLD.maxPct = 50%.
+ * Callers who didn't buy, or sold before their target, get no hold bonus.
+ */
+export const HOLD = {
+  maxPct: 20,
+  minUsd: 50,
+  fullMin: 72 * 60,
+  windowDays: 7,
+  sampleMin: 5,
+};
+export const holdOn = () => process.env.HOLD_BONUS !== '0';
+export const holdPct = (heldMin: number) => +(HOLD.maxPct * Math.min(1, Math.max(0, heldMin) / HOLD.fullMin)).toFixed(2);
 export function callerShare(xReached: number, boughtIn = true): number {
   if (!(xReached >= CALLER_MIN_X)) return 0;
   if (!boughtIn) return CALLER_NOBUY;
