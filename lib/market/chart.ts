@@ -17,7 +17,7 @@ export type ChartOverlay = { lines: ChartLine[]; marks: ChartMark[] };
 
 /** Cleanup function, plus tick(price) to stream the live price into the newest candle,
  *  and overlay() to draw the user's own activity on top. */
-export type LiveChart = (() => void) & { tick: (price: number) => void; overlay: (o: ChartOverlay) => void };
+export type LiveChart = (() => void) & { tick: (price: number) => void; overlay: (o: ChartOverlay) => void; wake: () => void };
 
 const css = (v: string, fb: string) => getComputedStyle(document.documentElement).getPropertyValue(v).trim() || fb;
 
@@ -65,11 +65,18 @@ export function mountChart(
 
   let first = true;
   let fails = 0;
+  /* Candles come from GeckoTerminal, the live tick from DexScreener/Jupiter. They can disagree by a few %
+     (different pool, lag). Ticking that gap straight into the last candle drew a fake cliff, so after each
+     candle pull the first live tick rescales the history onto the live price (only small gaps: a real move
+     bigger than CAL_MAX is left alone). */
+  const CAL_MAX = 0.06;
+  let k = 1, needCal = false, apiClose = 0;
+  const F = () => (opts.factor || 1) * k;
   let barsCache: number[][] = [];
   // Every candle seen so far, by time. Polls merge into it; scrolling to the left edge loads older ones.
   const all = new Map<number, number[]>();
   const paint = () => {
-    const f = opts.factor || 1;
+    const f = F();
     const list = [...all.values()].sort((a, b) => a[0] - b[0]);
     barsCache = list;
     candles.setData(list.map(([t, o, h, l, c]) => ({ time: t as UTCTimestamp, open: o * f, high: h * f, low: l * f, close: c * f })));
@@ -98,7 +105,7 @@ export function mountChart(
   // Newest candle in raw price units (before the MC factor), so ticks and reloads agree.
   let last: { time: number; open: number; high: number; low: number; close: number } | null = null;
   const put = (c: NonNullable<typeof last>) => {
-    const f = opts.factor || 1;
+    const f = F();
     candles.update({ time: c.time as UTCTimestamp, open: c.open * f, high: c.high * f, low: c.low * f, close: c.close * f });
     try { lineS.update({ time: c.time as UTCTimestamp, value: c.close * f }); } catch { /* not ready */ }
   };
@@ -114,6 +121,7 @@ export function mountChart(
       for (const c of list) all.set(c[0], c);
       paint();
       const z = list[list.length - 1];
+      apiClose = z[4]; needCal = true;
       // Keep a live-ticked candle that is newer than what the API returned.
       if (last && last.time > z[0]) put(last);
       else last = { time: z[0], open: z[1], high: z[2], low: z[3], close: z[4] };
@@ -155,7 +163,7 @@ export function mountChart(
       + (IND.vol && v != null ? `<div class="clg3">Volume<b>${fmtSmall(v, false)}</b></div>` : '');
   };
   const lastBar = () => {
-    const f = opts.factor || 1, k = all.size ? Math.max(...all.keys()) : 0, c = all.get(k);
+    const f = F(), k = all.size ? Math.max(...all.keys()) : 0, c = all.get(k);
     const z = last && last.time >= k ? last : c ? { open: c[1], high: c[2], low: c[3], close: c[4] } : null;
     return z ? { b: { open: z.open * f, high: z.high * f, low: z.low * f, close: z.close * f }, v: c ? c[5] : null } : null;
   };
@@ -167,7 +175,7 @@ export function mountChart(
   const sma = (xs: number[][], n: number) => xs.map((_, i) => i < n - 1 ? null : xs.slice(i - n + 1, i + 1).reduce((a, c) => a + c[4], 0) / n);
   const ema = (xs: number[][], n: number) => { const k = 2 / (n + 1); let e: number | null = null; return xs.map((c, i) => { e = e == null ? c[4] : c[4] * k + e * (1 - k); return i < n - 1 ? null : e; }); };
   const paintExtras = (list: number[][]) => {
-    const f = opts.factor || 1;
+    const f = F();
     lineS.setData(list.map((c) => ({ time: c[0] as UTCTimestamp, value: c[4] * f })));
     const put2 = (s: typeof maS, vals: (number | null)[]) => s.setData(list.map((c, i) => vals[i] == null ? { time: c[0] as UTCTimestamp } : { time: c[0] as UTCTimestamp, value: (vals[i] as number) * f }));
     put2(maS, IND.ma ? sma(list, 20) : []);
@@ -185,7 +193,7 @@ export function mountChart(
   let dw: DrawingsApi | null = null;
   try {
     dw = mountDrawings(el, card, chart, () => (ctype === 'line' ? lineS : candles), {
-      mint: opts.mint, bucket: BUCKET[opts.tf], factor: () => opts.factor || 1, side: () => side, bars: dwBarsMemo,
+      mint: opts.mint, bucket: BUCKET[opts.tf], factor: F, side: () => side, bars: dwBarsMemo,
       fmt: (v: number) => fmtSmall(v), onUndoState: setUndo,
     });
   } catch (e) { console.warn('[chart] drawings', e); }
@@ -410,7 +418,7 @@ export function mountChart(
   setTimeout(syncBtns, 0);
   load();
   chart.timeScale().subscribeVisibleLogicalRangeChange((r) => { if (r && r.from < 30) loadOlder(); });
-  timer = setInterval(() => { if (!document.hidden) load(); }, POLL[opts.tf]);
+  timer = setInterval(() => { if (!document.hidden && el.isConnected) load(); }, POLL[opts.tf]);
 
   const size = BUCKET[opts.tf];
   const accent = css('--hi', '#4DA8FF');
@@ -431,7 +439,7 @@ export function mountChart(
   const overlay = (o: ChartOverlay) => {
     if (dead || !chart) return;
     ov = o;
-    const f = opts.factor || 1;
+    const f = opts.factor || 1; // user levels are real prices, so they skip the calibration
     lines.forEach((l) => { try { candles.removePriceLine(l); } catch { /* gone */ } });
     lines = o.lines.filter((l) => l.price > 0 && Number.isFinite(l.price)).map((l) => candles.createPriceLine({
       price: l.price * f, color: l.color, lineWidth: 1, lineStyle: l.dashed === false ? LineStyle.Solid : LineStyle.Dashed,
@@ -462,10 +470,20 @@ export function mountChart(
   };
   const tick = (price: number) => {
     if (dead || !chart || !last || !(price > 0)) return;
+    if (needCal && apiClose > 0) {
+      needCal = false;
+      // price is what the header shows; history is in GeckoTerminal's frame. Map ticks into that frame
+      // scaled by k, so the newest candle continues smoothly from the last real one.
+      const r = price / apiClose, nk = Math.abs(r - 1) <= CAL_MAX ? r : 1;
+      if (Math.abs(nk - k) > 1e-4) { k = nk; paint(); if (ov) overlay(ov); }
+    }
+    price = price / k;
     const size = BUCKET[opts.tf], now = Math.floor(Date.now() / 1000), bucket = now - (now % size);
     if (bucket > last.time) last = { time: bucket, open: last.close, high: Math.max(last.close, price), low: Math.min(last.close, price), close: price };
     else last = { ...last, high: Math.max(last.high, price), low: Math.min(last.low, price), close: price };
     try { put(last); } catch { /* chart was torn down mid-tick */ }
   };
-  return Object.assign(stop, { tick, overlay });
+  // Called when a parked chart is shown again: pull fresh candles now instead of waiting for the next poll.
+  const wake = () => { if (!dead && chart) load(); };
+  return Object.assign(stop, { tick, overlay, wake });
 }

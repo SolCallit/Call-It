@@ -849,9 +849,10 @@ function adBoard(){if(!ADS_ON)return '';const a=ADS[S.board%ADS.length];
  <div class="dots">${ADS.map((_,i)=>`<button class="${i===S.board%ADS.length?'on':''}" data-act="adgo" data-f="${i}" aria-label="Show ad ${i+1}"></button>`).join('')}</div></div>`}
 
 /* ---------- swap widget ---------- */
-const FEE_RESERVE=0.01;
+/* Swap Max keeps room for a new token account (~0.00204 SOL rent) + fees. Sends only need the network fee + the wallet's rent floor. */
+const FEE_RESERVE=0.003,SEND_RESERVE=0.001;
 const floor6=v=>String(Math.floor((+v||0)*1e6+1e-7)/1e6);
-const maxOf=sym=>{const b=S.bal[sym]||0;const v=sym==='SOL'?Math.max(0,b-FEE_RESERVE):b;return floor6(v)};
+const maxOf=(sym,r=FEE_RESERVE)=>{const b=S.bal[sym]||0;const v=sym==='SOL'?Math.max(0,b-r):b;return floor6(v)};
 const impact=(sym,usdIn)=>{const t=T[sym];return t&&t.liq?usdIn/(t.liq/2+usdIn)*100:0};
 function swapHTML(tok){const w=S.swap,side=tok?(w.from===tok?'sell':'buy'):null,f=T[w.from],t=T[w.to],a=parseFloat(w.amt)||0,out=a?usd(w.from,a)*.995/t.price:0,imp=a?impact(w.to,usd(w.from,a)):0,sl=S.slip||0;
  const opts=sel=>Object.values(T).filter(tradable).map(x=>`<option ${x.sym===sel?'selected':''}>${x.sym}</option>`).join('');
@@ -2123,11 +2124,24 @@ let LCHART=null;
 const DSIV={'1m':'1','5m':'5','15m':'15','1h':'60','4h':'240','1d':'1D'};
 function dexChartUrl(mint){const dark=document.documentElement.dataset.theme!=='light'&&!(document.documentElement.dataset.theme!=='dark'&&matchMedia('(prefers-color-scheme: light)').matches);
  return `https://dexscreener.com/solana/${encodeURIComponent(mint)}?embed=1&loadChartSettings=0&trades=0&tabs=0&info=0&chartLeftToolbar=0&chartDefaultOnMobile=1&chartTheme=${dark?'dark':'light'}&theme=${dark?'dark':'light'}&chartStyle=1&chartType=${S.lmode==='price'?'usd':'marketCap'}&interval=${DSIV[S.ltf]||'15'}`}
+/* Re-renders used to destroy the Callit chart and rebuild it from nothing (flash of "Loading chart…", zoom reset,
+   and a reset every time you flipped to DexScreener and back). Now the live chart card is parked off-page on
+   re-render and put straight back when the same token / timeframe / mode / theme shows again. */
+let CPARK=null;
+const chartWant=key=>key+'|'+S.ltf+'|'+S.lmode+'|'+(document.documentElement.dataset.theme||'');
+function parkChart(){const c=$('#chcard'),el=$('#lchart');
+ if(!LCHART){return}
+ if(!c||!el||c.classList.contains('isdex')||!el.dataset.park){LCHART();LCHART=null;return}
+ if(CPARK&&CPARK.chart!==LCHART)try{CPARK.chart()}catch(_){}
+ CPARK={want:el.dataset.park,node:c,chart:LCHART};c.remove();LCHART=null}
+function unparkChart(want){const c=$('#chcard');if(!CPARK||CPARK.want!==want||!c)return false;const pk=CPARK;CPARK=null;
+ c.replaceWith(pk.node);LCHART=pk.chart;const el=$('#lchart');try{LCHART.wake();if(el)LCHART.overlay(chartOverlay(el.dataset.mint))}catch(_){}return true}
 function mountLiveChart(){const el=$('#lchart');if(!el)return;const t=T[el.dataset.mint];if(!t)return;
  if(S.lsrc!=='callit'&&isMintStr(t.key)){const src=dexChartUrl(t.key),f=el.querySelector('iframe.dsx');if(f&&f.dataset.src===src)return;LCHART=null;
   el.classList.add('dsx');el.innerHTML=`<iframe class="dsx" data-src="${esc(src)}" src="${esc(src)}" title="$${esc(t.sym)} chart by DexScreener" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allow="clipboard-write"></iframe>`;return}
  el.classList.remove('dsx');if(!t.pool)return;
- const msg=$('#lchartmsg'),want=t.key+'|'+S.ltf+'|'+S.lmode;el.dataset.want=want;
+ if(!LCHART&&unparkChart(chartWant(t.key)))return;
+ const msg=$('#lchartmsg'),want=t.key+'|'+S.ltf+'|'+S.lmode;el.dataset.want=want;el.dataset.park=chartWant(t.key);
  chartMod().then(({mountChart})=>{if(!el.isConnected||el.dataset.want!==want||LCHART)return;
  LCHART=mountChart(el,{pool:t.pool,mint:t.key,sym:t.sym,mode:S.lmode,tf:S.ltf,factor:S.lmode==='mc'&&t.supply?t.supply:1,
   onState:st=>{if(st==='error'&&chartFallback(t))return;if(!msg)return;msg.hidden=st==='ok';msg.textContent=st==='loading'?'Loading chart…':st==='empty'?'No trades in this timeframe yet.':'Chart is unavailable right now.'}});
@@ -2170,7 +2184,7 @@ function render(){if(isPhone())document.body.classList.add('collapsed');const [,
  else html=({market:vMarket,trenches:vMarket,defi:vDefi,you:()=>{adminPing();return (S.admin?`<div class="pad" style="padding-bottom:0"><a class="btn sm primary" href="#/admin">${ic('leaderboard',15)} Admin panel</a></div>`:'')+vYou()},profile:()=>vProfile(p),callerboard:vLeaders,admin:vAdmin,promote:vPromote,about:vAbout,docs:vDocs,transparency:vTransparency,
   messages:()=>vMessages(p),lists:()=>vLists(p),
   bot:vBot,feedback:vFeedback,settings:vSettings,news:vNews,premium:vPremium,notifications:vNotifs,assistant:vAssistant,bookmarks:vBookmarks,tag:()=>vTag(p),legal:()=>vLegal(p),alerts:vAlerts,quotes:()=>vQuotes(p)}[r]||vHome)();
- if(LCHART){LCHART();LCHART=null}
+ parkChart();
  $('#view').innerHTML=html;document.body.classList.toggle('mwide',r!=='home');document.body.dataset.route=r;drawRail();chrome(r);renderSwaps();skin($('#view'));syncLanding();mountLiveChart();setTimeout(spkSync,60);if(window.__callitIslands)window.__callitIslands($('#view'));
  if(r==='post'){wireAttach($('#rbox'),RDRAFT,()=>drawRMedia());if(S.focusReply){S.focusReply=false;setTimeout(()=>{const i=$('#rin');i&&i.focus()},60)}}}
 
@@ -2543,13 +2557,13 @@ function withdrawModal(){if(!S.connected)return connectModal(()=>withdrawModal()
  <div class="field"><label for="sv">Amount</label><div style="display:flex;gap:8px"><input id="sv" class="input num" inputmode="decimal" placeholder="0"><button class="mx lg" id="smax">Max</button></div></div>
  <p class="hint" style="margin:-4px 0 10px">Only send to a Solana address. If it's an exchange, make sure it accepts this token on Solana. Transfers can't be reversed.</p>
  <div class="err" id="serr"></div><button class="btn primary block" id="sgo">Withdraw</button>`,
- m=>{$('#smax',m).onclick=()=>{$('#sv',m).value=maxOf($('#st',m).value)};
+ m=>{$('#smax',m).onclick=()=>{$('#sv',m).value=maxOf($('#st',m).value,SEND_RESERVE)};
   $('#sgo',m).onclick=()=>{const k=$('#st',m).value,to=$('#sa',m).value.trim(),a=parseFloat($('#sv',m).value),e=$('#serr',m),sy=symOf(k);
    if(!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(to))return e.textContent='That isn’t a valid Solana address. Check it and try again.';
    if(to===S.addr)return e.textContent='That’s your own Callit wallet. Paste a different address.';
    if(!(a>0))return e.textContent='Enter an amount above zero.';
    if(a>(S.bal[k]||0)+1e-12)return e.textContent=`You only have ${fmtAmt(S.bal[k]||0)} ${sy}.`;
-   if(k==='SOL'&&a>+maxOf('SOL'))return e.textContent=`Keep ${FEE_RESERVE} SOL for network fees. You can send up to ${maxOf('SOL')} SOL.`;
+   if(k==='SOL'&&a>+maxOf('SOL',SEND_RESERVE))return e.textContent=`Keep ${SEND_RESERVE} SOL for network fees. You can send up to ${maxOf('SOL',SEND_RESERVE)} SOL.`;
    if(k!=='SOL'&&(S.bal.SOL||0)<0.003)return e.textContent='You need a little SOL (about 0.003) to pay the network fee.';
    const desc=`Withdraw ${fmtAmt(a)} ${sy} to ${short(to)}`;closeModal();
    if(!real)return txRun(desc,()=>{S.bal[k]-=a;S.activity.unshift({k:'Withdrew',d:`${fmtAmt(a)} ${sy} to ${short(to)}`,t:'Just now'});render()});
@@ -2643,7 +2657,7 @@ const HX={mode:null,priv:null};
 function pvLoadH(m){hxMod().then(mod=>Promise.all([mod.walletSol(S.addr),mod.isUnlocked(S.addr)?mod.privateBalance(S.addr).catch(()=>null):Promise.resolve(HX.priv),mod.gasInfo(),mod.protocolFee()]).then(([sol,priv,gas,pf])=>{if(!m.isConnected)return;
  HX.priv=priv;const pb=priv?priv.ui:0;
  if(!HX.mode)HX.mode=pb>0?'send':'shield';
- const wMax=Math.max(0,Math.floor((sol-mod.SOL_FEE_RESERVE-(pf?pf.sol:0))*1e6)/1e6),pMax=Math.floor(pb*1e6)/1e6;
+ const hRes=mod.feeReserve(!!(priv&&priv.registered)),wMax=Math.max(0,Math.floor((sol-hRes-(pf?pf.sol:0))*1e6)/1e6),pMax=Math.floor(pb*1e6)/1e6;
  const balCard=priv?`<div class="pvbal"><span class="pvbalh">${ic('lock',14)} Private balance</span><div class="pvbalrow"><div><b class="num">${fmtAmt(pb)}</b><small>SOL</small></div></div>${priv.registered?'':'<p class="hint" style="margin:8px 0 0">New here — your private wallet registers with your first deposit (one extra approval, one time).</p>'}</div>`
   :`<div class="pvbal"><span class="pvbalh">${ic('lock',14)} Private balance</span><p class="hint" style="margin:6px 0 10px">Hidden until you unlock it. Unlocking is one free signature, not a transaction.</p><button class="btn block" id="hxunlock">Show private balance</button></div>`;
  const shieldForm=`<div class="field"><label for="hxv">Amount of SOL to add to your private balance</label><div style="display:flex;gap:8px"><input id="hxv" class="input num" inputmode="decimal" placeholder="0"><button class="mx lg" id="hxmax">Max</button></div></div>
@@ -2664,7 +2678,7 @@ function pvLoadH(m){hxMod().then(mod=>Promise.all([mod.walletSol(S.addr),mod.isU
   $('#hxmax',m).onclick=()=>{$('#hxv',m).value=wMax};
   $('#hxgo',m).onclick=()=>{const a=parseFloat($('#hxv',m).value);
    if(!(a>0))return e.textContent='Enter an amount above zero.';
-   if(a>wMax+1e-12)return e.textContent=`Keep ${mod.SOL_FEE_RESERVE} SOL for fees. You can add up to ${fmtAmt(wMax)} SOL.`;
+   if(a>wMax+1e-12)return e.textContent=`Keep ${hRes} SOL for fees. You can add up to ${fmtAmt(wMax)} SOL.`;
    closeModal();
    realTx(`Add ${fmtAmt(a)} SOL to private balance`,step=>mod.shield({owner:S.addr,amount:a},step).then(sig=>{logTx({k:'Added to private balance',kind:'withdraw',label:`${fmtAmt(a)} SOL`,signature:sig,in_mint:'So11111111111111111111111111111111111111112',in_amount:a,to_address:null,usd_value:null});HX.mode='send';HX.priv=null;return sig}))};
  }else{

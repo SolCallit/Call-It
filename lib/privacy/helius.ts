@@ -32,8 +32,14 @@ export class PrivateError extends Error {
   }
 }
 
-/** Keep this much SOL in the wallet for fees when shielding SOL. */
-export const SOL_FEE_RESERVE = 0.01;
+/**
+ * SOL to leave in the wallet when shielding. A registered wallet only needs the network fee
+ * plus the rent floor (~0.00089 SOL) so the wallet account stays valid. A first deposit also
+ * pays the one-time registration record rent, so it keeps a little more.
+ */
+export const SOL_FEE_RESERVE = 0.001;
+export const SOL_FIRST_DEPOSIT_RESERVE = 0.003; // + ~0.0016 registration record rent (100-byte account)
+export const feeReserve = (registered: boolean) => (registered ? SOL_FEE_RESERVE : SOL_FIRST_DEPOSIT_RESERVE);
 export const MIN_SOL = HELIUS_MIN_SOL;
 
 const b64ToBytes = (b: string) => Uint8Array.from(atob(b), (c) => c.charCodeAt(0));

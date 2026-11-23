@@ -31,6 +31,9 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
+  // iOS zooms into any input under 16px on focus and never zooms back out (the Withdraw sheet jumped).
+  // maximumScale stops that; iOS still lets people pinch-zoom by hand.
+  maximumScale: 1,
   viewportFit: 'cover',
   // Android Chrome: the page shrinks above the keyboard instead of being covered by it.
   interactiveWidget: 'resizes-content',
