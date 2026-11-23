@@ -25,6 +25,8 @@ export function bootCallit(): void {
   booted = true;
 
 const $=(s,r=document)=>r.querySelector(s);
+/* Token names/symbols are attacker-controlled on-chain text: strip markup chars before they enter T or a post (the server does too). */
+const cleanT=(v,n)=>String(v==null?'':v).replace(/[<>"'`&\\\u0000-\u001f\u007f\u2028\u2029]/g,'').trim().slice(0,n);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 /* Post text: @mentions open profiles, #tags open the tag feed, $TICKERS open the token if we know it, links open in a new tab. */
 const RICH_RE=/(https?:\/\/[^\s<>"']+)|(^|[^A-Za-z0-9_@#$&])([@#$])([A-Za-z0-9_]{1,40})/g;
@@ -190,7 +192,7 @@ const ageLong=h=>h<1/60?'just now':h<1?Math.round(h*60)+' min':h<48?Math.round(h
 const isMintStr=s=>/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(s||'');
 const LPNAME=s=>{s=String(s||'').toLowerCase();return s.includes('pump')?'Pump':s.includes('bonk')?'Bonk':s.includes('believe')?'Believe':s.includes('moonshot')?'Moonshot':s.includes('launchlab')||s.includes('raydium')?'Launchlab':s.includes('bags')?'Bags':s.includes('jup')?'Jup Studio':s.includes('meteora')||s.includes('dbc')||s.startsWith('met')?'Meteora':s.includes('boop')?'Boop':null};
 function regLive(x){if(!x||!x.mint)return null;const o=T[x.mint]||{},price=x.price||0,ageH=x.createdAt?Math.max(0,(Date.now()-Date.parse(x.createdAt))/36e5):null;
- Object.assign(o,{key:x.mint,sym:x.sym,name:x.name,chain:'Solana',price,supply:price&&x.mc?x.mc/price:(o.supply||0),liq:x.liq||0,vol:x.vol24||0,holders:x.holders||0,
+ Object.assign(o,{key:x.mint,sym:cleanT(x.sym,16)||x.mint.slice(0,4),name:cleanT(x.name,48),chain:'Solana',price,supply:price&&x.mc?x.mc/price:(o.supply||0),liq:x.liq||0,vol:x.vol24||0,holders:x.holders||0,
   ageH:ageH==null?9999:ageH,age:ageH==null?'—':ageLong(ageH),chg:x.chg.h24!=null?x.chg.h24:(x.chg.h1||0),ca:x.mint,seed:o.seed||hashStr(x.mint),live:1,icon:x.icon||o.icon,
   pool:x.pool||o.pool||null,lp:LPNAME(x.launchpad)||(/pump$/.test(x.mint)?'Pump':/bonk$/.test(x.mint)?'Bonk':null),
   soc:(x.socials.x?'x':'')+(x.socials.web?'w':'')+(x.socials.tg?'c':''),tags:x.tags||o.tags||[],organic:x.organic!=null?x.organic:o.organic,verified:x.verified!=null?x.verified:o.verified,L:{...(o.L||{}),...x,pool:x.pool||(o.L&&o.L.pool)||null}});
@@ -312,7 +314,7 @@ function who(h){const n=nameOf(h);return `<a class="pwho" href="#/profile/${esc(
 function fromRow(r){if(!r||!r.handle)return null;if(r.avatar_url)AVURL[r.handle]=r.avatar_url;if(r.display_name)DN[r.handle]=r.display_name;
  if(!C[r.handle])C[r.handle]={h:r.handle,win:0,avg:0,calls:0,best:0,followers:0,real:1};
  const k={id:r.id,srv:1,c:r.handle,kind:r.kind,src:r.source||'app',srcLabel:r.source_label||'',peak:+r.peak_x||0,thesis:r.body||'',media:r.media||[],likes:r.likes||0,reposts:r.reposts||0,replies:r.replies||0,views:Math.max(1,(r.likes||0)*9+(r.replies||0)*14),liked:!!r.liked,reposted:!!r.reposted,horizon:r.horizon||null,quote:r.quote_ref||null,quotes:+r.quotes||0};
- if(r.kind==='meme'){Object.assign(k,{t:r.mint,entry:+r.entry_mc,target:r.target_mc?+r.target_mc:null,buy:+r.buy_usd||0,snap:{sym:r.token_sym,name:r.token_name},hi:Math.max(+r.hi_x||0,+r.peak_x||0),hit:r.hit_at||r.target_at||null,born:Date.parse(r.created_at)||0,brought:r.brought||null});if(r.sold_pct)k.sold={pct:+r.sold_pct,at:Date.parse(r.sold_at)||0,x:+r.sold_x||0,usd:+r.sold_usd||0}}
+ if(r.kind==='meme'){Object.assign(k,{t:r.mint,entry:+r.entry_mc,target:r.target_mc?+r.target_mc:null,buy:+r.buy_usd||0,snap:{sym:cleanT(r.token_sym,20),name:cleanT(r.token_name,60)},hi:Math.max(+r.hi_x||0,+r.peak_x||0),hit:r.hit_at||r.target_at||null,born:Date.parse(r.created_at)||0,brought:r.brought||null});if(r.sold_pct)k.sold={pct:+r.sold_pct,at:Date.parse(r.sold_at)||0,x:+r.sold_x||0,usd:+r.sold_usd||0}}
  if(r.kind==='perps')k.perp={m:r.perp_market,side:r.perp_side,lev:+r.perp_leverage,entry:+r.perp_entry,target:r.perp_target?+r.perp_target:null,stop:r.perp_stop?+r.perp_stop:null};
  return liveAgo(k,Date.parse(r.created_at))}
 function mergePosts(rows){const ids=new Set(calls.map(k=>String(k.id))),add=[],miss=new Set();

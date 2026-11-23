@@ -34,7 +34,9 @@ export async function pushTo(db: SupabaseClient, ids: string[], a: Alert, tag?: 
   const out: PushResult = { sent: 0, failed: 0, removed: 0, errors: [] };
   if (!ids.length || !pushReady()) return out;
   try {
-    const { data: subs } = await db.from('push_subs').select('endpoint, p256dh, auth').in('profile_id', ids);
+    const { data: subs0 } = await db.from('push_subs').select('endpoint, p256dh, auth').in('profile_id', ids);
+    // Rows saved before the push-host check: never POST anywhere but a real push service.
+    const subs = (subs0 || []).filter((s) => /^https:\/\/([a-z0-9-]+\.)*(fcm\.googleapis\.com|push\.services\.mozilla\.com|notify\.windows\.com|push\.apple\.com)\//i.test(String(s.endpoint)));
     const payload = JSON.stringify({ title: a.title, body: a.body, link: a.link, tag: a.tag || tag || 'callit', icon: a.icon || '/icon-192.png' });
     const dead: string[] = [];
     await Promise.all((subs || []).map((s) =>

@@ -2,6 +2,7 @@ import 'server-only';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { rpcUrl, SOL_MINT } from '@/lib/solana/rpc';
 import { jupMany } from '@/lib/market/sources';
+import { dailyCount } from '@/lib/ratelimit';
 
 /* ---------- Callit's own swap indexer ----------
    Candles and trades straight from the chain, through our Helius RPC. No third party picks the pool or
@@ -17,6 +18,8 @@ const USDT = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB';
 const KEEP_MS = 3 * 864e5;
 const BACKFILL = 300;
 const SYNC_GAP_MS = 3000;
+/** Most brand-new pools we'll backfill per day (each costs ~300 Helius credits). */
+const NEW_POOLS_PER_DAY = () => { const n = Number(process.env.INDEX_NEW_POOLS_PER_DAY); return Number.isFinite(n) && n > 0 ? n : 3000; };
 
 export type Swap = { sig: string; t: number; side: 'buy' | 'sell'; px: number; usd: number; amt: number; who: string };
 
@@ -116,6 +119,7 @@ export async function syncPool(pool: string, mint: string): Promise<boolean> {
     const { data: st, error: e1 } = await db.from('pool_sync').select('last_sig,synced_at').eq('pool', pool).maybeSingle();
     if (e1) { if (/does not exist|relation|schema cache/i.test(e1.message)) offUntil = Date.now() + 60_000; throw e1; }
     if (st?.synced_at && Date.now() - Date.parse(st.synced_at) < SYNC_GAP_MS) return;
+    if (!st && (await dailyCount(db, 'idx-new-pool')) > NEW_POOLS_PER_DAY()) throw new Error('daily_new_pool_cap');
     const opts: Record<string, unknown> = { limit: st?.last_sig ? 200 : BACKFILL, commitment: 'confirmed' };
     if (st?.last_sig) opts.until = st.last_sig;
     const [sigs] = await rpcBatch<{ signature: string; err: unknown }[]>([{ method: 'getSignaturesForAddress', params: [pool, opts] }]);

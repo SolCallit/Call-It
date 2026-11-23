@@ -63,6 +63,9 @@ async function getJSON<T>(url: string, revalidate: number, headers: Record<strin
 }
 
 const jupHeaders = (): Record<string, string> => (process.env.JUPITER_API_KEY ? { 'x-api-key': process.env.JUPITER_API_KEY } : {});
+/** Token names/symbols are attacker-controlled on-chain text and the UI builds HTML from them: strip
+ *  markup characters and control chars at the source so a token can never inject script into Callit. */
+export const txt = (v: unknown, max: number) => String(v ?? '').replace(/[<>"'`&\\\u0000-\u001f\u007f\u2028\u2029]/g, '').trim().slice(0, max);
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : typeof v === 'string' && v !== '' && Number.isFinite(+v) ? +v : null);
 
 /* ---------- Jupiter ---------- */
@@ -83,8 +86,8 @@ function fromJup(j: JupToken): LiveToken {
   const vol = (s24.buyVolume ?? 0) + (s24.sellVolume ?? 0);
   return {
     mint: j.id,
-    sym: (j.symbol || '').replace(/^\$+/, '').slice(0, 16) || j.id.slice(0, 4),
-    name: (j.name || j.symbol || 'Unknown').slice(0, 48),
+    sym: txt((j.symbol || '').replace(/^\$+/, ''), 16) || j.id.slice(0, 4),
+    name: txt(j.name || j.symbol || 'Unknown', 48) || 'Unknown',
     icon: j.icon || null,
     price: num(j.usdPrice),
     mc: num(j.mcap) ?? num(j.fdv),
@@ -292,7 +295,7 @@ async function pumpSearch(q: string): Promise<LiveToken[]> {
   const data = await getJSON<PumpCoin[] | { coins?: PumpCoin[] }>(url, 20, { 'user-agent': 'Mozilla/5.0 (compatible; Callit/1.0)' });
   const list = Array.isArray(data) ? data : Array.isArray(data?.coins) ? data!.coins! : [];
   return list.filter((c) => c && c.mint && isMint(c.mint)).map((c) => ({
-    mint: c.mint!, sym: String(c.symbol || '').replace(/^\$+/, '').slice(0, 16), name: String(c.name || '').slice(0, 64), icon: c.image_uri || null,
+    mint: c.mint!, sym: txt(String(c.symbol || '').replace(/^\$+/, ''), 16), name: txt(c.name, 64), icon: c.image_uri || null,
     price: null, mc: num(c.usd_market_cap), fdv: null, liq: null, holders: null, vol24: null,
     chg: { m5: null, h1: null, h6: null, h24: null }, buys24: null, sells24: null, traders24: null,
     createdAt: c.created_timestamp ? new Date(c.created_timestamp).toISOString() : null,
@@ -341,7 +344,7 @@ export function withPair(t: LiveToken | null, pairs: DsPair[]): LiveToken | null
   if (!best) return t;
   const soc = (type: string) => best.info?.socials?.find((s) => s.type === type)?.url || null;
   const base: LiveToken = t ?? {
-    mint: best.baseToken.address, sym: String(best.baseToken.symbol || '').replace(/^\$+/, ''), name: best.baseToken.name, icon: null,
+    mint: best.baseToken.address, sym: txt(String(best.baseToken.symbol || '').replace(/^\$+/, ''), 16), name: txt(best.baseToken.name, 48), icon: null,
     price: num(best.priceUsd), mc: num(best.marketCap) ?? num(best.fdv), fdv: num(best.fdv), liq: num(best.liquidity?.usd),
     holders: null, vol24: num(best.volume?.h24),
     chg: { m5: num(best.priceChange?.m5), h1: num(best.priceChange?.h1), h6: num(best.priceChange?.h6), h24: num(best.priceChange?.h24) },
@@ -375,7 +378,7 @@ export function withPair(t: LiveToken | null, pairs: DsPair[]): LiveToken | null
     ...live,
     pool: best.pairAddress,
     dex: best.dexId,
-    quote: best.quoteToken?.address ? { mint: best.quoteToken.address, sym: (best.quoteToken.symbol || '').slice(0, 16) } : null,
+    quote: best.quoteToken?.address ? { mint: best.quoteToken.address, sym: txt(best.quoteToken.symbol, 16) } : null,
     icon: base.icon || best.info?.imageUrl || null,
     socials: {
       x: base.socials.x || soc('twitter'),
@@ -583,7 +586,7 @@ export async function memeFlow(): Promise<MarketFlow | null> {
   const per = toks.map((j) => {
     const s = j.stats1h || {};
     const buy = Number(s.buyVolume) || 0, sell = Number(s.sellVolume) || 0;
-    return { mint: j.id, sym: (j.symbol || '').replace(/^\$+/, '').slice(0, 16), icon: j.icon || null, mc: num(j.mcap) ?? num(j.fdv), net: buy - sell, buy, sell };
+    return { mint: j.id, sym: txt((j.symbol || '').replace(/^\$+/, ''), 16), icon: j.icon || null, mc: num(j.mcap) ?? num(j.fdv), net: buy - sell, buy, sell };
   });
   const by = [...per].sort((a, b) => b.net - a.net);
 
@@ -602,7 +605,7 @@ export async function memeFlow(): Promise<MarketFlow | null> {
   const majPer = majToks.map((j) => {
     const s = j.stats1h || {};
     const buy = Number(s.buyVolume) || 0, sell = Number(s.sellVolume) || 0;
-    return { mint: j.id, sym: (j.symbol || '').replace(/^\$+/, '').slice(0, 16), icon: j.icon || null, mc: num(j.mcap) ?? num(j.fdv), net: buy - sell, buy, sell };
+    return { mint: j.id, sym: txt((j.symbol || '').replace(/^\$+/, ''), 16), icon: j.icon || null, mc: num(j.mcap) ?? num(j.fdv), net: buy - sell, buy, sell };
   }).sort((a, b) => Math.abs(b.net) - Math.abs(a.net));
   const majors: MajorsFlow = { n: majToks.length, w: sumWin(majToks), toks: majPer.slice(0, 8) };
 
@@ -611,7 +614,7 @@ export async function memeFlow(): Promise<MarketFlow | null> {
     .sort((a, b) => ((b.stats1h?.buyVolume || 0) + (b.stats1h?.sellVolume || 0)) - ((a.stats1h?.buyVolume || 0) + (a.stats1h?.sellVolume || 0)))
     .slice(0, 150)
     .map((j) => ({
-      mint: j.id, sym: (j.symbol || '').slice(0, 16), mc: num(j.mcap) ?? num(j.fdv), price: num(j.usdPrice),
+      mint: j.id, sym: txt(j.symbol, 16), mc: num(j.mcap) ?? num(j.fdv), price: num(j.usdPrice),
       liq: num(j.liquidity), holders: num(j.holderCount), organic: num(j.organicScore), launchpad: j.launchpad || null,
       buy5: Number(j.stats5m?.buyVolume) || 0, sell5: Number(j.stats5m?.sellVolume) || 0,
       buy1: Number(j.stats1h?.buyVolume) || 0, sell1: Number(j.stats1h?.sellVolume) || 0,

@@ -35,6 +35,22 @@ import { rpcUrl } from '@/lib/solana/rpc';
 
 const COMPUTE_BUDGET = 'ComputeBudget111111111111111111111111111111';
 const TRANSACT_TAG = 16; // InstructionTag.transact in @heliuslabs/spr
+const MAX_CU = 1_400_000;          // Solana's per-transaction max
+const MAX_CU_PRICE = 2_000_000n;   // micro-lamports per CU: at most ~0.0028 SOL priority fee per relay
+
+/** ComputeBudget instructions we'll pay for: limit, price and heap size only, with caps. */
+function budgetOk(raw?: ArrayLike<number>): boolean {
+  if (!raw || raw.length < 1) return false;
+  const data = Uint8Array.from(raw);
+  const dv = new DataView(data.buffer);
+  switch (data[0]) {
+    case 1: return data.length === 5 && dv.getUint32(1, true) <= 256 * 1024;   // RequestHeapFrame
+    case 2: return data.length === 5 && dv.getUint32(1, true) <= MAX_CU;       // SetComputeUnitLimit
+    case 3: return data.length === 9 && dv.getBigUint64(1, true) <= MAX_CU_PRICE; // SetComputeUnitPrice
+    case 4: return data.length === 5;                                         // SetLoadedAccountsDataSizeLimit
+    default: return false;
+  }
+}
 
 let signerP: Promise<KeyPairSigner | null> | null = null;
 function gasSigner(): Promise<KeyPairSigner | null> {
@@ -89,7 +105,11 @@ export async function relayWithdrawal(txB64: string): Promise<NextResponse> {
   const pool = await shieldedPoolProgramId();
   for (const ix of instructions) {
     const program = accounts[ix.programAddressIndex];
-    if (program === COMPUTE_BUDGET) continue;
+    if (program === COMPUTE_BUDGET) {
+      // The gas wallet pays these fees: refuse a priority fee or compute limit big enough to drain it.
+      if (!budgetOk(ix.data)) return err('fee_too_high', 400);
+      continue;
+    }
     const tag = ix.data && ix.data.length > 0 ? ix.data[0] : -1;
     if (program === pool && tag === TRANSACT_TAG) continue;
     return err('not_allowed', 400);

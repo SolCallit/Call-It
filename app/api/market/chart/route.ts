@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { candles, isMint, livePool, TIMEFRAMES, type Tf } from '@/lib/market/sources';
+import { candles, isMint, livePool, tokenPools, TIMEFRAMES, type Tf } from '@/lib/market/sources';
 import { poolSwaps, toCandles } from '@/lib/market/swaps';
 
 export const runtime = 'nodejs';
@@ -23,8 +23,10 @@ export async function GET(req: Request) {
   let own: number[][] = [];
   if (!before) {
     const live = await livePool(pool, mint);
+    // Only index a pool the token's own pool list confirms: never an arbitrary address from the URL.
+    const known = (await tokenPools(mint)).some((x) => x.address === live);
     const since = Date.now() - Math.min(3 * 864e5, bucket * 1000 * 600);
-    const sw = await poolSwaps(live, mint, since);
+    const sw = known ? await poolSwaps(live, mint, since) : null;
     if (sw?.length) own = toCandles(sw, bucket);
   }
   const gt = await candles(pool, mint, tf, before);

@@ -1,4 +1,5 @@
 import 'server-only';
+import { adminHandles } from '@/lib/db/admin';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   address, appendTransactionMessageInstructions, createTransactionMessage, getBase64EncodedWireTransaction, getBase64Encoder,
@@ -31,7 +32,9 @@ export async function profileFor(db: SupabaseClient, w: BotWallet, tg: { id: num
   const { data: have } = await db.from('profiles').select('id, handle').eq('privy_id', privy_id).maybeSingle();
   if (have) return have as { id: string; handle: string };
   const base = (tg.username || tg.first_name || 'trader').toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 14) || 'trader';
-  for (const handle of [base, `${base.slice(0, 12)}_tg`, `tg_${String(tg.id).slice(-6)}_${Date.now() % 1000}`]) {
+  // A Telegram username must never land on an admin handle (admin rights follow the handle).
+  const admins = adminHandles();
+  for (const handle of [base, `${base.slice(0, 12)}_tg`, `tg_${String(tg.id).slice(-6)}_${Date.now() % 1000}`].filter((h) => !admins.includes(h.slice(0, 20)))) {
     const { data, error } = await db.from('profiles').insert({
       privy_id, handle: handle.slice(0, 20), display_name: (tg.first_name || tg.username || 'Trader').slice(0, 40),
       wallet_address: w.address, bio: 'Trades with the Callit Telegram bot.',

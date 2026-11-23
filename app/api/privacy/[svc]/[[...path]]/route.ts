@@ -45,6 +45,12 @@ const RPC_METHODS = new Set([
   'getProgramAccounts', // Helius Privacy Rings SDK reads registry records with it
 ]);
 
+const GPA_PROGRAMS = new Set([
+  'ring1GaLCuJnkUMVkX2JeZLTTX17wKsV4fZmPVzXANW', // Helius Privacy Rings shielded pool
+  'regy3WAeRXMYuMYxr5iK3Bf9Arr3PcxGxyzAddbiqDQ', // Helius Privacy Rings user registry
+  '9fhQBbumKEFuXtMBDw8AaQyAjCorLGJQiS3skWZdQyQD', // Privacy Cash
+]);
+
 async function rpc(req: NextRequest) {
   if (req.method !== 'POST') return NextResponse.json({ error: 'not_allowed' }, { status: 405 });
   const text = await req.text();
@@ -54,6 +60,13 @@ async function rpc(req: NextRequest) {
   const calls = Array.isArray(j) ? j : [j];
   if (!calls.length || calls.length > 50 || !calls.every((c) => c && typeof c === 'object' && RPC_METHODS.has((c as { method?: string }).method || ''))) {
     return NextResponse.json({ error: 'method_not_allowed' }, { status: 403 });
+  }
+  // getProgramAccounts is the expensive one: only the privacy programs the two SDKs actually scan,
+  // so nobody can run heavy scans of other programs on Callit's Helius key.
+  for (const c of calls as { method?: string; params?: unknown[] }[]) {
+    if (c.method === 'getProgramAccounts' && !GPA_PROGRAMS.has(String(c.params?.[0] ?? ''))) {
+      return NextResponse.json({ error: 'method_not_allowed' }, { status: 403 });
+    }
   }
   try {
     const r = await fetch(rpcUrl(), { method: 'POST', headers: { 'content-type': 'application/json' }, body: text, cache: 'no-store', signal: AbortSignal.timeout(30_000) });

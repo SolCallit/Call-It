@@ -1,8 +1,17 @@
 import { NextResponse } from 'next/server';
-import { isMint } from '@/lib/market/sources';
+import { isMint, txt } from '@/lib/market/sources';
 import { rpcUrl } from '@/lib/solana/rpc';
 
 export const runtime = 'nodejs';
+
+/** Token creators control this URL: only plain public https hosts, never IPs, localhost or internal names. */
+const publicHttps = (u: string) => {
+  try {
+    const x = new URL(u);
+    return x.protocol === 'https:' && !x.username && !x.port && x.hostname.includes('.') &&
+      !/^(\d+\.){3}\d+$|^\[|localhost$|\.local$|\.internal$/i.test(x.hostname);
+  } catch { return false; }
+};
 
 type Win = { m5?: number; h1?: number; h6?: number; h24?: number };
 type Tx = { buys?: number; sells?: number };
@@ -37,8 +46,8 @@ async function aboutOf(mint: string): Promise<string | null> {
       const j = (await r.json()) as { result?: { content?: { json_uri?: string; metadata?: { description?: string } } } };
       v = j.result?.content?.metadata?.description?.trim() || null;
       const uri = j.result?.content?.json_uri;
-      if (!v && uri && /^https:\/\//.test(uri)) {
-        const m = await fetch(uri, { signal: AbortSignal.timeout(3000) }).then((x) => (x.ok ? x.json() : null)).catch(() => null) as { description?: string } | null;
+      if (!v && uri && publicHttps(uri)) {
+        const m = await fetch(uri, { signal: AbortSignal.timeout(3000), redirect: 'error' }).then((x) => (x.ok ? x.json() : null)).catch(() => null) as { description?: string } | null;
         v = (m && typeof m.description === 'string' && m.description.trim()) || null;
       }
     }
@@ -64,10 +73,10 @@ export async function GET(_req: Request, ctx: { params: Promise<{ mint: string }
     const flipped = p.quoteToken?.address === mint;
     const launch = (p.labels || []).map((l) => LAUNCH[l.toLowerCase()]).find(Boolean) || (/pump$/.test(mint) ? 'Pump.fun' : null);
     return {
-      address: p.pairAddress, url: p.url || `https://dexscreener.com/solana/${p.pairAddress}`,
-      dex: DEX[p.dexId] || p.dexId, via: launch && launch !== (DEX[p.dexId] || p.dexId) ? launch : null, labels: p.labels || [],
-      base: { sym: (flipped ? p.quoteToken : p.baseToken).symbol, address: mint },
-      quote: { sym: (flipped ? p.baseToken : p.quoteToken).symbol, name: (flipped ? p.baseToken : p.quoteToken).name, address: (flipped ? p.baseToken : p.quoteToken).address },
+      address: p.pairAddress, url: /^https:\/\/[^\s"'<>()]+$/.test(p.url || '') ? p.url : `https://dexscreener.com/solana/${p.pairAddress}`,
+      dex: DEX[p.dexId] || txt(p.dexId, 24), via: launch && launch !== (DEX[p.dexId] || p.dexId) ? launch : null, labels: (p.labels || []).map((l) => txt(l, 16)),
+      base: { sym: txt((flipped ? p.quoteToken : p.baseToken).symbol, 16), address: mint },
+      quote: { sym: txt((flipped ? p.baseToken : p.quoteToken).symbol, 16), name: txt((flipped ? p.baseToken : p.quoteToken).name, 48), address: (flipped ? p.baseToken : p.quoteToken).address },
       priceUsd: n(p.priceUsd), priceNative: flipped ? null : n(p.priceNative),
       liq: { usd: n(p.liquidity?.usd), base: n(flipped ? p.liquidity?.quote : p.liquidity?.base), quote: n(flipped ? p.liquidity?.base : p.liquidity?.quote) },
       fdv: n(p.fdv), mc: n(p.marketCap), createdAt: p.pairCreatedAt || null,
@@ -80,10 +89,10 @@ export async function GET(_req: Request, ctx: { params: Promise<{ mint: string }
   return NextResponse.json({
     pairs,
     about,
-    header: info?.header || null,
+    header: /^https:\/\/[^\s"'<>()\\]+$/.test(info?.header || '') ? info!.header : null,
     links: [
-      ...(info?.websites || []).map((w) => ({ type: 'web', label: w.label || 'Website', url: w.url })),
-      ...(info?.socials || []).map((s) => ({ type: s.type, label: s.type === 'twitter' ? 'X' : s.type[0].toUpperCase() + s.type.slice(1), url: s.url })),
-    ].filter((l) => /^https?:\/\//.test(l.url)).slice(0, 6),
+      ...(info?.websites || []).map((w) => ({ type: 'web', label: txt(w.label, 24) || 'Website', url: w.url })),
+      ...(info?.socials || []).map((s) => ({ type: txt(s.type, 16), label: s.type === 'twitter' ? 'X' : txt(s.type[0].toUpperCase() + s.type.slice(1), 16), url: s.url })),
+    ].filter((l) => /^https?:\/\/[^\s"'<>]+$/.test(l.url || '')).slice(0, 6),
   }, { headers: { 'cache-control': 'public, s-maxage=10, stale-while-revalidate=30' } });
 }
