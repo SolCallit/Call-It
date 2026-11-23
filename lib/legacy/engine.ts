@@ -3227,17 +3227,67 @@ function vPost(id){const k=postBy(id);if(!k)return `<div class="empty"><b class=
 
 /* ---------- share ---------- */
 const postURL=id=>SITE+'/#/post/'+id;
-/* ---------- onboarding ---------- */
+/* ---------- onboarding: Callit welcome tour ----------
+   Axiom-style: a big live preview on top, the copy panel underneath, dots, Back / Skip / Next.
+   Every slide is Callit's own product. Previews use the live market (T) and the real Callerboard when
+   they're loaded, so new users see real tokens and real callers. Replay any time at #/welcome. */
 const INTERESTS=['Memecoins','AI agents','New launches','DeFi','Gaming','Blue chips','Low caps','Narratives'];
-function onboard(step=1){const st=S.ob||(S.ob={i:new Set()});
- const dots=`<div class="obdots">${[1,2,3].map(i=>`<i class="${i===step?'on':''}"></i>`).join('')}</div>`;
- if(step===1)return modal('What do you trade?','Pick a few. We use this to fill your For you feed.',`${dots}<div class="chips" style="margin:6px 0 18px">${INTERESTS.map(x=>`<button class="chip${st.i.has(x)?' on':''}" style="--c:var(--hi)" data-ob="${x}"><i></i>${x}</button>`).join('')}</div><button class="btn primary block" id="obn">Continue</button><button class="lnk" id="obs" style="display:block;margin:10px auto 0">Skip for now</button>`,
-  m=>{m.querySelectorAll('[data-ob]').forEach(b=>b.onclick=()=>{const x=b.dataset.ob;st.i.has(x)?st.i.delete(x):st.i.add(x);b.classList.toggle('on')});$('#obn',m).onclick=()=>onboard(2);$('#obs',m).onclick=obDone});
- if(step===2)return modal('Follow a few callers','Their calls land in your Following feed the moment they post.',`${dots}<div class="list">${ranked().slice(0,5).map(c=>`<div class="li">${avatar(c.h)}<div class="grow"><b>${c.h}</b><div class="hint">${c.win}% win rate · ${c.calls} calls</div></div><button class="btn sm ${S.following.has(c.h)?'ghost':'primary'}" data-obf="${c.h}">${S.following.has(c.h)?'Following':'Follow'}</button></div>`).join('')}</div><button class="btn primary block" id="obn" style="margin-top:14px">Continue</button>`,
-  m=>{m.querySelectorAll('[data-obf]').forEach(b=>b.onclick=()=>{const h=b.dataset.obf;S.following.has(h)?S.following.delete(h):S.following.add(h);const f=S.following.has(h);b.textContent=f?'Following':'Follow';b.className='btn sm '+(f?'ghost':'primary')});$('#obn',m).onclick=()=>onboard(3)});
- modal('How Callit works','',`${dots}<div class="obsteps">${[['promote','Make a call','Pick a token, set a target and say why. Your entry is stamped at the live market cap.'],['wallet','Buy in','Back it with your own wallet to earn the biggest share. When others buy your call and it hits your target, you’re paid in SOL within a minute.'],['market','Get tracked','Every call is followed in public. Win rate, returns and sells, all on your profile.']].map(([i,t,d],n)=>`<div class="obs"><span class="obi">${ic(i,20)}</span><div><b>${n+1}. ${t}</b><span>${d}</span></div></div>`).join('')}</div><button class="btn primary block" id="obn" style="margin-top:16px">Start exploring</button>`,m=>$('#obn',m).onclick=obDone)}
-function obDone(){try{localStorage.setItem('callit.onboarded','1')}catch(_){}closeModal();render();toast('You’re all set')}
+const TOUR_N=7;
+const tourMc=v=>!(v>0)?'—':'$'+(v>=1e9?(v/1e9).toFixed(1)+'B':v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(1)+'K':Math.round(v));
+function tourToks(n){return Object.values(T).filter(t=>t&&t.live&&t.icon&&t.mc>0&&t.sym).sort((a,b)=>(b.vol||0)-(a.vol||0)).slice(0,n)}
+const tourTok=t=>t?`<span class="tvt"><img src="${esc(t.icon)}" alt="" loading="lazy" onerror="this.remove()"><b>$${esc(t.sym)}</b></span>`:`<span class="tvt sk"><i></i><em></em></span>`;
+function tourStage(k){const tk=tourToks(4),t0=tk[0];
+ if(k===0)return `<div class="tv tv-hello"><div class="tvlogow"><div class="tvwave"><i></i><i></i><i></i></div><div class="tvlogo"><img src="/mega-white.png" alt="Callit"></div></div><div class="tvword">Callit</div><div class="tvtag">Call it. Get Paid.</div></div>`;
+ if(k===1){const mc=t0&&t0.mc||48200;return `<div class="tv tv-call"><div class="tvcard"><div class="tvrow">${avatar(S.me||'you','sm')}<div class="grow"><b>@${esc(S.me||'you')}</b><span class="tvmut">called ${tourTok(t0)}</span></div><span class="tvlive"><i></i>Live</span></div>
+  <div class="tvthesis">Volume's waking up and holders keep climbing. Sending this.</div>
+  <div class="tvstats"><div><span>Entry</span><b>${tourMc(mc)}</b></div><div><span>Target</span><b class="up">${tourMc(mc*2)}</b></div><div><span>Window</span><b>24h</b></div></div>
+  <div class="tvtg"><i class="on">2X</i><i>5X</i><i>10X</i></div><button class="tvbtn" tabindex="-1">${ic('promote',16)} Call it</button></div></div>`}
+ if(k===2)return `<div class="tv tv-paid"><div class="tvcard"><div class="tvrow">${tourTok(t0)}<span class="tvhit">${ic('check',13)} Target hit</span></div>
+  <div class="tvprog"><span>1X</span><div class="tvbar"><i></i></div><span>2X</span></div>
+  <div class="tvearn"><span>Earned from buys on your call</span><b class="num">+0.42 SOL</b></div><button class="tvbtn" tabindex="-1">${ic('wallet',16)} Claim</button></div>
+  <div class="tvtoast">${ic('wallet',15)} Paid to your wallet</div></div>`;
+ if(k===3){const st=S.ob||(S.ob={i:new Set()}),hs=['runner','heating','fresh','second','cooling'];
+  return `<div class="tv tv-feed"><div class="tvpanel"><div class="tvph"><b>Your feed</b><span>Pick what you trade</span></div>
+  <div class="chips tvchips">${INTERESTS.map(x=>`<button class="chip${st.i.has(x)?' on':''}" style="--c:var(--hi)" data-ob="${x}"><i></i>${x}</button>`).join('')}</div>
+  <div class="tvheat">${hs.map(h=>`<span class="tvh">${HEAT[h][0]} ${HEAT[h][1]}</span>`).join('')}<span class="tvh ai">${ic('assistant',12)} AI Auto</span></div></div></div>`}
+ if(k===4){const rk=(typeof ranked==='function'?ranked():[]).slice(0,3);
+  const rows=rk.length?rk.map((c,i)=>`<div class="tvlb" style="--d:${i*.12}s"><span class="tvrk">${i+1}</span>${avatar(c.h,'sm')}<div class="grow"><b>${esc(c.h)}</b><span class="tvmut">${c.win}% win · ${c.calls} calls</span></div>${c.h===S.me?'':`<button class="btn sm ${S.following.has(c.h)?'ghost':'primary'}" data-obf="${esc(c.h)}">${S.following.has(c.h)?'Following':'Follow'}</button>`}</div>`).join('')
+   :[0,1,2].map(i=>`<div class="tvlb sk" style="--d:${i*.12}s"><span class="tvrk">${i+1}</span><span class="av sm"></span><div class="grow"><i></i><i></i></div></div>`).join('');
+  return `<div class="tv tv-lb"><div class="tvpanel"><div class="tvph"><b>Callerboard</b><span class="tvpts">${ic('star',12)} <b class="num" data-tvpts>0</b> pts</span></div>${rows}</div></div>`}
+ if(k===5){const sy=t0?'$'+esc(t0.sym):'this one';
+  return `<div class="tv tv-chat"><div class="tvpanel"><div class="tvph"><b>${t0?tourTok(t0)+' room':'Token room'}</b><span class="tvmut">${ic('people',12)} Holders</span></div>
+  <div class="tvmsg l" style="--d:.2s"><span>Who's still holding ${sy}?</span></div><div class="tvmsg r" style="--d:1s"><span>Still in. Called it at entry 🫡</span></div>
+  <div class="tvmsg l" style="--d:1.8s"><span>Target's close. Holding to 2X</span></div><div class="tvtyping" style="--d:2.6s"><i></i><i></i><i></i></div></div></div>`}
+ return `<div class="tv tv-priv"><div class="tvflow"><div class="tvnode">${ic('wallet',22)}<span>Your wallet</span></div><div class="tvpath"><i></i><i></i><i></i></div>
+  <div class="tvnode ring"><span class="tvring"></span>${ic('lock',22)}<span>Private ring</span></div><div class="tvpath hid"><i></i><i></i><i></i></div><div class="tvnode ghost">${ic('eye',22)}<span>Hidden</span></div></div></div>`}
+const TOUR=[
+ ['Welcome to Callit','Your Buzz App where you get paid. Find tokens early, call them, trade them and chat about them, all in one place.'],
+ ['Make a call','Pick a token, set a target and say why. Your entry is stamped at the live market cap, so every call is tracked for real.'],
+ ['Get paid in minutes','When people buy your call and it hits your target, you’re paid in SOL within a minute. Claim it straight to your wallet.'],
+ ['Set up your feed','Pick what you trade and we fill your For you feed. In Market, Heat tags and AI Auto sort the runners from the danger.'],
+ ['Climb the Callerboard','Every call is tracked in public: win rate, returns and PnL. You earn 10 points for every $10 you trade, plus bonuses when your calls hit. Points count toward $CALL.'],
+ ['Chat where you trade','DMs, group chats and holders-only token rooms sit right next to your feed and terminal. Talk the play while it’s live.'],
+ ['Withdraw privately','Move your winnings without showing where they go. Private withdraw runs on Helius Privacy Rings, with Privacy Cash as backup.'],
+];
+function onboard(step=1){const k=Math.max(0,Math.min(TOUR_N-1,step-1)),last=k===TOUR_N-1,[title,desc]=TOUR[k];
+ const dots=`<div class="tdots">${TOUR.map((_,i)=>`<button class="${i===k?'on':i<k?'done':''}" data-tgo="${i+1}" aria-label="Step ${i+1}"></button>`).join('')}</div>`;
+ const box=$('#modal');const prev=box.querySelector('.tour');
+ const html=`<div class="stage">${tourStage(k)}</div><div class="tbody"><h2>${title}</h2><p>${desc}</p></div>
+  <div class="tfoot">${k?`<button class="btn sm ghost" data-tgo="${k}">Back</button>`:'<span></span>'}${dots}<div class="tbtns">${last?'':`<button class="btn sm ghost" id="tskip">Skip</button>`}<button class="btn sm primary" id="tnext">${last?'Start calling':k===3?'Apply':'Next'}</button></div></div>`;
+ if(prev){prev.dataset.k=k;prev.innerHTML=html}
+ else box.innerHTML=`<div class="scrim tourscrim"><div class="modal tour" role="dialog" aria-modal="true" aria-label="Welcome to Callit" data-k="${k}">${html}</div></div>`;
+ const m=box.querySelector('.tour');
+ m.querySelectorAll('[data-tgo]').forEach(b=>b.onclick=()=>onboard(+b.dataset.tgo));
+ m.querySelectorAll('[data-ob]').forEach(b=>b.onclick=()=>{const st=S.ob||(S.ob={i:new Set()}),x=b.dataset.ob;st.i.has(x)?st.i.delete(x):st.i.add(x);b.classList.toggle('on')});
+ m.querySelectorAll('[data-obf]').forEach(b=>b.onclick=()=>{const h=b.dataset.obf;S.following.has(h)?S.following.delete(h):S.following.add(h);const f=S.following.has(h);b.textContent=f?'Following':'Follow';b.className='btn sm '+(f?'ghost':'primary')});
+ const sk=$('#tskip',m);if(sk)sk.onclick=obDone;$('#tnext',m).onclick=()=>last?obDone():onboard(step+1);
+ const pts=m.querySelector('[data-tvpts]');if(pts){let v=0;const id=setInterval(()=>{if(!pts.isConnected)return clearInterval(id);v+=10;pts.textContent=v.toLocaleString();if(v>=1250)clearInterval(id)},28)}
+ m.onkeydown=e=>{if(e.key==='ArrowRight'&&!last)onboard(step+1);else if(e.key==='ArrowLeft'&&k)onboard(step-1);else if(e.key==='Escape')obDone()};m.tabIndex=-1;m.focus({preventScroll:true})}
+function obDone(){try{localStorage.setItem('callit.onboarded','1')}catch(_){}closeModal();render();toast('You’re all set. Go call it')}
 function maybeOnboard(){let d=false;try{d=localStorage.getItem('callit.onboarded')==='1'}catch(_){}if(!d)setTimeout(()=>onboard(1),400)}
+/* #/welcome replays the tour (handy for sharing and for testing). */
+function tourHash(){if(location.hash!=='#/welcome')return;try{history.replaceState(null,'','#/')}catch(_){location.hash='#/'}setTimeout(()=>{render();onboard(1)},60)}
+addEventListener('hashchange',tourHash);if(document.readyState==='complete')setTimeout(tourHash,900);else addEventListener('load',()=>setTimeout(tourHash,900));
 
 /* ---------- messages: real chat ----------
    Private = DMs + private groups (encrypted on the server). Public = open groups anyone can find,
