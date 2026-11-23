@@ -939,3 +939,9 @@ body.sides.sides2 .sidel>.sidep{display:flex;flex-direction:column;height:100%}
 @media (max-width:520px){.cdwbar{width:40px}.cdwg{width:36px}.lchart.cdwon .clegend{left:48px}}
 @media (pointer:coarse){.cdwg>button.cdwmore{display:none}.cdwg{width:auto}.cdwg>button{width:34px;height:36px}.cdwbar{width:42px}}
 @media (max-width:520px){.cdwsel{top:52px;gap:0;padding:3px 4px}.cdwsel .cdwc:nth-child(n+5):nth-child(-n+7){display:none}.cdwsel button{min-width:28px;padding:0 4px}}
+/* Cloudflare Turnstile on the sign-in sheet */
+.tsbox{margin:14px 0 0;display:flex;flex-direction:column;align-items:center;gap:6px;min-height:65px}
+.tsbox>div{width:100%}
+.tsbox .tsok{display:none;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--up)}
+.tsbox.ok{min-height:0}.tsbox.ok>div{display:none}.tsbox.ok .tsok{display:inline-flex}
+.authm [data-connect].tswait{opacity:.5}

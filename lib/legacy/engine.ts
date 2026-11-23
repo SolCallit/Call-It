@@ -2225,8 +2225,26 @@ function connectModal(next,mode){modal(mode==='up'?'Create your Callit account':
  `<div class="authways">${AUTH_WAYS.map(([l,i])=>`<button class="opt aopt" data-connect="${l}">${typeof i==='function'?i():i}<span class="grow">Continue with ${l}</span>${ic('chev',16)}</button>`).join('')}</div>
  <div class="divider">or use your own wallet</div>
  <div class="authwallets">${AUTH_WALLETS.map(([w,src])=>`<button class="awal" data-connect="${w}"><img src="${src}" alt="" width="40" height="40" decoding="async"><span>${w}</span></button>`).join('')}</div>
+ ${TS_KEY?`<div class="tsbox${tsPassed()?' ok':''}" id="tsbox"><span class="tsok">${ic('verified',16)} Verified human · Protected by Cloudflare</span></div>`:''}
  <p class="authfoot">${ic('lock',12)} Non-custodial. Callit never sees your keys.</p>`,
- m=>{m.classList.add('authm');m.insertAdjacentHTML('afterbegin','<i class="authglow" aria-hidden="true"></i>');m.addEventListener('click',e=>{const b=e.target.closest('[data-connect]');if(!b)return;signIn(b.dataset.connect,next)})})}
+ m=>{m.classList.add('authm');m.insertAdjacentHTML('afterbegin','<i class="authglow" aria-hidden="true"></i>');tsMount(m);m.addEventListener('click',e=>{const b=e.target.closest('[data-connect]');if(!b)return;
+  if(TS_KEY&&!tsPassed()){toast('One sec — Cloudflare is checking you’re human.');return}
+  signIn(b.dataset.connect,next)})})}
+/* Cloudflare Turnstile on the sign-in sheet: a visible "Success!" check before any way in.
+   Off unless NEXT_PUBLIC_TURNSTILE_SITE_KEY is set. Passing once lasts for the browser session.
+   If Cloudflare can't load (blocked network), it opens after 10s so nobody is locked out of their wallet. */
+const TS_KEY=(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY||'').trim();
+let TS_OK=false,TS_JS=null;
+const tsPassed=()=>{if(TS_OK)return true;try{return sessionStorage.getItem('callit.human')==='1'}catch(_){return false}};
+function tsPass(){TS_OK=true;try{sessionStorage.setItem('callit.human','1')}catch(_){}const b=$('#tsbox');if(b)b.classList.add('ok');document.querySelectorAll('.authm [data-connect]').forEach(x=>x.classList.remove('tswait'))}
+function tsLoad(){if(TS_JS)return TS_JS;TS_JS=new Promise((ok,no)=>{if(window.turnstile)return ok(window.turnstile);const sc=document.createElement('script');sc.src='https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';sc.async=true;sc.onload=()=>ok(window.turnstile);sc.onerror=()=>{TS_JS=null;no(new Error('turnstile_load'))};document.head.appendChild(sc)});return TS_JS}
+function tsMount(m){if(!TS_KEY||tsPassed())return;const box=$('#tsbox',m);if(!box)return;
+ m.querySelectorAll('[data-connect]').forEach(x=>x.classList.add('tswait'));
+ const fail=setTimeout(()=>{if(!tsPassed())tsPass()},10000);
+ tsLoad().then(ts=>{if(!box.isConnected)return;const w=document.createElement('div');box.prepend(w);
+  ts.render(w,{sitekey:TS_KEY,theme:document.documentElement.dataset.theme==='light'?'light':'dark',size:'flexible',appearance:'always',
+   callback:tok=>{clearTimeout(fail);fetch('/api/turnstile',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({token:tok})}).then(r=>r.json()).then(j=>{if(j&&j.ok)tsPass();else{try{ts.reset(w)}catch(_){}}}).catch(()=>tsPass())},
+   'error-callback':()=>{clearTimeout(fail);tsPass()}})}).catch(()=>{clearTimeout(fail);tsPass()})}
 function signIn(via,next,opts){if(realAuth())return realLogin(via,opts,next);nextArtOnLogin();S.connected=true;S.addr='CaLL'+Math.random().toString(36).slice(2,10)+'x9Qp2HkWm4Tz7VbN1sRdE3';S.me='caller_'+S.addr.slice(4,8);
   C[S.me]={h:S.me,win:0,avg:0,calls:0,best:0,followers:0};closeModal();try{localStorage.setItem('callit.session',JSON.stringify({addr:S.addr,me:S.me}))}catch(_){}
   toast(['Phantom','Solflare','Backpack'].includes(via)?`${via} connected`:'Signed in. Your wallet is ready');render();next?next():maybeOnboard()}
