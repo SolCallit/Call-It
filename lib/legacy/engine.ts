@@ -2123,7 +2123,8 @@ let LCHART=null;
 /* DexScreener's chart by default (users know it); Callit's own chart is one tap away. */
 const DSIV={'1m':'1','5m':'5','15m':'15','1h':'60','4h':'240','1d':'1D'};
 function dexChartUrl(mint){const dark=document.documentElement.dataset.theme!=='light'&&!(document.documentElement.dataset.theme!=='dark'&&matchMedia('(prefers-color-scheme: light)').matches);
- return `https://dexscreener.com/solana/${encodeURIComponent(mint)}?embed=1&loadChartSettings=0&trades=0&tabs=0&info=0&chartLeftToolbar=0&chartDefaultOnMobile=1&chartTheme=${dark?'dark':'light'}&theme=${dark?'dark':'light'}&chartStyle=1&chartType=${S.lmode==='price'?'usd':'marketCap'}&interval=${DSIV[S.ltf]||'15'}`}
+ const t=T[mint],id=t&&t.pool&&isMintStr(t.pool)?t.pool:mint;
+ return `https://dexscreener.com/solana/${encodeURIComponent(id)}?embed=1&loadChartSettings=0&trades=0&tabs=0&info=0&chartLeftToolbar=0&chartDefaultOnMobile=1&chartTheme=${dark?'dark':'light'}&theme=${dark?'dark':'light'}&chartStyle=1&chartType=${S.lmode==='price'?'usd':'marketCap'}&interval=${DSIV[S.ltf]||'15'}`}
 /* Re-renders used to destroy the Callit chart and rebuild it from nothing (flash of "Loading chart…", zoom reset,
    and a reset every time you flipped to DexScreener and back). Now the live chart card is parked off-page on
    re-render and put straight back when the same token / timeframe / mode / theme shows again. */
@@ -3234,38 +3235,37 @@ const postURL=id=>SITE+'/#/post/'+id;
    they're loaded, so new users see real tokens and real callers. Replay any time at #/welcome. */
 const INTERESTS=['Memecoins','AI agents','New launches','DeFi','Gaming','Blue chips','Low caps','Narratives'];
 const TOUR_N=7;
-const tourMc=v=>!(v>0)?'—':'$'+(v>=1e9?(v/1e9).toFixed(1)+'B':v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(1)+'K':Math.round(v));
-function tourToks(n){return Object.values(T).filter(t=>t&&t.live&&t.icon&&t.mc>0&&t.sym).sort((a,b)=>(b.vol||0)-(a.vol||0)).slice(0,n)}
-const tourTok=t=>t?`<span class="tvt"><img src="${esc(t.icon)}" alt="" loading="lazy" onerror="this.remove()"><b>$${esc(t.sym)}</b></span>`:`<span class="tvt sk"><i></i><em></em></span>`;
-function tourStage(k){const tk=tourToks(4),t0=tk[0];
- if(k===0)return `<div class="tv tv-hello"><div class="tvlogow"><div class="tvwave"><i></i><i></i><i></i></div><div class="tvlogo"><img src="/mega-white.png" alt="Callit"></div></div><div class="tvword">Callit</div><div class="tvtag">Call it. Get Paid.</div></div>`;
- if(k===1){const mc=t0&&t0.mc||48200;return `<div class="tv tv-call"><div class="tvcard"><div class="tvrow">${avatar(S.me||'you','sm')}<div class="grow"><b>@${esc(S.me||'you')}</b><span class="tvmut">called ${tourTok(t0)}</span></div><span class="tvlive"><i></i>Live</span></div>
-  <div class="tvthesis">Volume's waking up and holders keep climbing. Sending this.</div>
-  <div class="tvstats"><div><span>Entry</span><b>${tourMc(mc)}</b></div><div><span>Target</span><b class="up">${tourMc(mc*2)}</b></div><div><span>Window</span><b>24h</b></div></div>
-  <div class="tvtg"><i class="on">2X</i><i>5X</i><i>10X</i></div><button class="tvbtn" tabindex="-1">${ic('promote',16)} Call it</button></div></div>`}
- if(k===2)return `<div class="tv tv-paid"><div class="tvcard"><div class="tvrow">${tourTok(t0)}<span class="tvhit">${ic('check',13)} Target hit</span></div>
-  <div class="tvprog"><span>1X</span><div class="tvbar"><i></i></div><span>2X</span></div>
-  <div class="tvearn"><span>Earned from buys on your call</span><b class="num">+0.42 SOL</b></div><button class="tvbtn" tabindex="-1">${ic('wallet',16)} Claim</button></div>
-  <div class="tvtoast">${ic('wallet',15)} Paid to your wallet</div></div>`;
- if(k===3){const st=S.ob||(S.ob={i:new Set()}),hs=['runner','heating','fresh','second','cooling'];
-  return `<div class="tv tv-feed"><div class="tvpanel"><div class="tvph"><b>Your feed</b><span>Pick what you trade</span></div>
-  <div class="chips tvchips">${INTERESTS.map(x=>`<button class="chip${st.i.has(x)?' on':''}" style="--c:var(--hi)" data-ob="${x}"><i></i>${x}</button>`).join('')}</div>
-  <div class="tvheat">${hs.map(h=>`<span class="tvh">${HEAT[h][0]} ${HEAT[h][1]}</span>`).join('')}<span class="tvh ai">${ic('assistant',12)} AI Auto</span></div></div></div>`}
- if(k===4){const rk=(typeof ranked==='function'?ranked():[]).slice(0,3);
-  const rows=rk.length?rk.map((c,i)=>`<div class="tvlb" style="--d:${i*.12}s"><span class="tvrk">${i+1}</span>${avatar(c.h,'sm')}<div class="grow"><b>${esc(c.h)}</b><span class="tvmut">${c.win}% win · ${c.calls} calls</span></div>${c.h===S.me?'':`<button class="btn sm ${S.following.has(c.h)?'ghost':'primary'}" data-obf="${esc(c.h)}">${S.following.has(c.h)?'Following':'Follow'}</button>`}</div>`).join('')
-   :[0,1,2].map(i=>`<div class="tvlb sk" style="--d:${i*.12}s"><span class="tvrk">${i+1}</span><span class="av sm"></span><div class="grow"><i></i><i></i></div></div>`).join('');
-  return `<div class="tv tv-lb"><div class="tvpanel"><div class="tvph"><b>Callerboard</b><span class="tvpts">${ic('star',12)} <b class="num" data-tvpts>0</b> pts</span></div>${rows}</div></div>`}
- if(k===5){const sy=t0?'$'+esc(t0.sym):'this one';
-  return `<div class="tv tv-chat"><div class="tvpanel"><div class="tvph"><b>${t0?tourTok(t0)+' room':'Token room'}</b><span class="tvmut">${ic('people',12)} Holders</span></div>
-  <div class="tvmsg l" style="--d:.2s"><span>Who's still holding ${sy}?</span></div><div class="tvmsg r" style="--d:1s"><span>Still in. Called it at entry 🫡</span></div>
-  <div class="tvmsg l" style="--d:1.8s"><span>Target's close. Holding to 2X</span></div><div class="tvtyping" style="--d:2.6s"><i></i><i></i><i></i></div></div></div>`}
- return `<div class="tv tv-priv"><div class="tvflow"><div class="tvnode">${ic('wallet',22)}<span>Your wallet</span></div><div class="tvpath"><i></i><i></i><i></i></div>
-  <div class="tvnode ring"><span class="tvring"></span>${ic('lock',22)}<span>Private ring</span></div><div class="tvpath hid"><i></i><i></i><i></i></div><div class="tvnode ghost">${ic('eye',22)}<span>Hidden</span></div></div></div>`}
+/* Every preview is the real Callit UI: the same renderers the app uses (post, xcardHTML, trow, callerCard,
+   chDiscCard, the private-withdraw toggles), fed with live calls, tokens, callers and groups. */
+function tourToks(n){return Object.values(T).filter(t=>t&&t.live&&t.sym&&tourSafe(()=>mcap(t))>0).sort((a,b)=>(b.vol||0)-(a.vol||0)).slice(0,n)}
+function tourCall(){try{const l=calls.filter(k=>k&&k.kind!=='random'&&!k.perp&&T[k.t]);
+ return l.map(k=>{let n=null;try{n=nums(k)}catch(_){}return {k,p:n&&n.p!=null?n.p:-1e9}}).sort((a,b)=>b.p-a.p).map(x=>x.k)[0]||null}catch(_){return null}}
+const tourSafe=f=>{try{return f()||''}catch(_){return ''}};
+function tourStage(k){
+ if(k===0)return `<div class="tv tv-hello"><div class="tvbg">${tourSafe(()=>calls.filter(x=>x&&T[x.t]).slice(0,3).map(post).join(''))}</div><div class="tvhero"><span class="tvboot"></span><b>Call it. Get Paid.</b></div></div>`;
+ if(k===1){const c=tourCall();return `<div class="tv tv-real" data-spot=".buyb">${c?tourSafe(()=>post(c)):tourSafe(pinnedPost)}</div>`}
+ if(k===2){const c=tourCall();let d=null;if(c)try{d=cardOf(c)}catch(_){}
+  if(!d){const top=tourSafe(()=>ranked()[0]);if(top&&top.h)try{d=cardOfProfile(top.h)}catch(_){}}
+  return `<div class="tv tv-real tv-x">${d?tourSafe(()=>xcardHTML({...d,sty:d.sty||XSTY()})):tourSafe(earnCard)}</div>`}
+ if(k===3){const tk=tourToks(4);if(!tk.length&&!S.tourFeed){S.tourFeed=1;fetchFeed('movers').then(l=>{(Array.isArray(l)?l:(l&&l.tokens)||[]).forEach(regLive)}).catch(()=>{})}return `<div class="tv tv-real tv-rows" data-spot=".trow">${tk.length?tourSafe(()=>tk.map(trow).join('')):'<div class="chskel"></div><div class="chskel"></div><div class="chskel"></div>'}</div>`}
+ if(k===4)tourSafe(loadCallers);
+ if(k===4)return `<div class="tv tv-real" data-spot="[data-act=&quot;follow&quot;],.li .btn">${tourSafe(callerCard)}</div>`;
+ if(k===5){if(!CH.disc&&typeof loadDisc==='function')tourSafe(loadDisc);
+  const g=(CH.disc||[]).slice(0,3);return `<div class="tv tv-real tv-chat" data-spot=".chgcard .btn">${g.length?tourSafe(()=>g.map(chDiscCard).join('')):'<div class="chskel"></div><div class="chskel"></div><div class="chskel"></div>'}</div>`}
+ return `<div class="tv tv-real tv-pv" data-spot=".pvseg .on"><div class="card"><h3 style="margin:0 0 12px">Withdraw</h3>
+  <div class="seg pvseg"><button>Standard</button><button class="on">${ic('lock',14)} Private</button></div>
+  <div class="seg pvrail" style="margin:12px 0"><button class="on">Helius Rings</button><button>Privacy Cash</button></div>
+  <div class="field"><label>To address</label><div class="input tvaddr">${ic('eye',15)}<span>Hidden on-chain</span></div></div>
+  <button class="btn primary block" style="margin-top:12px">${ic('lock',15)} Withdraw privately</button></div></div>`}
+/* Pulsing spotlight on the key control, like a finger about to tap it. */
+function tourSpot(m){const st=m.querySelector('.stage'),tv=st&&st.querySelector('[data-spot]');if(!tv)return;
+ const el=tv.querySelector(tv.dataset.spot);if(!el)return;const a=st.getBoundingClientRect(),b=el.getBoundingClientRect();if(!b.width)return;
+ const r=document.createElement('i');r.className='tvspot';r.style.cssText=`left:${b.left-a.left-6}px;top:${b.top-a.top-6}px;width:${b.width+12}px;height:${b.height+12}px`;st.appendChild(r)}
 const TOUR=[
  ['Welcome to Callit','Your Buzz App where you get paid. Find tokens early, call them, trade them and chat about them, all in one place.'],
  ['Make a call','Pick a token, set a target and say why. Your entry is stamped at the live market cap, so every call is tracked for real.'],
  ['Get paid in minutes','When people buy your call and it hits your target, you’re paid in SOL within a minute. Claim it straight to your wallet.'],
- ['Set up your feed','Pick what you trade and we fill your For you feed. In Market, Heat tags and AI Auto sort the runners from the danger.'],
+ ['Set up your feed','Trenches tags every token live with Heat: Runner, Heating, Fresh, Cooling, Danger. Pick what you trade and we fill your For you feed.'],
  ['Climb the Callerboard','Every call is tracked in public: win rate, returns and PnL. You earn 10 points for every $10 you trade, plus bonuses when your calls hit. Points count toward $CALL.'],
  ['Chat where you trade','DMs, group chats and holders-only token rooms sit right next to your feed and terminal. Talk the play while it’s live.'],
  ['Withdraw privately','Move your winnings without showing where they go. Private withdraw runs on Helius Privacy Rings, with Privacy Cash as backup.'],
@@ -3273,7 +3273,8 @@ const TOUR=[
 function onboard(step=1){const k=Math.max(0,Math.min(TOUR_N-1,step-1)),last=k===TOUR_N-1,[title,desc]=TOUR[k];
  const dots=`<div class="tdots">${TOUR.map((_,i)=>`<button class="${i===k?'on':i<k?'done':''}" data-tgo="${i+1}" aria-label="Step ${i+1}"></button>`).join('')}</div>`;
  const box=$('#modal');const prev=box.querySelector('.tour');
- const html=`<div class="stage">${tourStage(k)}</div><div class="tbody"><h2>${title}</h2><p>${desc}</p></div>
+ const st=S.ob||(S.ob={i:new Set()}),chips=k===3?`<div class="chips tvchips">${INTERESTS.map(x=>`<button class="chip${st.i.has(x)?' on':''}" style="--c:var(--hi)" data-ob="${x}"><i></i>${x}</button>`).join('')}</div>`:'';
+ const html=`<div class="stage">${tourStage(k)}</div><div class="tbody"><h2>${title}</h2><p>${desc}</p>${chips}</div>
   <div class="tfoot">${k?`<button class="btn sm ghost" data-tgo="${k}">Back</button>`:'<span></span>'}${dots}<div class="tbtns">${last?'':`<button class="btn sm ghost" id="tskip">Skip</button>`}<button class="btn sm primary" id="tnext">${last?'Start calling':k===3?'Apply':'Next'}</button></div></div>`;
  if(prev){prev.dataset.k=k;prev.innerHTML=html}
  else box.innerHTML=`<div class="scrim tourscrim"><div class="modal tour" role="dialog" aria-modal="true" aria-label="Welcome to Callit" data-k="${k}">${html}</div></div>`;
@@ -3282,7 +3283,10 @@ function onboard(step=1){const k=Math.max(0,Math.min(TOUR_N-1,step-1)),last=k===
  m.querySelectorAll('[data-ob]').forEach(b=>b.onclick=()=>{const st=S.ob||(S.ob={i:new Set()}),x=b.dataset.ob;st.i.has(x)?st.i.delete(x):st.i.add(x);b.classList.toggle('on')});
  m.querySelectorAll('[data-obf]').forEach(b=>b.onclick=()=>{const h=b.dataset.obf;S.following.has(h)?S.following.delete(h):S.following.add(h);const f=S.following.has(h);b.textContent=f?'Following':'Follow';b.className='btn sm '+(f?'ghost':'primary')});
  const sk=$('#tskip',m);if(sk)sk.onclick=obDone;$('#tnext',m).onclick=()=>last?obDone():onboard(step+1);
- const pts=m.querySelector('[data-tvpts]');if(pts){let v=0;const id=setInterval(()=>{if(!pts.isConnected)return clearInterval(id);v+=10;pts.textContent=v.toLocaleString();if(v>=1250)clearInterval(id)},28)}
+ m.querySelectorAll('.stage a,.stage [data-go]').forEach(x=>{x.removeAttribute('href');x.removeAttribute('data-go')});setTimeout(()=>tourSpot(m),650);
+ const cnt=m.querySelector('.stage [data-count]');if(cnt){const to=+cnt.dataset.count,t0=performance.now()+300,dur=1100;const stp=t=>{if(!cnt.isConnected)return;const q=Math.max(0,Math.min(1,(t-t0)/dur));cnt.textContent=fmtPct(to*(1-Math.pow(1-q,3)));if(q<1)requestAnimationFrame(stp)};requestAnimationFrame(stp)}
+ /* data still loading (Trenches, Callerboard, groups): repaint the preview when it lands */
+ const kk=k;let tries=0;const re=()=>{const sg=m.querySelector('.stage');if(!sg||!sg.isConnected||m.dataset.k!=String(kk)||tries++>12)return;if(sg.querySelector('.chskel')||(kk===4&&!sg.querySelector('.li'))){sg.innerHTML=tourStage(kk);sg.querySelectorAll('a,[data-go]').forEach(x=>{x.removeAttribute('href');x.removeAttribute('data-go')});if(!sg.querySelector('.chskel'))setTimeout(()=>tourSpot(m),300);else setTimeout(re,700)}};setTimeout(re,700);
  m.onkeydown=e=>{if(e.key==='ArrowRight'&&!last)onboard(step+1);else if(e.key==='ArrowLeft'&&k)onboard(step-1);else if(e.key==='Escape')obDone()};m.tabIndex=-1;m.focus({preventScroll:true})}
 function obDone(){try{localStorage.setItem('callit.onboarded','1')}catch(_){}closeModal();render();toast('You’re all set. Go call it')}
 function maybeOnboard(){let d=false;try{d=localStorage.getItem('callit.onboarded')==='1'}catch(_){}if(!d)setTimeout(()=>onboard(1),400)}

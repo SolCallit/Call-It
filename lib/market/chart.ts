@@ -34,6 +34,7 @@ export function mountChart(
   let timer: ReturnType<typeof setInterval> | null = null;
   let dead = false;
   const up = css('--up', '#22c55e'), down = css('--down', '#ef4444'), text = css('--muted', '#8fa6ba'), line = css('--line', '#1e3a54');
+  const gridC = /^#[0-9a-f]{6}$/i.test(line) ? line + '66' : 'rgba(143,166,186,.12)';
   const pref = (k: string) => { try { return localStorage.getItem(k); } catch { return null; } };
   // Which side the price scale sits on, and the small display switches from the scale menu.
   let side: 'left' | 'right' = pref('callit.cside') === 'left' ? 'left' : 'right';
@@ -43,7 +44,8 @@ export function mountChart(
   chart = createChart(el, {
     autoSize: true,
     layout: { background: { type: ColorType.Solid, color: 'transparent' }, textColor: text, fontSize: 11, attributionLogo: true },
-    grid: { vertLines: { visible: false }, horzLines: { visible: false } },
+    // Faint TradingView-style grid on Callit's own chart (asked for Nov 23, 2026).
+    grid: { vertLines: { visible: true, color: gridC }, horzLines: { visible: true, color: gridC } },
     rightPriceScale: { ...scaleOpts, visible: side === 'right' },
     leftPriceScale: { ...scaleOpts, visible: side === 'left' },
     timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false, rightOffset: 6, minBarSpacing: 0.2 },
