@@ -307,7 +307,7 @@ async function pumpSearch(q: string): Promise<LiveToken[]> {
 type DsPair = {
   pairAddress: string; dexId: string; priceUsd?: string; marketCap?: number; fdv?: number; pairCreatedAt?: number;
   liquidity?: { usd?: number }; volume?: { h24?: number }; priceChange?: { m5?: number; h1?: number; h6?: number; h24?: number };
-  txns?: { h24?: { buys?: number; sells?: number } };
+  txns?: { h1?: { buys?: number; sells?: number }; h24?: { buys?: number; sells?: number } }; labels?: string[];
   baseToken: { address: string; name: string; symbol: string };
   quoteToken?: { address: string; name?: string; symbol: string };
   info?: { imageUrl?: string; websites?: { url: string }[]; socials?: { type: string; url: string }[] };
@@ -318,9 +318,26 @@ export async function dsPairs(mint: string, revalidate = 8): Promise<DsPair[]> {
   return Array.isArray(data) ? data.filter((p) => p.baseToken?.address === mint) : [];
 }
 
+/* Launchpad bonding curves. After a token graduates, its curve pair stays listed on DexScreener with its old
+   price and often the biggest "liquidity", so ranking by liquidity alone picked the dead curve: $PRV showed
+   "PRV/SOL on Meteora DBC", $29.7K and 5-hour-old trades while it traded far higher on DAMM v2. */
+const BONDING = /^(meteoradbc|pumpfun|launchlab|raydium-launchlab|moonshot|boop|believe|bags|heaven|letsbonk|bonk)$/i;
+const isCurve = (p: DsPair) => BONDING.test(p.dexId || '') || (p.labels || []).some((l) => /^(dbc|launchlab|bonding)/i.test(l));
+const txH1 = (p: DsPair) => (p.txns?.h1?.buys ?? 0) + (p.txns?.h1?.sells ?? 0);
+const txH24 = (p: DsPair) => (p.txns?.h24?.buys ?? 0) + (p.txns?.h24?.sells ?? 0);
+/** The pair the token actually trades on now: a real AMM pool once it has graduated, else its curve. */
+export function bestPair(pairs: DsPair[]): DsPair | undefined {
+  const liq = (p: DsPair) => p.liquidity?.usd ?? 0;
+  // Graduated: an AMM pool with real liquidity and trades beats the curve, whatever the curve's numbers say.
+  const amm = pairs.filter((p) => !isCurve(p) && liq(p) >= 1000 && txH24(p) >= 10);
+  const pool = amm.length ? amm : pairs;
+  // Busiest in the last hour first (dead pools have none), liquidity breaks ties.
+  return [...pool].sort((a, b) => Number(txH1(b) > 0) - Number(txH1(a) > 0) || liq(b) - liq(a))[0];
+}
+
 /** Merges DexScreener's best pair into a token (or builds the token from it if Jupiter has nothing). */
 export function withPair(t: LiveToken | null, pairs: DsPair[]): LiveToken | null {
-  const best = [...pairs].sort((a, b) => (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0))[0];
+  const best = bestPair(pairs);
   if (!best) return t;
   const soc = (type: string) => best.info?.socials?.find((s) => s.type === type)?.url || null;
   const base: LiveToken = t ?? {
