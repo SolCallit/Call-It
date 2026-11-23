@@ -2,6 +2,7 @@
 
 import { CandlestickSeries, ColorType, HistogramSeries, LineSeries, LineStyle, PriceScaleMode, createChart, createSeriesMarkers, type IChartApi, type IPriceLine, type SeriesMarker, type Time, type UTCTimestamp } from 'lightweight-charts';
 import { fmtSmall } from '@/lib/market/client';
+import { mountDrawings, type DrawingsApi } from '@/lib/market/draw';
 
 export type ChartTf = '1m' | '5m' | '15m' | '1h' | '4h' | '1d';
 /** How often candles are re-pulled. Between pulls, tick() moves the last candle with the live price. */
@@ -64,11 +65,13 @@ export function mountChart(
 
   let first = true;
   let fails = 0;
+  let barsCache: number[][] = [];
   // Every candle seen so far, by time. Polls merge into it; scrolling to the left edge loads older ones.
   const all = new Map<number, number[]>();
   const paint = () => {
     const f = opts.factor || 1;
     const list = [...all.values()].sort((a, b) => a[0] - b[0]);
+    barsCache = list;
     candles.setData(list.map(([t, o, h, l, c]) => ({ time: t as UTCTimestamp, open: o * f, high: h * f, low: l * f, close: c * f })));
     vol.setData(list.map(([t, o, , , c, v]) => ({ time: t as UTCTimestamp, value: v, color: c >= o ? up + '66' : down + '66' })));
     paintExtras(list);
@@ -171,28 +174,21 @@ export function mountChart(
     put2(emaS, IND.ema ? ema(list, 50) : []);
     const z = lastBar(); legendFor(z ? z.b : null, z ? z.v : null);
   };
-  // Horizontal lines you draw, saved per token (raw price, so they survive MC/Price switches).
-  const hlKey = `callit.hl.${opts.mint}`;
-  let hls: number[] = (() => { try { return (JSON.parse(store(hlKey) || '[]') as number[]).filter((x) => x > 0).slice(0, 20); } catch { return []; } })();
-  let hlLines: IPriceLine[] = [];
-  const drawHl = () => {
-    hlLines.forEach((l) => { try { candles.removePriceLine(l); } catch { /* gone */ } });
-    const f = opts.factor || 1;
-    hlLines = hls.map((p) => candles.createPriceLine({ price: p * f, color: hi, lineWidth: 1, lineStyle: LineStyle.Solid, axisLabelVisible: true, title: '' }));
+  // Drawing tools (left toolbar, TradingView style). Drawings sit on whichever series is showing.
+  const dwBars = () => {
+    const b = barsCache; if (!last || !b.length || last.time <= b[b.length - 1][0]) return b;
+    return [...b, [last.time, last.open, last.high, last.low, last.close, 0]];
   };
-  drawHl();
-  let drawing = false;
-  chart.subscribeClick((p) => {
-    if (!drawing || !p.point) return;
-    const v = candles.coordinateToPrice(p.point.y);
-    drawing = false;
-    card?.querySelector('[data-ch="hline"]')?.classList.remove('on');
-    el.classList.remove('cdraw');
-    if (v == null || !(Number(v) > 0)) return;
-    hls = [...hls, Number(v) / (opts.factor || 1)].slice(-20);
-    store(hlKey, JSON.stringify(hls));
-    drawHl();
-  });
+  let dwCache: number[][] = [], dwKey = '';
+  const dwBarsMemo = () => { const k = barsCache.length + ':' + (last ? last.time : 0); if (k !== dwKey) { dwKey = k; dwCache = dwBars(); } return dwCache; };
+  const setUndo = (u: boolean, r: boolean) => { card?.querySelector('[data-ch="undo"]')?.toggleAttribute('disabled', !u); card?.querySelector('[data-ch="redo"]')?.toggleAttribute('disabled', !r); };
+  let dw: DrawingsApi | null = null;
+  try {
+    dw = mountDrawings(el, card, chart, () => (ctype === 'line' ? lineS : candles), {
+      mint: opts.mint, bucket: BUCKET[opts.tf], factor: () => opts.factor || 1, side: () => side, bars: dwBarsMemo,
+      fmt: (v: number) => fmtSmall(v), onUndoState: setUndo,
+    });
+  } catch (e) { console.warn('[chart] drawings', e); }
   const syncBtns = (menu = true) => {
     if (!card) return;
     const t = card.querySelector('[data-ch="type"]');
@@ -228,8 +224,9 @@ export function mountChart(
       b.classList.toggle('on', IND[f]); b.setAttribute('aria-checked', String(IND[f]));
       maS.applyOptions({ visible: IND.ma }); emaS.applyOptions({ visible: IND.ema }); vol.applyOptions({ visible: IND.vol });
       paintExtras([...all.values()].sort((a, c) => a[0] - c[0]));
-    } else if (k === 'hline') { drawing = !drawing; b.classList.toggle('on', drawing); el.classList.toggle('cdraw', drawing); }
-    else if (k === 'clear') { hls = []; store(hlKey, '[]'); drawHl(); }
+    } else if (k === 'dwbar' || k === 'hline') dw?.toggleBar();
+    else if (k === 'undo') dw?.undo();
+    else if (k === 'redo') dw?.redo();
     else if (k === 'shot') {
       const c = chart.takeScreenshot();
       c.toBlob((bl) => { if (!bl) return; const a = document.createElement('a'); a.href = URL.createObjectURL(bl); a.download = `${(opts.sym || 'chart').replace(/[^\w-]/g, '')}-${opts.tf}.png`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); });
@@ -455,6 +452,7 @@ export function mountChart(
     el.removeEventListener('touchstart', onTouchStart, { capture: true });
     el.removeEventListener('touchend', onTouchEnd); el.removeEventListener('touchcancel', onTouchEnd); el.removeEventListener('mouseup', onUp);
     if (shown) clearTimeout(shown);
+    dw?.destroy(); dw = null;
     grip.remove(); el.querySelectorAll('.cnavb,.caxb,.cgear,.ccd').forEach((x) => x.remove()); card?.querySelector('.cscalem')?.remove();
     card?.classList.remove('lfull');
     document.body.classList.remove('lfull-on');
