@@ -388,28 +388,83 @@ export const TIMEFRAMES = {
 } as const;
 export type Tf = keyof typeof TIMEFRAMES;
 
+/* ---------- Which pool is the token really trading on? ----------
+   Launchpad tokens move pools when they graduate (Meteora DBC -> DAMM v2, pump.fun -> PumpSwap,
+   LaunchLab -> CPMM). The pool we were handed can be the dead bonding curve: its candles just stop at
+   the graduation minute while the price keeps moving somewhere else ($PRV froze at $29.7K while it
+   traded at $88K+ on DAMM v2). So rank the token's pools by recent activity and use the busiest. */
+type GtTokPool = {
+  attributes?: { address?: string; pool_created_at?: string; reserve_in_usd?: string; volume_usd?: { h1?: string; h24?: string };
+    transactions?: { h1?: { buys?: number; sells?: number }; h24?: { buys?: number; sells?: number } } };
+};
+export type PoolRank = { address: string; createdAt: number; tx1: number; tx24: number; vol24: number; liq: number };
+
+export async function tokenPools(mint: string): Promise<PoolRank[]> {
+  const d = await getJSON<{ data?: GtTokPool[] }>(`${GT}/networks/solana/tokens/${mint}/pools?page=1`, 30);
+  return (d?.data || []).flatMap((p) => {
+    const a = p.attributes || {};
+    if (!a.address || !isMint(a.address)) return [];
+    const t1 = a.transactions?.h1, t24 = a.transactions?.h24;
+    return [{
+      address: a.address, createdAt: Date.parse(a.pool_created_at || '') / 1000 || 0,
+      tx1: (Number(t1?.buys) || 0) + (Number(t1?.sells) || 0), tx24: (Number(t24?.buys) || 0) + (Number(t24?.sells) || 0),
+      vol24: num(a.volume_usd?.h24) ?? 0, liq: num(a.reserve_in_usd) ?? 0,
+    }];
+  });
+}
+
+/** The pool with the most trades in the last hour (then 24h volume, then liquidity). */
+export function busiest(pools: PoolRank[]): PoolRank | null {
+  return [...pools].sort((a, b) => b.tx1 - a.tx1 || b.vol24 - a.vol24 || b.liq - a.liq)[0] || null;
+}
+
+/** Use `pool` unless another pool of the same token is clearly where the trading is now. */
+function pickLive(pool: string, pools: PoolRank[]): string {
+  const best = busiest(pools);
+  if (!best || best.address === pool) return pool;
+  const mine = pools.find((p) => p.address === pool);
+  // Ours is quiet this hour and the other one isn't, or ours isn't even listed: switch.
+  return !mine || (best.tx1 > 0 && best.tx1 >= Math.max(3, mine.tx1 * 3)) ? best.address : pool;
+}
+export async function livePool(pool: string, mint: string): Promise<string> {
+  return pickLive(pool, await tokenPools(mint));
+}
+
 /** Candles oldest-first: [unixSeconds, open, high, low, close, volumeUsd]. */
 export async function candles(pool: string, mint: string, tf: Tf, before?: number): Promise<number[][] | null> {
   const [unit, agg, ttl] = TIMEFRAMES[tf];
   const bt = before ? `&before_timestamp=${before}` : '';
-  const data = await getJSON<{ data?: { attributes?: { ohlcv_list?: number[][] } } }>(
-    `${GT}/networks/solana/pools/${pool}/ohlcv/${unit}?aggregate=${agg}&limit=1000&currency=usd&token=${mint}${bt}`,
-    ttl,
-  );
-  let list = data?.data?.attributes?.ohlcv_list;
-  if (!Array.isArray(list) || !list.length) {
-    // Brand-new or bonding-curve pools are often missing: fall back to the token's most liquid pool.
-    const pools = await getJSON<{ data?: { attributes?: { address?: string } }[] }>(`${GT}/networks/solana/tokens/${mint}/pools?page=1`, 60);
-    const alt = pools?.data?.map((p) => p.attributes?.address).find((a) => a && a !== pool);
-    if (alt) {
-      const d2 = await getJSON<{ data?: { attributes?: { ohlcv_list?: number[][] } } }>(
-        `${GT}/networks/solana/pools/${alt}/ohlcv/${unit}?aggregate=${agg}&limit=1000&currency=usd&token=${mint}${bt}`, ttl);
-      const l2 = d2?.data?.attributes?.ohlcv_list;
-      if (Array.isArray(l2)) list = l2;
+  const pull = async (addr: string) => {
+    const d = await getJSON<{ data?: { attributes?: { ohlcv_list?: number[][] } } }>(
+      `${GT}/networks/solana/pools/${addr}/ohlcv/${unit}?aggregate=${agg}&limit=1000&currency=usd&token=${mint}${bt}`, ttl);
+    const l = d?.data?.attributes?.ohlcv_list;
+    return Array.isArray(l) ? l.filter((c) => Array.isArray(c) && c.length >= 6).map((c) => c.slice(0, 6).map(Number)).reverse() : null;
+  };
+  const pools = await tokenPools(mint);
+  const best = busiest(pools);
+  const live = pickLive(pool, pools);
+
+  let list = await pull(live);
+  if (live !== pool) {
+    // Graduated token: the live pool only goes back to the migration. Put the bonding-curve history in
+    // front of it so the chart reads launch -> now in one line.
+    const old = await pull(pool);
+    if (old?.length) {
+      const from = list?.length ? list[0][0] : Infinity;
+      list = [...old.filter((c) => c[0] < from), ...(list || [])];
     }
+  } else if (!list?.length && best && best.address !== pool) {
+    list = await pull(best.address);
   }
-  if (!Array.isArray(list)) return null;
-  return list.filter((c) => Array.isArray(c) && c.length >= 6).map((c) => c.slice(0, 6).map(Number)).reverse();
+  if (!list) return null;
+  // Never serve a frozen chart. If the newest candle is far older than the token's last trades, say so,
+  // and the client shows DexScreener's chart instead.
+  if (!before && list.length && best && best.tx1 > 0) {
+    const age = Date.now() / 1000 - list[list.length - 1][0];
+    const bar = (unit === 'minute' ? 60 : unit === 'hour' ? 3600 : 86400) * agg;
+    if (age > Math.max(bar * 3, 20 * 60)) return null;
+  }
+  return list;
 }
 
 /* ---------- Live trades on one pool (token page feed) ---------- */
@@ -417,6 +472,7 @@ export type Trade = { tx: string; t: number; side: 'buy' | 'sell'; usd: number; 
 
 /** Latest trades on a pool, newest first. GeckoTerminal, cached for a few seconds so open token pages share one call. */
 export async function recentTrades(pool: string, mint: string): Promise<Trade[] | null> {
+  pool = await livePool(pool, mint);
   const data = await getJSON<{ data?: { attributes?: Record<string, unknown> }[] }>(`${GT}/networks/solana/pools/${pool}/trades`, 4);
   if (!data || !Array.isArray(data.data)) return null;
   const out: Trade[] = [];
