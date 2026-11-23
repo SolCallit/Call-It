@@ -23,7 +23,7 @@
  * SOL only for now. SPL needs per-mint interface setup — add once the rail has mileage.
  */
 
-import { HELIUS_INDEXER, HELIUS_MIN_SOL, HELIUS_TEE_PROVER, PRIVATE_WS } from './config';
+import { HELIUS_MIN_SOL, HELIUS_TEE_PROVER, PRIVATE_WS } from './config';
 
 export class PrivateError extends Error {
   constructor(message: string, public stage: string, public raw?: unknown) {
@@ -95,7 +95,9 @@ async function client(l: Libs): Promise<Client> {
     // public mainnet deployment and the prover only ever sees enclave-encrypted requests.
     solanaRpcUrl: `${window.location.origin}/api/privacy/rpc`,
     solanaRpcSubscriptionsUrl: PRIVATE_WS,
-    indexerUrl: HELIUS_INDEXER,
+    // Indexer goes through Callit's server too (same origin: no CORS, and the server can fall back
+    // to Helius' keyed /v1/spr gateway). HELIUS_INDEXER stays the upstream default on the server.
+    indexerUrl: `${window.location.origin}/api/privacy/idx`,
     proverUrl: HELIUS_TEE_PROVER,
     proverTee: l.cl.SignedTeePolicy.forNetwork('mainnet'),
   });
@@ -158,6 +160,34 @@ async function confirm(c: Client, sig: string, step: (m: string) => void): Promi
   throw new PrivateError('Solana is slow right now. Check your balance before trying again.', 'confirm');
 }
 
+/** The SDK error codes under a wrapper like WALLET_SYNC (e.g. ["WALLET_SYNC","INDEXER_HTTP"]). */
+const codesOf = (e: unknown): string[] => {
+  const x = e as { code?: string; causeCodes?: string[]; cause?: unknown } | null;
+  if (!x) return [];
+  return [...new Set([x.code, ...(x.causeCodes || [])].filter(Boolean) as string[])];
+};
+
+/**
+ * Reads the private balance from Helius' indexer. A deposit that just landed can take a few
+ * seconds to show up there, and a single slow indexer call shouldn't strand the user, so it
+ * retries twice before giving up — with the real cause in the message instead of a bare code.
+ */
+async function syncW(l: Libs, s: NonNullable<typeof SESSION>): Promise<void> {
+  let last: unknown;
+  for (let i = 0; i < 3; i++) {
+    try {
+      await l.spr.syncWallet({ client: s.client, wallet: s.wallet, keys: s.keys, config: {} });
+      return;
+    } catch (e) {
+      last = e;
+      console.error('[helius] private balance sync failed', codesOf(e), e);
+      if (i < 2) await new Promise((r) => setTimeout(r, 2500 * (i + 1)));
+    }
+  }
+  const codes = codesOf(last).join(' → ') || 'unknown';
+  throw new PrivateError(`Couldn’t read your private balance from Helius right now (${codes}). Your funds are safe — try again in a minute.`, 'sync', last);
+}
+
 export type HeliusBalance = { ui: number; notes: number; registered: boolean };
 
 /** Private (shielded) SOL balance. Asks for the unlock signature the first time. */
@@ -166,7 +196,7 @@ export async function privateBalance(owner: string, step: (m: string) => void = 
   step('Checking your private balance…');
   const rec = await l.wl.fetchUserRecord({ rpc: s.client, owner: l.kit.address(owner) });
   if (rec !== undefined) {
-    await l.spr.syncWallet({ client: s.client, wallet: s.wallet, keys: s.keys, config: {} });
+    await syncW(l, s);
   }
   const b = s.wallet.balance(l.spr.SOL_MINT);
   return { ui: Number(b.amount) / 1e9, notes: b.utxos.length, registered: rec !== undefined };
@@ -240,7 +270,7 @@ export async function sendPrivately(
   const gas = await gasInfo();
   if (!gas) throw new PrivateError('Private sending is paused right now. Your funds are safe in your private balance — try again later.', 'gas');
   step('Syncing your private balance…');
-  await l.spr.syncWallet({ client: s.client, wallet: s.wallet, keys: s.keys, config: {} });
+  await syncW(l, s);
   step('Proving privately… keep this tab open (up to a minute)');
   let tx: unknown;
   try {

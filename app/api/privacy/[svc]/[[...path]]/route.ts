@@ -3,7 +3,8 @@ import { HELIUS_PRIVATE_BETA, HELIUS_PRIVATE_ON, PRIVATE_BETA, PRIVATE_ON, PC_RE
 import { gasAddress, relayWithdrawal } from '@/lib/privacy/gas-server';
 import { solPrice } from '@/lib/payouts/payout';
 import { burst, clientIp } from '@/lib/ratelimit';
-import { rpcUrl } from '@/lib/solana/rpc';
+import { heliusKey, rpcUrl } from '@/lib/solana/rpc';
+import { HELIUS_INDEXER } from '@/lib/privacy/config';
 import { verifyPrivyToken } from '@/lib/auth/privy-server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
@@ -62,6 +63,35 @@ async function rpc(req: NextRequest) {
   }
 }
 
+/* Helius Privacy Rings indexer (Photon), same-origin. The SDK POSTs JSON to <base>/<method>.
+   Tries Helius' public mainnet indexer first, then the keyed /v1/spr gateway on our Helius plan.
+   Only the indexer's own read methods pass; bodies are never logged (they're the user's private tags). */
+const IDX_METHODS = new Set([
+  'getEncryptedUtxosByTags', 'getShieldedTransactionsByTags', 'getShieldedTransactionsByNullifiers',
+  'getShieldedTransactionsBySignature', 'getMerkleProofs', 'getNonInclusionProofs', 'getUserRecords',
+]);
+async function idx(req: NextRequest, method: string) {
+  if (req.method !== 'POST') return NextResponse.json({ error: 'not_allowed' }, { status: 405 });
+  if (!IDX_METHODS.has(method)) return NextResponse.json({ error: 'method_not_allowed' }, { status: 403 });
+  const body = await req.text();
+  if (body.length > 1_000_000) return NextResponse.json({ error: 'too_large' }, { status: 413 });
+  const k = heliusKey();
+  const ups = [`${HELIUS_INDEXER}/${method}`, ...(k ? [`https://mainnet.helius-rpc.com/v1/spr/${method}?api-key=${k}`] : [])];
+  let lastStatus = 502, lastText = JSON.stringify({ error: 'Helius indexer is unreachable right now.' });
+  for (let i = 0; i < ups.length; i++) {
+    try {
+      const r = await fetch(ups[i], { method: 'POST', headers: { 'content-type': 'application/json' }, body, cache: 'no-store', signal: AbortSignal.timeout(25_000) });
+      const t = await r.text();
+      if (r.ok) return new NextResponse(t, { status: 200, headers: { 'content-type': r.headers.get('content-type') || 'application/json', 'cache-control': 'no-store' } });
+      lastStatus = r.status; lastText = t;
+      console.warn(`[privacy/idx] ${method} upstream#${i} -> ${r.status}`);
+    } catch (e) {
+      console.warn(`[privacy/idx] ${method} upstream#${i} -> ${(e as Error).name}`);
+    }
+  }
+  return new NextResponse(lastText, { status: lastStatus, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
+}
+
 async function handle(req: NextRequest, ctx: { params: Promise<{ svc: string; path?: string[] }> }) {
   if (!PRIVATE_ON && !PRIVATE_BETA && !HELIUS_PRIVATE_ON && !HELIUS_PRIVATE_BETA) {
     return NextResponse.json({ error: 'Private withdraw is off' }, { status: 404 });
@@ -79,6 +109,7 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ svc: string; pa
   }
   if (!burst(`privacy:${svc}:${clientIp(req)}`, 300, 60_000)) return NextResponse.json({ error: 'Too many requests. Slow down a little.' }, { status: 429 });
   if (svc === 'rpc') return rpc(req);
+  if (svc === 'idx') return idx(req, parts.join('/'));
   if (svc === 'hfee') {
     // Helius rail protocol fee, charged in SOL to the treasury inside the add-funds transaction.
     // Off unless HELIUS_PRIVATE_FEE_USD is set above zero AND a treasury wallet and a live SOL price exist.
