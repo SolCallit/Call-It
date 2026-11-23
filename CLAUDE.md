@@ -38,6 +38,7 @@ No Python anywhere. Claude (Anthropic API) powers the SI Assistant, which is loc
 | Service worker | `public/sw.js` (caching + push) |
 | Public docs page | `lib/docs/content.ts` — one Markdown string, drives `#/docs` |
 | Env vars, all documented | `.env.example` — empty value means that feature is off |
+| SI Assistant (AI advisor) | `lib/si/` (prompt, tools, agent, guard, watch) · routes in `app/api/assistant/**` · evals in `scripts/si-eval/` (`npm run si:test` offline, `npm run si:eval` with a key). Bump `PROMPT_VERSION` on any prompt change and re-run evals. |
 
 ---
 

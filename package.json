@@ -9,7 +9,10 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "postinstall": "node scripts/privacy-assets.mjs"
+    "postinstall": "node scripts/privacy-assets.mjs",
+    "si:eval": "tsx --tsconfig tsconfig.json scripts/si-eval/run.ts",
+    "si:mine": "tsx --tsconfig tsconfig.json scripts/si-eval/mine.ts",
+    "si:test": "tsx --tsconfig tsconfig.json scripts/si-eval/selftest.ts"
   },
   "dependencies": {
     "@heliuslabs/spr": "^0.9.0-alpha",
@@ -38,6 +41,7 @@
     "@types/react": "19.1.13",
     "@types/react-dom": "19.1.9",
     "@types/web-push": "^3.6.4",
+    "tsx": "^4.23.15",
     "typescript": "5.9.2"
   },
   "engines": {

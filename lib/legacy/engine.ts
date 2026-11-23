@@ -2061,32 +2061,70 @@ function railRest(noCallers){const lv=(LIVE.feeds['movers:1h']||[]).map(k=>T[k])
  ${noCallers?'':`<div class="card"><h3>Top callers</h3><div class="list">${ranked().slice(0,4).map(c=>`<div class="li">${avatar(c.h)}<div class="grow"><a class="pname" href="#/profile/${c.h}">${c.h}</a><div class="hint">${c.win}% win rate</div></div><button class="btn sm ${S.following.has(c.h)?'ghost':'primary'}" data-act="follow" data-h="${c.h}">${S.following.has(c.h)?'Following':'Follow'}</button></div>`).join('')}</div>
  <a class="btn ghost block" style="margin-top:10px" href="#/callerboard">See Callerboard</a></div>`}`}
 
-/* ---------- AI assistant ---------- */
+/* ---------- SI Assistant: the AI financial advisor in your wallet ----------
+   Knows your bags and goals (server tools), flags what changed (si_flags from the watcher), explains moves,
+   and lines up trades that only run when you tap Approve and sign. Thumbs feed the eval suite. */
 const AST={msgs:[],busy:false,err:''};
-const AST_START=['Check a token before I call it','What makes a call worth following?','Help me write a thesis for my call','How do caller fees work on Callit?'];
+const SIP={at:0,busy:0,allowed:null,ready:true,goals:null,flags:[],edit:false,draft:null};
+const AST_START=['How’s my portfolio doing?','What changed in my bags today?','Anything I should trim?','Check a token before I buy'];
 const astText=t=>esc(t).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/\n/g,'<br>');
-function astLog(){if(!AST.msgs.length)return `<div class="astempty"><span class="mark astmark" aria-hidden="true"></span><b class="h2">Check it before you call it.</b>
- <p>Paste a contract address for live data and red flags, or ask how calls and caller fees work.</p>
+const SI_RISK=[['careful','Careful'],['balanced','Balanced'],['degen','Degen']];
+const SI_GOAL=[['grow','Grow'],['stack_sol','Stack SOL'],['protect','Protect'],['runners','Runners']];
+const SI_MAX=[['5','5%'],['10','10%'],['25','25%'],['50','50%']];
+const siLab=(l,k)=>(l.find(x=>x[0]===k)||[,k])[1];
+const siOpen=()=>SI_OPEN||SIP.allowed===true;
+function siLoad(force){if(SIP.busy||(!force&&SIP.at&&Date.now()-SIP.at<60000))return;if(!realAuth()||!S.connected)return;SIP.busy=1;
+ API('/api/assistant/profile').then(j=>{SIP.allowed=!!j.allowed;SIP.ready=j.ready!==false;SIP.goals=j.goals||null;SIP.flags=j.flags||[]})
+  .catch(()=>{if(SIP.allowed==null)SIP.allowed=false}).finally(()=>{SIP.busy=0;SIP.at=Date.now();if(currentRoute()==='assistant')render()})}
+function siGoalsCard(){const g=SIP.goals||{},d=SIP.draft||(SIP.draft={risk:g.risk||'balanced',goal:g.goal||'grow',max:String(g.max_trade_pct||10)});
+ return `<div class="card sigoals"><b>${SIP.goals?'Your goals':'Set your goals'}</b><p class="hint">SI fits every answer and every trade it lines up to these.</p>
+ <span class="silab">Risk</span>${vseg('sigr',SI_RISK,d.risk,'Risk')}<span class="silab">Goal</span>${vseg('sigg',SI_GOAL,d.goal,'Goal')}<span class="silab">Max per trade</span>${vseg('sigm',SI_MAX,d.max,'Max per trade')}
+ <button class="btn primary block" data-act="sigsave">Save goals</button></div>`}
+function siSum(){const g=SIP.goals;if(!g)return '';return `<div class="sisum">${ic('target',14)}<span>${siLab(SI_RISK,g.risk)} · ${siLab(SI_GOAL,g.goal)} · ${+g.max_trade_pct}% max per trade</span><button class="linkbtn" data-act="sigedit">Edit</button></div>`}
+function siFlags(){const l=(SIP.flags||[]).slice(0,4);if(!l.length)return '';
+ return `<div class="siflags"><span class="silab">SI flagged</span>${l.map(f=>`<button class="siflag s${+f.severity}${f.seen?'':' new'}" data-act="siflag" data-id="${esc(f.id)}">${T[f.mint]?tokav(f.mint):`<span class="tokav">${ic('bell',16)}</span>`}<span class="grow"><b>${esc(f.title)}</b><span class="hint">${esc(f.detail)}</span></span>${ic('chev',14)}</button>`).join('')}</div>`}
+const SI_ST={approved:'Waiting for your signature…',executed:'Done. It’s in your wallet history.',declined:'Declined',failed:'Didn’t go through. Nothing was sent.',expired:'Expired. Ask SI for fresh numbers.'};
+function siProp(p){const st=p.status||'pending',what=p.side==='buy'?`Buy $${esc(p.sym)} with ${fmtAmt(p.sol_amount)} SOL`:`Sell ${+p.sell_pct}% of your $${esc(p.sym)}`;
+ return `<div class="siprop ${st}"><div class="sph">${T[p.mint]?tokav(p.mint):''}<div class="grow"><b>${what}</b><span class="hint">${esc(p.reason)}</span></div></div>
+ ${st==='pending'?`<div class="spb"><button class="btn sm ghost" data-act="sidecline" data-id="${esc(p.id)}">Decline</button><button class="btn sm primary" data-act="siapprove" data-id="${esc(p.id)}">${ic('check',14)} Approve & sign</button></div>`:`<span class="spst">${SI_ST[st]||esc(st)}</span>`}</div>`}
+function astLog(){if(!AST.msgs.length)return `<div class="astempty"><span class="mark astmark" aria-hidden="true"></span><b class="h2">Your advisor, in your wallet.</b>
+ <p>SI knows your bags and your goals, tells you what changed, explains why, and lines up trades you approve with one tap.</p>
+ ${!SIP.goals||SIP.edit?siGoalsCard():siSum()}${siFlags()}
  <div class="astarts">${AST_START.map((q,i)=>`<button class="astart" data-act="aststart" data-i="${i}">${esc(q)}</button>`).join('')}</div></div>`;
  return AST.msgs.map(m=>m.role==='user'?`<div class="astu">${astText(m.content)}</div>`
-  :`<div class="asta"><span class="mark astav" aria-hidden="true"></span><div class="grow">${(m.tokens||[]).map(t=>T[t]?`<a class="ccard asttok" href="#/token/${t}">${tokav(t)}<div class="cn"><b>${esc(T[t].name||T[t].sym)}</b><span class="hint">$${esc(T[t].sym)}</span></div><b class="num">${T[t].price&&T[t].supply?fmtUsd(mcap(T[t])):''}</b></a>`:'').join('')}<div class="astmsg">${astText(m.content)}</div></div></div>`).join('')
-  +(AST.busy?`<div class="asta astbusy" role="status"><span class="mark astav" aria-hidden="true"></span><span class="hint">Checking<i>.</i><i>.</i><i>.</i></span></div>`:'')}
-/* SI Assistant is locked until launch numbers justify it. Flip SI_OPEN to true to unlock. */
+  :`<div class="asta"><span class="mark astav" aria-hidden="true"></span><div class="grow">${(m.tokens||[]).filter(t=>!(m.proposals||[]).some(p=>p.mint===t)).map(t=>T[t]?`<a class="ccard asttok" href="#/token/${t}">${tokav(t)}<div class="cn"><b>${esc(T[t].name||T[t].sym)}</b><span class="hint">$${esc(T[t].sym)}</span></div><b class="num">${T[t].price&&T[t].supply?fmtUsd(mcap(T[t])):''}</b></a>`:'').join('')}<div class="astmsg">${astText(m.content)}</div>${(m.proposals||[]).map(siProp).join('')}
+  ${m.logId?`<div class="sifb">${m.fb?`<span class="hint">${m.fb>0?'Thanks!':'Thanks. SI learns from this.'}</span>`:`<button class="ib" data-act="sifb" data-id="${esc(m.logId)}" data-r="1" aria-label="Good answer">👍</button><button class="ib" data-act="sifb" data-id="${esc(m.logId)}" data-r="-1" aria-label="Bad answer">👎</button>`}</div>`:''}</div></div>`).join('')
+  +(AST.busy?`<div class="asta astbusy" role="status"><span class="mark astav" aria-hidden="true"></span><span class="hint">Checking your wallet<i>.</i><i>.</i><i>.</i></span></div>`:'')}
+/* SI Assistant: open to everyone when SI_OPEN is true; before that, admins can use it (the server decides who's allowed). */
 const SI_OPEN=false;
-function vAssistant(){if(!SI_OPEN)return `<div class="pad"><div class="soonx"><div class="sxmark"><span class="mark"></span></div><span class="lkick" style="margin:0 0 12px">${ic('lock',13)} Coming soon</span><b class="h2">SI Assistant</b><p>Callit’s Super Intelligence. Not a help bot: an AI that works your trades with you, and only ever on your command.</p><ul>${['Researches any token: holders, liquidity, risk flags, copycats','Cross-checks calls before you follow them','Places trades and payments when you tell it to, never by itself','Every action waits for your approval in your wallet'].map(x=>`<li>${ic('check',16)} ${x}</li>`).join('')}</ul><a class="btn primary" href="#/market">Open Market</a></div></div>`;
+function vAssistant(){if(!siOpen()){siLoad();return `<div class="pad"><div class="soonx"><div class="sxmark"><span class="mark"></span></div><span class="lkick" style="margin:0 0 12px">${ic('lock',13)} Coming soon</span><b class="h2">SI Assistant</b><p>Callit’s Super Intelligence. Not a help bot: an AI that works your trades with you, and only ever on your command.</p><ul>${['Knows your bags and goals, and tells you what changed','Explains why a token or your wallet moved','Researches any token: holders, liquidity, risk flags, copycats','Lines up trades that only run when you approve and sign'].map(x=>`<li>${ic('check',16)} ${x}</li>`).join('')}</ul><a class="btn primary" href="#/market">Open Market</a></div></div>`}
+ siLoad();
  return `<div class="ast"><div class="astlog" id="astlog" aria-live="polite">${astLog()}</div>
- <div class="astbar">${AST.err?`<p class="asterr">${esc(AST.err)}</p>`:''}<div class="astbox"><textarea class="input" id="astin" rows="1" maxlength="2000" placeholder="Paste a CA or ask anything" aria-label="Message the assistant"></textarea>
+ <div class="astbar">${AST.err?`<p class="asterr">${esc(AST.err)}</p>`:''}<div class="astbox"><textarea class="input" id="astin" rows="1" maxlength="2000" placeholder="Ask about your bags, or paste a CA" aria-label="Message SI"></textarea>
  <button class="btn primary astgo" data-act="astsend" aria-label="Send">${ic('up',18)}</button></div>
- <p class="hint astnote">Not financial advice. Always check the contract address.${AST.msgs.length?` <button class="linkbtn" data-act="astnew">New chat</button>`:''}</p></div></div>`}
+ <p class="hint astnote">SI never trades without your approval.${AST.msgs.length?` <button class="linkbtn" data-act="astnew">New chat</button>`:''}</p></div></div>`}
 function drawAst(){const l=$('#astlog');if(!l)return;l.innerHTML=astLog();const bar=$('.astbar');if(bar){const e=bar.querySelector('.asterr');if(e)e.remove();if(AST.err)bar.insertAdjacentHTML('afterbegin',`<p class="asterr">${esc(AST.err)}</p>`)}
  requestAnimationFrame(()=>{const v=l.lastElementChild;v&&v.scrollIntoView({block:'end',behavior:'smooth'})})}
 async function astSend(text){const q=String(text||'').trim();if(!q||AST.busy)return;if(!S.connected)return connectModal();
  AST.err='';AST.msgs.push({role:'user',content:q});AST.busy=true;const i=$('#astin');if(i){i.value='';i.style.height=''}drawAst();
  try{const j=await API('/api/assistant',{body:{messages:AST.msgs.map(({role,content})=>({role,content}))}});
   const toks=(j.tokens||[]).map(x=>{const o=regLive(x);return o&&o.key}).filter(Boolean);
-  AST.msgs.push({role:'assistant',content:j.reply,tokens:toks})}
- catch(e){AST.msgs.pop();AST.err=e.message==='assistant_not_configured'?'The assistant isn’t switched on yet.':e.message==='assistant_unavailable'?'The assistant is busy. Try again in a moment.':e.message;if(i&&!i.value)i.value=q}
+  AST.msgs.push({role:'assistant',content:j.reply,tokens:toks,proposals:(j.proposals||[]).map(p=>({...p,status:'pending'})),logId:j.log_id||null})}
+ catch(e){AST.msgs.pop();AST.err=e.message==='assistant_not_configured'?'SI isn’t switched on yet.':e.message==='assistant_unavailable'?'SI is busy. Try again in a moment.':e.message;if(i&&!i.value)i.value=q}
  finally{AST.busy=false;drawAst();const k=$('#astin');k&&k.focus()}}
+function siFind(id){for(const m of AST.msgs)for(const p of (m.proposals||[]))if(p.id===id)return p;return null}
+const siMark=(id,action,signature)=>API('/api/assistant/proposal',{body:{id,action,signature}}).catch(()=>{});
+async function siApprove(id){const p=siFind(id);if(!p||p.status!=='pending')return;if(!REALW())return toast('Sign in with your wallet to trade');
+ try{await API('/api/assistant/proposal',{body:{id,action:'approve'}})}catch(e){if(/expired/i.test(e.message))p.status='expired';toast(e.message);drawAst();return}
+ p.status='approved';drawAst();
+ const after=r=>{p.status='executed';drawAst();siMark(id,'executed',r&&r.signature)};
+ const done=ok=>{if(!ok){p.status='failed';drawAst();siMark(id,'failed')}};
+ if(p.side==='buy')return realSwap('SOL',p.mint,p.sol_amount,`SI: buy $${p.sym} with ${fmtAmt(p.sol_amount)} SOL`,done,{after});
+ const held=S.bal[p.mint]||0,amt=p.sell_pct>=100?held:held*p.sell_pct/100;
+ if(!(amt>0)){p.status='failed';drawAst();siMark(id,'failed');return toast(`You don’t hold $${p.sym} anymore`)}
+ realSwap(p.mint,'SOL',amt,`SI: sell ${+p.sell_pct}% of $${p.sym}`,done,{after})}
+function siDecline(id){const p=siFind(id);if(!p||p.status!=='pending')return;p.status='declined';drawAst();siMark(id,'decline')}
+function siFb(id,r){const m=AST.msgs.find(x=>x.logId===id);if(!m||m.fb)return;m.fb=r;drawAst();API('/api/assistant/feedback',{body:{log_id:id,rating:r}}).catch(()=>{})}
 
 /* ---------- chrome ---------- */
 /* One tray, no Features/Products split. Messages and News sit right under Home. */
@@ -4217,7 +4255,12 @@ document.addEventListener('click',e=>{
   notify:()=>{const f=b.dataset.f;if(!S.connected)return connectModal();S.notifyOn=S.notifyOn||{};S.notifyOn[f]=1;if(f==='stake')S.stakeWait=true;try{localStorage.setItem('callit.notify',JSON.stringify(S.notifyOn))}catch(_){}toast(`We'll let you know when ${SOONF[f]||'it'} opens`);render()},
   astsend:()=>astSend(($('#astin')||{}).value),
   astnew:()=>{AST.msgs=[];AST.err='';render()},
-  aststart:()=>{const q=AST_START[+b.dataset.i];if(+b.dataset.i===0){const i=$('#astin');if(i){i.value='CA: ';i.focus()}}else astSend(q)},
+  aststart:()=>{const q=AST_START[+b.dataset.i];if(+b.dataset.i===3){const i=$('#astin');if(i){i.value='Check this CA: ';i.focus()}}else astSend(q)},
+  sigr:()=>{SIP.draft.risk=b.dataset.f;drawAst()},sigg:()=>{SIP.draft.goal=b.dataset.f;drawAst()},sigm:()=>{SIP.draft.max=b.dataset.f;drawAst()},
+  sigsave:()=>{const d=SIP.draft;API('/api/assistant/profile',{body:{risk:d.risk,goal:d.goal,max_trade_pct:+d.max}}).then(j=>{SIP.goals=j.goals;SIP.edit=false;SIP.draft=null;toast('Goals saved. SI will fit everything to them');drawAst()}).catch(e=>toast(e.message))},
+  sigedit:()=>{SIP.edit=true;SIP.draft=null;drawAst()},
+  siflag:()=>{const f=(SIP.flags||[]).find(x=>x.id===b.dataset.id);if(f)astSend(`Explain this flag on my $${f.sym}: "${f.title}. ${f.detail}" What are my options?`)},
+  siapprove:()=>siApprove(b.dataset.id),sidecline:()=>siDecline(b.dataset.id),sifb:()=>siFb(b.dataset.id,+b.dataset.r),
   stakewait:()=>{if(!S.connected)return connectModal();S.stakeWait=true;toast('We\'ll let you know when $CALLIT staking opens');render()},
   buyprem:()=>{if(!S.connected)return connectModal(()=>{location.hash='#/premium'});if(REALW())return toast('Premium payments open soon. Nothing was charged');const P=PLANS[S.plan||'yearly'],via=S.payvia||'SOL',amt=via==='SOL'?P.usd/T.SOL.price:P.usd;
    if((S.bal[via]||0)<amt)return toast(`Not enough ${via}. You need ${via==='SOL'?amt.toFixed(3):amt} ${via}`);
