@@ -945,3 +945,8 @@ body.sides.sides2 .sidel>.sidep{display:flex;flex-direction:column;height:100%}
 .tsbox .tsok{display:none;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--up)}
 .tsbox.ok{min-height:0}.tsbox.ok>div{display:none}.tsbox.ok .tsok{display:inline-flex}
 .authm [data-connect].tswait{opacity:.5}
+/* One scrollbar: while the landing (its own scroller) is up, the page behind it can't scroll.
+   html has overflow-x:clip, so body's overflow never reached the window scrollbar on its own. */
+html:has(body.lock){overflow:hidden}
+.lx-auth .lxb.tswait{opacity:.55}
+.lx-auth .tsbox{margin:4px 0 0}

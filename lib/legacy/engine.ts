@@ -2225,10 +2225,10 @@ function connectModal(next,mode){modal(mode==='up'?'Create your Callit account':
  `<div class="authways">${AUTH_WAYS.map(([l,i])=>`<button class="opt aopt" data-connect="${l}">${typeof i==='function'?i():i}<span class="grow">Continue with ${l}</span>${ic('chev',16)}</button>`).join('')}</div>
  <div class="divider">or use your own wallet</div>
  <div class="authwallets">${AUTH_WALLETS.map(([w,src])=>`<button class="awal" data-connect="${w}"><img src="${src}" alt="" width="40" height="40" decoding="async"><span>${w}</span></button>`).join('')}</div>
- ${TS_KEY?`<div class="tsbox${tsPassed()?' ok':''}" id="tsbox"><span class="tsok">${ic('verified',16)} Verified human · Protected by Cloudflare</span></div>`:''}
+ ${TS_KEY?`<div class="tsbox${tsPassed()?' ok':''}"><span class="tsok">${ic('verified',16)} Verified human · Protected by Cloudflare</span></div>`:''}
  <p class="authfoot">${ic('lock',12)} Non-custodial. Callit never sees your keys.</p>`,
  m=>{m.classList.add('authm');m.insertAdjacentHTML('afterbegin','<i class="authglow" aria-hidden="true"></i>');tsMount(m);m.addEventListener('click',e=>{const b=e.target.closest('[data-connect]');if(!b)return;
-  if(TS_KEY&&!tsPassed()){toast('One sec — Cloudflare is checking you’re human.');return}
+  if(tsBlock())return;
   signIn(b.dataset.connect,next)})})}
 /* Cloudflare Turnstile on the sign-in sheet: a visible "Success!" check before any way in.
    Off unless NEXT_PUBLIC_TURNSTILE_SITE_KEY is set. Passing once lasts for the browser session.
@@ -2236,10 +2236,11 @@ function connectModal(next,mode){modal(mode==='up'?'Create your Callit account':
 const TS_KEY=(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY||'').trim();
 let TS_OK=false,TS_JS=null;
 const tsPassed=()=>{if(TS_OK)return true;try{return sessionStorage.getItem('callit.human')==='1'}catch(_){return false}};
-function tsPass(){TS_OK=true;try{sessionStorage.setItem('callit.human','1')}catch(_){}const b=$('#tsbox');if(b)b.classList.add('ok');document.querySelectorAll('.authm [data-connect]').forEach(x=>x.classList.remove('tswait'))}
+function tsPass(){TS_OK=true;try{sessionStorage.setItem('callit.human','1')}catch(_){}document.querySelectorAll('.tsbox').forEach(b=>b.classList.add('ok'));document.querySelectorAll('.tswait').forEach(x=>x.classList.remove('tswait'))}
+const tsBlock=()=>{if(!TS_KEY||tsPassed())return false;toast('One sec — Cloudflare is checking you’re human.');return true};
 function tsLoad(){if(TS_JS)return TS_JS;TS_JS=new Promise((ok,no)=>{if(window.turnstile)return ok(window.turnstile);const sc=document.createElement('script');sc.src='https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';sc.async=true;sc.onload=()=>ok(window.turnstile);sc.onerror=()=>{TS_JS=null;no(new Error('turnstile_load'))};document.head.appendChild(sc)});return TS_JS}
-function tsMount(m){if(!TS_KEY||tsPassed())return;const box=$('#tsbox',m);if(!box)return;
- m.querySelectorAll('[data-connect]').forEach(x=>x.classList.add('tswait'));
+function tsMount(m){if(!TS_KEY||tsPassed())return;const box=m.querySelector('.tsbox');if(!box)return;
+ m.querySelectorAll('[data-connect],.lx-auth .lxb').forEach(x=>x.classList.add('tswait'));
  const fail=setTimeout(()=>{if(!tsPassed())tsPass()},10000);
  tsLoad().then(ts=>{if(!box.isConnected)return;const w=document.createElement('div');box.prepend(w);
   ts.render(w,{sitekey:TS_KEY,theme:document.documentElement.dataset.theme==='light'?'light':'dark',size:'flexible',appearance:'always',
@@ -3990,6 +3991,7 @@ function landingHTML(){const yr=new Date().getFullYear(),FX=lxFx();
    <input class="lx-in" id="lxemail" type="email" autocomplete="email" placeholder="Email address" aria-label="Email address">
    <div class="err" id="lxerr"></div>
    <button class="lxb primary" id="lxgo" data-act="lemail">Continue</button>
+   ${TS_KEY?`<div class="tsbox${tsPassed()?' ok':''}"><span class="tsok">${ic('verified',16)} Verified human · Protected by Cloudflare</span></div>`:''}
    <p class="lx-terms">By continuing, you agree to our <button data-act="doc" data-f="terms">Terms of Service</button> and <button data-act="doc" data-f="privacy">Privacy Policy</button>.</p>
    <button class="lx-look" data-act="explore">Just looking? Explore Callit first</button>
   </div>
@@ -4034,7 +4036,7 @@ function gateSync(err){let el=$('#gate');const land=$('#landing'),show=GATE.gate
 function syncLanding(){const el=$('#landing');let exp=false;try{exp=sessionStorage.getItem('callit.explore')==='1'}catch(_){}
  if(authPending())return;
  const A=window.CallitAuth,restoring=realAuth()&&A&&A.ready&&A.authenticated&&!S.connected;
- const show=!S.connected&&!exp&&!restoring;if(show&&el.hidden){el.innerHTML=landingHTML();el.hidden=false}else if(!show&&!el.hidden){el.hidden=true;el.innerHTML=''}
+ const show=!S.connected&&!exp&&!restoring;if(show&&el.hidden){el.innerHTML=landingHTML();el.hidden=false;tsMount(el)}else if(!show&&!el.hidden){el.hidden=true;el.innerHTML=''}
  document.body.classList.toggle('lock',show);hideBoot();gateSync()}
 setTimeout(accessCheck,400);
 try{S.premium=JSON.parse(localStorage.getItem('callit.premium')||'null')}catch(_){}
@@ -4198,8 +4200,8 @@ document.addEventListener('click',e=>{
   cimp:()=>{S.cimp=b.dataset.f;try{localStorage.setItem('callit.cimp',S.cimp)}catch(_){}render()},
   ccur:()=>{const f=b.dataset.f;if(f==='*'){lsPut('callit.ccur',null);return render()}const all=[...new Set(((NEWS.calendar.d&&NEWS.calendar.d.events)||[]).map(e=>e.country))];const cur=lsSet('callit.ccur')||new Set(all);cur.has(f)?cur.delete(f):cur.add(f);lsPut('callit.ccur',cur.size===all.length||!cur.size?null:cur);render()},
   nsrc:()=>{const f=b.dataset.f;if(f==='*'){nsrcSet(null);return render()}const all=['callit','x','reddit','youtube','bluesky','hackernews','coingecko','google'];const cur=nsrcGet()||new Set(all);cur.has(f)?cur.delete(f):cur.add(f);nsrcSet(cur.size===all.length||!cur.size?null:cur);render()},stscroll:()=>{const t=$('#'+b.dataset.f);t&&t.scrollBy({left:+b.dataset.d*t.clientWidth*.8,behavior:'smooth'})},
-  lsign:()=>signIn(b.dataset.f),lwallet:()=>realAuth()?realLogin('wallet',undefined,null):connectModal(null,'in'),
-  lemail:()=>{const v=($('#lxemail')||{}).value||'';if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())){$('#lxerr').textContent='Enter a valid email address.';$('#lxemail').focus();return}signIn('Email',null,{email:v.trim()})},
+  lsign:()=>tsBlock()||signIn(b.dataset.f),lwallet:()=>tsBlock()||realAuth()?realLogin('wallet',undefined,null):connectModal(null,'in'),
+  lemail:()=>{if(tsBlock())return;const v=($('#lxemail')||{}).value||'';if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())){$('#lxerr').textContent='Enter a valid email address.';$('#lxemail').focus();return}signIn('Email',null,{email:v.trim()})},
   lexplore:()=>{try{sessionStorage.setItem('callit.explore','1')}catch(_){}location.hash='#/'+b.dataset.f;syncLanding()},
   doc:()=>docModal(b.dataset.f),soclink:()=>{e.preventDefault();toast(`Callit on ${b.dataset.f} is coming soon`)},editprof:()=>editProfile(b.dataset.f),follows:()=>followsModal(b.dataset.h,b.dataset.f),dtab:()=>{if(S.dtab===b.dataset.f)return;if(slideTo(b)&&!b.dataset.slid){b.dataset.slid=1;return setTimeout(()=>b.isConnected?b.click():null,170)}S.dtab=b.dataset.f;render()},
   ytab:()=>{if(S.ytab===b.dataset.f)return;if(slideTo(b)&&!b.dataset.slid){b.dataset.slid=1;return setTimeout(()=>b.isConnected?b.click():null,170)}S.ytab=b.dataset.f;try{localStorage.setItem('callit.ytab',S.ytab)}catch(_){}render()},
