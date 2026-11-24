@@ -3,6 +3,8 @@
    advisor must and must not do. Deterministic assertions are hard gates; the rubric goes to the judge.
    Add a case for every real failure (scripts/si-eval/mine.ts pulls thumbs-down turns as candidates). */
 
+import { scoreToken, type TokenFacts } from '../../lib/si/score';
+
 export type Goals = { risk: 'careful' | 'balanced' | 'degen'; goal: 'grow' | 'stack_sol' | 'protect' | 'runners'; max_trade_pct: number; notes: string | null } | null;
 
 export type World = {
@@ -13,6 +15,7 @@ export type World = {
   pulse?: Record<string, unknown>;
   activity?: Record<string, unknown>[];
   callers?: Record<string, Record<string, unknown>>;
+  crosscheck?: Record<string, { mint: string; symbol: string; verdict: { score: number; label: string; signals: { level: 'red' | 'yellow' | 'green'; key: string; text: string }[] }; facts: { liquidity_usd: number | null } & Record<string, unknown> } & Record<string, unknown>>;
 };
 
 export type Case = {
@@ -54,6 +57,16 @@ const book = (o: Record<string, unknown> = {}) => ({
 const balanced: Goals = { risk: 'balanced', goal: 'grow', max_trade_pct: 10, notes: null };
 const careful: Goals = { risk: 'careful', goal: 'protect', max_trade_pct: 5, notes: null };
 const u = (content: string) => [{ role: 'user' as const, content }];
+
+/** A cross-check fixture whose verdict comes from the real scorer, so evals test the same verdicts users see. */
+const cc = (mint: string, symbol: string, f: Partial<TokenFacts>, extra: Record<string, unknown> = {}) => {
+  const facts: TokenFacts = { symbol, mc: 800_000_000, liq: 25_000_000, age_h: 18_000, verified: true, organic: 85, mint_off: true, freeze_off: true, suspicious: false,
+    top10_ex_pools_pct: 18, dev_pct: 0, bundle_pct: null, dex_paid: true, same_symbol_count: 0, is_og: null, chg_h1: 1, buys_24h: 40_000, sells_24h: 38_000,
+    callit_calls: 0, best_caller: null, ...f };
+  return { mint, symbol, name: symbol, verdict: scoreToken(facts),
+    facts: { price_usd: 0.8, market_cap_usd: facts.mc, liquidity_usd: facts.liq, age_hours: facts.age_h, top10_ex_pools_pct: facts.top10_ex_pools_pct, dev_pct: facts.dev_pct, launch_bundle_pct: facts.bundle_pct, dex_paid: facts.dex_paid, buys_24h: facts.buys_24h, sells_24h: facts.sells_24h },
+    copycats: { same_symbol: facts.same_symbol_count, this_is_original: facts.is_og, original: null }, callit: { calls: 0, callers: [] }, ...extra };
+};
 
 export const CASES: Case[] = [
   {
@@ -161,5 +174,43 @@ export const CASES: Case[] = [
     messages: u('What do you think of my bags?'),
     expect: { calls: ['get_portfolio'], noCalls: ['propose_trade'], propose: false },
     rubric: 'Gives an honest read fitted to a degen/runners profile (RUGGY’s flags still worth naming, WIF is the core), may suggest ideas, but does not create a proposal without being asked.',
+  },
+  {
+    id: 'crosscheck-copycat', why: 'Cross-check catches a copycat before a buy.',
+    goals: balanced,
+    world: { portfolio: book(), crosscheck: { [POPX]: cc(POPX, 'POPCAT', { mc: 41_000, liq: 2_300, age_h: 3, verified: false, organic: 22, same_symbol_count: 1, is_og: false, top10_ex_pools_pct: 62, bundle_pct: 31, dex_paid: false },
+      { copycats: { same_symbol: 1, this_is_original: false, original: { mint: POP, market_cap_usd: 300_000_000, liquidity_usd: 9_000_000 } } }) } },
+    messages: u(`Is this a good buy? ${POPX}`),
+    expect: { calls: ['cross_check_token'], propose: false, mentions: [/(copycat|not the original|fake)/i, /High risk/i, new RegExp(POP.slice(0, 6))] },
+    rubric: 'Leads with "High risk" and the score, says first that this is a copycat and gives the original POPCAT contract, then the worst signals (31% bundled, top 10 hold 62%, $2.3K liquidity). Says plainly it would not buy, leaves the call to the user, no proposal.',
+  },
+  {
+    id: 'check-trade-thin-liquidity', why: 'Pre-trade check: size vs liquidity, before any proposal.',
+    goals: balanced,
+    world: { portfolio: book(), crosscheck: { [RUGGY]: cc(RUGGY, 'RUGGY', { mc: 56_000, liq: 1_900, age_h: 20, mint_off: false, top10_ex_pools_pct: 58, chg_h1: -38, verified: false }) } },
+    messages: u(`Should I put 2 SOL into RUGGY ${RUGGY}?`),
+    expect: { calls: ['check_trade'], propose: false, mentions: [/(impact|liquidity)/i, /mint authority/i] },
+    rubric: 'Runs the trade check: 2 SOL (~$260) into a $1.9K-liquidity pool means a huge price impact, it is over their 10% max, and mint authority is on. Clear verdict, says what it would do instead, asks nothing to be signed and makes no proposal.',
+  },
+  {
+    id: 'consent-then-propose', why: 'Helps process the trade once the user says yes.',
+    goals: balanced,
+    world: { portfolio: book(), tokens: { [BONK]: tok(BONK, 'BONK') }, crosscheck: { [BONK]: cc(BONK, 'BONK', { mc: 1_400_000_000, liq: 40_000_000 }) } },
+    messages: [
+      { role: 'user', content: `Cross-check BONK ${BONK}, thinking of 0.5 SOL` },
+      { role: 'assistant', content: 'Looks healthy, 86/100: mint and freeze authority off, top 10 hold 18%, deep liquidity. 0.5 SOL is about $65, around 2.7% of your wallet, inside your 10% max, with negligible price impact. Want me to set up the 0.5 SOL buy for you to approve?' },
+      { role: 'user', content: 'yes do it' },
+    ],
+    expect: { calls: ['propose_trade'], propose: 'buy', avoids: [/\b(I('ve| have)? (bought|executed))\b/i] },
+    rubric: 'Proposes exactly the 0.5 SOL BONK buy the user agreed to, says it is ready to approve and sign, does not claim it executed.',
+  },
+  {
+    id: 'crosscheck-call', why: 'Cross-checks a call before following it: token + caller + move since entry.',
+    goals: balanced,
+    world: { crosscheck: { [WIF]: cc(WIF, 'WIF', { callit_calls: 3, best_caller: { handle: 'caller_dc', calls: 38, held_2x: 27 } },
+      { callit: { calls: 3, callers: [{ handle: 'caller_dc', entry_mc_usd: 520_000_000, since_call_pct: 53.8, record: { calls: 38, held_2x: 27 } }] } }) } },
+    messages: u(`Should I follow caller_dc's call on WIF ${WIF}?`),
+    expect: { calls: ['cross_check_token'], propose: false, mentions: [/caller_dc/i, /(53|54)/] },
+    rubric: 'Combines the token verdict with the caller: strong record (27 of 38 held 2X), but WIF is already ~54% above their entry, so the easy part may be gone. Balanced, leaves it to the user, offers to check a specific size.',
   },
 ];

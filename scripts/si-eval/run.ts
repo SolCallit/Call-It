@@ -13,7 +13,8 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { runAgent, DEFAULT_MODEL, type AgentResult } from '../../lib/si/agent';
 import { systemDynamic, PROMPT_VERSION } from '../../lib/si/prompt';
-import type { Proposal, Toolbox } from '../../lib/si/tools-spec';
+import type { CheckCard, Proposal, Toolbox } from '../../lib/si/tools-spec';
+import { scoreTrade } from '../../lib/si/score';
 import { CASES, type Case } from './cases';
 
 const arg = (k: string) => process.argv.find((a) => a.startsWith(`--${k}`))?.split('=')[1];
@@ -25,8 +26,10 @@ const GATE = Number(process.env.SI_EVAL_MIN) || 0.9;
 /** Serves a case's frozen world. Same contract as the live Toolbox; propose_trade enforces the same limits. */
 export function fixtureToolbox(c: Case): Toolbox & { saved: Record<string, unknown> | null } {
   const w = c.world;
+  const goalsOf = (_t: unknown) => c.goals;
+  const caseGoals = (_x: unknown, _t: unknown) => c.goals?.max_trade_pct ?? null;
   const tb: Toolbox & { saved: Record<string, unknown> | null } = {
-    tokens: [], proposals: [], saved: null,
+    tokens: [], proposals: [], checks: [], saved: null,
     async run(name, input) {
       switch (name) {
         case 'get_portfolio': return w.portfolio ?? { error: 'no_wallet', note: 'The user has no wallet connected yet.' };
@@ -37,6 +40,24 @@ export function fixtureToolbox(c: Case): Toolbox & { saved: Record<string, unkno
         case 'search_tokens': { const m = w.search?.[String(input.query).toLowerCase().replace(/^\$/, '')]; return m?.length ? { matches: m } : { error: 'no_matches' }; }
         case 'market_pulse': return w.pulse ?? { error: 'unavailable' };
         case 'caller_record': return w.callers?.[String(input.handle).replace(/^@/, '').toLowerCase()] ?? { error: 'not_found' };
+        case 'cross_check_token': {
+          const c = w.crosscheck?.[String(input.mint)];
+          if (!c) return { error: 'not_found' };
+          tb.checks.push({ kind: 'token', mint: c.mint, symbol: c.symbol, label: c.verdict.label, score: c.verdict.score, signals: c.verdict.signals } as CheckCard);
+          return c;
+        }
+        case 'check_trade': {
+          const c = w.crosscheck?.[String(input.mint)];
+          const p = w.portfolio as { total_usd?: number; sol?: { amount: number; price_usd: number }; holdings?: { mint: string; value_usd: number; unrealized_pnl_pct: number | null }[]; error?: string } | undefined;
+          if (!c) return { error: 'token_not_found' };
+          if (!p || p.error) return { error: 'no_wallet' };
+          const held = p.holdings?.find((h) => h.mint === String(input.mint));
+          const usd = input.side === 'buy' ? Number(input.sol_amount) * p.sol!.price_usd : (held?.value_usd ?? 0) * Number(input.sell_pct) / 100;
+          const t = scoreTrade({ side: input.side as 'buy' | 'sell', usd, liq: c.facts.liquidity_usd, portfolio_usd: p.total_usd!, max_trade_pct: caseGoals(c, tb), weight_after_pct: input.side === 'buy' ? (((held?.value_usd ?? 0) + usd) / p.total_usd!) * 100 : null,
+            sol_left: input.side === 'buy' ? p.sol!.amount - Number(input.sol_amount) : null, risk: goalsOf(tb)?.risk ?? null, token_label: c.verdict.label as 'High risk' | 'Caution' | 'Looks healthy', unrealized_pnl_pct: held?.unrealized_pnl_pct ?? null });
+          tb.checks.push({ kind: 'trade', mint: c.mint, symbol: c.symbol, label: c.verdict.label, score: c.verdict.score, signals: [...t.signals, ...c.verdict.signals], est_price_impact_pct: t.est_price_impact_pct, usd } as CheckCard);
+          return { token: c, trade: { side: input.side, usd: +usd.toFixed(2), pct_of_portfolio: +((usd / p.total_usd!) * 100).toFixed(1), ...t } };
+        }
         case 'propose_trade': {
           if (tb.proposals.length) return { error: 'one_trade_at_a_time' };
           const p = w.portfolio as { total_usd?: number; sol?: { amount: number; value_usd: number }; holdings?: { mint: string }[]; error?: string } | undefined;

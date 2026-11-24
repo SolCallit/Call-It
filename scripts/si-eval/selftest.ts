@@ -10,6 +10,7 @@ import { runAgent } from '../../lib/si/agent';
 import { systemDynamic } from '../../lib/si/prompt';
 import { numbersSaid, ungroundedNumbers, claimsExecution } from '../../lib/si/guard';
 import { CASES } from './cases';
+import { scoreToken, scoreTrade } from '../../lib/si/score';
 import { fixtureToolbox } from './run';
 
 type Step = { tool?: { name: string; input: Record<string, unknown> }; text?: string };
@@ -75,6 +76,17 @@ async function main() {
   ok('numbersSaid normalizes $1.2K / 34.5% / $34.5M', JSON.stringify(numbersSaid('$1.2K, 34.5% and $34.5M').map((n) => n.value)) === JSON.stringify([1200, 34.5, 34500000]));
   ok('ungrounded: derived difference allowed', ungroundedNumbers('You’re up $300', [{ value: 1200, cost: 900 }]).length === 0);
   ok('claimsExecution catches "I have bought"', claimsExecution('I have bought 2 SOL of BONK for you') && !claimsExecution('Tap Approve and I’ll line up the buy'));
+
+  // 6. Cross-check: verdicts come from the scorer, and tool calls produce check cards for the app
+  const healthy = scoreToken({ symbol: 'BONK', mc: 1.4e9, liq: 4e7, age_h: 2e4, verified: true, organic: 90, mint_off: true, freeze_off: true, suspicious: false, top10_ex_pools_pct: 18, dev_pct: 0, bundle_pct: null, dex_paid: true, same_symbol_count: 0, is_og: null, chg_h1: 1, buys_24h: 4e4, sells_24h: 3.8e4, callit_calls: 0, best_caller: null });
+  const copy = scoreToken({ symbol: 'POPCAT', mc: 41_000, liq: 2_300, age_h: 3, verified: false, organic: 22, mint_off: true, freeze_off: true, suspicious: false, top10_ex_pools_pct: 62, dev_pct: 2, bundle_pct: 31, dex_paid: false, same_symbol_count: 1, is_og: false, chg_h1: 5, buys_24h: 900, sells_24h: 700, callit_calls: 0, best_caller: null });
+  ok('healthy token → Looks healthy', healthy.label === 'Looks healthy' && healthy.score >= 70, `${healthy.label} ${healthy.score}`);
+  ok('copycat → High risk, capped, red first', copy.label === 'High risk' && copy.score <= 35 && copy.signals[0].level === 'red', `${copy.label} ${copy.score}`);
+  const big = scoreTrade({ side: 'buy', usd: 260, liq: 1900, portfolio_usd: 2450, max_trade_pct: 10, weight_after_pct: 15, sol_left: 4.2, risk: 'balanced', token_label: 'High risk', unrealized_pnl_pct: null });
+  ok('2 SOL into $1.9K liquidity → red impact + over limit', big.signals.some((x) => x.key === 'impact' && x.level === 'red') && big.signals.some((x) => x.key === 'limit' && x.level === 'red') && (big.est_price_impact_pct ?? 0) > 20);
+  script = [{ tool: { name: 'cross_check_token', input: { mint: 'PoPx22222222222222222222222222222222222pump' } } }, { text: 'High risk, 10/100. This is a copycat.' }];
+  ({ r, tb } = await run('crosscheck-copycat'));
+  ok('cross-check produces a check card', tb.checks.length === 1 && tb.checks[0].label === 'High risk' && tb.proposals.length === 0, JSON.stringify(tb.checks[0]?.label));
 
   server.close();
   console.log(fails ? `\n${fails} failed` : '\nall passed');

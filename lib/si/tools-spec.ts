@@ -5,12 +5,17 @@ import type { LiveToken } from '@/lib/market/sources';
    suite can load this and swap in fixture data. The live implementation is in tools.ts. */
 
 export type ToolSpec = { name: string; description: string; input_schema: Record<string, unknown> };
-export type Proposal = { id: string; side: 'buy' | 'sell'; mint: string; sym: string; sol_amount: number | null; sell_pct: number | null; reason: string; expires_at: string };
+export type CheckSignal = { level: 'red' | 'yellow' | 'green'; key: string; text: string };
+/** What the app renders as an "SI check" card: the deterministic verdict, not the model's wording. */
+export type CheckCard = { kind: 'token' | 'trade'; mint: string; symbol: string; label: string; score: number; signals: CheckSignal[]; est_price_impact_pct?: number | null; usd?: number };
+export type Proposal = { id: string; side: 'buy' | 'sell'; mint: string; sym: string; sol_amount: number | null; sell_pct: number | null; reason: string; expires_at: string; check?: CheckCard | null };
 export interface Toolbox {
   run(name: string, input: Record<string, unknown>): Promise<unknown>;
   /** Tokens looked up this turn (for token cards in the app) and trades proposed (for Approve cards). */
   tokens: LiveToken[];
   proposals: Proposal[];
+  /** Cross-checks run this turn (token or trade), for SI check cards in the app. */
+  checks: CheckCard[];
 }
 
 const obj = (properties: Record<string, unknown>, required: string[] = []) => ({ type: 'object', properties, required, additionalProperties: false });
@@ -29,7 +34,12 @@ export const TOOL_SPECS: ToolSpec[] = [
   { name: 'search_tokens', description: 'Find Solana tokens by ticker or name. Up to 5 matches with mint addresses so the user can confirm the exact one.', input_schema: obj({ query: { type: 'string' } }, ['query']) },
   { name: 'market_pulse', description: 'Solana meme market right now: net buy/sell flow over 5m, 1h and 24h, flow by market-cap bucket, and the tokens with the biggest net inflow and outflow.', input_schema: obj({}) },
   { name: 'caller_record', description: "A Callit caller's public track record: number of calls, how many held 2X, target hits, best and average peak multiple.", input_schema: obj({ handle: { type: 'string' } }, ['handle']) },
-  { name: 'propose_trade', description: 'Prepare ONE trade for the user to approve and sign in their wallet. Nothing executes until they tap Approve. Buys spend SOL; sells sell a % of a holding. Use only when the user asks to act or agrees.', input_schema: obj({
+  { name: 'cross_check_token', description: 'Full due diligence on one token: deterministic verdict (score 0-100 + label) with red/yellow/green signals from mint/freeze authority, launch bundle %, dev and top-10 holdings (pools excluded), liquidity vs market cap, age, buy/sell pressure, Dex paid, copycats of the same ticker (and whether this is the original), pools, and who called it on Callit with their track record. Use before anyone buys, follows a call, or asks if something is safe.', input_schema: obj({ mint: { type: 'string' } }, ['mint']) },
+  { name: 'check_trade', description: "Cross-check one specific trade before it happens: the token's verdict plus how this size fits this wallet: USD size, % of portfolio vs their max, estimated price impact vs liquidity, concentration after, SOL left for fees, and fit with their risk level. Advisory only: nothing executes.", input_schema: obj({
+    side: { type: 'string', enum: ['buy', 'sell'] }, mint: { type: 'string' },
+    sol_amount: { type: 'number', exclusiveMinimum: 0 }, sell_pct: { type: 'number', exclusiveMinimum: 0, maximum: 100 },
+  }, ['side', 'mint']) },
+  { name: 'propose_trade', description: 'Prepare ONE trade for the user to approve and sign in their wallet. Nothing executes until they tap Approve. Buys spend SOL; sells sell a % of a holding. Runs the trade cross-check itself and attaches it to the Approve card. Use only when the user has decided: they asked to act, or said yes to a trade you checked with them.', input_schema: obj({
     side: { type: 'string', enum: ['buy', 'sell'] },
     mint: { type: 'string', description: 'Token mint address' },
     sol_amount: { type: 'number', exclusiveMinimum: 0, description: 'Buys only: SOL to spend' },

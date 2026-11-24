@@ -64,5 +64,5 @@ export async function POST(req: Request) {
   }
   if (r.checks.ungrounded.length) console.warn('[assistant] ungrounded numbers', r.checks.ungrounded.join(' '));
 
-  return json({ reply: r.reply, tokens: toolbox.tokens.slice(0, 4), proposals: toolbox.proposals, log_id: log?.id || null });
+  return json({ reply: r.reply, tokens: toolbox.tokens.slice(0, 4), proposals: toolbox.proposals, checks: toolbox.checks.slice(0, 3), log_id: log?.id || null });
 }

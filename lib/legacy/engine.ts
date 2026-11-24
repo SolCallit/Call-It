@@ -1429,8 +1429,8 @@ function vLiveToken(t){const key=t.key,tr=S.watch.has(key),on=calls.filter(k=>k.
  S.ltf=S.ltf&&S.ltfUser?S.ltf:((t.ageH||0)<.5?'1m':'15m');S.lmode=S.lmode||'mc';if(!S.ltab){try{S.ltab=localStorage.getItem('callit.ltab')||'calls'}catch(_){S.ltab='calls'}}const lt=LTABS.some(x=>x[0]===S.ltab)?S.ltab:'calls';if(!S.ctab){try{S.ctab=localStorage.getItem('callit.ctab')||'holders'}catch(_){S.ctab='holders'}}const ct=['holders','calls','info'].includes(S.ctab)?S.ctab:'holders';{let sv=null;try{sv=localStorage.getItem('callit.lsrc')}catch(_){}S.lsrc=sv==='dex'?'dex':'callit'}
  return `<div class="tmain"><div class="pad" style="padding-bottom:0"><div style="display:flex;align-items:center;gap:12px">${tokav(key)}<div style="flex:1;min-width:0"><span class="tswrap"><span><b class="h2">${esc(t.name)}</b>${L.verified?`<span class="vbadge" title="Verified on Jupiter">${ic('check',11)}</span>`:''} <span class="muted">$${esc(t.sym)}</span></span><button class="tswitch" data-act="tlist" aria-haspopup="dialog" aria-label="Switch to another token" title="Switch token">${ic('down',16)}</button></span>
  <div><span class="chain">Solana</span>${t.lp?` <span class="chain lpchip">${esc(t.lp)}</span>`:''}${pairChip(t)} <button class="copyca" data-act="copy" data-v="${esc(t.ca)}">${short(t.ca)} ${ic('copy',13)}</button></div></div>
- ${(()=>{if(S.connected&&!AL.d)alLoad();const bo=BELLS.has(key);return `<button class="ib bellb ${bo?'on':''}" data-act="bell" data-t="${key}" aria-label="${bo?'Edit':'Set'} alerts for $${esc(t.sym)}" title="Alerts">${ic('bell',18)}</button>`})()}<button class="btn sm ${tr?'primary':'ghost'}" data-act="track" data-t="${key}">${ic('star',15,tr)} ${tr?'On watchlist':'Watchlist'}</button></div>
- <div class="lhead"><span class="price num" id="lprice">${S.lmode==='mc'?fmtSmall(mcap(t)):fmtSmall(t.price)}</span><b class="num ${pcls(ch)}" id="lchg">${pctS(ch)} 24h</b><span class="livetag" title="Live"><i></i>LIVE</span></div>
+ ${(()=>{if(S.connected&&!AL.d)alLoad();const bo=BELLS.has(key);return `<button class="ib bellb ${bo?'on':''}" data-act="bell" data-t="${key}" aria-label="${bo?'Edit':'Set'} alerts for $${esc(t.sym)}" title="Alerts">${ic('bell',18)}</button>`})()}${siOpen()?`<button class="btn sm ghost sibtn sid" data-act="siask" data-t="${esc(key)}" title="Cross-check this token with SI" aria-label="SI check">${ic('assistant',15)}<span>SI check</span></button>`:''}<button class="btn sm ${tr?'primary':'ghost'}" data-act="track" data-t="${key}">${ic('star',15,tr)} ${tr?'On watchlist':'Watchlist'}</button></div>
+ <div class="lhead"><span class="price num" id="lprice">${S.lmode==='mc'?fmtSmall(mcap(t)):fmtSmall(t.price)}</span><b class="num ${pcls(ch)}" id="lchg">${pctS(ch)} 24h</b><span class="livetag" title="Live"><i></i>LIVE</span>${siOpen()?`<button class="btn sm ghost sibtn sim" data-act="siask" data-t="${esc(key)}" title="Cross-check this token with SI">${ic('assistant',14)}<span>SI check</span></button>`:''}</div>
  ${lcardHTML(t,key)}
  <div class="ltabs${LTABS.length>4?' ltabs5':''}" role="tablist" aria-label="Token sections">${LTABS.map(([k,l,i])=>`<button role="tab" aria-selected="${lt===k}" class="${lt===k?'on':''}" data-act="ltab" data-f="${k}">${ic(i,15)}<span>${l}</span>${k==='calls'&&on.length?`<b class="num">${on.length}</b>`:''}</button>`).join('')}</div>
  <div class="ltabs ctabs" role="tablist" aria-label="Under the chart">${[['holders','Holders','profile'],['calls','Calls','promote'],['info','Info','news']].map(([k,l,i])=>`<button role="tab" aria-selected="${ct===k}" class="${ct===k?'on':''}" data-act="ctab" data-f="${k}">${ic(i,15)}<span>${l}</span>${k==='calls'&&on.length?`<b class="num">${on.length}</b>`:''}</button>`).join('')}</div></div>
@@ -2066,7 +2066,7 @@ function railRest(noCallers){const lv=(LIVE.feeds['movers:1h']||[]).map(k=>T[k])
    and lines up trades that only run when you tap Approve and sign. Thumbs feed the eval suite. */
 const AST={msgs:[],busy:false,err:''};
 const SIP={at:0,busy:0,allowed:null,ready:true,goals:null,flags:[],edit:false,draft:null};
-const AST_START=['How’s my portfolio doing?','What changed in my bags today?','Anything I should trim?','Check a token before I buy'];
+const AST_START=['How’s my portfolio doing?','What changed in my bags today?','Anything I should trim?','Cross-check a token or a trade'];
 const astText=t=>esc(t).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/\n/g,'<br>');
 const SI_RISK=[['careful','Careful'],['balanced','Balanced'],['degen','Degen']];
 const SI_GOAL=[['grow','Grow'],['stack_sol','Stack SOL'],['protect','Protect'],['runners','Runners']];
@@ -2085,14 +2085,14 @@ function siFlags(){const l=(SIP.flags||[]).slice(0,4);if(!l.length)return '';
  return `<div class="siflags"><span class="silab">SI flagged</span>${l.map(f=>`<button class="siflag s${+f.severity}${f.seen?'':' new'}" data-act="siflag" data-id="${esc(f.id)}">${T[f.mint]?tokav(f.mint):`<span class="tokav">${ic('bell',16)}</span>`}<span class="grow"><b>${esc(f.title)}</b><span class="hint">${esc(f.detail)}</span></span>${ic('chev',14)}</button>`).join('')}</div>`}
 const SI_ST={approved:'Waiting for your signature…',executed:'Done. It’s in your wallet history.',declined:'Declined',failed:'Didn’t go through. Nothing was sent.',expired:'Expired. Ask SI for fresh numbers.'};
 function siProp(p){const st=p.status||'pending',what=p.side==='buy'?`Buy $${esc(p.sym)} with ${fmtAmt(p.sol_amount)} SOL`:`Sell ${+p.sell_pct}% of your $${esc(p.sym)}`;
- return `<div class="siprop ${st}"><div class="sph">${T[p.mint]?tokav(p.mint):''}<div class="grow"><b>${what}</b><span class="hint">${esc(p.reason)}</span></div></div>
+ return `<div class="siprop ${st}"><div class="sph">${T[p.mint]?tokav(p.mint):''}<div class="grow"><b>${what}</b><span class="hint">${esc(p.reason)}</span></div></div>${p.check?`<div class="spcheck ${siTone(p.check.label)}">${ic('assistant',13)}<span><b>SI check: ${esc(p.check.label)} ${+p.check.score}/100</b>${p.check.est_price_impact_pct!=null?` · ~${+p.check.est_price_impact_pct}% price impact`:''}${(p.check.signals||[]).filter(x=>x.level!=='green').slice(0,2).map(x=>`<br>${esc(x.text)}`).join('')}</span></div>`:''}
  ${st==='pending'?`<div class="spb"><button class="btn sm ghost" data-act="sidecline" data-id="${esc(p.id)}">Decline</button><button class="btn sm primary" data-act="siapprove" data-id="${esc(p.id)}">${ic('check',14)} Approve & sign</button></div>`:`<span class="spst">${SI_ST[st]||esc(st)}</span>`}</div>`}
 function astLog(){if(!AST.msgs.length)return `<div class="astempty"><span class="mark astmark" aria-hidden="true"></span><b class="h2">Your advisor, in your wallet.</b>
  <p>SI knows your bags and your goals, tells you what changed, explains why, and lines up trades you approve with one tap.</p>
  ${!SIP.goals||SIP.edit?siGoalsCard():siSum()}${siFlags()}
  <div class="astarts">${AST_START.map((q,i)=>`<button class="astart" data-act="aststart" data-i="${i}">${esc(q)}</button>`).join('')}</div></div>`;
  return AST.msgs.map(m=>m.role==='user'?`<div class="astu">${astText(m.content)}</div>`
-  :`<div class="asta"><span class="mark astav" aria-hidden="true"></span><div class="grow">${(m.tokens||[]).filter(t=>!(m.proposals||[]).some(p=>p.mint===t)).map(t=>T[t]?`<a class="ccard asttok" href="#/token/${t}">${tokav(t)}<div class="cn"><b>${esc(T[t].name||T[t].sym)}</b><span class="hint">$${esc(T[t].sym)}</span></div><b class="num">${T[t].price&&T[t].supply?fmtUsd(mcap(T[t])):''}</b></a>`:'').join('')}<div class="astmsg">${astText(m.content)}</div>${(m.proposals||[]).map(siProp).join('')}
+  :`<div class="asta"><span class="mark astav" aria-hidden="true"></span><div class="grow">${(m.checks||[]).map(siCheck).join('')}${(m.tokens||[]).filter(t=>!(m.proposals||[]).some(p=>p.mint===t)&&!(m.checks||[]).some(c=>c.mint===t)).map(t=>T[t]?`<a class="ccard asttok" href="#/token/${t}">${tokav(t)}<div class="cn"><b>${esc(T[t].name||T[t].sym)}</b><span class="hint">$${esc(T[t].sym)}</span></div><b class="num">${T[t].price&&T[t].supply?fmtUsd(mcap(T[t])):''}</b></a>`:'').join('')}<div class="astmsg">${astText(m.content)}</div>${(m.proposals||[]).map(siProp).join('')}
   ${m.logId?`<div class="sifb">${m.fb?`<span class="hint">${m.fb>0?'Thanks!':'Thanks. SI learns from this.'}</span>`:`<button class="ib" data-act="sifb" data-id="${esc(m.logId)}" data-r="1" aria-label="Good answer">👍</button><button class="ib" data-act="sifb" data-id="${esc(m.logId)}" data-r="-1" aria-label="Bad answer">👎</button>`}</div>`:''}</div></div>`).join('')
   +(AST.busy?`<div class="asta astbusy" role="status"><span class="mark astav" aria-hidden="true"></span><span class="hint">Checking your wallet<i>.</i><i>.</i><i>.</i></span></div>`:'')}
 /* SI Assistant: open to everyone when SI_OPEN is true; before that, admins can use it (the server decides who's allowed). */
@@ -2109,7 +2109,7 @@ async function astSend(text){const q=String(text||'').trim();if(!q||AST.busy)ret
  AST.err='';AST.msgs.push({role:'user',content:q});AST.busy=true;const i=$('#astin');if(i){i.value='';i.style.height=''}drawAst();
  try{const j=await API('/api/assistant',{body:{messages:AST.msgs.map(({role,content})=>({role,content}))}});
   const toks=(j.tokens||[]).map(x=>{const o=regLive(x);return o&&o.key}).filter(Boolean);
-  AST.msgs.push({role:'assistant',content:j.reply,tokens:toks,proposals:(j.proposals||[]).map(p=>({...p,status:'pending'})),logId:j.log_id||null})}
+  AST.msgs.push({role:'assistant',content:j.reply,tokens:toks,proposals:(j.proposals||[]).map(p=>({...p,status:'pending'})),checks:j.checks||[],logId:j.log_id||null})}
  catch(e){AST.msgs.pop();AST.err=e.message==='assistant_not_configured'?'SI isn’t switched on yet.':e.message==='assistant_unavailable'?'SI is busy. Try again in a moment.':e.message;if(i&&!i.value)i.value=q}
  finally{AST.busy=false;drawAst();const k=$('#astin');k&&k.focus()}}
 function siFind(id){for(const m of AST.msgs)for(const p of (m.proposals||[]))if(p.id===id)return p;return null}
@@ -2124,6 +2124,12 @@ async function siApprove(id){const p=siFind(id);if(!p||p.status!=='pending')retu
  if(!(amt>0)){p.status='failed';drawAst();siMark(id,'failed');return toast(`You don’t hold $${p.sym} anymore`)}
  realSwap(p.mint,'SOL',amt,`SI: sell ${+p.sell_pct}% of $${p.sym}`,done,{after})}
 function siDecline(id){const p=siFind(id);if(!p||p.status!=='pending')return;p.status='declined';drawAst();siMark(id,'decline')}
+const siTone=l=>l==='High risk'?'hi':l==='Caution'?'mid':'ok';
+/* The deterministic verdict from the cross-check, shown as-is (the model explains it, it doesn't make it up). */
+function siCheck(c){return `<div class="sicheck ${siTone(c.label)}"><div class="sch">${T[c.mint]?tokav(c.mint):''}<div class="grow"><b>SI check · $${esc(c.symbol)}</b><span class="hint">${c.kind==='trade'&&c.usd?`${fmtUsd(c.usd)} trade`:'Token'}${c.est_price_impact_pct!=null?` · ~${+c.est_price_impact_pct}% price impact`:''}</span></div><span class="scl">${esc(c.label)}<b class="num">${+c.score}</b></span></div>
+ <div class="scbar"><i style="width:${Math.max(4,+c.score)}%"></i></div><ul>${(c.signals||[]).slice(0,5).map(x=>`<li class="${x.level==='red'?'r':x.level==='yellow'?'y':'g'}"><i></i><span>${esc(x.text)}</span></li>`).join('')}</ul></div>`}
+/* Ask SI from anywhere in the app (token page, buy sheet): opens SI and sends the question. */
+function siAsk(q){if(!siOpen())return toast('SI Assistant is coming soon');if(currentRoute()!=='assistant')location.hash='#/assistant';setTimeout(()=>astSend(q),250)}
 function siFb(id,r){const m=AST.msgs.find(x=>x.logId===id);if(!m||m.fb)return;m.fb=r;drawAst();API('/api/assistant/feedback',{body:{log_id:id,rating:r}}).catch(()=>{})}
 
 /* ---------- chrome ---------- */
@@ -2773,7 +2779,7 @@ function quickBuy(sym,cid,startSide){if(!S.connected)return connectModal();const
    <label class="solin"><input id="qin" class="num" inputmode="decimal" value="${esc(sol)}" aria-label="SOL to spend"><button type="button" class="mx" id="qmax">Max</button><span class="muted">SOL</span></label>
    <div class="hint num" style="margin-top:8px">${a?`≈ ${fmtUsd(usdV)} · you get ~${fmtAmt(got)} $${esc(SY)} · via Jupiter`:'Enter an amount'}</div></div>
    ${k?`<p class="hint" style="margin:0 0 14px">${k.buy?`Buying from <b style="color:var(--text)">${esc(k.c)}</b>'s call. They bought in, so they earn a bigger share of the fee.`:`${esc(k.c)} didn't buy in, so they earn a small share once the call holds 2X.`}</p>`:''}
-   <div id="qerr" class="err"></div><button class="btn primary block" id="qgo" ${a>0?'':'disabled'}>Buy ${a||0} SOL of $${esc(SY)}</button>`;
+   <div id="qerr" class="err"></div><button class="btn primary block" id="qgo" ${a>0?'':'disabled'}>Buy ${a||0} SOL of $${esc(SY)}</button>${siOpen()?`<button class="linkbtn siq" data-act="siask" data-t="${esc(sym)}" data-side="buy">${ic('assistant',14)} Cross-check with SI first</button>`:''}`;
   }else if(!h){
    body=`<div class="empty" style="padding:22px 8px"><b>You don't hold $${esc(SY)}</b><p>Buy some first, then you can sell it here any time.</p><button class="btn primary" data-side="buy">Buy $${esc(SY)}</button></div>`;
   }else{const a=Math.min(parseFloat(amt)||0,h),usdV=a*t.price,got=usdV*.995/T.SOL.price;
@@ -4255,11 +4261,12 @@ document.addEventListener('click',e=>{
   notify:()=>{const f=b.dataset.f;if(!S.connected)return connectModal();S.notifyOn=S.notifyOn||{};S.notifyOn[f]=1;if(f==='stake')S.stakeWait=true;try{localStorage.setItem('callit.notify',JSON.stringify(S.notifyOn))}catch(_){}toast(`We'll let you know when ${SOONF[f]||'it'} opens`);render()},
   astsend:()=>astSend(($('#astin')||{}).value),
   astnew:()=>{AST.msgs=[];AST.err='';render()},
-  aststart:()=>{const q=AST_START[+b.dataset.i];if(+b.dataset.i===3){const i=$('#astin');if(i){i.value='Check this CA: ';i.focus()}}else astSend(q)},
+  aststart:()=>{const q=AST_START[+b.dataset.i];if(+b.dataset.i===3){const i=$('#astin');if(i){i.value='Cross-check this CA: ';i.focus()}}else astSend(q)},
   sigr:()=>{SIP.draft.risk=b.dataset.f;drawAst()},sigg:()=>{SIP.draft.goal=b.dataset.f;drawAst()},sigm:()=>{SIP.draft.max=b.dataset.f;drawAst()},
   sigsave:()=>{const d=SIP.draft;API('/api/assistant/profile',{body:{risk:d.risk,goal:d.goal,max_trade_pct:+d.max}}).then(j=>{SIP.goals=j.goals;SIP.edit=false;SIP.draft=null;toast('Goals saved. SI will fit everything to them');drawAst()}).catch(e=>toast(e.message))},
   sigedit:()=>{SIP.edit=true;SIP.draft=null;drawAst()},
   siflag:()=>{const f=(SIP.flags||[]).find(x=>x.id===b.dataset.id);if(f)astSend(`Explain this flag on my $${f.sym}: "${f.title}. ${f.detail}" What are my options?`)},
+  siask:()=>{const k=b.dataset.t,t=T[k];if(!t)return;const a=parseFloat(String(($('#qin')||{}).value||'').replace(',','.'));if($('#qin'))closeModal();siAsk(b.dataset.side==='buy'&&a>0?`Cross-check this trade before I do it: buy ${a} SOL of $${t.sym} (${mintOf(k)})`:`Cross-check $${t.sym} for me (${mintOf(k)})`)},
   siapprove:()=>siApprove(b.dataset.id),sidecline:()=>siDecline(b.dataset.id),sifb:()=>siFb(b.dataset.id,+b.dataset.r),
   stakewait:()=>{if(!S.connected)return connectModal();S.stakeWait=true;toast('We\'ll let you know when $CALLIT staking opens');render()},
   buyprem:()=>{if(!S.connected)return connectModal(()=>{location.hash='#/premium'});if(REALW())return toast('Premium payments open soon. Nothing was charged');const P=PLANS[S.plan||'yearly'],via=S.payvia||'SOL',amt=via==='SOL'?P.usd/T.SOL.price:P.usd;

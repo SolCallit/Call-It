@@ -2,8 +2,9 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isMint, jupSearch, liveToken, memeFlow, type LiveToken } from '@/lib/market/sources';
 import { buildPortfolio, riskFlags, type Portfolio } from '@/lib/si/portfolio';
+import { crossCheckToken, checkTrade, type CrossCheck } from '@/lib/si/crosscheck';
 import type { Goals } from '@/lib/si/prompt';
-import type { Proposal, Toolbox } from '@/lib/si/tools-spec';
+import type { CheckCard, Proposal, Toolbox } from '@/lib/si/tools-spec';
 export { TOOL_SPECS } from '@/lib/si/tools-spec';
 export type { Proposal, Toolbox } from '@/lib/si/tools-spec';
 
@@ -21,6 +22,12 @@ export const tokenBrief = (t: LiveToken) => ({
 
 const SOL_FEE_RESERVE = 0.01;
 
+const tokenCard = (c: CrossCheck): CheckCard => ({ kind: 'token', mint: c.mint, symbol: c.symbol, label: c.verdict.label, score: c.verdict.score, signals: c.verdict.signals.slice(0, 6) });
+function tradeCard(c: CrossCheck, t: { usd: number; est_price_impact_pct: number | null; signals: CheckCard['signals'] }): CheckCard {
+  const sig = [...t.signals, ...c.verdict.signals].sort((a, b) => ({ red: 0, yellow: 1, green: 2 }[a.level] - { red: 0, yellow: 1, green: 2 }[b.level]));
+  return { kind: 'trade', mint: c.mint, symbol: c.symbol, label: c.verdict.label, score: c.verdict.score, signals: sig.slice(0, 6), est_price_impact_pct: t.est_price_impact_pct, usd: t.usd };
+}
+
 /** The real Toolbox: live chain + market data and the user's own rows. */
 export function liveToolbox(db: SupabaseClient, me: { id: string; handle: string; wallet_address: string | null }, goals: Goals): Toolbox {
   let book: Portfolio | null = null;
@@ -29,7 +36,7 @@ export function liveToolbox(db: SupabaseClient, me: { id: string; handle: string
     return (book ||= await buildPortfolio(db, me.id, me.wallet_address));
   };
   const tb: Toolbox = {
-    tokens: [], proposals: [],
+    tokens: [], proposals: [], checks: [],
     async run(name, input) {
       const keep = (t: LiveToken | null) => { if (t && !tb.tokens.some((x) => x.mint === t.mint)) tb.tokens.push(t); return t; };
       switch (name) {
@@ -97,6 +104,27 @@ export function liveToolbox(db: SupabaseClient, me: { id: string; handle: string
             avg_peak_x: l.length ? +(l.reduce((a, x) => a + x, 0) / l.length).toFixed(2) : null,
           };
         }
+        case 'cross_check_token': {
+          const mint = String(input.mint || '').trim();
+          if (!isMint(mint)) return { error: 'not_a_valid_solana_mint' };
+          const c = await crossCheckToken(db, mint);
+          if (!c) return { error: 'not_found' };
+          keep(await liveToken(mint).catch(() => null));
+          tb.checks.push(tokenCard(c));
+          return c;
+        }
+        case 'check_trade': {
+          const side = input.side === 'buy' || input.side === 'sell' ? input.side : null;
+          const mint = String(input.mint || '').trim();
+          if (!side || !isMint(mint)) return { error: 'invalid_input' };
+          let book: Portfolio;
+          try { book = await portfolio(); } catch { return { error: 'no_wallet' }; }
+          const r = await checkTrade(db, book, goals, { side, mint, sol_amount: Number(input.sol_amount) || undefined, sell_pct: Number(input.sell_pct) || undefined });
+          if ('error' in r) return r;
+          keep(await liveToken(mint).catch(() => null));
+          tb.checks.push(tradeCard(r.token, r.trade));
+          return r;
+        }
         case 'propose_trade': return proposeTrade(db, me, goals, input, portfolio, keep, tb);
         default: return { error: 'unknown_tool' };
       }
@@ -140,11 +168,15 @@ async function proposeTrade(
     usd_value = (book.holdings.find((h) => h.mint === mint)?.value_usd ?? 0) * (pct / 100);
   }
 
+  // Every Approve card carries SI's check of this exact trade.
+  const chk = await checkTrade(db, book, goals, { side, mint, sol_amount: sol_amount ?? undefined, sell_pct: sell_pct ?? undefined }).catch(() => null);
+  const card = chk && !('error' in chk) ? tradeCard(chk.token, chk.trade) : null;
+
   const { data, error } = await db.from('si_proposals')
     .insert({ profile_id: me.id, side, mint, sym: t.sym, sol_amount, sell_pct, reason })
     .select('id, expires_at').single();
   if (error || !data) return { error: 'could_not_save' };
-  const p: Proposal = { id: data.id, side, mint, sym: t.sym, sol_amount, sell_pct, reason, expires_at: data.expires_at };
+  const p: Proposal = { id: data.id, side, mint, sym: t.sym, sol_amount, sell_pct, reason, expires_at: data.expires_at, check: card };
   tb.proposals.push(p);
-  return { proposal_id: p.id, status: 'waiting_for_user_approval', side, symbol: t.sym, sol_amount, sell_pct, usd_value: +usd_value.toFixed(2), pct_of_portfolio: book.total_usd ? +((usd_value / book.total_usd) * 100).toFixed(1) : null, expires_in_minutes: 10 };
+  return { proposal_id: p.id, status: 'waiting_for_user_approval', side, symbol: t.sym, sol_amount, sell_pct, usd_value: +usd_value.toFixed(2), pct_of_portfolio: book.total_usd ? +((usd_value / book.total_usd) * 100).toFixed(1) : null, check: card ? { label: card.label, score: card.score, est_price_impact_pct: card.est_price_impact_pct, signals: card.signals } : null, expires_in_minutes: 10 };
 }
