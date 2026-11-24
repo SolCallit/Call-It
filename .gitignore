@@ -10,3 +10,5 @@ next-env.d.ts
 
 # Private Withdraw circuit, copied from node_modules by scripts/privacy-assets.mjs
 /public/circuit2/
+scripts/si-eval/reports/
+scripts/si-eval/candidates/
