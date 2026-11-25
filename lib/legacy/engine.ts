@@ -2706,7 +2706,7 @@ function pvLoad(m){pvMod().then(mod=>Promise.all([mod.walletBalances(S.addr),mod
  PV.priv=priv;const toks=PRIVATE_TOKENS;const pb=sym=>priv&&priv[sym]?priv[sym].ui:0;const anyPriv=toks.some(t=>pb(t.sym)>0);
  if(!PV.mode)PV.mode=anyPriv?'send':'shield';
  const cfSol=cf?cf.sol:0;const wMax=sym=>{const t=toks.find(x=>x.sym===sym),v=(wb[sym]||0)-(t&&t.native?mod.SOL_FEE_RESERVE+cfSol:0);return Math.max(0,Math.floor(v*1e6)/1e6)};
- const pMax=sym=>Math.floor(pb(sym)*1e6)/1e6;
+ const pMax=sym=>Math.floor(pb(sym)*1e6+1e-6)/1e6;
  const feeOf=(sym,a)=>{const k=sym.toLowerCase(),rent=fee.rent[k]||0;return a*fee.rate+rent};
  const balCard=priv?`<div class="pvbal"><span class="pvbalh">${ic('lock',14)} Private balance</span><div class="pvbalrow">${toks.map(t=>`<div><b class="num">${fmtAmt(pb(t.sym))}</b><small>${esc(t.sym)}</small></div>`).join('')}</div>${mod.scannedFull(S.addr)?'':'<p class="hint" style="margin:8px 0 0">Used Privacy Cash before with this wallet? <button class="lnk" id="pvfull">Find older funds</button> (slow, scans the whole pool)</p>'}</div>`
   :`<div class="pvbal"><span class="pvbalh">${ic('lock',14)} Private balance</span><p class="hint" style="margin:6px 0 10px">Hidden until you unlock it. Unlocking is one free signature, not a transaction.</p><button class="btn block" id="pvunlock">Show private balance</button></div>`;
@@ -2766,7 +2766,7 @@ const HX={mode:null,priv:null};
 function pvLoadH(m){hxMod().then(mod=>Promise.all([mod.walletSol(S.addr),mod.isUnlocked(S.addr)?mod.privateBalance(S.addr).catch(()=>null):Promise.resolve(HX.priv),mod.gasInfo(),mod.protocolFee()]).then(([sol,priv,gas,pf])=>{if(!m.isConnected)return;
  HX.priv=priv;const pb=priv?priv.ui:0;
  if(!HX.mode)HX.mode=pb>0?'send':'shield';
- const hRes=mod.feeReserve(!!(priv&&priv.registered)),wMax=Math.max(0,Math.floor((sol-hRes-(pf?pf.sol:0))*1e6)/1e6),pMax=Math.floor(pb*1e6)/1e6;
+ const hRes=mod.feeReserve(!!(priv&&priv.registered)),wMax=Math.max(0,Math.floor((sol-hRes-(pf?pf.sol:0))*1e6+1e-6)/1e6),pMax=Math.floor(pb*1e6+1e-6)/1e6;
  const balCard=priv?`<div class="pvbal"><span class="pvbalh">${ic('lock',14)} Private balance</span><div class="pvbalrow"><div><b class="num">${fmtAmt(pb)}</b><small>SOL</small></div></div>${priv.registered?'':'<p class="hint" style="margin:8px 0 0">New here — your private wallet registers with your first deposit (one extra approval, one time).</p>'}</div>`
   :`<div class="pvbal"><span class="pvbalh">${ic('lock',14)} Private balance</span><p class="hint" style="margin:6px 0 10px">Hidden until you unlock it. Unlocking is one free signature, not a transaction.</p><button class="btn block" id="hxunlock">Show private balance</button></div>`;
  const shieldForm=`<div class="field"><label for="hxv">Amount of SOL to add to your private balance</label><div style="display:flex;gap:8px"><input id="hxv" class="input num" inputmode="decimal" placeholder="0"><button class="mx lg" id="hxmax">Max</button></div></div>

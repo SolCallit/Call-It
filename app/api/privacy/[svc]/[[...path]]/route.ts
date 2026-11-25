@@ -4,7 +4,7 @@ import { gasAddress, relayWithdrawal } from '@/lib/privacy/gas-server';
 import { solPrice } from '@/lib/payouts/payout';
 import { burst, clientIp } from '@/lib/ratelimit';
 import { heliusKey, rpcUrl } from '@/lib/solana/rpc';
-import { HELIUS_INDEXER } from '@/lib/privacy/config';
+import { HELIUS_INDEXER, HELIUS_SPR_GATEWAY, HELIUS_TEE_PROVER } from '@/lib/privacy/config';
 import { verifyPrivyToken } from '@/lib/auth/privy-server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
@@ -27,7 +27,7 @@ async function isAdmin(req: NextRequest): Promise<boolean> {
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+export const maxDuration = 300; // a TEE proof can take a minute or more
 
 /**
  * Same-origin pass-through for Private Withdraw (Privacy Cash).
@@ -89,7 +89,8 @@ async function idx(req: NextRequest, method: string) {
   const body = await req.text();
   if (body.length > 1_000_000) return NextResponse.json({ error: 'too_large' }, { status: 413 });
   const k = heliusKey();
-  const ups = [`${HELIUS_INDEXER}/${method}`, ...(k ? [`https://mainnet.helius-rpc.com/v1/spr/${method}?api-key=${k}`] : [])];
+  // Helius closed the public CloudFront indexer (403 since late Nov 2026): the keyed /v1/spr gateway goes first.
+  const ups = [...(k ? [`${HELIUS_SPR_GATEWAY}/${method}?api-key=${k}`] : []), `${HELIUS_INDEXER}/${method}`];
   let lastStatus = 502, lastText = JSON.stringify({ error: 'Helius indexer is unreachable right now.' });
   for (let i = 0; i < ups.length; i++) {
     try {
@@ -103,6 +104,46 @@ async function idx(req: NextRequest, method: string) {
     }
   }
   return new NextResponse(lastText, { status: lastStatus, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
+}
+
+/* Helius Privacy Rings prover (attested TEE), same-origin. Every request body is HPKE-encrypted in the browser
+   to the enclave the SDK has attested, so Callit's server only ever relays ciphertext it can't read.
+   Helius closed the public CloudFront prover (403), so this adds Callit's Helius key on the way through.
+   Fixed routes only: /attestation, /prove/<key>, /prove/<key>/status, /prove/<key>/indexed. */
+const PRV_PATH = /^(attestation|proving-keys|prove\/[A-Za-z0-9_.-]{1,128}(\/(status|indexed))?)$/;
+const PRV_REQ_HEADERS = ['content-type', 'spr-tee', 'spr-tee-enc', 'spr-tee-ciphertext', 'x-sync', 'x-async', 'accept'];
+async function prv(req: NextRequest, path: string) {
+  if (!PRV_PATH.test(path)) return NextResponse.json({ error: 'not_allowed' }, { status: 404 });
+  const k = heliusKey();
+  if (!k) return NextResponse.json({ error: 'Helius key missing on the server.' }, { status: 503 });
+  const q = new URLSearchParams(req.nextUrl.search);
+  q.delete('api-key');
+  q.set('api-key', k);
+  const headers: Record<string, string> = {};
+  for (const h of PRV_REQ_HEADERS) { const v = req.headers.get(h); if (v) headers[h] = v; }
+  const body = req.method === 'POST' ? new Uint8Array(await req.arrayBuffer()) : undefined;
+  if (body && body.length > 8_000_000) return NextResponse.json({ error: 'too_large' }, { status: 413 });
+  const ups = [`${HELIUS_SPR_GATEWAY}/${path}`, `${HELIUS_TEE_PROVER}/${path}`];
+  let last: Response | null = null;
+  for (let i = 0; i < ups.length; i++) {
+    try {
+      const r = await fetch(`${ups[i]}?${i === 0 ? q.toString() : req.nextUrl.search.replace(/^\?/, '')}`, {
+        method: req.method, headers, body, cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(280_000),
+      });
+      // 401/403/404 from a gateway that doesn't serve the route: try the next one. Anything else is the prover's answer.
+      if ([401, 403, 404].includes(r.status) && i < ups.length - 1) { console.warn(`[privacy/prv] ${path.split('/')[0]} upstream#${i} -> ${r.status}`); last = r; continue; }
+      const out = new Headers({ 'cache-control': 'no-store' });
+      for (const [hk, hv] of r.headers) {
+        const l = hk.toLowerCase();
+        if (l === 'content-type' || l === 'retry-after' || l.startsWith('spr-tee')) out.set(hk, hv);
+      }
+      if (r.status >= 400) console.warn(`[privacy/prv] ${path.split('/')[0]} upstream#${i} -> ${r.status}`);
+      return new NextResponse(await r.arrayBuffer(), { status: r.status, headers: out });
+    } catch (e) {
+      console.warn(`[privacy/prv] ${path.split('/')[0]} upstream#${i} -> ${(e as Error).name}`);
+    }
+  }
+  return NextResponse.json({ error: 'Helius prover is unreachable right now.' }, { status: last?.status || 502 });
 }
 
 async function handle(req: NextRequest, ctx: { params: Promise<{ svc: string; path?: string[] }> }) {
@@ -123,6 +164,7 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ svc: string; pa
   if (!burst(`privacy:${svc}:${clientIp(req)}`, 300, 60_000)) return NextResponse.json({ error: 'Too many requests. Slow down a little.' }, { status: 429 });
   if (svc === 'rpc') return rpc(req);
   if (svc === 'idx') return idx(req, parts.join('/'));
+  if (svc === 'prv') return prv(req, parts.join('/'));
   if (svc === 'hfee') {
     // Helius rail protocol fee, charged in SOL to the treasury inside the add-funds transaction.
     // Off unless HELIUS_PRIVATE_FEE_USD is set above zero AND a treasury wallet and a live SOL price exist.

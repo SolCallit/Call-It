@@ -43,6 +43,8 @@ export const HELIUS_PRIVATE_BETA = HRAW === 'beta';
 /** Solana Privacy Rings mainnet deployment: Photon indexer + attested TEE prover (CORS-open, no key). */
 export const HELIUS_INDEXER = 'https://dgcj4pjarvo65.cloudfront.net';
 export const HELIUS_TEE_PROVER = 'https://d3ky2kt0ntqxt1.cloudfront.net';
+/** Helius' keyed Privacy Rings gateway (indexer + prover). The public CloudFront hosts above now answer 403. */
+export const HELIUS_SPR_GATEWAY = 'https://mainnet.helius-rpc.com/v1/spr';
 
 /** Smallest private send on the Helius rail, in SOL. */
 export const HELIUS_MIN_SOL = 0.001;

@@ -23,7 +23,7 @@
  * SOL only for now. SPL needs per-mint interface setup — add once the rail has mileage.
  */
 
-import { HELIUS_MIN_SOL, HELIUS_TEE_PROVER, PRIVATE_WS } from './config';
+import { HELIUS_MIN_SOL, PRIVATE_WS } from './config';
 
 export class PrivateError extends Error {
   constructor(message: string, public stage: string, public raw?: unknown) {
@@ -98,7 +98,9 @@ async function client(l: Libs): Promise<Client> {
     // Indexer goes through Callit's server too (same origin: no CORS, and the server can fall back
     // to Helius' keyed /v1/spr gateway). HELIUS_INDEXER stays the upstream default on the server.
     indexerUrl: `${window.location.origin}/api/privacy/idx`,
-    proverUrl: HELIUS_TEE_PROVER,
+    // Prover goes through Callit's server too: Helius closed the public prover host (403), the server adds
+    // Callit's Helius key. Requests are encrypted to the attested enclave, so the server relays ciphertext only.
+    proverUrl: `${window.location.origin}/api/privacy/prv`,
     proverTee: l.cl.SignedTeePolicy.forNetwork('mainnet'),
   });
 }
@@ -132,6 +134,7 @@ function ownerSigner(l: Libs, owner: string, step: (m: string) => void) {
       step('Approve the private send signature (free)…');
       const sig = b64ToBytes(await callitWallet().signBytes!(bytesToB64(message), owner));
       if (sig.length !== 64) throw new PrivateError('The wallet returned an unexpected signature.', 'sign');
+      step('Signed. Proving privately… keep this tab open (up to a minute)');
       return sig as never;
     },
   };
@@ -284,11 +287,22 @@ export async function sendPrivately(
       amount: BigInt(Math.floor(p.amount * 1e9)),
     });
   } catch (e) {
-    const msg = String((e as Error)?.message || '');
-    if (/TOO_MANY_INPUTS/i.test(msg)) {
+    const codes = codesOf(e);
+    const all = [String((e as Error)?.message || ''), ...codes].join(' ');
+    console.error('[helius] private send build failed', codes, e);
+    if (/TOO_MANY_INPUTS/i.test(all)) {
       throw new PrivateError('Your private balance is split across too many small deposits. Send a smaller amount for now.', 'prove', e);
     }
-    throw e;
+    if (/INSUFFICIENT_BALANCE/i.test(all)) {
+      throw new PrivateError('That’s more than your private balance. Tap Max and try again.', 'prove', e);
+    }
+    if (/REJECT|DENIED|CANCEL/i.test(all)) {
+      throw new PrivateError('Signature cancelled. Nothing moved.', 'sign', e);
+    }
+    if (/PROVER|ATTEST|TEE|CLIENT_TIMEOUT/i.test(all)) {
+      throw new PrivateError(`Helius’ prover didn’t answer (${codes.join(' → ') || 'prover'}). Your private balance is safe — try again in a minute.`, 'prove', e);
+    }
+    throw new PrivateError(`The private send couldn’t be prepared (${codes.join(' → ') || 'unknown'}). Your private balance is unchanged.`, 'prove', e);
   }
   step('Sending privately…');
   const b64 = l.kit.getBase64EncodedWireTransaction(tx as Parameters<Kit['getBase64EncodedWireTransaction']>[0]);
