@@ -1,8 +1,8 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { OPENS, usdAtRef, type Pool } from './config';
+import { OPENS, type Pool } from './config';
 
-export type Alloc = { pool: Pool; community: string; tier: number; rank: number | null; tokens: number; usd: number; opensAt: string; open: boolean };
+export type Alloc = { pool: Pool; community: string; tier: number; rank: number | null; tokens: number; opensAt: string; open: boolean };
 
 /** Allocations for a set of wallets. Returns null when the table isn't there yet (migration pending). */
 export async function allocationsFor(db: SupabaseClient, wallets: string[]): Promise<Alloc[] | null> {
@@ -12,6 +12,6 @@ export async function allocationsFor(db: SupabaseClient, wallets: string[]): Pro
   const now = Date.now();
   return (data || []).map((r) => {
     const pool = r.pool as Pool, tokens = Number(r.tokens);
-    return { pool, community: r.community || '', tier: r.tier, rank: r.rank ?? null, tokens, usd: Math.round(usdAtRef(tokens)), opensAt: OPENS[pool], open: Date.parse(OPENS[pool]) <= now };
+    return { pool, community: r.community || '', tier: r.tier, rank: r.rank ?? null, tokens, opensAt: OPENS[pool], open: Date.parse(OPENS[pool]) <= now };
   }).sort((a, b) => b.tokens - a.tokens);
 }

@@ -1796,7 +1796,7 @@ const adDate=iso=>{const d=new Date(iso);return d.toLocaleDateString(undefined,{
 const adLeft=iso=>{const ms=Date.parse(iso)-Date.now();if(ms<=0)return 'Open now';const d=Math.floor(ms/864e5),h=Math.floor(ms%864e5/36e5);return d?`${d}d ${h}h`:`${h}h ${Math.max(1,Math.floor(ms%36e5/6e4))}m`};
 const adTok=n=>Number(n).toLocaleString();
 function adAlloc(a){return `<div class="adal"><div class="adal-top"><span class="adal-pool">${esc(AD_POOL[a.pool]||a.pool)}${a.community?` · ${esc(a.community)}`:''}</span><span class="adtier t${a.tier}">Tier ${a.tier}</span></div>
- <b class="adal-amt num">${adTok(a.tokens)} <i>CALL</i></b><span class="adal-usd">≈ $${adTok(a.usd)} at a $${adTok((AD.rules&&AD.rules.refMc)||500000)} market cap</span>
+ <b class="adal-amt num">${adTok(a.tokens)} <i>CALL</i></b><span class="adal-usd">Your $CALL allocation</span>
  <span class="adal-open">${ic('clock',14)} Claim opens ${adDate(a.opensAt)}</span></div>`}
 function adResult(){const c=AD.chk;if(c.err)return `<p class="aderr">${esc(c.err)}</p>`;const r=c.res;if(!r)return '';
  if(!r.ready)return `<div class="adnote">${ic('clock',16)}<span>Allocations land when the snapshot is published at launch, <b>Sun 29 Nov</b>. Check back then.</span></div>`;
@@ -1818,9 +1818,9 @@ function adSteps(){const m=AD.me;if(!S.connected)return `<section class="adcard"
   </div>
   <button class="btn primary adclaim" data-act="adclaim"${st.unlock&&open&&!st.claimed?'':' disabled'}>${st.claimed?ic('check',16)+' Claimed':open?'Claim '+adTok(m.allocations.filter(a=>a.open).reduce((s,a)=>s+a.tokens,0))+' CALL':'Claim opens '+adDate(first.opensAt)}</button>
   <p class="adfine">Claiming needs a little SOL for network fees (about 0.01 SOL). Keep some in your Callit wallet.</p></section>`}
-function adTiers(){const r=AD.rules;if(!r)return '';return `<section class="adcard"><h3>Who gets what</h3><p class="muted">Ranked from the top. $100 at the top, $10 at the bottom, at a $${adTok(r.refMc)} market cap.</p>
+function adTiers(){const r=AD.rules;if(!r)return '';return `<section class="adcard"><h3>Who gets what</h3><p class="muted">Ranked from the top. The higher your rank, the bigger your allocation.</p>
  ${r.pools.map(p=>`<div class="adpool"><div class="adpool-h"><b>${esc(p.label)}</b><span>${p.pct}% · ${adTok(p.wallets)} wallets</span></div>
- <div class="adtiers">${p.tiers.map((t,i)=>`<div class="adtr"><span class="adtier t${i+1}">Tier ${i+1}</span><span class="grow">${esc(t.ranks)}</span><b class="num">${adTok(t.tokens)}</b><span class="adusd">$${adTok(Math.round(t.tokens/1e9*r.refMc))}</span></div>`).join('')}</div></div>`).join('')}
+ <div class="adtiers">${p.tiers.map((t,i)=>`<div class="adtr"><span class="adtier t${i+1}">Tier ${i+1}</span><span class="grow">${esc(t.ranks)}</span><b class="num">${adTok(t.tokens)} <span class="adusd">CALL</span></b></div>`).join('')}</div></div>`).join('')}
  <p class="adfine">Communities: ${r.communities.map(esc).join(' · ')}. Top 200 holders each, held 7+ days before the snapshot. Exchange, LP and team wallets excluded.</p></section>`}
 function vAirdrop(){adLoad();const r=AD.rules,c=AD.chk;
  return `<section class="ptshero adhero"><div class="ptsglow" aria-hidden="true"></div><span class="ptskick">${ic('airdrop',14)} $CALL airdrop</span>

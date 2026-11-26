@@ -1092,7 +1092,7 @@ html:has(body.lock){overflow:hidden}
 .adpool-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px}.adpool-h span{font-size:12.5px;color:var(--muted)}
 .adtiers{display:grid;gap:6px}
 .adtr{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:14px;background:var(--bg)}
-.adtr .grow{flex:1;color:var(--muted);font-size:13.5px}.adtr b{font-size:14px}.adusd{width:44px;text-align:right;font-size:13px;color:#E8B730;font-weight:700}
+.adtr .grow{flex:1;color:var(--muted);font-size:13.5px}.adtr b{font-size:14px}.adusd{font-size:11px;color:#E8B730;font-weight:800;margin-left:2px}
 .adrules{margin:6px 0 0;padding-left:18px;color:var(--muted);display:grid;gap:6px}
 @media (max-width:420px){.adlink{flex-direction:row}.adcard{margin:10px 12px;padding:16px}}
 [data-theme="light"] .adal-amt,[data-theme="light"] .adtot b{color:#A87A00}

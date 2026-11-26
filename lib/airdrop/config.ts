@@ -1,6 +1,6 @@
 /**
  * $CALL airdrop rules. One place for the numbers the page, the API and the snapshot all use.
- * Dollar figures are examples at REF_MC only — the airdrop is denominated in tokens.
+ * The airdrop is denominated in tokens only.
  */
 export const SUPPLY = 1_000_000_000;
 export const REF_MC = 500_000;
