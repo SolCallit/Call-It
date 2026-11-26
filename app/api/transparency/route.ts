@@ -85,7 +85,7 @@ export async function GET() {
     wallets: [
       w('payout', 'Payout wallet', payout, pb, 'Hot wallet that pays callers and cashback automatically'),
       w('treasury', 'Treasury', treasury, tb, 'Team, infrastructure and growth. Signed by the team only'),
-      w('buyback', 'Buyback & burn', buyback, bb, '$CALLIT buyback and burn, after launch'),
+      w('buyback', 'Buyback & burn', buyback, bb, '$CALL buyback and burn, after launch'),
       w('referral', 'Fee collector (Jupiter referral)', referral, null, 'Where trading fees land on-chain before they are split'),
     ],
   }, { headers: { 'cache-control': 'public, s-maxage=120, stale-while-revalidate=600' } });

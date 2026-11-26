@@ -1099,3 +1099,23 @@ html:has(body.lock){overflow:hidden}
 [data-theme="light"] .adal-amt i,[data-theme="light"] .adusd,[data-theme="light"] .adleft,[data-theme="light"] .adsoon{color:#9A6F00}
 [data-theme="light"] .adal{border-color:color-mix(in srgb,#E8B730 45%,var(--line))}
 @media (prefers-color-scheme:light){:root:not([data-theme="dark"]) .adal-amt,:root:not([data-theme="dark"]) .adtot b{color:#A87A00}:root:not([data-theme="dark"]) .adal-amt i,:root:not([data-theme="dark"]) .adusd,:root:not([data-theme="dark"]) .adleft,:root:not([data-theme="dark"]) .adsoon{color:#9A6F00}:root:not([data-theme="dark"]) .adal{border-color:color-mix(in srgb,#E8B730 45%,var(--line))}}
+
+
+/* ---------- Sheets vs the phone keyboard (Nov 26) ----------
+   iOS scrolls the page when the keyboard opens, so a sheet pinned to the layout viewport slid under the
+   page header with its button under the keyboard. Pin the scrim to the *visible* viewport instead. */
+@media (max-width:700px){
+ .scrim:has(.modal){top:var(--vvt,0px);bottom:auto;height:var(--vvh,100dvh);transition:none}
+ .scrim:has(.modal) .modal{overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+ .scrim:has(.authm){top:var(--vvt,0px);bottom:auto;height:var(--vvh,100dvh)}
+}
+
+/* ---------- Floating buttons stay out of the way (Nov 26) ----------
+   On phone the chat + make-a-call buttons sat on top of text, tables and form buttons. They now fade out
+   while scrolling down (with the bars), while typing, and while a sheet is open. */
+@media (max-width:700px){
+ .fab,.mfab{transition:translate .22s ease,opacity .18s ease}
+ /* animation:none too: the entrance/pulse animations (fill-mode both) would otherwise hold opacity at 1 */
+ body.bars-off .fab,body.bars-off .mfab{translate:0 120px;opacity:0;visibility:hidden;animation:none;pointer-events:none}
+ .kb-open .fab,.kb-open .mfab,body:has(.scrim .modal) .fab,body:has(.scrim .modal) .mfab{opacity:0;visibility:hidden;animation:none;pointer-events:none}
+}

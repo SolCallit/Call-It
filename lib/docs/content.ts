@@ -4,7 +4,7 @@
  */
 export const DOCS_MD = `# Callit Docs
 
-**Call it. Get Paid.** Callit is a Solana app where traders post calls on tokens, everyone can follow and buy them in one tap, and callers get paid in SOL when other people buy their calls and the call hits its target. It's a social feed, a trading terminal and a group chat in one.
+**Call it. Get Paid.** Callit is a crypto social app on Solana: trade, research, chat and post calls in one place. Anyone can follow a call and buy it in one tap, and callers get paid in SOL when other people buy their calls and the call hits its target. A social feed, a trading terminal and a group chat in one.
 
 ## Quick start
 
@@ -36,7 +36,7 @@ export const DOCS_MD = `# Callit Docs
 - **Points** come only from verified on-chain activity: **10 points for every $10** traded on Callit, **+50** when your call holds 2X, **+100** when it hits your target, and milestone points as it keeps running: **+150** at 5X, **+300** at 10X, **+750** at 25X, **+1,500** at 50X, **+3,000** at 100X, **+10,000** at 500X, **+25,000** at 1,000X and **+100,000** at 10,000X (25X and up need the token to reach $250K market cap). No buys needed for call points. Likes, follows and alt accounts can't farm points.
 - **Cashback:** buyers get **10% of Callit's fee** back on every buy. It unlocks at **1,000 points** (about $1,000 traded, if you only trade) and is paid with your earnings.
 - **Monthly rewards:** the top of the monthly **Points** board gets paid. The monthly board resets on the 1st, so anyone who puts in the work can get in. Lifetime points keep counting for ranks and cashback.
-- Points also count toward $CALLIT rewards when it launches.
+- Points also count toward $CALL rewards when it launches.
 
 ## Features
 
@@ -50,7 +50,7 @@ Live Solana tokens with **Trenches** (new, migrating, migrated), **Heat** classe
 Chart, market cap, liquidity, holders, audit flags (mint/freeze authority, top 10, dev), what the token is paired with, socials, calls on the token, one-tap **Buy** and **Call it**.
 
 ### DeFi (Swap)
-Swaps route through **Jupiter** (best price across Solana). Settings for slippage, speed (priority fee), front-running protection and tip. Limit orders. Staking is coming with $CALLIT.
+Swaps route through **Jupiter** (best price across Solana). Settings for slippage, speed (priority fee), front-running protection and tip. Limit orders. Staking is coming with $CALL.
 
 ### Callerboard
 - **Rankings:** callers ranked by win rate, then average return. A call wins if it hits its target or is up 50%+.
@@ -84,7 +84,7 @@ Profile and wallet in one: balances, deposit, withdraw (standard or private), se
 Add the Callit bot to a group and an admin sends **/callit**. Every contract address dropped after that becomes a tracked call on Callit. Link your Telegram in **You** so calls post as you and pay you. A Telegram **trading bot** is built and launches after the app.
 
 ### Coming soon
-SI Assistant (an AI that cross-checks, trades and pays only on your command), Perps, Predictions, $CALLIT staking, Promote.
+SI Assistant (an AI that cross-checks, trades and pays only on your command), Perps, Predictions, $CALL staking, Promote.
 
 ## Fees and where they go
 

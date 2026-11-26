@@ -1,5 +1,5 @@
 /**
- * Callit fee model (tune before $CALLIT launches).
+ * Callit fee model (tune before $CALL launches).
  *
  * The swap fee is Jupiter's referral fee: it lands in Callit's referral account and
  * Jupiter keeps 20% of it. Callit's 80% is then split into buckets by trade type:
@@ -9,7 +9,7 @@
  * Shares are percentages of Callit's 80%; each column adds up to 100.
  */
 export const FEE_BPS_STANDARD = 100; // 1.00%
-export const FEE_BPS_PREMIUM = 75;   // 0.75% for Premium / $CALLIT stakers (later)
+export const FEE_BPS_PREMIUM = 75;   // 0.75% for Premium / $CALL stakers (later)
 export const JUP_CUT = 0.2;          // Jupiter keeps 20% of referral fees
 
 export type Bucket = 'caller' | 'referrer' | 'cashback' | 'buyback' | 'treasury';
@@ -19,7 +19,7 @@ export const BUCKETS: { key: Bucket; label: string; call: number; buy: number; s
   { key: 'caller',   label: 'Callers',           call: 20, buy: 0,  sell: 0,  note: 'Buys from a call, once it holds 2X. Bought in: 20% up to 30%, plus up to +20% hold bonus after target (max 50%). No buy: 5%' },
   { key: 'referrer', label: 'Referrals',         call: 10, buy: 10, sell: 0,  note: 'Whoever invited the buyer' },
   { key: 'cashback', label: 'Trader cashback',   call: 10, buy: 10, sell: 0,  note: 'Back to the buyer, claimable once they have enough points' },
-  { key: 'buyback',  label: 'Buyback & burn',    call: 15, buy: 20, sell: 30, note: '$CALLIT bought and burned after launch' },
+  { key: 'buyback',  label: 'Buyback & burn',    call: 15, buy: 20, sell: 30, note: '$CALL bought and burned after launch' },
   { key: 'treasury', label: 'Treasury & growth', call: 45, buy: 60, sell: 70, note: 'Team, infra, product expansion. Hold bonuses come out of this slice on call buys' },
 ];
 
